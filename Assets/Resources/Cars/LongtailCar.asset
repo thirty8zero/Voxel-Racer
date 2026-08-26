@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 081aa81327c31b34abad2dab1c4eee39, type: 3}
+  m_Name: LongtailCar
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelCarDefinition
+  displayName: Lowline Longtail
+  selectionOrder: 3
+  visualPrefab: {fileID: 7422917196529361028, guid: df87c4ac3c882f8468d56928533e484b, type: 3}
+  previewImage: {fileID: 0}
+  tuning: {fileID: 11400000, guid: cc2af93b22a2cce4990eebe2ebe1d706, type: 2}

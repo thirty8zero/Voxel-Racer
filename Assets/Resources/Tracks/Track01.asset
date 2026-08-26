@@ -1,0 +1,141 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-2389841375544596361
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1a5743791b9c574ea4803415fbc2dbb, type: 3}
+  m_Name: Road Tuning
+  m_EditorClassIdentifier: 
+  laneCount: 3
+  roadWidth: 16
+  groundWidth: 700
+  minimumCactiPerSegment: 8
+  maximumCactiPerSegment: 20
+  minimumCactusHeightScale: 0.75
+  maximumCactusHeightScale: 1.5
+  minimumCactusWidthScale: 0.8
+  maximumCactusWidthScale: 1.25
+  segmentLength: 30
+  segmentCount: 8
+  recycleBehindDistance: 45
+  turnChancePerSegment: 0.35
+  minimumTurnAngle: 12
+  maximumTurnAngle: 32
+  minimumStraightSegmentsBetweenTurns: 1
+  maximumTrackHeading: 65
+  curveDegreesPerSlice: 5
+  turnSeed: 173
+  minimumRunLength: 500
+  maximumRunLength: 500
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6997a3a6ac6a8a24da582b5cbc898ccb, type: 3}
+  m_Name: Track01
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
+  displayName: DESERT RUN 1
+  raceSceneName: SampleScene
+  roadTuning: {fileID: -2389841375544596361}
+  obstacleCarTuning: {fileID: 2345100223370931295}
+  skyboxMaterial: {fileID: 0}
+  roadMaterial: {fileID: 0}
+  groundMaterial: {fileID: 0}
+  shoulderMaterial: {fileID: 0}
+  roadLineMaterial: {fileID: 0}
+  cactusMaterial: {fileID: 0}
+  obstacleMaterial: {fileID: 0}
+  roadColour: {r: 0.1, g: 0.12, b: 0.16, a: 1}
+  groundColour: {r: 0.31, g: 0.18, b: 0.07, a: 1}
+  shoulderColour: {r: 0.72, g: 0.38, b: 0.15, a: 1}
+  roadLineColour: {r: 1, g: 0.78, b: 0.16, a: 1}
+  cactusColour: {r: 0.12, g: 0.34, b: 0.12, a: 1}
+  obstacleColour: {r: 0.34, g: 0.17, b: 0.07, a: 1}
+  groundPixelNoiseEnabled: 1
+  groundNoisePixelSize: 0.6
+  groundNoiseDensity: 0.7
+  groundNoiseColourVariation: 0.2
+  groundNoiseSeed: 317
+  cactusShades:
+  - {r: 0.09, g: 0.28, b: 0.1, a: 1}
+  - {r: 0.071110725, g: 0.8867924, b: 0.071110725, a: 1}
+  - {r: 0.16, g: 0.4, b: 0.14, a: 1}
+  - {r: 0.32003507, g: 0.5377358, b: 0.20545568, a: 1}
+  skyTint: {r: 0.36, g: 0.18, b: 0.56, a: 1}
+  skyGroundColour: {r: 0.46, g: 0.12, b: 0.08, a: 1}
+  atmosphereThickness: 2
+  fogEnabled: 1
+  fogColour: {r: 0.58, g: 0.2, b: 0.18, a: 1}
+  fogStartDistance: 90
+  fogEndDistance: 320
+  horizonSunEnabled: 1
+  sunDistanceAhead: 220
+  sunHorizontalOffset: 12
+  sunHorizonHeight: -80
+  horizonMountainsEnabled: 1
+  mountainDistance: 170
+  mountainScale: 1
+  mountainBaseHeight: -45
+  minimumMountainPeakHeight: 14
+  maximumMountainPeakHeight: 42
+  mountainColour: {r: 0.2, g: 0.08, b: 0.07, a: 1}
+  mountainSeed: 481
+  sceneryPrefabs: []
+  minimumSceneryPerSegment: 0
+  maximumSceneryPerSegment: 0
+  minimumSceneryScale: 0.8
+  maximumSceneryScale: 1.25
+--- !u!114 &2345100223370931295
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26135ffcab891994295171d69ac5176d, type: 3}
+  m_Name: Traffic Tuning
+  m_EditorClassIdentifier: 
+  spawnDistanceAhead: 100
+  obstacleCarSpawnChance: 0.5
+  oppositeDirectionChance: 0.5
+  paintColours:
+  - {r: 0.8, g: 0.07, b: 0.1, a: 1}
+  - {r: 0.98, g: 0.55, b: 0.06, a: 1}
+  - {r: 0.12, g: 0.7, b: 0.32, a: 1}
+  - {r: 0.55, g: 0.18, b: 0.82, a: 1}
+  semiTrailerSpawnChance: 0.35
+  sameDirectionSpeedMin: 10
+  sameDirectionSpeedMax: 18
+  oppositeDirectionSpeedMin: 22
+  oppositeDirectionSpeedMax: 32
+  wheelSpinDegreesPerUnit: 125
+  playerDamageVoxelsMin: 10
+  playerDamageVoxelsMax: 12
+  obstacleDamageVoxelsMin: 50
+  obstacleDamageVoxelsMax: 200
+  impactVoxelDamageSurfaceOffset: 1.7
+  semiImpactVoxelDamageSurfaceOffset: 4.4
+  collisionCooldown: 0.35
+  launchForce: 20
+  launchUpwardForce: 15
+  destroyedLifetime: 2.5
+  debrisVoxelsPerDamagedVoxel: 1
+  explosionSpawnOffset: 0.45
+  explosionUpwardBias: 0.9
+  explosionForwardForceMin: 10
+  explosionForwardForceMax: 20
+  explosionUpwardForce: 5
+  explosionSpreadForce: 10
