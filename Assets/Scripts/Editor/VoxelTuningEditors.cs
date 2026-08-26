@@ -68,6 +68,9 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("spawnDistanceAhead"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("obstacleCarSpawnChance"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("oppositeDirectionChance"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("enemyCarSpawnChance"));
+            VoxelTuningInspector.DrawRange("Objects Per Wave", serializedObject.FindProperty("minimumObjectsPerWave"), serializedObject.FindProperty("maximumObjectsPerWave"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("sameLaneCivilianSpeedTolerance"));
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Paint Colours", EditorStyles.boldLabel);
@@ -76,6 +79,8 @@ namespace VoxelRacer.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Traffic Models", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("semiTrailerSpawnChance"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("trafficCarEnemyTuning"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("semiTrailerEnemyTuning"));
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Traffic Speed", EditorStyles.boldLabel);

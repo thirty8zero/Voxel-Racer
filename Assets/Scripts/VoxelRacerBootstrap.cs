@@ -610,6 +610,7 @@ namespace VoxelRacer
             spawner.obstacleCarTuning = activeTrack != null && activeTrack.obstacleCarTuning != null
                 ? activeTrack.obstacleCarTuning
                 : VoxelObstacleCarTuning.Load();
+            spawner.enemyCarTuning = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning");
             car.GetComponent<VoxelCarController>().SetLaneLayout(road.laneCount, road.roadWidth / road.laneCount);
             spawner.laneCount = road.laneCount;
             spawner.laneWidth = road.roadWidth / road.laneCount;
@@ -796,7 +797,7 @@ namespace VoxelRacer
             carTailLightMaterial = LoadCarMaterial("CarMaterials/CarTailLights", "Car Tail Lights", new Color(0.95f, 0.04f, 0.03f));
             carMetalDetailMaterial = LoadCarMaterial("CarMaterials/CarMetalDetails", "Car Metal Details", new Color(0.72f, 0.78f, 0.86f));
             carAccentMaterial = LoadCarMaterial("CarMaterials/CarAccent", "Car Accent Stripe", new Color(1.0f, 0.30f, 0.05f));
-            longtailPaintMaterial = LoadCarMaterial("CarMaterials/LongtailPaint", "Longtail Paint", new Color(0.04f, 0.42f, 0.30f));
+            longtailPaintMaterial = LoadCarMaterial("CarMaterials/LongtailPaint", "Longtail Paint", new Color(0.93f, 0.94f, 0.96f));
             formulaOrangeMaterial = LoadCarMaterial("CarMaterials/FormulaOrange", "Formula Orange", new Color(0.95f, 0.20f, 0.035f));
             formulaWhiteMaterial = LoadCarMaterial("CarMaterials/FormulaWhite", "Formula White", new Color(0.95f, 0.95f, 0.92f));
             formulaBlackMaterial = LoadCarMaterial("CarMaterials/FormulaBlack", "Formula Black", new Color(0.018f, 0.022f, 0.028f));
@@ -863,6 +864,7 @@ namespace VoxelRacer
         internal static Material CactusMaterial => cactusMaterial;
         internal static Material ObstacleMaterial => obstacleMaterial;
         internal static Material ObstacleCarPaintMaterial => obstacleCarPaintMaterial;
+        internal static Material ObstacleCarTrimMaterial => obstacleCarTrimMaterial;
 
         /// <summary>Builds a distinct pickup-like traffic car with approximately 500 detachable voxels.</summary>
         internal static void CreateObstacleCarVisuals(Transform car)

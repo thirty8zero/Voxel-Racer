@@ -5,6 +5,8 @@ namespace VoxelRacer
     /// <summary>A temporary brown voxel crate that launches away after contact.</summary>
     public sealed class VoxelObstacle : MonoBehaviour
     {
+        public float LaneOffset => laneOffset;
+
         private VoxelCarController target;
         private bool hasBeenHit;
         private Vector3 velocity;

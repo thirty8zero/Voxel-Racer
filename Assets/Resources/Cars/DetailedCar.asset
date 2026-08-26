@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelCarDefinition
   displayName: Detailed Rally Coupe
   selectionOrder: 1
+  availableForSelection: 0
   visualPrefab: {fileID: 6810769394368018553, guid: 93c92a6b89643744491b48e4a1f5fe4e, type: 3}
   previewImage: {fileID: 0}
   tuning: {fileID: 11400000, guid: fb53e9d20df81e6469e64e5195591a73, type: 2}

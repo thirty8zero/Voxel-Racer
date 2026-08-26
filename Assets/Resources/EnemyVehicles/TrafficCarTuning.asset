@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dcc4cdaf0291f6e43a4c07fb3d57d9ec, type: 3}
+  m_Name: TrafficCarTuning
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
+  displayName: Traffic Car
+  voxelHealth: 3
+  vehicleHealth: 20
+  playerSpeedMultiplier: 0.98
+  speedMatchRate: 12
+  collisionHalfWidth: 1.35
+  collisionHalfLength: 3.8
+  rearSurfaceHitRandomness: 1.5
+  healthBarWidth: 2.4
+  healthBarHeight: 0.22
+  healthBarHeightOffset: 2.8
+  healthBarFullColour: {r: 0.92, g: 0.05, b: 0.04, a: 1}
+  healthBarEmptyColour: {r: 0.36, g: 0.01, b: 0.01, a: 1}
+  criticalHealthPercent: 0.2
+  criticalPulseSpeed: 7
+  criticalPulseScale: 0.16
+  explosionVoxelCount: 40
+  maximumExplosionVoxelRemovalPercent: 0.65
+  explosionForwardForceMin: 7
+  explosionForwardForceMax: 10
+  explosionUpwardForce: 2.5
+  explosionSpreadForce: 1.5
+  explosionDebrisScale: 0.65
+  explosionDebrisLifetime: 1.5
+  destroyedLifetime: 2.5

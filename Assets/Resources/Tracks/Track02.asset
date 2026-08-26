@@ -12,15 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26135ffcab891994295171d69ac5176d, type: 3}
   m_Name: Traffic Tuning
   m_EditorClassIdentifier: 
-  spawnDistanceAhead: 100
-  obstacleCarSpawnChance: 0.5
+  spawnDistanceAhead: 110
+  obstacleCarSpawnChance: 0.9
   oppositeDirectionChance: 0.5
+  enemyCarSpawnChance: 0.9
+  minimumObjectsPerWave: 2
+  maximumObjectsPerWave: 3
+  sameLaneCivilianSpeedTolerance: 1
   paintColours:
   - {r: 0.8, g: 0.07, b: 0.1, a: 1}
   - {r: 0.98, g: 0.55, b: 0.06, a: 1}
   - {r: 0.12, g: 0.7, b: 0.32, a: 1}
   - {r: 0.55, g: 0.18, b: 0.82, a: 1}
   semiTrailerSpawnChance: 0.35
+  trafficCarEnemyTuning: {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
+  semiTrailerEnemyTuning: {fileID: 11400000, guid: 2e00307876f8dcd4bad78a259ae5cced, type: 2}
   sameDirectionSpeedMin: 10
   sameDirectionSpeedMax: 18
   oppositeDirectionSpeedMin: 22
@@ -74,8 +80,8 @@ MonoBehaviour:
   maximumTrackHeading: 65
   curveDegreesPerSlice: 5
   turnSeed: 271
-  minimumRunLength: 1000
-  maximumRunLength: 1000
+  minimumRunLength: 5000
+  maximumRunLength: 5000
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0

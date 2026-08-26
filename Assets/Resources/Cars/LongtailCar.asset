@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelCarDefinition
   displayName: Lowline Longtail
   selectionOrder: 3
+  availableForSelection: 1
   visualPrefab: {fileID: 7422917196529361028, guid: df87c4ac3c882f8468d56928533e484b, type: 3}
   previewImage: {fileID: 0}
   tuning: {fileID: 11400000, guid: cc2af93b22a2cce4990eebe2ebe1d706, type: 2}

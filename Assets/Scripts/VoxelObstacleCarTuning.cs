@@ -10,6 +10,13 @@ namespace VoxelRacer
         [Min(1f)] public float spawnDistanceAhead = 65f;
         [Range(0f, 1f)] public float obstacleCarSpawnChance = 0.5f;
         [Range(0f, 1f)] public float oppositeDirectionChance = 0.5f;
+        [Tooltip("Chance that a spawned traffic vehicle becomes the black enemy interceptor.")]
+        [Range(0f, 1f)] public float enemyCarSpawnChance = 0.25f;
+        [Tooltip("Number of objects created across different free lanes at each spawn opportunity.")]
+        [Min(1)] public int minimumObjectsPerWave = 2;
+        [Min(1)] public int maximumObjectsPerWave = 3;
+        [Tooltip("Maximum speed difference allowed when civilian vehicles share a lane. New vehicles match the existing lane speed.")]
+        [Min(0f)] public float sameLaneCivilianSpeedTolerance = 1f;
 
         [Header("Paint Colours")]
         public Color[] paintColours =
@@ -22,6 +29,10 @@ namespace VoxelRacer
 
         [Header("Traffic Models")]
         [Range(0f, 1f)] public float semiTrailerSpawnChance = 0.35f;
+        [Tooltip("Combat durability used by the regular traffic car.")]
+        public VoxelEnemyVehicleTuning trafficCarEnemyTuning;
+        [Tooltip("Combat durability used by the semi-trailer.")]
+        public VoxelEnemyVehicleTuning semiTrailerEnemyTuning;
 
         [Header("Traffic Speed")]
         [Min(0f)] public float sameDirectionSpeedMin = 10f;
@@ -51,7 +62,7 @@ namespace VoxelRacer
         [Min(0f)] public float explosionUpwardForce = 2.5f;
         [Min(0f)] public float explosionSpreadForce = 1.5f;
 
-        public static VoxelObstacleCarTuning Load() => Resources.Load<VoxelObstacleCarTuning>("VoxelObstacleCarTuning");
+        public static VoxelObstacleCarTuning Load() => Resources.Load<VoxelObstacleCarTuning>("FallbackTrafficTuning");
 
 #if UNITY_EDITOR
         private void OnValidate() => VoxelAssetSaveQueue.Request(this);

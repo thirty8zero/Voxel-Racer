@@ -10,8 +10,13 @@ namespace VoxelRacer
 
         public void Launch(Vector3 initialVelocity)
         {
+            Launch(initialVelocity, 1.5f);
+        }
+
+        public void Launch(Vector3 initialVelocity, float lifetime)
+        {
             velocity = initialVelocity;
-            expireTime = Time.time + 1.5f;
+            expireTime = Time.time + Mathf.Max(0.1f, lifetime);
         }
 
         private void Update()

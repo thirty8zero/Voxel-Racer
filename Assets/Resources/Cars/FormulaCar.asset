@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelCarDefinition
   displayName: Formula Voxel
   selectionOrder: 2
+  availableForSelection: 0
   visualPrefab: {fileID: 4534316695614628770, guid: dd98bcb35d350ae4e8f2a67c8924c0ea, type: 3}
   previewImage: {fileID: 0}
   tuning: {fileID: 11400000, guid: efca41616f79c5c4aa553ed9dffeb539, type: 2}

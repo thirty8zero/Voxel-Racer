@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelCarDefinition
   displayName: Original Voxel Coupe
   selectionOrder: 0
+  availableForSelection: 0
   visualPrefab: {fileID: 7406200704640940739, guid: 8c4f6d107d607e543830bb2153135cb7, type: 3}
   previewImage: {fileID: 0}
   tuning: {fileID: 11400000, guid: 7557e9e3ac064c548b72de46c3d439c2, type: 2}

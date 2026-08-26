@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 namespace VoxelRacer
@@ -10,15 +9,14 @@ namespace VoxelRacer
 
         private VoxelCarController target;
         private VoxelStartCountdown countdown;
-        private VoxelCarDefinition[] definitions = Array.Empty<VoxelCarDefinition>();
+        private VoxelCarDefinition[] definitions = System.Array.Empty<VoxelCarDefinition>();
         private bool selectionComplete;
 
         public void Configure(VoxelCarController player, VoxelStartCountdown startCountdown)
         {
             target = player;
             countdown = startCountdown;
-            definitions = Resources.LoadAll<VoxelCarDefinition>("Cars");
-            Array.Sort(definitions, (a, b) => a.selectionOrder.CompareTo(b.selectionOrder));
+            definitions = VoxelCarSelectionState.LoadDefinitions();
             target.SetDrivingEnabled(false);
 
             if (definitions.Length == 0)

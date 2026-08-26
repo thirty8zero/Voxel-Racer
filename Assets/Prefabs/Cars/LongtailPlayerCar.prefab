@@ -111654,6 +111654,7 @@ Transform:
   - {fileID: 4758403481098365930}
   - {fileID: 714862768378752082}
   - {fileID: 4170008622857186429}
+  - {fileID: 5849010544045141738}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7429972683443657475
@@ -140110,3 +140111,65 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1001 &6203533494916635118
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 362828001098177360}
+    m_Modifications:
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 1.08
+      objectReference: {fileID: 0}
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4125248041604159245, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+      propertyPath: m_Name
+      value: Basic Hood Gun
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+--- !u!4 &5849010544045141738 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 521499194954708740, guid: 349942a06f0721e4ea3bae672a2bbfc5, type: 3}
+  m_PrefabInstance: {fileID: 6203533494916635118}
+  m_PrefabAsset: {fileID: 0}

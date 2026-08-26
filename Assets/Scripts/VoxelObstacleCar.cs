@@ -9,6 +9,13 @@ namespace VoxelRacer
         [Header("Persistent Tuning")]
         public VoxelObstacleCarTuning tuning;
 
+        public VoxelEnemyVehicleTuning EnemyTuning { get; private set; }
+        public float VoxelHealth => EnemyTuning != null ? EnemyTuning.voxelHealth : 1f;
+        public float CurrentHealth { get; private set; }
+        public float LaneOffset => laneOffset;
+        public bool TravelsWithPlayer => travelsWithPlayer;
+        public float TravelSpeed => travelSpeed;
+
         private VoxelCarController target;
         private bool travelsWithPlayer;
         private bool isSemiTrailer;
@@ -22,9 +29,10 @@ namespace VoxelRacer
         private EndlessVoxelRoad path;
         private float trackDistance;
         private float laneOffset;
+        private readonly Dictionary<Transform, float> projectileVoxelHealth = new();
 
         public void Configure(VoxelCarController player, VoxelObstacleCarTuning value, bool sameDirection,
-            EndlessVoxelRoad road, float distance, float offset)
+            EndlessVoxelRoad road, float distance, float offset, float matchingTravelSpeed = -1f)
         {
             target = player;
             tuning = value;
@@ -34,8 +42,12 @@ namespace VoxelRacer
             laneOffset = offset;
             float min = sameDirection ? tuning.sameDirectionSpeedMin : tuning.oppositeDirectionSpeedMin;
             float max = sameDirection ? tuning.sameDirectionSpeedMax : tuning.oppositeDirectionSpeedMax;
-            travelSpeed = Random.Range(Mathf.Min(min, max), Mathf.Max(min, max));
+            travelSpeed = matchingTravelSpeed >= 0f
+                ? matchingTravelSpeed
+                : Random.Range(Mathf.Min(min, max), Mathf.Max(min, max));
             isSemiTrailer = Random.value < tuning.semiTrailerSpawnChance;
+            EnemyTuning = isSemiTrailer ? tuning.semiTrailerEnemyTuning : tuning.trafficCarEnemyTuning;
+            CurrentHealth = EnemyTuning != null ? EnemyTuning.vehicleHealth : 1f;
             if (isSemiTrailer)
             {
                 collisionHalfWidth = 1.55f;
@@ -107,6 +119,40 @@ namespace VoxelRacer
             ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount);
             velocity = hitDirection * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + tuning.destroyedLifetime;
+        }
+
+        /// <summary>Applies weapon damage without giving civilians an enemy health bar.</summary>
+        public void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection)
+        {
+            if (hasBeenHit || EnemyTuning == null || damage <= 0f)
+                return;
+
+            CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
+            if (hitVoxel != null)
+            {
+                projectileVoxelHealth.TryGetValue(hitVoxel, out float remainingVoxelHealth);
+                remainingVoxelHealth = remainingVoxelHealth <= 0f ? EnemyTuning.voxelHealth : remainingVoxelHealth;
+                remainingVoxelHealth -= damage;
+                if (remainingVoxelHealth <= 0f)
+                {
+                    projectileVoxelHealth.Remove(hitVoxel);
+                    SpawnDebris(hitVoxel, impactDirection);
+                    hitVoxel.gameObject.SetActive(false);
+                }
+                else
+                    projectileVoxelHealth[hitVoxel] = remainingVoxelHealth;
+            }
+
+            if (CurrentHealth <= 0f)
+                DestroyFromWeaponHit(hitPoint, impactDirection);
+        }
+
+        private void DestroyFromWeaponHit(Vector3 hitPoint, Vector3 impactDirection)
+        {
+            hasBeenHit = true;
+            ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount);
+            velocity = impactDirection.normalized * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
+            destroyTime = Time.time + EnemyTuning.destroyedLifetime;
         }
 
         private void ApplyTrackPose()

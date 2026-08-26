@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace VoxelRacer
@@ -10,7 +11,12 @@ namespace VoxelRacer
 
         public static VoxelCarDefinition[] LoadDefinitions()
         {
-            VoxelCarDefinition[] definitions = Resources.LoadAll<VoxelCarDefinition>("Cars");
+            var availableDefinitions = new List<VoxelCarDefinition>();
+            foreach (VoxelCarDefinition definition in Resources.LoadAll<VoxelCarDefinition>("Cars"))
+                if (definition != null && definition.availableForSelection)
+                    availableDefinitions.Add(definition);
+
+            VoxelCarDefinition[] definitions = availableDefinitions.ToArray();
             Array.Sort(definitions, (first, second) => first.selectionOrder.CompareTo(second.selectionOrder));
             return definitions;
         }
