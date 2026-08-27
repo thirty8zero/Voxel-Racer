@@ -34,20 +34,20 @@ namespace VoxelRacer
             const float width = 360f;
             float height = 105f + definitions.Length * 68f;
             var panel = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
-            GUI.Box(panel, string.Empty, VoxelHudStyles.Box(20));
+            GUI.Box(panel, string.Empty, VoxelHudStyles.Box(30));
 
             var titleStyle = new GUIStyle(GUI.skin.label)
             {
                 font = VoxelHudStyles.HudFont,
-                fontSize = 28,
-                fontStyle = FontStyle.Bold,
+                fontSize = 42,
+                fontStyle = FontStyle.Normal,
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = Color.white }
             };
             GUI.Label(new Rect(panel.x + 10f, panel.y + 12f, panel.width - 20f, 42f), "SELECT CAR", titleStyle);
 
             string previousSelection = PlayerPrefs.GetString(LastCarKey, string.Empty);
-            var buttonStyle = VoxelHudStyles.Button(18);
+            var buttonStyle = VoxelHudStyles.Button(27);
             for (int index = 0; index < definitions.Length; index++)
             {
                 VoxelCarDefinition definition = definitions[index];

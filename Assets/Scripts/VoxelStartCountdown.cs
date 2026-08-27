@@ -6,6 +6,7 @@ namespace VoxelRacer
     /// <summary>Holds the player at the start line, then presents a short race countdown.</summary>
     public sealed class VoxelStartCountdown : MonoBehaviour
     {
+        public static VoxelStartCountdown Active { get; private set; }
         public VoxelCarController target;
 
         [Header("Race Opening Fade")]
@@ -19,6 +20,21 @@ namespace VoxelRacer
         private CanvasGroup openingFade;
 
         public bool IsComplete => started && Time.unscaledTime - countdownStartedAt >= 3f;
+
+        /// <summary>Gameplay HUD fades in during the final one-second "1" phase.</summary>
+        public float GameplayHudAlpha => !started
+            ? 0f
+            : Mathf.Clamp01(Time.unscaledTime - countdownStartedAt - 2f);
+
+        public static float CurrentGameplayHudAlpha => Active == null ? 1f : Active.GameplayHudAlpha;
+
+        private void OnEnable() => Active = this;
+
+        private void OnDisable()
+        {
+            if (Active == this)
+                Active = null;
+        }
 
         public void Prepare(VoxelCarController player)
         {
@@ -52,6 +68,12 @@ namespace VoxelRacer
         {
             if (target == null || !started)
                 return;
+
+            if (target.IsDestroyed)
+            {
+                HideForPlayerDeath();
+                return;
+            }
 
             UpdateOpeningFade();
             if (IsComplete)
@@ -112,9 +134,15 @@ namespace VoxelRacer
             }
         }
 
+        public void HideForPlayerDeath()
+        {
+            if (openingFade != null)
+                openingFade.gameObject.SetActive(false);
+        }
+
         private void OnGUI()
         {
-            if (!Application.isPlaying || target == null || !started)
+            if (!Application.isPlaying || target == null || !started || VoxelPlayerDeathScreen.IsShowing)
                 return;
 
             float elapsed = Time.unscaledTime - countdownStartedAt;
@@ -128,8 +156,8 @@ namespace VoxelRacer
             {
                 alignment = TextAnchor.MiddleCenter,
                 font = VoxelHudStyles.HudFont,
-                fontSize = text == "GO!" ? 76 : 96,
-                fontStyle = FontStyle.Bold,
+                fontSize = text == "GO!" ? 114 : 144,
+                fontStyle = FontStyle.Normal,
                 normal = { textColor = Color.white }
             };
             GUI.Label(new Rect(0f, Screen.height * 0.22f, Screen.width, 120f), text, style);

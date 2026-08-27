@@ -11,7 +11,10 @@ namespace VoxelRacer
 
         public Vector3 MuzzlePosition => muzzle != null ? muzzle.position : transform.position;
         public Vector3 FireDirection => muzzle != null ? muzzle.forward : transform.forward;
-        public bool IsReady => tuning != null && Time.time >= nextFireTime &&
+        public bool IsReady => tuning != null &&
+            (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete) &&
+            (VoxelMissionProgress.Active == null || !VoxelMissionProgress.Active.IsComplete) &&
+            Time.time >= nextFireTime &&
             (tuning.ammunitionPerStage == 0 || remainingAmmunition >= Mathf.Max(1, tuning.bulletsPerShot));
 
         private float nextFireTime;
@@ -24,7 +27,9 @@ namespace VoxelRacer
 
         private void Update()
         {
-            if (!Application.isPlaying || !IsFireHeld())
+            if (!Application.isPlaying ||
+                (VoxelStartCountdown.Active != null && !VoxelStartCountdown.Active.IsComplete) ||
+                !IsFireHeld())
                 return;
 
             if (!TryBeginShot(out int bulletCount))

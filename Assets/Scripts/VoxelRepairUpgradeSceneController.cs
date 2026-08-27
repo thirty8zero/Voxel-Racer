@@ -18,6 +18,12 @@ namespace VoxelRacer
         private Text integrityText;
         private Text currencyText;
         private Text feedbackText;
+        private Text gunUpgradeButtonLabel;
+        private Button gunUpgradeButton;
+        private Text repair10ButtonLabel;
+        private Text repair25ButtonLabel;
+        private Text repair50ButtonLabel;
+        private Text fullRepairButtonLabel;
         private Camera workshopCamera;
         private Vector3 appliedCameraPosition;
         private Vector3 appliedCameraLookAt;
@@ -93,6 +99,7 @@ namespace VoxelRacer
                 DisplayedCar.SetTuning(definition.tuning);
             DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(DisplayedCar, definition);
+            VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
             DisplayedCar.enabled = false;
         }
 
@@ -173,44 +180,57 @@ namespace VoxelRacer
         {
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Repair Upgrade UI");
 
-            Text title = VoxelMenuUi.CreateText(canvas, "Workshop Title", "REPAIR & UPGRADE", 86,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 1f), new Vector2(0f, -78f), new Vector2(1300f, 130f));
+            Text title = VoxelMenuUi.CreateText(canvas, "Workshop Title", "REPAIR & UPGRADE", 194,
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(1800f, 230f));
             title.color = Color.black;
 
-            integrityText = VoxelMenuUi.CreateText(canvas, "Workshop Integrity", string.Empty, 38,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 1f), new Vector2(0f, -166f), new Vector2(900f, 80f));
+            integrityText = VoxelMenuUi.CreateText(canvas, "Workshop Integrity", string.Empty, 86,
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 1f), new Vector2(0f, -252f), new Vector2(1300f, 110f));
             integrityText.color = Color.black;
-            currencyText = VoxelMenuUi.CreateText(canvas, "Currency", string.Empty, 36,
-                TextAnchor.MiddleRight, new Vector2(1f, 1f), new Vector2(-250f, -62f), new Vector2(430f, 70f));
+            currencyText = VoxelMenuUi.CreateText(canvas, "Currency", string.Empty, 81,
+                TextAnchor.MiddleRight, new Vector2(1f, 1f), new Vector2(-470f, -82f), new Vector2(850f, 100f));
             currencyText.color = Color.black;
 
             VoxelMenuUi.CreatePanel(canvas, "Repair Panel", new Vector2(1f, 0.5f),
-                new Vector2(-160f, 25f), new Vector2(270f, 310f));
-            CreateRepairButton(canvas, "Repair 10 Button", RepairLabel("REPAIR 10%", repairTuning.repair10PercentCost),
-                133f, () => TryRepair(10f, repairTuning.repair10PercentCost));
-            CreateRepairButton(canvas, "Repair 25 Button", RepairLabel("REPAIR 25%", repairTuning.repair25PercentCost),
-                61f, () => TryRepair(25f, repairTuning.repair25PercentCost));
-            CreateRepairButton(canvas, "Repair 50 Button", RepairLabel("REPAIR 50%", repairTuning.repair50PercentCost),
-                -11f, () => TryRepair(50f, repairTuning.repair50PercentCost));
-            CreateRepairButton(canvas, "Full Repair Button", RepairLabel("FULL REPAIR", repairTuning.fullRepairCost),
-                -83f, () => TryRepair(100f, repairTuning.fullRepairCost));
+                new Vector2(-230f, 0f), new Vector2(360f, 720f));
+            repair10ButtonLabel = CreateRepairButton(canvas, "Repair 10 Button", 245f,
+                () => TryRepair(10f, GetRepairCost(10f)));
+            repair25ButtonLabel = CreateRepairButton(canvas, "Repair 25 Button", 80f,
+                () => TryRepair(25f, GetRepairCost(25f)));
+            repair50ButtonLabel = CreateRepairButton(canvas, "Repair 50 Button", -85f,
+                () => TryRepair(50f, GetRepairCost(50f)));
+            fullRepairButtonLabel = CreateRepairButton(canvas, "Full Repair Button", -250f,
+                () => TryRepair(100f, GetRepairCost(100f)));
 
-            feedbackText = VoxelMenuUi.CreateText(canvas, "Repair Feedback", string.Empty, 30,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 0f), new Vector2(0f, 180f), new Vector2(800f, 60f));
+            Image weaponUpgradePanel = VoxelMenuUi.CreatePanel(canvas, "Weapon Upgrade Panel", new Vector2(0f, 0.5f),
+                new Vector2(330f, 0f), new Vector2(610f, 340f));
+            VoxelMenuUi.CreateText(weaponUpgradePanel.transform, "Weapon Upgrade Title", "WEAPON UPGRADE", 75,
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 112f), new Vector2(590f, 95f));
+            gunUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Long Gun Purchase Button", string.Empty, 68,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -42f), new Vector2(560f, 175f), TryPurchaseLongGun);
+            gunUpgradeButtonLabel = gunUpgradeButton.GetComponentInChildren<Text>();
+
+            feedbackText = VoxelMenuUi.CreateText(canvas, "Repair Feedback", string.Empty, 68,
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 0f), new Vector2(0f, 210f), new Vector2(1300f, 100f));
             feedbackText.color = Color.black;
 
-            NextRaceButton = VoxelMenuUi.CreateButton(canvas, "Next Race Button", "NEXT RACE", 44,
-                new Vector2(0.5f, 0f), new Vector2(0f, 77f), new Vector2(620f, 112f), StartNextRace);
+            NextRaceButton = VoxelMenuUi.CreateButton(canvas, "Next Race Button", "NEXT MISSION", 99,
+                new Vector2(0.5f, 0f), new Vector2(0f, 78f), new Vector2(800f, 150f), StartNextRace);
         }
 
-        private static string RepairLabel(string repairName, int cost) => repairName + "\nCOST " + Mathf.Max(0, cost);
+        private int GetRepairCost(float repairPercent) => repairTuning != null
+            ? repairTuning.GetRepairCost(DisplayedCar, repairPercent)
+            : 0;
 
-        private static Button CreateRepairButton(Transform canvas, string name, string label,
+        private static string RepairLabel(string repairName, int cost) => repairName + "\nCOST <color=#FFD12A>" + Mathf.Max(0, cost) + "</color>";
+
+        private static Text CreateRepairButton(Transform canvas, string name,
             float verticalPosition, UnityEngine.Events.UnityAction action)
         {
-            return VoxelMenuUi.CreateButton(canvas, name, label, 22,
-                new Vector2(1f, 0.5f), new Vector2(-160f, verticalPosition),
-                new Vector2(220f, 64f), action);
+            Button button = VoxelMenuUi.CreateButton(canvas, name, string.Empty, 60,
+                new Vector2(1f, 0.5f), new Vector2(-230f, verticalPosition),
+                new Vector2(320f, 145f), action);
+            return button.GetComponentInChildren<Text>();
         }
 
         private void TryRepair(float percent, int cost)
@@ -230,6 +250,32 @@ namespace VoxelRacer
             RefreshUi();
         }
 
+        private void TryPurchaseLongGun()
+        {
+            VoxelGunTuning tuning = VoxelGunUpgradeState.LongGunTuning;
+            if (tuning == null)
+            {
+                feedbackText.text = "GUN UPGRADE NOT FOUND";
+                return;
+            }
+
+            if (!VoxelGunUpgradeState.CanPurchase(tuning))
+            {
+                feedbackText.text = "GUN SLOTS FULL";
+                return;
+            }
+
+            if (!VoxelGunUpgradeState.TryPurchase(tuning))
+            {
+                feedbackText.text = "NOT ENOUGH CURRENCY";
+                return;
+            }
+
+            VoxelGunUpgradeState.ApplyTo(DisplayedCar.transform, tuning);
+            feedbackText.text = tuning.displayName.ToUpperInvariant() + " INSTALLED";
+            RefreshUi();
+        }
+
         private int RepairFull()
         {
             int before = DisplayedCar.RemainingIntegrityVoxels;
@@ -240,10 +286,30 @@ namespace VoxelRacer
         private void RefreshUi()
         {
             if (DisplayedCar != null && integrityText != null)
-                integrityText.text = "CAR INTEGRITY  " + Mathf.CeilToInt(DisplayedCar.IntegrityPercent) +
-                    "%    INT  " + DisplayedCar.RemainingIntegrityVoxels;
+                integrityText.text = "CAR INTEGRITY  " + Mathf.CeilToInt(DisplayedCar.IntegrityPercent) + "%";
             if (currencyText != null)
-                currencyText.text = "CURRENCY  " + VoxelCurrencyState.Balance;
+                currencyText.text = "CASH  <color=#FFD12A>" + VoxelCurrencyState.Balance + "</color>";
+
+            if (repair10ButtonLabel != null)
+                repair10ButtonLabel.text = RepairLabel("REPAIR 10%", GetRepairCost(10f));
+            if (repair25ButtonLabel != null)
+                repair25ButtonLabel.text = RepairLabel("REPAIR 25%", GetRepairCost(25f));
+            if (repair50ButtonLabel != null)
+                repair50ButtonLabel.text = RepairLabel("REPAIR 50%", GetRepairCost(50f));
+            if (fullRepairButtonLabel != null)
+                fullRepairButtonLabel.text = RepairLabel("FULL REPAIR", GetRepairCost(100f));
+
+            VoxelGunTuning gunTuning = VoxelGunUpgradeState.LongGunTuning;
+            if (gunUpgradeButton == null || gunUpgradeButtonLabel == null || gunTuning == null)
+                return;
+
+            int owned = VoxelGunUpgradeState.PurchasedLongGunCount;
+            int maximum = Mathf.Max(1, gunTuning.maximumPurchases);
+            bool canPurchase = VoxelGunUpgradeState.CanPurchase(gunTuning);
+            gunUpgradeButton.interactable = canPurchase;
+            gunUpgradeButtonLabel.text = canPurchase
+                ? gunTuning.displayName.ToUpperInvariant() + "\nCOST <color=#FFD12A>" + gunTuning.purchasePrice + "</color>   " + owned + "/" + maximum
+                : "GUN SLOTS FULL\n" + owned + "/" + maximum;
         }
 
         public void StartNextRace()

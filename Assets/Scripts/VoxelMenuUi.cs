@@ -43,7 +43,8 @@ namespace VoxelRacer
             Text text = textObject.GetComponent<Text>();
             text.font = VoxelHudStyles.HudFont;
             text.fontSize = fontSize;
-            text.fontStyle = FontStyle.Bold;
+            text.fontStyle = FontStyle.Normal;
+            text.supportRichText = true;
             text.alignment = alignment;
             text.color = Color.white;
             text.text = value;

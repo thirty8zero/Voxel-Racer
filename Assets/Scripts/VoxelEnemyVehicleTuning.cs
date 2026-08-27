@@ -16,15 +16,20 @@ namespace VoxelRacer
         [Min(0.01f)] public float vehicleHealth = 30f;
 
         [Header("Movement")]
-        [Tooltip("Multiplier applied to the player's current speed. Keep this close to one so the player can line up shots.")]
-        [Min(0f)] public float playerSpeedMultiplier = 0.98f;
-        [Min(0f)] public float speedMatchRate = 12f;
+        [Tooltip("Random range for the multiplier applied to the player's maximum speed when this enemy spawns. The selected speed remains fixed for that enemy.")]
+        [Min(0f)] public float minimumSpawnSpeedMultiplier = 0.98f;
+        [Min(0f)] public float maximumSpawnSpeedMultiplier = 0.98f;
 
         [Header("Collision")]
         [Tooltip("Lane-space collision width used for a player ram.")]
         [Min(0.1f)] public float collisionHalfWidth = 1.35f;
         [Tooltip("Track-space collision depth used for a player ram. Increase this if vehicle models visibly overlap before impact.")]
         [Min(0.1f)] public float collisionHalfLength = 3.8f;
+
+        [Header("Player Impact")]
+        [Tooltip("Random range of player-car voxels damaged when this enemy is rammed.")]
+        [Min(1)] public int playerDamageVoxelsMin = 10;
+        [Min(1)] public int playerDamageVoxelsMax = 12;
 
         [Header("Weapon Damage")]
         [Tooltip("Variation applied when choosing a voxel on the enemy's rear surface. Higher values create a less uniform damage pattern.")]
@@ -57,6 +62,9 @@ namespace VoxelRacer
         {
             voxelHealth = Mathf.Max(0.01f, voxelHealth);
             vehicleHealth = Mathf.Max(0.01f, vehicleHealth);
+            maximumSpawnSpeedMultiplier = Mathf.Max(minimumSpawnSpeedMultiplier, maximumSpawnSpeedMultiplier);
+            playerDamageVoxelsMin = Mathf.Max(1, playerDamageVoxelsMin);
+            playerDamageVoxelsMax = Mathf.Max(playerDamageVoxelsMin, playerDamageVoxelsMax);
             VoxelAssetSaveQueue.Request(this);
         }
 #endif

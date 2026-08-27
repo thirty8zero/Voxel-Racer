@@ -12,6 +12,7 @@ namespace VoxelRacer.Editor
         private bool identityOpen = true;
         private bool roadOpen = true;
         private bool trafficOpen = true;
+        private bool missionOpen = true;
         private bool materialsOpen;
         private bool cactiOpen;
         private bool groundNoiseOpen;
@@ -57,6 +58,8 @@ namespace VoxelRacer.Editor
             {
                 DrawNestedEditor(ref trafficEditor, ((VoxelTrackDefinition)target).obstacleCarTuning);
             });
+
+            DrawSection(ref missionOpen, "Mission", () => DrawProperty("missionTuning"));
 
             DrawSection(ref materialsOpen, "Materials & Colours", () =>
             {

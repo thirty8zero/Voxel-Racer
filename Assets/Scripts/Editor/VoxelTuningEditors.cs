@@ -17,8 +17,11 @@ namespace VoxelRacer.Editor
             // causes the second label to drift at narrower Inspector widths.
             Rect row = EditorGUILayout.GetControlRect();
             float prefixWidth = EditorGUIUtility.labelWidth;
-            const float miniLabelWidth = 27f;
-            const float gap = 5f;
+            // Reserve enough space for full Min/Max labels even when Unity applies
+            // Inspector DPI scaling. GUI.Label avoids the prefix indentation that was
+            // clipping the final character of each mini label.
+            const float miniLabelWidth = 38f;
+            const float gap = 6f;
             float contentX = row.x + prefixWidth;
             float availableWidth = row.xMax - contentX;
             float valueWidth = Mathf.Max(35f, (availableWidth - miniLabelWidth * 2f - gap * 2f) * 0.5f);
@@ -30,9 +33,9 @@ namespace VoxelRacer.Editor
             var maxValueRect = new Rect(maxLabelRect.xMax, row.y, Mathf.Max(0f, row.xMax - maxLabelRect.xMax), row.height);
 
             EditorGUI.LabelField(prefixRect, label);
-            EditorGUI.LabelField(minLabelRect, "Min");
+            GUI.Label(minLabelRect, "Min", EditorStyles.miniLabel);
             DrawNumericValue(minValueRect, minimum);
-            EditorGUI.LabelField(maxLabelRect, "Max");
+            GUI.Label(maxLabelRect, "Max", EditorStyles.miniLabel);
             DrawNumericValue(maxValueRect, maximum);
         }
 
@@ -161,9 +164,6 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("maximumTrackHeading"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("curveDegreesPerSlice"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("turnSeed"));
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Run Length", EditorStyles.boldLabel);
-            VoxelTuningInspector.DrawRange("Run Length", serializedObject.FindProperty("minimumRunLength"), serializedObject.FindProperty("maximumRunLength"));
             serializedObject.ApplyModifiedProperties();
         }
     }

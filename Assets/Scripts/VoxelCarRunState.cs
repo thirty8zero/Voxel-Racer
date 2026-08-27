@@ -15,6 +15,8 @@ namespace VoxelRacer
         {
             carDefinitionName = definition != null ? definition.name : string.Empty;
             missingVoxelPaths.Clear();
+            VoxelCurrencyState.Reset();
+            VoxelGunUpgradeState.BeginNewRun();
         }
 
         public static void Capture(VoxelCarController controller, VoxelCarDefinition definition = null)

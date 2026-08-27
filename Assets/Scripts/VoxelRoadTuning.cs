@@ -28,10 +28,6 @@ namespace VoxelRacer
         [Range(1f, 15f)] public float curveDegreesPerSlice = 5f;
         public int turnSeed = 173;
 
-        [Header("Run Length")]
-        [Min(25f)] public float minimumRunLength = 500f;
-        [Min(25f)] public float maximumRunLength = 500f;
-
 #if UNITY_EDITOR
         private bool roadRefreshQueued;
 #endif
@@ -91,7 +87,6 @@ namespace VoxelRacer
             maximumCactusWidthScale = Mathf.Max(minimumCactusWidthScale, maximumCactusWidthScale);
             maximumTurnAngle = Mathf.Max(minimumTurnAngle, maximumTurnAngle);
             maximumTrackHeading = Mathf.Max(maximumTurnAngle, maximumTrackHeading);
-            maximumRunLength = Mathf.Max(minimumRunLength, maximumRunLength);
 #if UNITY_EDITOR
             VoxelAssetSaveQueue.Request(this);
             QueueRoadRefresh();

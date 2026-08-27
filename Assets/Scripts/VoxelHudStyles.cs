@@ -2,12 +2,12 @@ using UnityEngine;
 
 namespace VoxelRacer
 {
-    /// <summary>Shared Pixelify Sans styles for the prototype's immediate-mode HUD.</summary>
+    /// <summary>Shared IMPACTED styles for the game's runtime UI and immediate-mode HUD.</summary>
     public static class VoxelHudStyles
     {
         private static Font hudFont;
 
-        public static Font HudFont => hudFont != null ? hudFont : hudFont = Resources.Load<Font>("Fonts/PixelifySans");
+        public static Font HudFont => hudFont != null ? hudFont : hudFont = Resources.Load<Font>("Fonts/IMPACTED");
 
         public static GUIStyle Box(int fontSize)
         {
@@ -16,7 +16,7 @@ namespace VoxelRacer
                 font = HudFont,
                 fontSize = fontSize,
                 alignment = TextAnchor.MiddleCenter,
-                fontStyle = FontStyle.Bold
+                fontStyle = FontStyle.Normal
             };
         }
 
@@ -27,7 +27,7 @@ namespace VoxelRacer
                 font = HudFont,
                 fontSize = fontSize,
                 alignment = TextAnchor.MiddleCenter,
-                fontStyle = FontStyle.Bold
+                fontStyle = FontStyle.Normal
             };
         }
     }

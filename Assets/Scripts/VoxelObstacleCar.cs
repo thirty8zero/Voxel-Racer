@@ -79,7 +79,7 @@ namespace VoxelRacer
                 if (overlapsLane && overlapsDepth && Time.time >= nextCollisionTime)
                     HitCar();
                 else if (trackDistance < target.TrackDistance - 30f ||
-                         trackDistance > target.TrackDistance + 110f)
+                         trackDistance > target.TrackDistance + GetMaximumDistanceAhead())
                     Destroy(gameObject);
                 return;
             }
@@ -116,7 +116,9 @@ namespace VoxelRacer
             int obstacleDamageCount = Random.Range(
                 Mathf.Min(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax),
                 Mathf.Max(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax) + 1);
-            ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount);
+            int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount);
+            VoxelMissionProgress.ReportCivilianVoxelDamage(damagedVoxelCount);
+            VoxelMissionProgress.ReportCivilianVehicleDestroyed();
             velocity = hitDirection * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + tuning.destroyedLifetime;
         }
@@ -130,6 +132,7 @@ namespace VoxelRacer
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
             if (hitVoxel != null)
             {
+                VoxelMissionProgress.ReportCivilianVoxelDamage();
                 projectileVoxelHealth.TryGetValue(hitVoxel, out float remainingVoxelHealth);
                 remainingVoxelHealth = remainingVoxelHealth <= 0f ? EnemyTuning.voxelHealth : remainingVoxelHealth;
                 remainingVoxelHealth -= damage;
@@ -150,6 +153,7 @@ namespace VoxelRacer
         private void DestroyFromWeaponHit(Vector3 hitPoint, Vector3 impactDirection)
         {
             hasBeenHit = true;
+            VoxelMissionProgress.ReportCivilianVehicleDestroyed();
             ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount);
             velocity = impactDirection.normalized * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + EnemyTuning.destroyedLifetime;
@@ -164,7 +168,12 @@ namespace VoxelRacer
             transform.rotation = travelsWithPlayer ? pose.rotation : pose.rotation * Quaternion.Euler(0f, 180f, 0f);
         }
 
-        private void ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount)
+        // Vehicles may be spawned farther ahead than the original 110-unit prototype
+        // distance. Keep them alive until the player can reasonably reach them.
+        private float GetMaximumDistanceAhead() => Mathf.Max(110f,
+            (tuning != null ? tuning.spawnDistanceAhead : 110f) + 30f);
+
+        private int ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount)
         {
             var candidates = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
@@ -179,6 +188,7 @@ namespace VoxelRacer
                 SpawnDebris(voxel, impactDirection);
                 voxel.gameObject.SetActive(false);
             }
+            return destroyCount;
         }
 
         private void SpawnDebris(Transform source, Vector3 impactDirection)

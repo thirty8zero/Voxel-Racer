@@ -34,6 +34,11 @@ namespace VoxelRacer
             trackDistance = distance;
             laneOffset = offset;
             CurrentHealth = enemy.vehicleHealth;
+            float minimumMultiplier = Mathf.Min(enemy.minimumSpawnSpeedMultiplier, enemy.maximumSpawnSpeedMultiplier);
+            float maximumMultiplier = Mathf.Max(enemy.minimumSpawnSpeedMultiplier, enemy.maximumSpawnSpeedMultiplier);
+            // Enemy speed is selected once from the player's tuned maximum rather than
+            // its live acceleration speed, so early spawns cannot become stationary.
+            currentSpeed = Mathf.Max(0f, player.topSpeed) * Random.Range(minimumMultiplier, maximumMultiplier);
             VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);
             ApplyBlackPaint();
             healthBar = VoxelEnemyHealthBar.Create(transform, enemy);
@@ -59,8 +64,6 @@ namespace VoxelRacer
                 return;
             }
 
-            float desiredSpeed = target.CurrentSpeed * Tuning.playerSpeedMultiplier;
-            currentSpeed = Mathf.MoveTowards(currentSpeed, desiredSpeed, Tuning.speedMatchRate * Time.deltaTime);
             trackDistance += currentSpeed * Time.deltaTime;
             ApplyTrackPose();
             RotateWheels();
@@ -70,7 +73,7 @@ namespace VoxelRacer
             if (overlapsLane && overlapsDepth && Time.time >= nextCollisionTime)
                 RamByPlayer();
 
-            if (trackDistance < target.TrackDistance - 30f || trackDistance > target.TrackDistance + 110f)
+            if (trackDistance < target.TrackDistance - 30f || trackDistance > target.TrackDistance + GetMaximumDistanceAhead())
                 Destroy(gameObject);
         }
 
@@ -82,6 +85,7 @@ namespace VoxelRacer
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
             if (hitVoxel != null)
             {
+                VoxelMissionProgress.ReportEnemyVoxelDamage();
                 voxelHealth.TryGetValue(hitVoxel, out float remainingVoxelHealth);
                 remainingVoxelHealth = remainingVoxelHealth <= 0f ? Tuning.voxelHealth : remainingVoxelHealth;
                 remainingVoxelHealth -= damage;
@@ -165,8 +169,14 @@ namespace VoxelRacer
             return hitVoxel != null;
         }
 
+        // Match the traffic spawner's configurable lead distance so an enemy created
+        // offscreen is not immediately removed by its lifetime culling.
+        private float GetMaximumDistanceAhead() => Mathf.Max(110f,
+            (trafficTuning != null ? trafficTuning.spawnDistanceAhead : 110f) + 30f);
+
         private void Explode(Vector3 hitPoint, Vector3 impactDirection)
         {
+            VoxelMissionProgress.ReportEnemyVehicleDestroyed();
             healthBar.gameObject.SetActive(false);
             var voxels = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
@@ -199,20 +209,22 @@ namespace VoxelRacer
 
             int originalPlayerDamage = target.damageVoxelsPerHit;
             target.damageVoxelsPerHit = Random.Range(
-                Mathf.Min(trafficTuning.playerDamageVoxelsMin, trafficTuning.playerDamageVoxelsMax),
-                Mathf.Max(trafficTuning.playerDamageVoxelsMin, trafficTuning.playerDamageVoxelsMax) + 1);
+                Mathf.Min(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax),
+                Mathf.Max(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax) + 1);
             target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection);
             target.damageVoxelsPerHit = originalPlayerDamage;
 
-            ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,
+            int damagedVoxelCount = ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,
                 -hitDirection, Random.Range(
                     Mathf.Min(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax),
                     Mathf.Max(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax) + 1));
+            VoxelMissionProgress.ReportEnemyVoxelDamage(damagedVoxelCount);
+            VoxelMissionProgress.ReportEnemyVehicleDestroyed();
             velocity = hitDirection * trafficTuning.launchForce + Vector3.up * trafficTuning.launchUpwardForce;
             destroyTime = Time.time + trafficTuning.destroyedLifetime;
         }
 
-        private void ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount)
+        private int ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount)
         {
             var candidates = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
@@ -226,6 +238,7 @@ namespace VoxelRacer
                 SpawnDebris(candidates[index], impactDirection);
                 candidates[index].gameObject.SetActive(false);
             }
+            return destroyCount;
         }
 
         private void ApplyTrackPose()

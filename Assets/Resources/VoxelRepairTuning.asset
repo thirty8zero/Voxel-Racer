@@ -12,7 +12,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9db394c3006bcbd4cb5c5bbe29845218, type: 3}
   m_Name: VoxelRepairTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelRepairTuning
-  fullRepairCost: 0
-  repair10PercentCost: 0
-  repair25PercentCost: 0
-  repair50PercentCost: 0

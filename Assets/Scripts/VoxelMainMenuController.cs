@@ -23,9 +23,9 @@ namespace VoxelRacer
             BuildDesertScenery();
 
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Main Menu UI");
-            VoxelMenuUi.CreateText(canvas, "Title", "VOXEL RACER", 176, TextAnchor.MiddleCenter,
+            VoxelMenuUi.CreateText(canvas, "Title", "VOXEL RACER", 264, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(1600f, 250f)).color = Color.black;
-            VoxelMenuUi.CreateButton(canvas, "Start Button", "START", 88,
+            VoxelMenuUi.CreateButton(canvas, "Start Button", "START", 132,
                 new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(780f, 204f), OpenCarSelect);
         }
 

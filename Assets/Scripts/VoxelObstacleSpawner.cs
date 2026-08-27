@@ -35,13 +35,12 @@ namespace VoxelRacer
 
         private void Update()
         {
-            if (!Application.isPlaying || target == null ||
+            if (!Application.isPlaying || target == null || target.IsDestroyed ||
                 (countdown != null && !countdown.IsComplete) || Time.time < nextSpawnTime)
                 return;
 
             float spawnDistanceAhead = obstacleCarTuning != null ? obstacleCarTuning.spawnDistanceAhead : 65f;
-            if (runFinish != null && (runFinish.HasFinished ||
-                target.TrackDistance + spawnDistanceAhead >= runFinish.FinishDistance - 12f))
+            if (runFinish != null && runFinish.HasFinished)
                 return;
 
             EndlessVoxelRoad path = target.TrackPath;

@@ -9,6 +9,14 @@ namespace VoxelRacer
         [Header("Identity")]
         public string displayName = "Basic Hood Gun";
 
+        [Header("Shop")]
+        [Tooltip("Prefab displayed and mounted when this gun is purchased as an upgrade.")]
+        public GameObject visualPrefab;
+        [Tooltip("Currency required for each copy purchased in the repair workshop.")]
+        [Min(0)] public int purchasePrice = 50;
+        [Tooltip("Maximum number of copies of this gun that can be fitted during one run.")]
+        [Min(1)] public int maximumPurchases = 2;
+
         [Header("Firing")]
         [Min(0.01f)] public float shotsPerSecond = 4f;
         [Tooltip("Projectiles emitted whenever this weapon fires.")]
@@ -29,6 +37,8 @@ namespace VoxelRacer
         private void OnValidate()
         {
             bulletsPerShot = Mathf.Max(1, bulletsPerShot);
+            purchasePrice = Mathf.Max(0, purchasePrice);
+            maximumPurchases = Mathf.Max(1, maximumPurchases);
             VoxelAssetSaveQueue.Request(this);
         }
 #endif

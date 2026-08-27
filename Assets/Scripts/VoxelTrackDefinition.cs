@@ -13,6 +13,7 @@ namespace VoxelRacer
         [Header("Gameplay")]
         public VoxelRoadTuning roadTuning;
         public VoxelObstacleCarTuning obstacleCarTuning;
+        public VoxelMissionTuning missionTuning;
 
         [Header("Optional Material Overrides")]
         [Tooltip("Leave an override empty to use its generated colour below.")]

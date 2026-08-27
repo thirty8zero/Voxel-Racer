@@ -81,27 +81,27 @@ namespace VoxelRacer
         private void BuildUi()
         {
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Car Select UI");
-            VoxelMenuUi.CreateButton(canvas, "Back Button", "BACK", 22,
+            VoxelMenuUi.CreateButton(canvas, "Back Button", "BACK", 33,
                 new Vector2(0f, 1f), new Vector2(92f, -52f), new Vector2(150f, 58f), ReturnToMainMenu);
 
-            carNameText = VoxelMenuUi.CreateText(canvas, "Car Name", string.Empty, 76,
+            carNameText = VoxelMenuUi.CreateText(canvas, "Car Name", string.Empty, 114,
                 TextAnchor.MiddleCenter, new Vector2(0.5f, 1f), new Vector2(0f, -82f), new Vector2(1500f, 140f));
 
-            VoxelMenuUi.CreateButton(canvas, "Previous Car", "<", 42,
+            VoxelMenuUi.CreateButton(canvas, "Previous Car", "<", 63,
                 new Vector2(0f, 0.5f), new Vector2(78f, 0f), new Vector2(76f, 76f), () => Move(-1));
-            VoxelMenuUi.CreateButton(canvas, "Next Car", ">", 42,
+            VoxelMenuUi.CreateButton(canvas, "Next Car", ">", 63,
                 new Vector2(1f, 0.5f), new Vector2(-78f, 0f), new Vector2(76f, 76f), () => Move(1));
 
             Image statsPanel = VoxelMenuUi.CreatePanel(canvas, "Stats Panel", new Vector2(0.5f, 0f),
                 new Vector2(0f, 410f), new Vector2(1220f, 352f));
-            statsText = VoxelMenuUi.CreateText(statsPanel.transform, "Stat Labels", string.Empty, 46,
+            statsText = VoxelMenuUi.CreateText(statsPanel.transform, "Stat Labels", string.Empty, 69,
                 TextAnchor.MiddleLeft, new Vector2(0.5f, 0.5f), new Vector2(-270f, 0f), new Vector2(620f, 300f));
-            statValuesText = VoxelMenuUi.CreateText(statsPanel.transform, "Stat Values", string.Empty, 46,
+            statValuesText = VoxelMenuUi.CreateText(statsPanel.transform, "Stat Values", string.Empty, 69,
                 TextAnchor.MiddleRight, new Vector2(0.5f, 0.5f), new Vector2(350f, 0f), new Vector2(360f, 300f));
 
-            selectButton = VoxelMenuUi.CreateButton(canvas, "Select Button", "SELECT", 52,
+            selectButton = VoxelMenuUi.CreateButton(canvas, "Select Button", "SELECT", 78,
                 new Vector2(0.5f, 0f), new Vector2(0f, 78f), new Vector2(540f, 128f), SelectCurrent);
-            raceButton = VoxelMenuUi.CreateButton(canvas, "Race Button", "RACE", 64,
+            raceButton = VoxelMenuUi.CreateButton(canvas, "Race Button", "RACE", 96,
                 new Vector2(1f, 0f), new Vector2(-290f, 100f), new Vector2(540f, 160f), StartRace);
         }
 

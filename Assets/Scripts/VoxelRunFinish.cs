@@ -2,52 +2,28 @@ using UnityEngine;
 
 namespace VoxelRacer
 {
-    /// <summary>Positions the finish strip and tells the player to coast down after crossing it.</summary>
+    /// <summary>Waits for mission completion, then tells the player to coast into the end sequence.</summary>
     public sealed class VoxelRunFinish : MonoBehaviour
     {
         public VoxelCarController target;
-        public VoxelRoadTuning tuning;
-
-        public float FinishDistance => startDistance + CurrentRunLength;
-        public float CurrentRunLength { get; private set; }
         public bool HasFinished { get; private set; }
         public bool FinishCameraComplete => finishCamera == null || finishCamera.FinishSequenceComplete;
 
-        private float startDistance;
-        private EndlessVoxelRoad path;
-        private float appliedMinimumLength;
-        private float appliedMaximumLength;
+        private VoxelMissionProgress missionProgress;
         private VoxelCameraFollow finishCamera;
 
-        public void Configure(VoxelCarController player, VoxelRoadTuning roadTuning,
-            EndlessVoxelRoad trackPath, float runStartDistance)
+        public void Configure(VoxelCarController player, VoxelMissionProgress mission)
         {
             target = player;
-            tuning = roadTuning;
-            path = trackPath;
-            startDistance = runStartDistance;
+            missionProgress = mission;
             HasFinished = false;
             finishCamera = null;
-            SelectRunLength();
-        }
-
-        private void Start()
-        {
-            if (target != null && tuning != null && CurrentRunLength <= 0f)
-                SelectRunLength();
+            SetFinishMarkerVisible(false);
         }
 
         private void Update()
         {
-            if (target == null || tuning == null || HasFinished)
-                return;
-
-            if (!Mathf.Approximately(appliedMinimumLength, tuning.minimumRunLength) ||
-                !Mathf.Approximately(appliedMaximumLength, tuning.maximumRunLength))
-                SelectRunLength();
-
-            UpdateFinishTransform();
-            if (target.TrackDistance < FinishDistance)
+            if (target == null || target.IsDestroyed || HasFinished || missionProgress == null || !missionProgress.IsComplete)
                 return;
 
             HasFinished = true;
@@ -58,27 +34,10 @@ namespace VoxelRacer
             target.BeginFinishStop();
         }
 
-        private void SelectRunLength()
+        private void SetFinishMarkerVisible(bool visible)
         {
-            if (tuning == null)
-                return;
-
-            appliedMinimumLength = Mathf.Max(25f, tuning.minimumRunLength);
-            appliedMaximumLength = Mathf.Max(25f, tuning.maximumRunLength);
-            float minimum = Mathf.Min(appliedMinimumLength, appliedMaximumLength);
-            float maximum = Mathf.Max(appliedMinimumLength, appliedMaximumLength);
-            CurrentRunLength = Mathf.Approximately(minimum, maximum) ? minimum : Random.Range(minimum, maximum);
-
-            UpdateFinishTransform();
-        }
-
-        private void UpdateFinishTransform()
-        {
-            if (path == null)
-                return;
-            VoxelTrackPose pose = path.Evaluate(FinishDistance);
-            transform.position = pose.position;
-            transform.rotation = pose.rotation;
+            foreach (var renderer in GetComponentsInChildren<Renderer>())
+                renderer.enabled = visible;
         }
     }
 }

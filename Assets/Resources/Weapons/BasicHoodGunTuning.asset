@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: BasicHoodGunTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
   displayName: Basic Hood Gun
+  visualPrefab: {fileID: 0}
+  purchasePrice: 50
+  maximumPurchases: 2
   shotsPerSecond: 20
   bulletsPerShot: 2
   ammunitionPerStage: 0

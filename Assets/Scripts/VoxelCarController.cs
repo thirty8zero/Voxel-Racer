@@ -46,8 +46,19 @@ namespace VoxelRacer
         public float TrackDistance { get; private set; }
         public float CurrentLaneOffset { get; private set; }
         public float PlannedFinishStopDuration { get; private set; }
+        public bool IsDestroyed { get; private set; }
         /// <summary>Live count of the player's remaining destructible visual voxels.</summary>
-        public int RemainingIntegrityVoxels => CountDestructibleVoxels();
+        public int RemainingIntegrityVoxels => IsDestroyed ? 0 : CountDestructibleVoxels();
+        /// <summary>Total damageable voxels that make up this car at full integrity.</summary>
+        public int TotalIntegrityVoxels
+        {
+            get
+            {
+                EnsureIntegrityBaseline();
+                return initialIntegrityVoxels;
+            }
+        }
+        public int MissingIntegrityVoxels => Mathf.Max(0, TotalIntegrityVoxels - RemainingIntegrityVoxels);
         public float IntegrityPercent => initialIntegrityVoxels == 0 ? 100f :
             Mathf.Clamp(100f * RemainingIntegrityVoxels / initialIntegrityVoxels, 0f, 100f);
         private float nextDamageTime;
@@ -57,6 +68,9 @@ namespace VoxelRacer
         private float visualYaw;
         private float visualRoll;
         private int initialIntegrityVoxels;
+        private Vector3 destroyedVelocity;
+        private float wreckGroundHeight;
+        private bool wreckResting;
         private const float RepairAttachmentDistance = 0.65f;
         private const float FourSecondStopBrakingReference = 30f;
         private const float MinimumFinishStopDuration = 1.5f;
@@ -133,6 +147,12 @@ namespace VoxelRacer
             if (!Application.isPlaying)
                 return;
 
+            if (IsDestroyed)
+            {
+                UpdateDestroyedWreck();
+                return;
+            }
+
             var keyboard = Keyboard.current;
             bool braking = keyboard != null && keyboard.spaceKey.isPressed;
             float targetSpeed = !drivingEnabled || braking || finishingRun ? 0f : topSpeed;
@@ -194,7 +214,7 @@ namespace VoxelRacer
 
         public void ApplyDamage(Vector3 hitPoint, Vector3 impactDirection)
         {
-            if (Time.time < nextDamageTime)
+            if (IsDestroyed || Time.time < nextDamageTime)
                 return;
 
             nextDamageTime = Time.time + 0.35f;
@@ -226,11 +246,73 @@ namespace VoxelRacer
                 blocksToDestroy.Add(candidate);
             }
 
+            // Normal hits preserve a small wheel core for readable driving damage.
+            // Once that is all that remains, the next hit becomes terminal instead
+            // of leaving the integrity meter permanently above zero.
+            if (blocksToDestroy.Count == 0 && candidates.Count > 0)
+                blocksToDestroy.AddRange(candidates);
+
+            bool isLethalHit = blocksToDestroy.Count >= candidates.Count && candidates.Count > 0;
+            if (isLethalHit)
+            {
+                // Keep a visible shell for the death wreck rather than removing every
+                // final voxel. Integrity still reports zero once the car is destroyed.
+                int shellVoxelCount = Mathf.Clamp(Mathf.CeilToInt(candidates.Count * 0.25f), 1, candidates.Count);
+                int debrisVoxelCount = Mathf.Max(0, candidates.Count - shellVoxelCount);
+                if (blocksToDestroy.Count > debrisVoxelCount)
+                    blocksToDestroy.RemoveRange(debrisVoxelCount, blocksToDestroy.Count - debrisVoxelCount);
+            }
+
             foreach (var block in blocksToDestroy)
             {
                 SpawnDebris(block, impactDirection, debrisVoxelsPerDamagedVoxel);
                 block.gameObject.SetActive(false);
             }
+
+            if (isLethalHit)
+                DestroyCar(impactDirection);
+        }
+
+        private void DestroyCar(Vector3 impactDirection)
+        {
+            if (IsDestroyed)
+                return;
+
+            IsDestroyed = true;
+            drivingEnabled = false;
+            finishingRun = false;
+            CurrentSpeed = 0f;
+            wreckGroundHeight = transform.position.y;
+            wreckResting = false;
+
+            Vector3 launchDirection = impactDirection.sqrMagnitude > 0.001f
+                ? impactDirection.normalized
+                : transform.forward;
+            destroyedVelocity = launchDirection * Random.Range(explosionForwardForceMin, explosionForwardForceMax)
+                + Vector3.up * Mathf.Max(2f, explosionUpwardForce * 2f);
+
+            foreach (var gun in GetComponentsInChildren<VoxelGunMount>())
+                gun.enabled = false;
+        }
+
+        private void UpdateDestroyedWreck()
+        {
+            if (wreckResting)
+                return;
+
+            destroyedVelocity += Physics.gravity * Time.deltaTime;
+            transform.position += destroyedVelocity * Time.deltaTime;
+            if (destroyedVelocity.sqrMagnitude > 0.001f)
+                transform.Rotate(destroyedVelocity.normalized * 220f * Time.deltaTime, Space.World);
+
+            if (transform.position.y > wreckGroundHeight || destroyedVelocity.y > 0f)
+                return;
+
+            Vector3 position = transform.position;
+            position.y = wreckGroundHeight;
+            transform.position = position;
+            destroyedVelocity = Vector3.zero;
+            wreckResting = true;
         }
 
         /// <summary>

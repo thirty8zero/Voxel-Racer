@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26135ffcab891994295171d69ac5176d, type: 3}
   m_Name: Traffic Tuning
   m_EditorClassIdentifier: 
-  spawnDistanceAhead: 110
+  spawnDistanceAhead: 200
   obstacleCarSpawnChance: 0.9
   oppositeDirectionChance: 0.5
   enemyCarSpawnChance: 0.9
@@ -80,8 +80,6 @@ MonoBehaviour:
   maximumTrackHeading: 65
   curveDegreesPerSlice: 5
   turnSeed: 271
-  minimumRunLength: 5000
-  maximumRunLength: 5000
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -98,6 +96,7 @@ MonoBehaviour:
   raceSceneName: SampleScene
   roadTuning: {fileID: -4439660758796297234}
   obstacleCarTuning: {fileID: -8029312130423065911}
+  missionTuning: {fileID: 0}
   skyboxMaterial: {fileID: 0}
   roadMaterial: {fileID: 0}
   groundMaterial: {fileID: 0}

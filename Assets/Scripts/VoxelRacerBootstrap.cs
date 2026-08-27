@@ -158,6 +158,7 @@ namespace VoxelRacer
             }
             car.gameObject.AddComponent<VoxelCarController>();
             ConfigureCarTuning(car, selectedCar);
+            VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
             car.GetComponent<VoxelCarController>().ResetIntegrityBaseline();
             VoxelCarRunState.Apply(car.GetComponent<VoxelCarController>(), selectedCar);
             return car;
@@ -615,34 +616,51 @@ namespace VoxelRacer
             spawner.laneCount = road.laneCount;
             spawner.laneWidth = road.roadWidth / road.laneCount;
 
+            var missionProgress = environment.GetComponent<VoxelMissionProgress>();
+            if (missionProgress == null)
+                missionProgress = environment.gameObject.AddComponent<VoxelMissionProgress>();
+            missionProgress.Configure(activeTrack != null && activeTrack.missionTuning != null
+                ? activeTrack.missionTuning
+                : VoxelMissionTuning.Load());
+
             var runFinish = environment.GetComponentInChildren<VoxelRunFinish>();
             if (runFinish != null)
             {
-                runFinish.Configure(car.GetComponent<VoxelCarController>(), road.tuning, road,
-                    car.GetComponent<VoxelCarController>().TrackDistance);
+                runFinish.Configure(car.GetComponent<VoxelCarController>(), missionProgress);
                 spawner.SetRunFinish(runFinish);
 
                 var postRaceContinue = environment.GetComponent<VoxelPostRaceContinue>();
                 if (postRaceContinue == null)
                     postRaceContinue = environment.gameObject.AddComponent<VoxelPostRaceContinue>();
-                postRaceContinue.Configure(runFinish);
+                postRaceContinue.Configure(runFinish, missionProgress);
             }
 
+            // Workshop repair purchases replace the old debug driving-HUD repair buttons.
             var repairButton = environment.GetComponent<VoxelRepairButton>();
-            if (repairButton == null)
-                repairButton = environment.gameObject.AddComponent<VoxelRepairButton>();
-            repairButton.target = car.GetComponent<VoxelCarController>();
+            if (repairButton != null)
+            {
+                if (Application.isPlaying)
+                    Object.Destroy(repairButton);
+                else
+                    Object.DestroyImmediate(repairButton);
+            }
 
             var integrityDisplay = environment.GetComponent<VoxelCarIntegrityDisplay>();
             if (integrityDisplay == null)
                 integrityDisplay = environment.gameObject.AddComponent<VoxelCarIntegrityDisplay>();
             integrityDisplay.target = car.GetComponent<VoxelCarController>();
 
+            var deathScreen = environment.GetComponent<VoxelPlayerDeathScreen>();
+            if (deathScreen == null)
+                deathScreen = environment.gameObject.AddComponent<VoxelPlayerDeathScreen>();
+            deathScreen.Configure(car.GetComponent<VoxelCarController>());
+
             var countdown = environment.GetComponent<VoxelStartCountdown>();
             if (countdown == null)
                 countdown = environment.gameObject.AddComponent<VoxelStartCountdown>();
             countdown.Prepare(car.GetComponent<VoxelCarController>());
             spawner.SetStartCountdown(countdown);
+            missionProgress.SetStartCountdown(countdown);
 
             var selectionScreen = environment.GetComponent<VoxelCarSelectionScreen>();
             if (selectionScreen != null)

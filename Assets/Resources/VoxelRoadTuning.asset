@@ -31,5 +31,3 @@ MonoBehaviour:
   maximumTrackHeading: 65
   curveDegreesPerSlice: 5
   turnSeed: 173
-  minimumRunLength: 500
-  maximumRunLength: 500

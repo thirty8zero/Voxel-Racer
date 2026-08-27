@@ -17,5 +17,7 @@ namespace VoxelRacer
         }
 
         public static void Add(int amount) => Balance = Mathf.Max(0, Balance + amount);
+
+        public static void Reset() => Balance = 0;
     }
 }
