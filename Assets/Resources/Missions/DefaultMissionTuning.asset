@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: DefaultMissionTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionTuning
   displayName: Mission 1
-  requiredPoints: 1000
+  requiredPoints: 300
   completionCurrencyAward: 100
-  timeLimitSeconds: 120
+  timeLimitSeconds: 60
   timeBonusCurrencyMultiplier: 1.5
   enemyVoxelDamagePoints: 1
   enemyVehicleDestroyedPoints: 25

@@ -13,14 +13,20 @@ MonoBehaviour:
   m_Name: SemiTrailerTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
   displayName: Semi Trailer
-  voxelHealth: 6
-  vehicleHealth: 60
-  minimumSpawnSpeedMultiplier: 0.98
-  maximumSpawnSpeedMultiplier: 0.98
+  voxelHealth: 1
+  vehicleHealth: 80
+  minimumSpawnSpeedMultiplier: 0.1
+  maximumSpawnSpeedMultiplier: 0.4
+  approachSpeedDistance: 100
+  minimumApproachSpeedMultiplier: 0.1
+  maximumApproachSpeedMultiplier: 0.4
+  engageSpeedDistance: 0
+  minimumEngageSpeedMultiplier: 0.1
+  maximumEngageSpeedMultiplier: 0.4
   collisionHalfWidth: 1.35
   collisionHalfLength: 3.8
-  playerDamageVoxelsMin: 10
-  playerDamageVoxelsMax: 12
+  playerDamageVoxelsMin: 150
+  playerDamageVoxelsMax: 210
   rearSurfaceHitRandomness: 1.5
   healthBarWidth: 2.4
   healthBarHeight: 0.22

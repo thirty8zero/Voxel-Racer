@@ -18,6 +18,9 @@ namespace VoxelRacer
         private float trackDistance;
         private float laneOffset;
         private float currentSpeed;
+        private float spawnSpeed;
+        private float approachSpeed;
+        private float engageSpeed;
         private bool hasBeenRammed;
         private float destroyTime;
         private float nextCollisionTime;
@@ -38,7 +41,15 @@ namespace VoxelRacer
             float maximumMultiplier = Mathf.Max(enemy.minimumSpawnSpeedMultiplier, enemy.maximumSpawnSpeedMultiplier);
             // Enemy speed is selected once from the player's tuned maximum rather than
             // its live acceleration speed, so early spawns cannot become stationary.
-            currentSpeed = Mathf.Max(0f, player.topSpeed) * Random.Range(minimumMultiplier, maximumMultiplier);
+            float playerMaximumSpeed = Mathf.Max(0f, player.topSpeed);
+            spawnSpeed = playerMaximumSpeed * Random.Range(minimumMultiplier, maximumMultiplier);
+            approachSpeed = playerMaximumSpeed * Random.Range(
+                Mathf.Min(enemy.minimumApproachSpeedMultiplier, enemy.maximumApproachSpeedMultiplier),
+                Mathf.Max(enemy.minimumApproachSpeedMultiplier, enemy.maximumApproachSpeedMultiplier));
+            engageSpeed = playerMaximumSpeed * Random.Range(
+                Mathf.Min(enemy.minimumEngageSpeedMultiplier, enemy.maximumEngageSpeedMultiplier),
+                Mathf.Max(enemy.minimumEngageSpeedMultiplier, enemy.maximumEngageSpeedMultiplier));
+            currentSpeed = spawnSpeed;
             VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);
             ApplyBlackPaint();
             healthBar = VoxelEnemyHealthBar.Create(transform, enemy);
@@ -64,6 +75,7 @@ namespace VoxelRacer
                 return;
             }
 
+            currentSpeed = GetPhaseSpeed();
             trackDistance += currentSpeed * Time.deltaTime;
             ApplyTrackPose();
             RotateWheels();
@@ -248,6 +260,16 @@ namespace VoxelRacer
             VoxelTrackPose pose = path.Evaluate(trackDistance);
             transform.position = pose.position + pose.right * laneOffset;
             transform.rotation = pose.rotation;
+        }
+
+        private float GetPhaseSpeed()
+        {
+            float distanceAhead = trackDistance - target.TrackDistance;
+            if (distanceAhead <= Tuning.engageSpeedDistance)
+                return engageSpeed;
+            if (distanceAhead <= Tuning.approachSpeedDistance)
+                return approachSpeed;
+            return spawnSpeed;
         }
 
         private void RotateWheels()

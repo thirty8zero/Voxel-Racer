@@ -15,6 +15,11 @@ namespace VoxelRacer
         public VoxelObstacleCarTuning obstacleCarTuning;
         public VoxelMissionTuning missionTuning;
 
+        // Legacy storage, migrated into this track's embedded traffic tuning by
+        // VoxelTrackDefinitionEditor. Keeping it prevents existing tracks losing their list.
+        [HideInInspector]
+        public VoxelStaticObstacleSpawnEntry[] staticObstacleSpawns;
+
         [Header("Optional Material Overrides")]
         [Tooltip("Leave an override empty to use its generated colour below.")]
         public Material skyboxMaterial;

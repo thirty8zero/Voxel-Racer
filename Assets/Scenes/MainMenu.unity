@@ -275,7 +275,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02956b39b5a29b94f9873c5a110cc256, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMainMenuController
-  carSelectSceneName: CarSelect
+  raceSceneName: SampleScene
   tuning: {fileID: 0}
 --- !u!4 &22485625
 Transform:

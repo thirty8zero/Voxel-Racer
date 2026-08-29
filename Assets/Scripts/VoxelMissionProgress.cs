@@ -115,39 +115,29 @@ namespace VoxelRacer
             GUI.color = new Color(1f, 1f, 1f, hudAlpha);
 
             const float width = 540f;
-            const float height = 100f;
+            const float height = 70f;
             var area = new Rect((Screen.width - width) * 0.5f, 18f, width, height);
             GUI.Box(area, string.Empty, VoxelHudStyles.Box(30));
 
             var labelStyle = new GUIStyle(GUI.skin.label)
             {
                 font = VoxelHudStyles.HudFont,
-                fontSize = 45,
+                fontSize = 40,
                 fontStyle = FontStyle.Normal,
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = Color.white }
             };
-            GUI.Label(new Rect(area.x + 8f, area.y, area.width - 16f, 48f),
-                $"{Tuning.displayName}: {Mathf.RoundToInt(Percent * 100f)}%", labelStyle);
+            labelStyle.normal.textColor = IsComplete ? new Color(0.25f, 1f, 0.38f) : Color.white;
+            GUI.Label(new Rect(area.x + 8f, area.y, area.width - 16f, 42f),
+                IsComplete ? "MISSION COMPLETE" : $"{Tuning.displayName}: {Mathf.RoundToInt(Percent * 100f)}%", labelStyle);
 
-            int countdownSeconds = Mathf.CeilToInt(RemainingTime);
-            var timerStyle = new GUIStyle(labelStyle) { fontSize = 30 };
-            GUI.Label(new Rect(area.x + 8f, area.y + 42f, area.width - 16f, 28f),
-                $"Countdown: {countdownSeconds / 60}:{countdownSeconds % 60:00}", timerStyle);
-
-            var barBackground = new Rect(area.x + 24f, area.y + 74f, area.width - 48f, 16f);
+            var barBackground = new Rect(area.x + 24f, area.y + 48f, area.width - 48f, 13f);
             GUI.color = new Color(0.08f, 0.09f, 0.12f, hudAlpha);
             GUI.DrawTexture(barBackground, Texture2D.whiteTexture);
             GUI.color = IsComplete ? new Color(0.25f, 1f, 0.38f, hudAlpha) : new Color(1f, 0.72f, 0.14f, hudAlpha);
             GUI.DrawTexture(new Rect(barBackground.x + 2f, barBackground.y + 2f,
                 Mathf.Max(0f, (barBackground.width - 4f) * Percent), barBackground.height - 4f), Texture2D.whiteTexture);
             GUI.color = new Color(1f, 1f, 1f, hudAlpha);
-
-            if (IsComplete)
-            {
-                var completeStyle = new GUIStyle(labelStyle) { fontSize = 24, normal = { textColor = new Color(0.25f, 1f, 0.38f) } };
-                GUI.Label(new Rect(area.x, area.y + 88f, area.width, 16f), "MISSION COMPLETE", completeStyle);
-            }
 
             GUI.color = previousColor;
         }

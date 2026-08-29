@@ -20,6 +20,9 @@ namespace VoxelRacer
         private bool travelsWithPlayer;
         private bool isSemiTrailer;
         private float travelSpeed;
+        private float spawnSpeed;
+        private float approachSpeed;
+        private float engageSpeed;
         private float collisionHalfWidth = 1.35f;
         private float collisionHalfLength = 2.3f;
         private bool hasBeenHit;
@@ -40,11 +43,25 @@ namespace VoxelRacer
             path = road;
             trackDistance = distance;
             laneOffset = offset;
-            float min = sameDirection ? tuning.sameDirectionSpeedMin : tuning.oppositeDirectionSpeedMin;
-            float max = sameDirection ? tuning.sameDirectionSpeedMax : tuning.oppositeDirectionSpeedMax;
-            travelSpeed = matchingTravelSpeed >= 0f
-                ? matchingTravelSpeed
-                : Random.Range(Mathf.Min(min, max), Mathf.Max(min, max));
+            float playerMaximumSpeed = Mathf.Max(0f, player.topSpeed);
+            if (matchingTravelSpeed >= 0f)
+            {
+                // Preserve the existing same-lane traffic rule: shared-lane
+                // civilians retain a matching profile and cannot catch each other.
+                spawnSpeed = matchingTravelSpeed;
+                approachSpeed = matchingTravelSpeed;
+                engageSpeed = matchingTravelSpeed;
+            }
+            else
+            {
+                GetPhaseMultiplierRange(tuning, sameDirection, 0, out float spawnMin, out float spawnMax);
+                GetPhaseMultiplierRange(tuning, sameDirection, 1, out float approachMin, out float approachMax);
+                GetPhaseMultiplierRange(tuning, sameDirection, 2, out float engageMin, out float engageMax);
+                spawnSpeed = playerMaximumSpeed * Random.Range(spawnMin, spawnMax);
+                approachSpeed = playerMaximumSpeed * Random.Range(approachMin, approachMax);
+                engageSpeed = playerMaximumSpeed * Random.Range(engageMin, engageMax);
+            }
+            travelSpeed = spawnSpeed;
             isSemiTrailer = Random.value < tuning.semiTrailerSpawnChance;
             EnemyTuning = isSemiTrailer ? tuning.semiTrailerEnemyTuning : tuning.trafficCarEnemyTuning;
             CurrentHealth = EnemyTuning != null ? EnemyTuning.vehicleHealth : 1f;
@@ -70,6 +87,7 @@ namespace VoxelRacer
             if (!hasBeenHit)
             {
                 float direction = travelsWithPlayer ? 1f : -1f;
+                travelSpeed = GetPhaseSpeed();
                 trackDistance += direction * travelSpeed * Time.deltaTime;
                 ApplyTrackPose();
                 RotateWheels(direction * travelSpeed);
@@ -166,6 +184,42 @@ namespace VoxelRacer
             VoxelTrackPose pose = path.Evaluate(trackDistance);
             transform.position = pose.position + pose.right * laneOffset;
             transform.rotation = travelsWithPlayer ? pose.rotation : pose.rotation * Quaternion.Euler(0f, 180f, 0f);
+        }
+
+        private float GetPhaseSpeed()
+        {
+            float distanceAhead = trackDistance - target.TrackDistance;
+            if (distanceAhead <= tuning.engageSpeedDistance)
+                return engageSpeed;
+            if (distanceAhead <= tuning.approachSpeedDistance)
+                return approachSpeed;
+            return spawnSpeed;
+        }
+
+        private static void GetPhaseMultiplierRange(VoxelObstacleCarTuning value, bool sameDirection,
+            int phase, out float minimum, out float maximum)
+        {
+            if (sameDirection)
+            {
+                minimum = phase == 0 ? value.sameDirectionSpawnSpeedMultiplierMin
+                    : phase == 1 ? value.sameDirectionApproachSpeedMultiplierMin
+                    : value.sameDirectionEngageSpeedMultiplierMin;
+                maximum = phase == 0 ? value.sameDirectionSpawnSpeedMultiplierMax
+                    : phase == 1 ? value.sameDirectionApproachSpeedMultiplierMax
+                    : value.sameDirectionEngageSpeedMultiplierMax;
+            }
+            else
+            {
+                minimum = phase == 0 ? value.oncomingSpawnSpeedMultiplierMin
+                    : phase == 1 ? value.oncomingApproachSpeedMultiplierMin
+                    : value.oncomingEngageSpeedMultiplierMin;
+                maximum = phase == 0 ? value.oncomingSpawnSpeedMultiplierMax
+                    : phase == 1 ? value.oncomingApproachSpeedMultiplierMax
+                    : value.oncomingEngageSpeedMultiplierMax;
+            }
+
+            minimum = Mathf.Max(0f, Mathf.Min(minimum, maximum));
+            maximum = Mathf.Max(minimum, maximum);
         }
 
         // Vehicles may be spawned farther ahead than the original 110-unit prototype

@@ -19,7 +19,6 @@ namespace VoxelRacer
         public int segmentCount = 8;
         public float recycleBehindDistance = 45f;
 
-        [Header("Turning Road Pieces")]
         [Range(0f, 1f)] public float turnChancePerSegment = 0.35f;
         [Min(1f)] public float minimumTurnAngle = 12f;
         [Min(1f)] public float maximumTurnAngle = 32f;

@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3dbe1fada4e6aa429739c1160971f5a, type: 3}
+  m_Name: VoxelBox
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelStaticObstacleDefinition
+  displayName: VOXEL BOX
+  obstacleType: 0
+  playerDamageVoxelsMin: 20
+  playerDamageVoxelsMax: 50
+  hitPoints: 5
+  rearSurfaceHitRandomness: 0.8
+  weaponDebrisScale: 0.65
+  weaponDebrisLifetime: 1.1
+  weaponDebrisForwardForce: 6
+  weaponDebrisUpwardForce: 2.2
+  weaponDebrisSpreadForce: 1.2
+  explosionDebrisCount: 50
+  explosionDebrisScale: 2
+  explosionDebrisLifetime: 3
+  explosionForwardForce: 4
+  explosionUpwardForce: 8
+  explosionSpreadForce: 5
+  destroyedLifetime: 3

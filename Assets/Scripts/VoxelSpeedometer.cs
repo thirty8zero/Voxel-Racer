@@ -7,6 +7,8 @@ namespace VoxelRacer
     {
         public VoxelCarController target;
 
+        [SerializeField] private bool showHud;
+
         [Min(0.1f)]
         [Tooltip("Multiplier applied to the speed shown on the HUD. This does not change vehicle physics.")]
         public float displaySpeedMultiplier = 2.5f;
@@ -18,7 +20,7 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
-            if (!Application.isPlaying || target == null || VoxelPlayerDeathScreen.IsShowing)
+            if (!showHud || !Application.isPlaying || target == null || VoxelPlayerDeathScreen.IsShowing)
                 return;
 
             float alpha = VoxelStartCountdown.CurrentGameplayHudAlpha;

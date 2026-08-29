@@ -61,6 +61,8 @@ namespace VoxelRacer.Editor
     [CustomEditor(typeof(VoxelObstacleCarTuning))]
     internal sealed class VoxelObstacleCarTuningEditor : UnityEditor.Editor
     {
+        private bool movementExpanded = true;
+
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
@@ -73,10 +75,17 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("oppositeDirectionChance"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("enemyCarSpawnChance"));
             VoxelTuningInspector.DrawRange("Objects Per Wave", serializedObject.FindProperty("minimumObjectsPerWave"), serializedObject.FindProperty("maximumObjectsPerWave"));
+            VoxelTuningInspector.DrawRange("Object Distance Offset", serializedObject.FindProperty("minimumWaveObjectDistanceOffset"), serializedObject.FindProperty("maximumWaveObjectDistanceOffset"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("sameLaneCivilianSpeedTolerance"));
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Paint Colours", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Static Obstacle Spawns", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Only obstacles in this list can spawn on this track. Spawn Weight is relative to the other entries.",
+                MessageType.None);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("staticObstacleSpawns"), true);
+
+            EditorGUILayout.Space();
             EditorGUILayout.PropertyField(serializedObject.FindProperty("paintColours"), true);
 
             EditorGUILayout.Space();
@@ -86,10 +95,26 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("semiTrailerEnemyTuning"));
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Traffic Speed", EditorStyles.boldLabel);
-            VoxelTuningInspector.DrawRange("Same Direction Speed", serializedObject.FindProperty("sameDirectionSpeedMin"), serializedObject.FindProperty("sameDirectionSpeedMax"));
-            VoxelTuningInspector.DrawRange("Oncoming Speed", serializedObject.FindProperty("oppositeDirectionSpeedMin"), serializedObject.FindProperty("oppositeDirectionSpeedMax"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("wheelSpinDegreesPerUnit"));
+            movementExpanded = EditorGUILayout.Foldout(movementExpanded, "Civilian Movement", true);
+            if (movementExpanded)
+            {
+                using (new EditorGUI.IndentLevelScope())
+                {
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("approachSpeedDistance"));
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("engageSpeedDistance"));
+                    EditorGUILayout.Space(2f);
+                    EditorGUILayout.LabelField("Same Direction", EditorStyles.miniBoldLabel);
+                    VoxelTuningInspector.DrawRange("Spawn Speed Multiplier", serializedObject.FindProperty("sameDirectionSpawnSpeedMultiplierMin"), serializedObject.FindProperty("sameDirectionSpawnSpeedMultiplierMax"));
+                    VoxelTuningInspector.DrawRange("Approach Speed Multiplier", serializedObject.FindProperty("sameDirectionApproachSpeedMultiplierMin"), serializedObject.FindProperty("sameDirectionApproachSpeedMultiplierMax"));
+                    VoxelTuningInspector.DrawRange("Engage Speed Multiplier", serializedObject.FindProperty("sameDirectionEngageSpeedMultiplierMin"), serializedObject.FindProperty("sameDirectionEngageSpeedMultiplierMax"));
+                    EditorGUILayout.Space(2f);
+                    EditorGUILayout.LabelField("Oncoming", EditorStyles.miniBoldLabel);
+                    VoxelTuningInspector.DrawRange("Spawn Speed Multiplier", serializedObject.FindProperty("oncomingSpawnSpeedMultiplierMin"), serializedObject.FindProperty("oncomingSpawnSpeedMultiplierMax"));
+                    VoxelTuningInspector.DrawRange("Approach Speed Multiplier", serializedObject.FindProperty("oncomingApproachSpeedMultiplierMin"), serializedObject.FindProperty("oncomingApproachSpeedMultiplierMax"));
+                    VoxelTuningInspector.DrawRange("Engage Speed Multiplier", serializedObject.FindProperty("oncomingEngageSpeedMultiplierMin"), serializedObject.FindProperty("oncomingEngageSpeedMultiplierMax"));
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("wheelSpinDegreesPerUnit"));
+                }
+            }
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Impact", EditorStyles.boldLabel);
@@ -165,6 +190,69 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("curveDegreesPerSlice"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("turnSeed"));
             serializedObject.ApplyModifiedProperties();
+        }
+    }
+
+    /// <summary>Organises all enemy vehicle tuning assets into focused collapsible groups.</summary>
+    [CustomEditor(typeof(VoxelEnemyVehicleTuning))]
+    [CanEditMultipleObjects]
+    internal sealed class VoxelEnemyVehicleTuningEditor : UnityEditor.Editor
+    {
+        private bool durabilityExpanded = true;
+        private bool movementExpanded = true;
+        private bool collisionExpanded = true;
+        private bool playerImpactExpanded = true;
+        private bool weaponDamageExpanded = true;
+        private bool healthBarExpanded = true;
+        private bool explosionExpanded = true;
+
+        public override void OnInspectorGUI()
+        {
+            serializedObject.Update();
+            VoxelTuningInspector.DrawScript(serializedObject);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Identity", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("displayName"));
+
+            durabilityExpanded = DrawSection(durabilityExpanded, "Durability",
+                "voxelHealth", "vehicleHealth");
+            playerImpactExpanded = DrawSection(playerImpactExpanded, "Player Impact",
+                "playerDamageVoxelsMin", "playerDamageVoxelsMax");
+            weaponDamageExpanded = DrawSection(weaponDamageExpanded, "Weapon Damage",
+                "rearSurfaceHitRandomness");
+            movementExpanded = DrawSection(movementExpanded, "Movement",
+                "minimumSpawnSpeedMultiplier", "maximumSpawnSpeedMultiplier", "approachSpeedDistance",
+                "minimumApproachSpeedMultiplier", "maximumApproachSpeedMultiplier", "engageSpeedDistance",
+                "minimumEngageSpeedMultiplier", "maximumEngageSpeedMultiplier");
+            collisionExpanded = DrawSection(collisionExpanded, "Collision",
+                "collisionHalfWidth", "collisionHalfLength");
+            healthBarExpanded = DrawSection(healthBarExpanded, "Health Bar",
+                "healthBarWidth", "healthBarHeight", "healthBarHeightOffset",
+                "healthBarFullColour", "healthBarEmptyColour", "criticalHealthPercent",
+                "criticalPulseSpeed", "criticalPulseScale");
+            explosionExpanded = DrawSection(explosionExpanded, "Explosion",
+                "explosionVoxelCount", "maximumExplosionVoxelRemovalPercent",
+                "explosionForwardForceMin", "explosionForwardForceMax", "explosionUpwardForce",
+                "explosionSpreadForce", "explosionDebrisScale", "explosionDebrisLifetime",
+                "destroyedLifetime");
+
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        private bool DrawSection(bool isExpanded, string title, params string[] propertyNames)
+        {
+            EditorGUILayout.Space(3f);
+            isExpanded = EditorGUILayout.Foldout(isExpanded, title, true);
+            if (!isExpanded)
+                return false;
+
+            using (new EditorGUI.IndentLevelScope())
+            {
+                foreach (string propertyName in propertyNames)
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty(propertyName));
+            }
+            return true;
         }
     }
 }

@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3dbe1fada4e6aa429739c1160971f5a, type: 3}
+  m_Name: FuelDrums
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelStaticObstacleDefinition
+  displayName: FUEL DRUMS
+  obstacleType: 2
+  playerDamageVoxelsMin: 80
+  playerDamageVoxelsMax: 120
+  hitPoints: 10
+  rearSurfaceHitRandomness: 0.8
+  weaponDebrisScale: 0.65
+  weaponDebrisLifetime: 1.1
+  weaponDebrisForwardForce: 6
+  weaponDebrisUpwardForce: 3
+  weaponDebrisSpreadForce: 2
+  explosionDebrisCount: 120
+  explosionDebrisScale: 2
+  explosionDebrisLifetime: 3
+  explosionForwardForce: 8
+  explosionUpwardForce: 15
+  explosionSpreadForce: 5
+  destroyedLifetime: 3

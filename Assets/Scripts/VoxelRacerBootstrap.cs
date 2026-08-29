@@ -612,6 +612,9 @@ namespace VoxelRacer
                 ? activeTrack.obstacleCarTuning
                 : VoxelObstacleCarTuning.Load();
             spawner.enemyCarTuning = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning");
+            spawner.SetStaticObstacleSpawns(spawner.obstacleCarTuning != null
+                ? spawner.obstacleCarTuning.staticObstacleSpawns
+                : null);
             car.GetComponent<VoxelCarController>().SetLaneLayout(road.laneCount, road.roadWidth / road.laneCount);
             spawner.laneCount = road.laneCount;
             spawner.laneWidth = road.roadWidth / road.laneCount;
@@ -662,6 +665,11 @@ namespace VoxelRacer
             spawner.SetStartCountdown(countdown);
             missionProgress.SetStartCountdown(countdown);
 
+            var missionTimer = environment.GetComponent<VoxelMissionTimerDisplay>();
+            if (missionTimer == null)
+                missionTimer = environment.gameObject.AddComponent<VoxelMissionTimerDisplay>();
+            missionTimer.Configure(missionProgress);
+
             var selectionScreen = environment.GetComponent<VoxelCarSelectionScreen>();
             if (selectionScreen != null)
             {
@@ -673,10 +681,6 @@ namespace VoxelRacer
             if (Application.isPlaying)
                 countdown.BeginCountdown();
 
-            var speedometer = environment.GetComponent<VoxelSpeedometer>();
-            if (speedometer == null)
-                speedometer = environment.gameObject.AddComponent<VoxelSpeedometer>();
-            speedometer.target = car.GetComponent<VoxelCarController>();
         }
 
         private static void BuildStartLine(Transform parent, Transform car, EndlessVoxelRoad road)

@@ -14,9 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
   displayName: Black Interceptor
   voxelHealth: 1
-  vehicleHealth: 100
-  minimumSpawnSpeedMultiplier: 0.5
-  maximumSpawnSpeedMultiplier: 0.7
+  vehicleHealth: 80
+  minimumSpawnSpeedMultiplier: 0.2
+  maximumSpawnSpeedMultiplier: 0.2
+  approachSpeedDistance: 90
+  minimumApproachSpeedMultiplier: 0.5
+  maximumApproachSpeedMultiplier: 0.7
+  engageSpeedDistance: 0
+  minimumEngageSpeedMultiplier: 0.5
+  maximumEngageSpeedMultiplier: 0.7
   collisionHalfWidth: 1.35
   collisionHalfLength: 3.8
   playerDamageVoxelsMin: 100
@@ -28,7 +34,7 @@ MonoBehaviour:
   healthBarFullColour: {r: 0.92, g: 0.05, b: 0.04, a: 1}
   healthBarEmptyColour: {r: 0.36, g: 0.01, b: 0.01, a: 1}
   criticalHealthPercent: 0.2
-  criticalPulseSpeed: 7
+  criticalPulseSpeed: 10
   criticalPulseScale: 0.16
   explosionVoxelCount: 200
   maximumExplosionVoxelRemovalPercent: 0.65
@@ -37,5 +43,5 @@ MonoBehaviour:
   explosionUpwardForce: 20
   explosionSpreadForce: 10
   explosionDebrisScale: 0.8
-  explosionDebrisLifetime: 1.5
-  destroyedLifetime: 2.5
+  explosionDebrisLifetime: 4
+  destroyedLifetime: 4

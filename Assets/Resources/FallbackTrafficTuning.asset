@@ -19,6 +19,10 @@ MonoBehaviour:
   minimumObjectsPerWave: 2
   maximumObjectsPerWave: 3
   sameLaneCivilianSpeedTolerance: 1
+  staticObstacleSpawns: []
+  potholeSpawnChance: 0.35
+  potholePlayerDamageVoxelsMin: 10
+  potholePlayerDamageVoxelsMax: 14
   paintColours:
   - {r: 0.8, g: 0.07, b: 0.1, a: 1}
   - {r: 0.98, g: 0.55, b: 0.06, a: 1}
@@ -31,6 +35,20 @@ MonoBehaviour:
   sameDirectionSpeedMax: 18
   oppositeDirectionSpeedMin: 22
   oppositeDirectionSpeedMax: 32
+  approachSpeedDistance: 100
+  engageSpeedDistance: 0
+  sameDirectionSpawnSpeedMultiplierMin: 0.31
+  sameDirectionSpawnSpeedMultiplierMax: 0.56
+  sameDirectionApproachSpeedMultiplierMin: 0.31
+  sameDirectionApproachSpeedMultiplierMax: 0.56
+  sameDirectionEngageSpeedMultiplierMin: 0.31
+  sameDirectionEngageSpeedMultiplierMax: 0.56
+  oncomingSpawnSpeedMultiplierMin: 0.69
+  oncomingSpawnSpeedMultiplierMax: 1
+  oncomingApproachSpeedMultiplierMin: 0.69
+  oncomingApproachSpeedMultiplierMax: 1
+  oncomingEngageSpeedMultiplierMin: 0.69
+  oncomingEngageSpeedMultiplierMax: 1
   wheelSpinDegreesPerUnit: 125
   playerDamageVoxelsMin: 10
   playerDamageVoxelsMax: 12

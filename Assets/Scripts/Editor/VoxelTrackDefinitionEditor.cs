@@ -201,6 +201,14 @@ namespace VoxelRacer.Editor
                 changed = true;
             }
 
+            if (track.obstacleCarTuning != null &&
+                (track.obstacleCarTuning.staticObstacleSpawns == null || track.obstacleCarTuning.staticObstacleSpawns.Length == 0) &&
+                track.staticObstacleSpawns != null && track.staticObstacleSpawns.Length > 0)
+            {
+                track.obstacleCarTuning.staticObstacleSpawns = track.staticObstacleSpawns;
+                changed = true;
+            }
+
             if (!changed)
                 return;
 

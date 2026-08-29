@@ -13,15 +13,21 @@ MonoBehaviour:
   m_Name: TrafficCarTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
   displayName: Traffic Car
-  voxelHealth: 3
-  vehicleHealth: 20
-  minimumSpawnSpeedMultiplier: 0.98
-  maximumSpawnSpeedMultiplier: 0.98
+  voxelHealth: 1
+  vehicleHealth: 50
+  minimumSpawnSpeedMultiplier: 0.3
+  maximumSpawnSpeedMultiplier: 0.6
+  approachSpeedDistance: 100
+  minimumApproachSpeedMultiplier: 0.3
+  maximumApproachSpeedMultiplier: 0.6
+  engageSpeedDistance: 0
+  minimumEngageSpeedMultiplier: 0.3
+  maximumEngageSpeedMultiplier: 0.6
   collisionHalfWidth: 1.35
   collisionHalfLength: 3.8
-  playerDamageVoxelsMin: 10
-  playerDamageVoxelsMax: 12
-  rearSurfaceHitRandomness: 1.5
+  playerDamageVoxelsMin: 100
+  playerDamageVoxelsMax: 200
+  rearSurfaceHitRandomness: 2
   healthBarWidth: 2.4
   healthBarHeight: 0.22
   healthBarHeightOffset: 2.8

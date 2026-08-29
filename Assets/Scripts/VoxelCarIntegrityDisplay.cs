@@ -50,7 +50,7 @@ namespace VoxelRacer
 
         private void BuildHud()
         {
-            voxelFont = Resources.Load<Font>("Fonts/PixelifySans");
+            voxelFont = Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
             if (voxelFont == null)
                 voxelFont = VoxelHudStyles.HudFont;
             glitchGoblinFont = Resources.Load<Font>("Fonts/GlitchGoblin");

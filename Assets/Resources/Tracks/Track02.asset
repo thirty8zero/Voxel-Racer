@@ -19,11 +19,25 @@ MonoBehaviour:
   minimumObjectsPerWave: 2
   maximumObjectsPerWave: 3
   sameLaneCivilianSpeedTolerance: 1
+  minimumWaveObjectDistanceOffset: 12
+  maximumWaveObjectDistanceOffset: 20
+  staticObstacleSpawns:
+  - obstacle: {fileID: 11400000, guid: a2642cf1b770f304089540f52b9277a3, type: 2}
+    spawnWeight: 1
+  - obstacle: {fileID: 11400000, guid: b297af0f496c39d4db625e845d790f51, type: 2}
+    spawnWeight: 1
+  - obstacle: {fileID: 11400000, guid: 6f275487debd2654bb47e3a2d9f2e5f4, type: 2}
+    spawnWeight: 1
+  potholeSpawnChance: 0.35
+  potholePlayerDamageVoxelsMin: 10
+  potholePlayerDamageVoxelsMax: 14
   paintColours:
   - {r: 0.8, g: 0.07, b: 0.1, a: 1}
   - {r: 0.98, g: 0.55, b: 0.06, a: 1}
   - {r: 0.12, g: 0.7, b: 0.32, a: 1}
   - {r: 0.55, g: 0.18, b: 0.82, a: 1}
+  - {r: 0.735849, g: 0.18396226, b: 0.46626332, a: 1}
+  - {r: 0.41509432, g: 0.37789246, b: 0.39688915, a: 1}
   semiTrailerSpawnChance: 0.35
   trafficCarEnemyTuning: {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
   semiTrailerEnemyTuning: {fileID: 11400000, guid: 2e00307876f8dcd4bad78a259ae5cced, type: 2}
@@ -31,6 +45,20 @@ MonoBehaviour:
   sameDirectionSpeedMax: 18
   oppositeDirectionSpeedMin: 22
   oppositeDirectionSpeedMax: 32
+  approachSpeedDistance: 100
+  engageSpeedDistance: 0
+  sameDirectionSpawnSpeedMultiplierMin: 0.31
+  sameDirectionSpawnSpeedMultiplierMax: 0.56
+  sameDirectionApproachSpeedMultiplierMin: 0.31
+  sameDirectionApproachSpeedMultiplierMax: 0.56
+  sameDirectionEngageSpeedMultiplierMin: 0.31
+  sameDirectionEngageSpeedMultiplierMax: 0.56
+  oncomingSpawnSpeedMultiplierMin: 0.69
+  oncomingSpawnSpeedMultiplierMax: 1
+  oncomingApproachSpeedMultiplierMin: 0.69
+  oncomingApproachSpeedMultiplierMax: 1
+  oncomingEngageSpeedMultiplierMin: 0.69
+  oncomingEngageSpeedMultiplierMax: 1
   wheelSpinDegreesPerUnit: 125
   playerDamageVoxelsMin: 10
   playerDamageVoxelsMax: 12
@@ -97,6 +125,13 @@ MonoBehaviour:
   roadTuning: {fileID: -4439660758796297234}
   obstacleCarTuning: {fileID: -8029312130423065911}
   missionTuning: {fileID: 0}
+  staticObstacleSpawns:
+  - obstacle: {fileID: 11400000, guid: a2642cf1b770f304089540f52b9277a3, type: 2}
+    spawnWeight: 1
+  - obstacle: {fileID: 11400000, guid: b297af0f496c39d4db625e845d790f51, type: 2}
+    spawnWeight: 1
+  - obstacle: {fileID: 11400000, guid: 6f275487debd2654bb47e3a2d9f2e5f4, type: 2}
+    spawnWeight: 1
   skyboxMaterial: {fileID: 0}
   roadMaterial: {fileID: 0}
   groundMaterial: {fileID: 0}

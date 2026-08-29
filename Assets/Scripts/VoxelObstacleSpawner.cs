@@ -18,15 +18,18 @@ namespace VoxelRacer
         [Tooltip("Controls traffic-car spawn frequency, direction, speed, impacts, and debris.")]
         public VoxelObstacleCarTuning obstacleCarTuning;
         public VoxelEnemyVehicleTuning enemyCarTuning;
+        private VoxelStaticObstacleSpawnEntry[] staticObstacleSpawns;
 
         private VoxelCarController target;
         private VoxelStartCountdown countdown;
         private VoxelRunFinish runFinish;
         private float nextSpawnTime;
+        private bool trafficSpawnWindowOpened;
 
         public void SetTarget(VoxelCarController player) => target = player;
         public void SetStartCountdown(VoxelStartCountdown value) => countdown = value;
         public void SetRunFinish(VoxelRunFinish value) => runFinish = value;
+        public void SetStaticObstacleSpawns(VoxelStaticObstacleSpawnEntry[] entries) => staticObstacleSpawns = entries;
 
         private void Start()
         {
@@ -35,8 +38,21 @@ namespace VoxelRacer
 
         private void Update()
         {
-            if (!Application.isPlaying || target == null || target.IsDestroyed ||
-                (countdown != null && !countdown.IsComplete) || Time.time < nextSpawnTime)
+            if (!Application.isPlaying || target == null || target.IsDestroyed)
+                return;
+
+            if (countdown != null && !countdown.IsTrafficSpawnWindowOpen)
+                return;
+
+            // Force the first wave when the countdown changes to "1", rather than
+            // waiting for a spawn interval that may otherwise elapse after "GO!".
+            if (countdown != null && !trafficSpawnWindowOpened)
+            {
+                trafficSpawnWindowOpened = true;
+                nextSpawnTime = Time.time;
+            }
+
+            if (Time.time < nextSpawnTime)
                 return;
 
             float spawnDistanceAhead = obstacleCarTuning != null ? obstacleCarTuning.spawnDistanceAhead : 65f;
@@ -47,14 +63,28 @@ namespace VoxelRacer
             float spawnTrackDistance = target.TrackDistance + spawnDistanceAhead;
             if (path == null)
                 return;
-            path.EnsurePathCovers(spawnTrackDistance + 10f);
 
             int minimumObjects = obstacleCarTuning != null ? obstacleCarTuning.minimumObjectsPerWave : 1;
             int maximumObjects = obstacleCarTuning != null ? obstacleCarTuning.maximumObjectsPerWave : 1;
             int requestedObjects = Random.Range(Mathf.Min(minimumObjects, maximumObjects),
                 Mathf.Max(minimumObjects, maximumObjects) + 1);
+            float maximumWaveOffset = obstacleCarTuning != null
+                ? Mathf.Max(obstacleCarTuning.minimumWaveObjectDistanceOffset, obstacleCarTuning.maximumWaveObjectDistanceOffset)
+                : 20f;
+            path.EnsurePathCovers(spawnTrackDistance + Mathf.Max(0, requestedObjects - 1) * maximumWaveOffset + 10f);
+
+            float objectDistance = spawnTrackDistance;
             for (int index = 0; index < requestedObjects; index++)
-                SpawnObject(path, spawnTrackDistance);
+            {
+                if (index > 0)
+                {
+                    float minimumOffset = obstacleCarTuning != null ? obstacleCarTuning.minimumWaveObjectDistanceOffset : 12f;
+                    float maximumOffset = obstacleCarTuning != null ? obstacleCarTuning.maximumWaveObjectDistanceOffset : 20f;
+                    objectDistance += Random.Range(Mathf.Min(minimumOffset, maximumOffset), Mathf.Max(minimumOffset, maximumOffset));
+                }
+
+                SpawnObject(path, objectDistance);
+            }
 
             ScheduleNextSpawn();
         }
@@ -91,10 +121,37 @@ namespace VoxelRacer
                 if (!TryFindCompletelyEmptyLane(out float laneOffset))
                     return;
 
-                var obstacle = new GameObject("Brown Voxel Obstacle").AddComponent<VoxelObstacle>();
-                obstacle.transform.SetParent(transform);
-                obstacle.Configure(target, path, distance, laneOffset);
-                obstacle.gameObject.AddComponent<VoxelFadeIn>();
+                VoxelStaticObstacleDefinition definition = ChooseStaticObstacle();
+                if (definition == null)
+                    return;
+
+                switch (definition.obstacleType)
+                {
+                    case VoxelStaticObstacleType.Pothole:
+                    {
+                        var pothole = new GameObject(definition.displayName).AddComponent<VoxelPotholeObstacle>();
+                        pothole.transform.SetParent(transform);
+                        pothole.Configure(target, path, definition, distance, laneOffset, laneWidth);
+                        pothole.gameObject.AddComponent<VoxelFadeIn>();
+                        break;
+                    }
+                    case VoxelStaticObstacleType.FuelDrums:
+                    {
+                        var drums = new GameObject(definition.displayName).AddComponent<VoxelFuelDrumObstacle>();
+                        drums.transform.SetParent(transform);
+                        drums.Configure(target, path, definition, distance, laneOffset);
+                        drums.gameObject.AddComponent<VoxelFadeIn>();
+                        break;
+                    }
+                    default:
+                    {
+                        var obstacle = new GameObject(definition.displayName).AddComponent<VoxelObstacle>();
+                        obstacle.transform.SetParent(transform);
+                        obstacle.Configure(target, path, definition, distance, laneOffset);
+                        obstacle.gameObject.AddComponent<VoxelFadeIn>();
+                        break;
+                    }
+                }
             }
         }
 
@@ -213,7 +270,37 @@ namespace VoxelRacer
             foreach (var obstacle in GetComponentsInChildren<VoxelObstacle>())
                 if (IsInLane(obstacle.LaneOffset, candidateOffset))
                     return true;
+            foreach (var pothole in GetComponentsInChildren<VoxelPotholeObstacle>())
+                if (IsInLane(pothole.LaneOffset, candidateOffset))
+                    return true;
+            foreach (var drums in GetComponentsInChildren<VoxelFuelDrumObstacle>())
+                if (IsInLane(drums.LaneOffset, candidateOffset))
+                    return true;
             return false;
+        }
+
+        private VoxelStaticObstacleDefinition ChooseStaticObstacle()
+        {
+            if (staticObstacleSpawns == null || staticObstacleSpawns.Length == 0)
+                return null;
+
+            float totalWeight = 0f;
+            foreach (VoxelStaticObstacleSpawnEntry entry in staticObstacleSpawns)
+                if (entry != null && entry.obstacle != null)
+                    totalWeight += Mathf.Max(0f, entry.spawnWeight);
+            if (totalWeight <= 0f)
+                return null;
+
+            float selectedWeight = Random.value * totalWeight;
+            foreach (VoxelStaticObstacleSpawnEntry entry in staticObstacleSpawns)
+            {
+                if (entry == null || entry.obstacle == null)
+                    continue;
+                selectedWeight -= Mathf.Max(0f, entry.spawnWeight);
+                if (selectedWeight <= 0f)
+                    return entry.obstacle;
+            }
+            return null;
         }
 
         private float GetLaneOffset(int laneIndex) => (laneIndex - (laneCount - 1) * 0.5f) * laneWidth;

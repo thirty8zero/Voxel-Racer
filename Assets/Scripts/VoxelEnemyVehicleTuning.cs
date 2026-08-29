@@ -19,6 +19,14 @@ namespace VoxelRacer
         [Tooltip("Random range for the multiplier applied to the player's maximum speed when this enemy spawns. The selected speed remains fixed for that enemy.")]
         [Min(0f)] public float minimumSpawnSpeedMultiplier = 0.98f;
         [Min(0f)] public float maximumSpawnSpeedMultiplier = 0.98f;
+        [Tooltip("Distance ahead of the player at which the enemy switches from its spawn speed to its approach speed.")]
+        [Min(0f)] public float approachSpeedDistance = 100f;
+        [Min(0f)] public float minimumApproachSpeedMultiplier = 0.98f;
+        [Min(0f)] public float maximumApproachSpeedMultiplier = 0.98f;
+        [Tooltip("Distance ahead of the player at which the enemy switches to its engage speed. Use this later for close-range attack behaviours.")]
+        [Min(0f)] public float engageSpeedDistance = 0f;
+        [Min(0f)] public float minimumEngageSpeedMultiplier = 0.98f;
+        [Min(0f)] public float maximumEngageSpeedMultiplier = 0.98f;
 
         [Header("Collision")]
         [Tooltip("Lane-space collision width used for a player ram.")]
@@ -63,6 +71,9 @@ namespace VoxelRacer
             voxelHealth = Mathf.Max(0.01f, voxelHealth);
             vehicleHealth = Mathf.Max(0.01f, vehicleHealth);
             maximumSpawnSpeedMultiplier = Mathf.Max(minimumSpawnSpeedMultiplier, maximumSpawnSpeedMultiplier);
+            approachSpeedDistance = Mathf.Max(engageSpeedDistance, approachSpeedDistance);
+            maximumApproachSpeedMultiplier = Mathf.Max(minimumApproachSpeedMultiplier, maximumApproachSpeedMultiplier);
+            maximumEngageSpeedMultiplier = Mathf.Max(minimumEngageSpeedMultiplier, maximumEngageSpeedMultiplier);
             playerDamageVoxelsMin = Mathf.Max(1, playerDamageVoxelsMin);
             playerDamageVoxelsMax = Mathf.Max(playerDamageVoxelsMin, playerDamageVoxelsMax);
             VoxelAssetSaveQueue.Request(this);

@@ -21,6 +21,9 @@ namespace VoxelRacer
 
         public bool IsComplete => started && Time.unscaledTime - countdownStartedAt >= 3f;
 
+        /// <summary>Traffic may enter during the final displayed "1" second so it is present when driving begins.</summary>
+        public bool IsTrafficSpawnWindowOpen => started && Time.unscaledTime - countdownStartedAt >= 2f;
+
         /// <summary>Gameplay HUD fades in during the final one-second "1" phase.</summary>
         public float GameplayHudAlpha => !started
             ? 0f

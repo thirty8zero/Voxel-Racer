@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d0edb0c9009cbb4e98a50bde7a8a80c, type: 3}
   m_Name: LongtailCarTuning
   m_EditorClassIdentifier: 
-  acceleration: 10
+  acceleration: 30
   topSpeed: 40
   brakingForce: 20
   damageVoxelsPerHit: 50

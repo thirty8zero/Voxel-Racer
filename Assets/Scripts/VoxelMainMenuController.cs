@@ -5,10 +5,10 @@ using UnityEngine.SceneManagement;
 
 namespace VoxelRacer
 {
-    /// <summary>Builds the title screen UI and starts the separate car-selection scene.</summary>
+    /// <summary>Builds the title screen UI and starts a new mission with the selected car.</summary>
     public sealed class VoxelMainMenuController : MonoBehaviour
     {
-        public string carSelectSceneName = "CarSelect";
+        public string raceSceneName = "SampleScene";
         [Tooltip("Leave empty to load Resources/MainMenuTuning automatically.")]
         public VoxelMainMenuTuning tuning;
 
@@ -26,7 +26,7 @@ namespace VoxelRacer
             VoxelMenuUi.CreateText(canvas, "Title", "VOXEL RACER", 264, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(1600f, 250f)).color = Color.black;
             VoxelMenuUi.CreateButton(canvas, "Start Button", "START", 132,
-                new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(780f, 204f), OpenCarSelect);
+                new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(780f, 204f), StartMission);
         }
 
         public void BuildDesertScenery()
@@ -99,13 +99,16 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (featuredDisplayRoot != null)
+                featuredDisplayRoot.Rotate(Vector3.up, 18f * Time.deltaTime, Space.World);
+
             if (isLoading)
                 return;
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null &&
                 (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame ||
                  keyboard.spaceKey.wasPressedThisFrame))
-                OpenCarSelect();
+                StartMission();
         }
 
         /// <summary>Rebuilds the two display slots from the persistent featured-car list.</summary>
@@ -217,15 +220,24 @@ namespace VoxelRacer
             }
         }
 
-        public void OpenCarSelect()
+        public void StartMission()
         {
             if (isLoading)
                 return;
+            VoxelCarDefinition selectedCar = VoxelCarSelectionState.GetSelectedOrDefault();
+            if (selectedCar == null)
+            {
+                Debug.LogError("Cannot start mission because no selectable car is configured.");
+                return;
+            }
+
+            VoxelCarSelectionState.Select(selectedCar);
+            VoxelCarRunState.BeginNewRun(selectedCar);
             int buildIndex = SceneUtility.GetBuildIndexByScenePath(
-                "Assets/Scenes/" + carSelectSceneName + ".unity");
+                "Assets/Scenes/" + raceSceneName + ".unity");
             if (buildIndex < 0)
             {
-                Debug.LogError("Car Select scene is not enabled in Build Settings: " + carSelectSceneName);
+                Debug.LogError("Race scene is not enabled in Build Settings: " + raceSceneName);
                 return;
             }
             isLoading = true;
