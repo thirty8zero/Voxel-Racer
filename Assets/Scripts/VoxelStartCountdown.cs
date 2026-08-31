@@ -11,7 +11,7 @@ namespace VoxelRacer
 
         [Header("Race Opening Fade")]
         [Min(0f)] public float blackScreenDuration = 1f;
-        [Min(0.01f)] public float fadeInDuration = 1f;
+        [Min(0.01f)] public float fadeInDuration = 2f;
 
         private float openingStartedAt;
         private float countdownStartedAt;
@@ -24,10 +24,10 @@ namespace VoxelRacer
         /// <summary>Traffic may enter during the final displayed "1" second so it is present when driving begins.</summary>
         public bool IsTrafficSpawnWindowOpen => started && Time.unscaledTime - countdownStartedAt >= 2f;
 
-        /// <summary>Gameplay HUD fades in during the final one-second "1" phase.</summary>
+        /// <summary>Gameplay HUD fades in during the one-second "GO!" phase.</summary>
         public float GameplayHudAlpha => !started
             ? 0f
-            : Mathf.Clamp01(Time.unscaledTime - countdownStartedAt - 2f);
+            : Mathf.Clamp01(Time.unscaledTime - countdownStartedAt - 3f);
 
         public static float CurrentGameplayHudAlpha => Active == null ? 1f : Active.GameplayHudAlpha;
 

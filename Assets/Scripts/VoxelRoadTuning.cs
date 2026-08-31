@@ -18,6 +18,8 @@ namespace VoxelRacer
         public float segmentLength = 30f;
         public int segmentCount = 8;
         public float recycleBehindDistance = 45f;
+        [Tooltip("Road distance rebuilt and retained behind the stopped player for the mission-complete camera. This is only used after gameplay has finished.")]
+        [Min(0f)] public float finishRoadBehindDistance = 150f;
 
         [Range(0f, 1f)] public float turnChancePerSegment = 0.35f;
         [Min(1f)] public float minimumTurnAngle = 12f;
@@ -47,6 +49,7 @@ namespace VoxelRacer
             road.segmentLength = segmentLength;
             road.segmentCount = segmentCount;
             road.recycleBehindDistance = recycleBehindDistance;
+            road.finishRoadBehindDistance = finishRoadBehindDistance;
             road.turnChancePerSegment = turnChancePerSegment;
             road.minimumTurnAngle = minimumTurnAngle;
             road.maximumTurnAngle = maximumTurnAngle;
@@ -70,6 +73,7 @@ namespace VoxelRacer
             segmentLength = road.segmentLength;
             segmentCount = road.segmentCount;
             recycleBehindDistance = road.recycleBehindDistance;
+            finishRoadBehindDistance = road.finishRoadBehindDistance;
             turnChancePerSegment = road.turnChancePerSegment;
             minimumTurnAngle = road.minimumTurnAngle;
             maximumTurnAngle = road.maximumTurnAngle;

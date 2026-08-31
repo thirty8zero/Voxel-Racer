@@ -231,7 +231,7 @@ namespace VoxelRacer
                     return true;
 
             foreach (var enemy in GetComponentsInChildren<VoxelEnemyCar>())
-                if (IsInLane(enemy.LaneOffset, candidateOffset))
+                if (enemy.OccupiesLane(candidateOffset, laneWidth))
                     return true;
 
             return false;
@@ -240,9 +240,68 @@ namespace VoxelRacer
         private bool HasEnemyInLane(float candidateOffset)
         {
             foreach (var enemy in GetComponentsInChildren<VoxelEnemyCar>())
-                if (IsInLane(enemy.LaneOffset, candidateOffset))
+                if (enemy.OccupiesLane(candidateOffset, laneWidth))
                     return true;
             return false;
+        }
+
+        /// <summary>Finds a genuinely clear adjacent lane for a damaged interceptor to evade into.</summary>
+        public bool TryFindSafeEnemyLane(VoxelEnemyCar requester, out float laneOffset)
+        {
+            var safeLanes = new List<float>();
+            for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
+            {
+                float candidateOffset = GetLaneOffset(laneIndex);
+                float lateralDistance = Mathf.Abs(candidateOffset - requester.LaneOffset);
+                if (lateralDistance < laneWidth * 0.75f || lateralDistance > laneWidth * 1.25f)
+                    continue;
+                if (IsEnemyLaneClear(requester, candidateOffset))
+                    safeLanes.Add(candidateOffset);
+            }
+
+            if (safeLanes.Count == 0)
+            {
+                laneOffset = requester.LaneOffset;
+                return false;
+            }
+
+            laneOffset = safeLanes[Random.Range(0, safeLanes.Count)];
+            return true;
+        }
+
+        private bool IsEnemyLaneClear(VoxelEnemyCar requester, float candidateOffset)
+        {
+            // The interceptor travels forward, so objects already behind it (between
+            // the interceptor and player) are safe to merge behind. Only objects at
+            // or ahead of it can be reached and therefore block the lane change.
+            if (IsInLane(target.CurrentLaneOffset, candidateOffset) &&
+                target.TrackDistance >= requester.TrackDistance)
+                return false;
+
+            foreach (var civilian in GetComponentsInChildren<VoxelObstacleCar>())
+                if (IsInLane(civilian.LaneOffset, candidateOffset) &&
+                    civilian.TrackDistance >= requester.TrackDistance)
+                    return false;
+
+            foreach (var enemy in GetComponentsInChildren<VoxelEnemyCar>())
+                if (enemy != requester && enemy.OccupiesLane(candidateOffset, laneWidth) &&
+                    enemy.TrackDistance >= requester.TrackDistance)
+                    return false;
+
+            foreach (var obstacle in GetComponentsInChildren<VoxelObstacle>())
+                if (IsInLane(obstacle.LaneOffset, candidateOffset) &&
+                    obstacle.TrackDistance >= requester.TrackDistance)
+                    return false;
+            foreach (var pothole in GetComponentsInChildren<VoxelPotholeObstacle>())
+                if (IsInLane(pothole.LaneOffset, candidateOffset) &&
+                    pothole.TrackDistance >= requester.TrackDistance)
+                    return false;
+            foreach (var drums in GetComponentsInChildren<VoxelFuelDrumObstacle>())
+                if (IsInLane(drums.LaneOffset, candidateOffset) &&
+                    drums.TrackDistance >= requester.TrackDistance)
+                    return false;
+
+            return true;
         }
 
         private bool TryFindCompletelyEmptyLane(out float laneOffset)

@@ -25,12 +25,14 @@ namespace VoxelRacer
         [Min(0f)] public float explosionForwardForceMax = 10f;
         [Min(0f)] public float explosionUpwardForce = 2.5f;
         [Min(0f)] public float explosionSpreadForce = 1.5f;
+        [Min(0.1f)] public float explosionEffectScale = 1.15f;
 
         [Header("Lanes")]
         [Min(1)] public int laneCount = 4;
         [Min(0.1f)] public float laneWidth = 3f;
         [Min(0.1f)] public float laneChangeSpeed = 14f;
         [SerializeField] private int currentLane = 1;
+        [SerializeField] private int previousLane = 1;
 
         [Header("Visuals")]
         [Min(0f)] public float frontWheelTurnDegrees = 24f;
@@ -45,6 +47,7 @@ namespace VoxelRacer
         public EndlessVoxelRoad TrackPath { get; private set; }
         public float TrackDistance { get; private set; }
         public float CurrentLaneOffset { get; private set; }
+        public float TargetLaneOffset => (currentLane - (laneCount - 1) * 0.5f) * laneWidth;
         public float PlannedFinishStopDuration { get; private set; }
         public bool IsDestroyed { get; private set; }
         /// <summary>Live count of the player's remaining destructible visual voxels.</summary>
@@ -67,6 +70,13 @@ namespace VoxelRacer
         private float finishDeceleration;
         private float visualYaw;
         private float visualRoll;
+        private float ramForwardOffset;
+        private float ramLateralOffset;
+        private float ramResponseStartedAt = -1f;
+        private float ramResponseDuration;
+        private float ramResponseForwardStart;
+        private float ramResponseLateralStart;
+        private VoxelEasingType ramResponseEasing;
         private int initialIntegrityVoxels;
         private Vector3 destroyedVelocity;
         private float wreckGroundHeight;
@@ -90,6 +100,7 @@ namespace VoxelRacer
             laneCount = Mathf.Max(1, lanes);
             laneWidth = Mathf.Max(0.1f, width);
             currentLane = Mathf.Clamp(currentLane, 0, laneCount - 1);
+            previousLane = Mathf.Clamp(previousLane, 0, laneCount - 1);
 
             CurrentLaneOffset = (currentLane - (laneCount - 1) * 0.5f) * laneWidth;
             ApplyTrackPose();
@@ -158,6 +169,7 @@ namespace VoxelRacer
             float targetSpeed = !drivingEnabled || braking || finishingRun ? 0f : topSpeed;
             float rate = braking ? brakingForce : finishingRun ? finishDeceleration : acceleration;
             CurrentSpeed = Mathf.MoveTowards(CurrentSpeed, targetSpeed, rate * Time.deltaTime);
+            UpdateRamResponse();
             if (TrackPath != null)
                 TrackDistance += CurrentSpeed * Time.deltaTime;
             else
@@ -166,12 +178,12 @@ namespace VoxelRacer
             if (keyboard != null)
             {
                 if (keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame)
-                    currentLane = Mathf.Max(0, currentLane - 1);
+                    RequestLaneChange(currentLane - 1);
                 if (keyboard.dKey.wasPressedThisFrame || keyboard.rightArrowKey.wasPressedThisFrame)
-                    currentLane = Mathf.Min(laneCount - 1, currentLane + 1);
+                    RequestLaneChange(currentLane + 1);
             }
 
-            float targetLaneOffset = (currentLane - (laneCount - 1) * 0.5f) * laneWidth;
+            float targetLaneOffset = TargetLaneOffset;
             CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, targetLaneOffset, laneChangeSpeed * Time.deltaTime);
             float laneOffset = targetLaneOffset - CurrentLaneOffset;
             float steeringTarget = Mathf.Abs(laneOffset) > 0.01f
@@ -208,8 +220,72 @@ namespace VoxelRacer
             if (TrackPath == null)
                 return;
             VoxelTrackPose pose = TrackPath.Evaluate(TrackDistance);
-            transform.position = pose.position + pose.right * CurrentLaneOffset;
+            transform.position = pose.position + pose.forward * ramForwardOffset +
+                pose.right * (CurrentLaneOffset + ramLateralOffset);
             transform.rotation = pose.rotation * Quaternion.Euler(0f, visualYaw, visualRoll);
+        }
+
+        /// <summary>Applies the player-side recoil after a surviving enemy ram.</summary>
+        public void ApplyRamResponse(bool rearImpact, Vector3 enemyDirection, VoxelEnemyVehicleTuning enemyTuning)
+        {
+            if (enemyTuning == null)
+                return;
+
+            ramResponseStartedAt = Time.time;
+            ramResponseEasing = rearImpact
+                ? enemyTuning.playerRearRamRecoilEasing
+                : enemyTuning.playerSideRamBounceEasing;
+            ramResponseDuration = rearImpact
+                ? enemyTuning.playerRearRamRecoilDuration
+                : enemyTuning.playerSideRamBounceDuration;
+            ramResponseForwardStart = rearImpact ? -enemyTuning.playerRearRamRecoilDistance : 0f;
+            if (rearImpact)
+            {
+                ramResponseLateralStart = 0f;
+            }
+            else
+            {
+                ReturnToPreviousLane();
+                float side = Mathf.Sign(Vector3.Dot(enemyDirection, transform.right));
+                ramResponseLateralStart = -side * enemyTuning.playerSideRamBounceDistance;
+            }
+
+            ramForwardOffset = ramResponseForwardStart;
+            ramLateralOffset = ramResponseLateralStart;
+        }
+
+        private void UpdateRamResponse()
+        {
+            if (ramResponseStartedAt < 0f)
+                return;
+
+            float progress = ramResponseDuration <= 0.001f ? 1f :
+                Mathf.Clamp01((Time.time - ramResponseStartedAt) / ramResponseDuration);
+            float eased = VoxelEasing.Evaluate(ramResponseEasing, progress);
+            ramForwardOffset = Mathf.Lerp(ramResponseForwardStart, 0f, eased);
+            ramLateralOffset = Mathf.Lerp(ramResponseLateralStart, 0f, eased);
+            if (progress >= 1f)
+                ramResponseStartedAt = -1f;
+        }
+
+        private void RequestLaneChange(int requestedLane)
+        {
+            requestedLane = Mathf.Clamp(requestedLane, 0, laneCount - 1);
+            if (requestedLane == currentLane)
+                return;
+
+            previousLane = currentLane;
+            currentLane = requestedLane;
+        }
+
+        private void ReturnToPreviousLane()
+        {
+            if (previousLane == currentLane)
+                return;
+
+            int laneBeforeBounce = currentLane;
+            currentLane = previousLane;
+            previousLane = laneBeforeBounce;
         }
 
         public void ApplyDamage(Vector3 hitPoint, Vector3 impactDirection)
@@ -282,6 +358,7 @@ namespace VoxelRacer
             drivingEnabled = false;
             finishingRun = false;
             CurrentSpeed = 0f;
+            VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f, explosionEffectScale);
             wreckGroundHeight = transform.position.y;
             wreckResting = false;
 

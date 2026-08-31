@@ -32,6 +32,9 @@ namespace VoxelRacer
         [Min(0f)] public float weaponDebrisSpreadForce = 1.2f;
 
         [Header("Explosion")]
+        [Tooltip("Size multiplier applied to the shared VoxelDestructionExplosion effect.")]
+        [Min(0.1f)] public float explosionEffectScale = 1f;
+        [Tooltip("Maximum remaining voxels detached by box explosions. Fuel drums always detach every remaining voxel.")]
         [Min(1)] public int explosionDebrisCount = 18;
         [Min(0.01f)] public float explosionDebrisScale = 0.7f;
         [Min(0.05f)] public float explosionDebrisLifetime = 1.5f;

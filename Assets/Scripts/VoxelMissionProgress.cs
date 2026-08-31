@@ -48,11 +48,29 @@ namespace VoxelRacer
                 Active.AddPoints(Active.Tuning.enemyVoxelDamagePoints * count);
         }
 
+        /// <summary>Returns the score currently awarded by one successful enemy weapon hit.</summary>
+        public static int GetEnemyVoxelDamagePoints(int count = 1) =>
+            Active?.Tuning != null ? Active.Tuning.enemyVoxelDamagePoints * count : 0;
+
+        /// <summary>Award ram score directly from the enemy's configured ram-damage amount, rather than its visual voxel debris count.</summary>
+        public static void ReportEnemyRamDamage(float damage)
+        {
+            if (Active?.Tuning != null && damage > 0f)
+                Active.AddPoints(Mathf.RoundToInt(damage));
+        }
+
+        /// <summary>Ram score is intentionally tied to the enemy's configured player-ram damage.</summary>
+        public static int GetEnemyRamDamagePoints(float damage) =>
+            Active?.Tuning != null && damage > 0f ? Mathf.RoundToInt(damage) : 0;
+
         public static void ReportEnemyVehicleDestroyed()
         {
             if (Active?.Tuning != null)
                 Active.AddPoints(Active.Tuning.enemyVehicleDestroyedPoints);
         }
+
+        public static int GetEnemyVehicleDestroyedPoints() =>
+            Active?.Tuning != null ? Active.Tuning.enemyVehicleDestroyedPoints : 0;
 
         public static void ReportCivilianVoxelDamage(int count = 1)
         {

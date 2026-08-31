@@ -15,7 +15,7 @@ namespace VoxelRacer
         public Button NextRaceButton { get; private set; }
 
         private VoxelCarDefinition definition;
-        private Text integrityText;
+        private VoxelCarIntegrityDisplay integrityDisplay;
         private Text currencyText;
         private Text feedbackText;
         private Text gunUpgradeButtonLabel;
@@ -101,6 +101,11 @@ namespace VoxelRacer
             VoxelCarRunState.Apply(DisplayedCar, definition);
             VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
             DisplayedCar.enabled = false;
+
+            // Reuse the same radial integrity widget used during missions. Its
+            // built-in top-left anchors keep the workshop view consistent with the HUD.
+            integrityDisplay = gameObject.AddComponent<VoxelCarIntegrityDisplay>();
+            integrityDisplay.target = DisplayedCar;
         }
 
         private static void BuildTent(Transform workshop, Material poleMaterial, Material roofMaterial)
@@ -184,9 +189,6 @@ namespace VoxelRacer
                 TextAnchor.MiddleCenter, new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(1800f, 230f));
             title.color = Color.black;
 
-            integrityText = VoxelMenuUi.CreateText(canvas, "Workshop Integrity", string.Empty, 86,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 1f), new Vector2(0f, -252f), new Vector2(1300f, 110f));
-            integrityText.color = Color.black;
             currencyText = VoxelMenuUi.CreateText(canvas, "Currency", string.Empty, 81,
                 TextAnchor.MiddleRight, new Vector2(1f, 1f), new Vector2(-470f, -82f), new Vector2(850f, 100f));
             currencyText.color = Color.black;
@@ -211,7 +213,7 @@ namespace VoxelRacer
             gunUpgradeButtonLabel = gunUpgradeButton.GetComponentInChildren<Text>();
 
             feedbackText = VoxelMenuUi.CreateText(canvas, "Repair Feedback", string.Empty, 68,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 0f), new Vector2(0f, 210f), new Vector2(1300f, 100f));
+                TextAnchor.MiddleCenter, new Vector2(1f, 0.5f), new Vector2(-230f, -370f), new Vector2(340f, 80f));
             feedbackText.color = Color.black;
 
             NextRaceButton = VoxelMenuUi.CreateButton(canvas, "Next Race Button", "NEXT MISSION", 99,
@@ -285,10 +287,16 @@ namespace VoxelRacer
 
         private void RefreshUi()
         {
-            if (DisplayedCar != null && integrityText != null)
-                integrityText.text = "CAR INTEGRITY  " + Mathf.CeilToInt(DisplayedCar.IntegrityPercent) + "%";
             if (currencyText != null)
                 currencyText.text = "CASH  <color=#FFD12A>" + VoxelCurrencyState.Balance + "</color>";
+
+            float missingPercent = DisplayedCar == null
+                ? 0f
+                : Mathf.Max(0f, 100f - DisplayedCar.IntegrityPercent);
+            SetRepairButtonAvailability(repair10ButtonLabel, missingPercent >= 10f - 0.001f);
+            SetRepairButtonAvailability(repair25ButtonLabel, missingPercent >= 25f - 0.001f);
+            SetRepairButtonAvailability(repair50ButtonLabel, missingPercent >= 50f - 0.001f);
+            SetRepairButtonAvailability(fullRepairButtonLabel, missingPercent > 0.001f);
 
             if (repair10ButtonLabel != null)
                 repair10ButtonLabel.text = RepairLabel("REPAIR 10%", GetRepairCost(10f));
@@ -310,6 +318,16 @@ namespace VoxelRacer
             gunUpgradeButtonLabel.text = canPurchase
                 ? gunTuning.displayName.ToUpperInvariant() + "\nCOST <color=#FFD12A>" + gunTuning.purchasePrice + "</color>   " + owned + "/" + maximum
                 : "GUN SLOTS FULL\n" + owned + "/" + maximum;
+        }
+
+        private static void SetRepairButtonAvailability(Text label, bool available)
+        {
+            if (label == null)
+                return;
+
+            Button button = label.GetComponentInParent<Button>();
+            if (button != null)
+                button.interactable = available;
         }
 
         public void StartNextRace()

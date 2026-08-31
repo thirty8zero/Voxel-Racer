@@ -43,7 +43,7 @@ namespace VoxelRacer
 
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Post Race UI");
             ContinueButton = VoxelMenuUi.CreateButton(canvas, "Continue Button", "CONTINUE", 78,
-                new Vector2(0.5f, 0f), new Vector2(0f, 92f), new Vector2(640f, 124f), OpenWorkshop);
+                new Vector2(0f, 0f), new Vector2(470f, 78f), new Vector2(700f, 104f), OpenWorkshop);
         }
 
         private void BuildRewardSequence()
@@ -51,14 +51,14 @@ namespace VoxelRacer
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Mission Reward UI");
             canvas.GetComponent<Canvas>().sortingOrder = 101;
             Image panel = VoxelMenuUi.CreatePanel(canvas, "Mission Reward Panel", new Vector2(0f, 0.5f),
-                new Vector2(540f, 0f), new Vector2(1040f, 620f));
+                new Vector2(470f, -40f), new Vector2(900f, 440f));
             panel.color = new Color(0.02f, 0.025f, 0.04f, 0.72f);
             baseRewardText = VoxelMenuUi.CreateText(panel.transform, "Base Mission Reward", string.Empty, 84,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 180f), new Vector2(1000f, 130f));
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 115f), new Vector2(860f, 110f));
             timeBonusText = VoxelMenuUi.CreateText(panel.transform, "Time Bonus Reward", string.Empty, 84,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(1000f, 130f));
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 0f), new Vector2(860f, 110f));
             totalRewardText = VoxelMenuUi.CreateText(panel.transform, "Total Mission Reward", string.Empty, 126,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, -165f), new Vector2(1000f, 190f));
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, -125f), new Vector2(860f, 170f));
 
             baseRewardText.color = Color.white;
             timeBonusText.color = Color.white;

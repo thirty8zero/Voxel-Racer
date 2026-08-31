@@ -20,6 +20,8 @@ namespace VoxelRacer
         public float explosionForwardForceMax = 10f;
         public float explosionUpwardForce = 2.5f;
         public float explosionSpreadForce = 1.5f;
+        [Tooltip("Size multiplier applied to the shared VoxelDestructionExplosion effect.")]
+        [Min(0.1f)] public float explosionEffectScale = 1.15f;
 
         [Header("Lanes")]
         public float laneChangeSpeed = 14f;
@@ -48,6 +50,7 @@ namespace VoxelRacer
             controller.explosionForwardForceMax = explosionForwardForceMax;
             controller.explosionUpwardForce = explosionUpwardForce;
             controller.explosionSpreadForce = explosionSpreadForce;
+            controller.explosionEffectScale = explosionEffectScale;
             controller.laneChangeSpeed = laneChangeSpeed;
             controller.frontWheelTurnDegrees = frontWheelTurnDegrees;
             controller.wheelSpinDegreesPerUnit = wheelSpinDegreesPerUnit;
@@ -69,6 +72,7 @@ namespace VoxelRacer
             explosionForwardForceMax = controller.explosionForwardForceMax;
             explosionUpwardForce = controller.explosionUpwardForce;
             explosionSpreadForce = controller.explosionSpreadForce;
+            explosionEffectScale = controller.explosionEffectScale;
             laneChangeSpeed = controller.laneChangeSpeed;
             frontWheelTurnDegrees = controller.frontWheelTurnDegrees;
             wheelSpinDegreesPerUnit = controller.wheelSpinDegreesPerUnit;

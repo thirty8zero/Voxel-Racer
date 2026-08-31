@@ -18,6 +18,7 @@ namespace VoxelRacer
         [Min(1)] public int laneCount = 4;
         [Min(1f)] public float roadWidth = 12f;
         [Min(1f)] public float groundWidth = 80f;
+        [Min(0f)] public float finishRoadBehindDistance = 150f;
         [Header("Cacti")]
         [Min(0)] public int minimumCactiPerSegment = 3;
         [Min(0)] public int maximumCactiPerSegment = 8;
@@ -60,6 +61,7 @@ namespace VoxelRacer
         private bool isApplyingTuning;
         private bool rebuildQueued;
         private bool editorRebuildQueued;
+        private bool recyclingSuspended;
 
         private float appliedGroundWidth;
         private int appliedLaneCount;
@@ -291,6 +293,9 @@ namespace VoxelRacer
             if (!Application.isPlaying || targetController == null || visibleSegments.Count == 0)
                 return;
 
+            if (recyclingSuspended)
+                return;
+
             while (visibleSegments.Count > 0 && targetController.TrackDistance > visibleSegments[0].EndDistance(segmentLength) + recycleBehindDistance)
             {
                 RoadSegment oldest = visibleSegments[0];
@@ -303,6 +308,27 @@ namespace VoxelRacer
                 next.visual = CreateSegmentVisual(next);
                 visibleSegments.Add(next);
             }
+        }
+
+        /// <summary>Restores recently recycled road only for the finish shot, then freezes recycling.</summary>
+        public void PreserveRoadForFinish()
+        {
+            if (!Application.isPlaying || targetController == null)
+                return;
+
+            recyclingSuspended = true;
+            float minimumDistance = targetController.TrackDistance - Mathf.Max(0f, finishRoadBehindDistance);
+            foreach (RoadSegment segment in pathSegments)
+            {
+                if (segment.EndDistance(segmentLength) < minimumDistance ||
+                    segment.startDistance > targetController.TrackDistance || segment.visual != null)
+                    continue;
+
+                segment.visual = CreateSegmentVisual(segment);
+                visibleSegments.Add(segment);
+            }
+
+            visibleSegments.Sort((first, second) => first.index.CompareTo(second.index));
         }
 
         private IEnumerator RebuildAfterCurrentFrame()

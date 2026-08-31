@@ -6,6 +6,7 @@ namespace VoxelRacer
     public sealed class VoxelPotholeObstacle : MonoBehaviour
     {
         public float LaneOffset => laneOffset;
+        public float TrackDistance => trackDistance;
 
         private static Material potholeMaterial;
         private VoxelCarController target;

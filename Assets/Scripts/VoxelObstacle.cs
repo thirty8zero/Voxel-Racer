@@ -7,6 +7,7 @@ namespace VoxelRacer
     public sealed class VoxelObstacle : MonoBehaviour
     {
         public float LaneOffset => laneOffset;
+        public float TrackDistance => trackDistance;
 
         private VoxelCarController target;
         private VoxelStaticObstacleDefinition definition;
@@ -183,6 +184,8 @@ namespace VoxelRacer
         private void Explode(Vector3 hitPoint, Vector3 impactDirection)
         {
             hasBeenHit = true;
+            VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.6f,
+                definition != null ? definition.explosionEffectScale : 0.75f);
             var voxels = new List<Transform>();
             foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
                 if (renderer.gameObject.activeInHierarchy)

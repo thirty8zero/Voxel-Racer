@@ -7,6 +7,7 @@ namespace VoxelRacer
     public sealed class VoxelFuelDrumObstacle : MonoBehaviour
     {
         public float LaneOffset => laneOffset;
+        public float TrackDistance => trackDistance;
 
         private static Material drumMaterial;
         private static Material stripeMaterial;
@@ -140,6 +141,8 @@ namespace VoxelRacer
             if (hasExploded)
                 return;
             hasExploded = true;
+            VoxelDestructionExplosion.Play(transform.position + Vector3.up * 1.1f,
+                definition != null ? definition.explosionEffectScale : 1.2f);
             if (damagedPlayer)
             {
                 int originalDamage = target.damageVoxelsPerHit;
@@ -154,12 +157,12 @@ namespace VoxelRacer
             foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
                 if (renderer.gameObject.activeInHierarchy)
                     voxels.Add(renderer.transform);
-            int debrisCount = Mathf.Min(voxels.Count, definition != null ? definition.explosionDebrisCount : 18);
-            for (int index = 0; index < debrisCount; index++)
+            // Fuel drums should completely disintegrate. Reuse each existing
+            // voxel as debris instead of instantiating a duplicate for it.
+            for (int index = 0; index < voxels.Count; index++)
             {
                 Transform voxel = voxels[index];
-                SpawnExplosionDebris(voxel, direction);
-                voxel.gameObject.SetActive(false);
+                LaunchExplosionVoxel(voxel, direction);
             }
             velocity = direction.normalized * 8f + Vector3.up * 5f;
             destroyTime = Time.time + (definition != null ? definition.destroyedLifetime : 1.8f);
@@ -185,9 +188,35 @@ namespace VoxelRacer
                 drum.SetParent(transform, false);
                 drum.localPosition = position;
                 drumHealth[drum] = Mathf.Max(1, definition != null ? definition.hitPoints : 3);
-                VoxelRacerBootstrap.CreateBlock("Drum Body", drum, new Vector3(0f, 0.38f, 0f), new Vector3(0.52f, 0.72f, 0.52f), paint);
-                VoxelRacerBootstrap.CreateBlock("Drum Stripe", drum, new Vector3(0f, 0.39f, 0f), new Vector3(0.54f, 0.16f, 0.54f), stripe);
-                VoxelRacerBootstrap.CreateBlock("Drum Top", drum, new Vector3(0f, 0.78f, 0f), new Vector3(0.42f, 0.08f, 0.42f), paint);
+                BuildVoxelDrum(drum, paint, stripe);
+            }
+        }
+
+        private static void BuildVoxelDrum(Transform drum, Material paint, Material stripe)
+        {
+            // The drum group is scaled to 2x, so these become approximately
+            // 0.23-unit world voxels—close to the 0.25-unit car body voxels.
+            const float voxelSpacing = 0.125f;
+            const float voxelSize = 0.115f;
+            const int layerCount = 7;
+
+            // Twenty-nine voxels per layer form a much smoother stepped circle.
+            // Every visible piece owns its own collider and can be selected,
+            // detached, and launched as debris.
+            for (int layer = 0; layer < layerCount; layer++)
+            for (int x = -3; x <= 3; x++)
+            for (int z = -3; z <= 3; z++)
+            {
+                if (x * x + z * z > 9)
+                    continue;
+
+                bool isStripe = layer == 3;
+                Material material = isStripe ? stripe : paint;
+                string voxelName = isStripe ? "Fuel Drum Stripe Voxel" : "Fuel Drum Body Voxel";
+                Vector3 position = new Vector3(x * voxelSpacing,
+                    voxelSize * 0.5f + layer * voxelSpacing, z * voxelSpacing);
+                VoxelRacerBootstrap.CreateBlock(voxelName, drum, position,
+                    Vector3.one * voxelSize, material);
             }
         }
 
@@ -241,21 +270,21 @@ namespace VoxelRacer
                 Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce, lifetime);
         }
 
-        private void SpawnExplosionDebris(Transform source, Vector3 direction)
+        private void LaunchExplosionVoxel(Transform source, Vector3 direction)
         {
-            GameObject debris = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            debris.name = "Fuel Drum Explosion Voxel";
-            debris.transform.position = source.position + Random.insideUnitSphere * 0.12f;
-            debris.transform.rotation = Random.rotation;
+            Vector3 worldScale = source.lossyScale;
+            source.SetParent(null, true);
+            source.name = "Fuel Drum Explosion Voxel";
+            source.position += Random.insideUnitSphere * 0.12f;
+            source.rotation = Random.rotation;
             float debrisScale = definition != null ? definition.explosionDebrisScale : 0.7f;
-            debris.transform.localScale = source.lossyScale * Random.Range(0.7f, 1.1f) * debrisScale;
-            debris.GetComponent<MeshRenderer>().sharedMaterial = source.GetComponent<MeshRenderer>().sharedMaterial;
-            Destroy(debris.GetComponent<BoxCollider>());
+            source.localScale = worldScale * Random.Range(0.7f, 1.1f) * debrisScale;
+            Destroy(source.GetComponent<BoxCollider>());
             float forwardForce = definition != null ? definition.explosionForwardForce : 8f;
             float upwardForce = definition != null ? definition.explosionUpwardForce : 4f;
             float spreadForce = definition != null ? definition.explosionSpreadForce : 3f;
             float lifetime = definition != null ? definition.explosionDebrisLifetime : 1.5f;
-            debris.AddComponent<VoxelDebris>().Launch(direction.normalized * forwardForce +
+            source.gameObject.AddComponent<VoxelDebris>().Launch(direction.normalized * forwardForce +
                 Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce, lifetime);
         }
     }

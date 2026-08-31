@@ -181,6 +181,7 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("segmentLength"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("segmentCount"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("recycleBehindDistance"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("finishRoadBehindDistance"));
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Turning Road Pieces", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("turnChancePerSegment"));
@@ -202,8 +203,10 @@ namespace VoxelRacer.Editor
         private bool movementExpanded = true;
         private bool collisionExpanded = true;
         private bool playerImpactExpanded = true;
+        private bool playerRamResponseExpanded = true;
         private bool weaponDamageExpanded = true;
         private bool healthBarExpanded = true;
+        private bool evasiveLaneChangeExpanded = true;
         private bool explosionExpanded = true;
 
         public override void OnInspectorGUI()
@@ -218,13 +221,21 @@ namespace VoxelRacer.Editor
             durabilityExpanded = DrawSection(durabilityExpanded, "Durability",
                 "voxelHealth", "vehicleHealth");
             playerImpactExpanded = DrawSection(playerImpactExpanded, "Player Impact",
-                "playerDamageVoxelsMin", "playerDamageVoxelsMax");
+                "playerDamageVoxelsMin", "playerDamageVoxelsMax", "playerRamDamage");
+            playerRamResponseExpanded = DrawSection(playerRamResponseExpanded, "Player Ram Response",
+                "playerRamSpeedMatchDuration", "rearRamEnemyForwardPushDistance", "rearRamEnemyForwardPushDuration",
+                "rearRamEnemyForwardPushEasing", "playerRearRamRecoilDistance", "playerRearRamRecoilDuration",
+                "playerRearRamRecoilEasing", "sideRamEnemyLaneShiftDistance", "sideRamEnemyLaneShiftDuration",
+                "sideRamEnemyLaneShiftEasing", "playerSideRamBounceDistance", "playerSideRamBounceDuration",
+                "playerSideRamBounceEasing");
             weaponDamageExpanded = DrawSection(weaponDamageExpanded, "Weapon Damage",
                 "rearSurfaceHitRandomness");
             movementExpanded = DrawSection(movementExpanded, "Movement",
                 "minimumSpawnSpeedMultiplier", "maximumSpawnSpeedMultiplier", "approachSpeedDistance",
                 "minimumApproachSpeedMultiplier", "maximumApproachSpeedMultiplier", "engageSpeedDistance",
                 "minimumEngageSpeedMultiplier", "maximumEngageSpeedMultiplier");
+            evasiveLaneChangeExpanded = DrawSection(evasiveLaneChangeExpanded, "Evasive Lane Change",
+                "laneChangeDamagePercent", "laneChangeChance", "laneChangeSpeed");
             collisionExpanded = DrawSection(collisionExpanded, "Collision",
                 "collisionHalfWidth", "collisionHalfLength");
             healthBarExpanded = DrawSection(healthBarExpanded, "Health Bar",
@@ -232,7 +243,7 @@ namespace VoxelRacer.Editor
                 "healthBarFullColour", "healthBarEmptyColour", "criticalHealthPercent",
                 "criticalPulseSpeed", "criticalPulseScale");
             explosionExpanded = DrawSection(explosionExpanded, "Explosion",
-                "explosionVoxelCount", "maximumExplosionVoxelRemovalPercent",
+                "explosionEffectScale", "explosionVoxelCount", "maximumExplosionVoxelRemovalPercent",
                 "explosionForwardForceMin", "explosionForwardForceMax", "explosionUpwardForce",
                 "explosionSpreadForce", "explosionDebrisScale", "explosionDebrisLifetime",
                 "destroyedLifetime");
@@ -251,6 +262,69 @@ namespace VoxelRacer.Editor
             {
                 foreach (string propertyName in propertyNames)
                     EditorGUILayout.PropertyField(serializedObject.FindProperty(propertyName));
+            }
+            return true;
+        }
+    }
+
+    [CustomEditor(typeof(VoxelCameraTuning))]
+    internal sealed class VoxelCameraTuningEditor : UnityEditor.Editor
+    {
+        private bool screenShakeExpanded = true;
+        private bool playerImpactShakeExpanded = true;
+        private bool objectExplosionShakeExpanded = true;
+
+        public override void OnInspectorGUI()
+        {
+            serializedObject.Update();
+            VoxelTuningInspector.DrawScript(serializedObject);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Chase View", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("chaseOffset"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("chaseLookAhead"));
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Finish View", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("finishOffset"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("finishLookHeight"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("finishLookSideOffset"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("finishFieldOfView"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("finishSequenceDuration"));
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Lane Change Camera", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("laneChangeCameraDuration"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("laneChangeCameraEasing"));
+
+            EditorGUILayout.Space(3f);
+            screenShakeExpanded = EditorGUILayout.Foldout(screenShakeExpanded, "Screen Shake", true);
+            if (screenShakeExpanded)
+            {
+                using (new EditorGUI.IndentLevelScope())
+                {
+                    playerImpactShakeExpanded = DrawShakeSection(playerImpactShakeExpanded,
+                        "Player Vehicle Impact", "playerVehicleImpactShake");
+                    objectExplosionShakeExpanded = DrawShakeSection(objectExplosionShakeExpanded,
+                        "Object Explosion", "objectExplosionShake");
+                }
+            }
+
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        private bool DrawShakeSection(bool isExpanded, string title, string propertyPrefix)
+        {
+            isExpanded = EditorGUILayout.Foldout(isExpanded, title, true);
+            if (!isExpanded)
+                return false;
+
+            using (new EditorGUI.IndentLevelScope())
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty(propertyPrefix + "Duration"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty(propertyPrefix + "PositionStrength"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty(propertyPrefix + "RotationDegrees"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty(propertyPrefix + "Frequency"));
             }
             return true;
         }

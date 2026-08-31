@@ -9,7 +9,8 @@ namespace VoxelRacer
         public VoxelEnemyVehicleTuning Tuning { get; private set; }
         public float CurrentHealth { get; private set; }
         public float HealthPercent => Tuning == null ? 0f : Mathf.Clamp01(CurrentHealth / Tuning.vehicleHealth);
-        public float LaneOffset => laneOffset;
+        public float LaneOffset => laneOffset + sideRamOffset;
+        public float TrackDistance => trackDistance + rearRamForwardOffset;
 
         private readonly Dictionary<Transform, float> voxelHealth = new();
         private VoxelCarController target;
@@ -26,6 +27,21 @@ namespace VoxelRacer
         private float nextCollisionTime;
         private Vector3 velocity;
         private VoxelEnemyHealthBar healthBar;
+        private VoxelObstacleSpawner spawner;
+        private float targetLaneOffset;
+        private bool evasiveChanceRolled;
+        private bool evasiveLaneChangePending;
+        private float speedMatchUntil = -1f;
+        private float rearRamForwardOffset;
+        private float rearRamPushDistance;
+        private float rearRamPushStartedAt = -1f;
+        private float rearRamPushDuration;
+        private VoxelEasingType rearRamPushEasing;
+        private float sideRamOffset;
+        private float sideRamOffsetStart;
+        private float sideRamStartedAt = -1f;
+        private float sideRamDuration;
+        private VoxelEasingType sideRamEasing;
 
         public void Configure(VoxelCarController player, VoxelObstacleCarTuning traffic, VoxelEnemyVehicleTuning enemy,
             EndlessVoxelRoad road, float distance, float offset)
@@ -36,6 +52,8 @@ namespace VoxelRacer
             path = road;
             trackDistance = distance;
             laneOffset = offset;
+            targetLaneOffset = offset;
+            spawner = GetComponentInParent<VoxelObstacleSpawner>();
             CurrentHealth = enemy.vehicleHealth;
             float minimumMultiplier = Mathf.Min(enemy.minimumSpawnSpeedMultiplier, enemy.maximumSpawnSpeedMultiplier);
             float maximumMultiplier = Mathf.Max(enemy.minimumSpawnSpeedMultiplier, enemy.maximumSpawnSpeedMultiplier);
@@ -75,17 +93,19 @@ namespace VoxelRacer
                 return;
             }
 
-            currentSpeed = GetPhaseSpeed();
+            UpdateRamResponse();
+            currentSpeed = Time.time < speedMatchUntil ? target.CurrentSpeed : GetPhaseSpeed();
             trackDistance += currentSpeed * Time.deltaTime;
+            UpdateEvasiveLaneChange();
             ApplyTrackPose();
             RotateWheels();
 
-            bool overlapsLane = Mathf.Abs(target.CurrentLaneOffset - laneOffset) < Tuning.collisionHalfWidth;
-            bool overlapsDepth = Mathf.Abs(target.TrackDistance - trackDistance) < Tuning.collisionHalfLength;
+            bool overlapsLane = Mathf.Abs(target.CurrentLaneOffset - LaneOffset) < Tuning.collisionHalfWidth;
+            bool overlapsDepth = Mathf.Abs(target.TrackDistance - TrackDistance) < Tuning.collisionHalfLength;
             if (overlapsLane && overlapsDepth && Time.time >= nextCollisionTime)
                 RamByPlayer();
 
-            if (trackDistance < target.TrackDistance - 30f || trackDistance > target.TrackDistance + GetMaximumDistanceAhead())
+            if (TrackDistance < target.TrackDistance - 30f || TrackDistance > target.TrackDistance + GetMaximumDistanceAhead())
                 Destroy(gameObject);
         }
 
@@ -95,9 +115,12 @@ namespace VoxelRacer
                 return;
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
+            TryRequestEvasiveLaneChange();
             if (hitVoxel != null)
             {
                 VoxelMissionProgress.ReportEnemyVoxelDamage();
+                VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
+                    VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage);
                 voxelHealth.TryGetValue(hitVoxel, out float remainingVoxelHealth);
                 remainingVoxelHealth = remainingVoxelHealth <= 0f ? Tuning.voxelHealth : remainingVoxelHealth;
                 remainingVoxelHealth -= damage;
@@ -186,9 +209,24 @@ namespace VoxelRacer
         private float GetMaximumDistanceAhead() => Mathf.Max(110f,
             (trafficTuning != null ? trafficTuning.spawnDistanceAhead : 110f) + 30f);
 
-        private void Explode(Vector3 hitPoint, Vector3 impactDirection)
+        /// <summary>Detonates a previously damaged interceptor when the mission ends, without awarding extra points.</summary>
+        public void DetonateForMissionCompletion()
         {
-            VoxelMissionProgress.ReportEnemyVehicleDestroyed();
+            if (hasBeenRammed || Tuning == null || CurrentHealth >= Tuning.vehicleHealth)
+                return;
+
+            Explode(transform.position, transform.forward, false);
+        }
+
+        private void Explode(Vector3 hitPoint, Vector3 impactDirection, bool awardMissionPoints = true)
+        {
+            if (awardMissionPoints)
+            {
+                VoxelMissionProgress.ReportEnemyVehicleDestroyed();
+                VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.55f),
+                    VoxelMissionProgress.GetEnemyVehicleDestroyedPoints(), VoxelScorePopup.Style.EnemyDestroyed);
+            }
+            VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f, Tuning.explosionEffectScale);
             healthBar.gameObject.SetActive(false);
             var voxels = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
@@ -212,8 +250,7 @@ namespace VoxelRacer
         private void RamByPlayer()
         {
             nextCollisionTime = Time.time + trafficTuning.collisionCooldown;
-            hasBeenRammed = true;
-            healthBar.gameObject.SetActive(false);
+            Camera.main?.GetComponent<VoxelCameraFollow>()?.ShakeFromPlayerVehicleImpact();
 
             Vector3 hitDirection = (transform.position - target.transform.position).normalized;
             if (hitDirection.sqrMagnitude < 0.001f)
@@ -226,14 +263,23 @@ namespace VoxelRacer
             target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection);
             target.damageVoxelsPerHit = originalPlayerDamage;
 
-            int damagedVoxelCount = ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,
+            ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,
                 -hitDirection, Random.Range(
                     Mathf.Min(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax),
                     Mathf.Max(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax) + 1));
-            VoxelMissionProgress.ReportEnemyVoxelDamage(damagedVoxelCount);
-            VoxelMissionProgress.ReportEnemyVehicleDestroyed();
-            velocity = hitDirection * trafficTuning.launchForce + Vector3.up * trafficTuning.launchUpwardForce;
-            destroyTime = Time.time + trafficTuning.destroyedLifetime;
+            CurrentHealth = Mathf.Max(0f, CurrentHealth - Tuning.playerRamDamage);
+            VoxelMissionProgress.ReportEnemyRamDamage(Tuning.playerRamDamage);
+            VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
+                VoxelMissionProgress.GetEnemyRamDamagePoints(Tuning.playerRamDamage), VoxelScorePopup.Style.RamDamage);
+            healthBar.SetHealth(HealthPercent);
+            if (CurrentHealth <= 0f)
+                Explode(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset, hitDirection);
+            else
+            {
+                bool rearImpact = IsRearImpact(hitDirection);
+                BeginRamResponse(rearImpact, hitDirection);
+                target.ApplyRamResponse(rearImpact, hitDirection, Tuning);
+            }
         }
 
         private int ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount)
@@ -257,19 +303,111 @@ namespace VoxelRacer
         {
             if (path == null)
                 return;
-            VoxelTrackPose pose = path.Evaluate(trackDistance);
-            transform.position = pose.position + pose.right * laneOffset;
+            VoxelTrackPose pose = path.Evaluate(TrackDistance);
+            transform.position = pose.position + pose.right * (laneOffset + sideRamOffset);
             transform.rotation = pose.rotation;
+        }
+
+        /// <summary>Returns true for the current and reserved destination lanes while an evasive move is in progress.</summary>
+        public bool OccupiesLane(float candidateOffset, float laneWidth)
+        {
+            float tolerance = laneWidth * 0.25f;
+            return Mathf.Abs(laneOffset - candidateOffset) <= tolerance ||
+                Mathf.Abs(targetLaneOffset - candidateOffset) <= tolerance;
+        }
+
+        private void TryRequestEvasiveLaneChange()
+        {
+            if (evasiveChanceRolled || Tuning == null)
+                return;
+
+            float damagePercent = 1f - HealthPercent;
+            if (damagePercent < Tuning.laneChangeDamagePercent)
+                return;
+
+            evasiveChanceRolled = true;
+            evasiveLaneChangePending = Random.value <= Tuning.laneChangeChance;
+        }
+
+        private void UpdateEvasiveLaneChange()
+        {
+            if (Tuning == null)
+                return;
+
+            if (evasiveLaneChangePending && spawner != null &&
+                spawner.TryFindSafeEnemyLane(this, out float safeLaneOffset))
+            {
+                targetLaneOffset = safeLaneOffset;
+                evasiveLaneChangePending = false;
+            }
+
+            laneOffset = Mathf.MoveTowards(laneOffset, targetLaneOffset,
+                Tuning.laneChangeSpeed * Time.deltaTime);
         }
 
         private float GetPhaseSpeed()
         {
-            float distanceAhead = trackDistance - target.TrackDistance;
+            float distanceAhead = TrackDistance - target.TrackDistance;
             if (distanceAhead <= Tuning.engageSpeedDistance)
                 return engageSpeed;
             if (distanceAhead <= Tuning.approachSpeedDistance)
                 return approachSpeed;
             return spawnSpeed;
+        }
+
+        private bool IsRearImpact(Vector3 playerToEnemyDirection)
+        {
+            float forward = Vector3.Dot(playerToEnemyDirection, transform.forward);
+            float lateral = Mathf.Abs(Vector3.Dot(playerToEnemyDirection, transform.right));
+            return forward > lateral;
+        }
+
+        private void BeginRamResponse(bool rearImpact, Vector3 playerToEnemyDirection)
+        {
+            speedMatchUntil = Mathf.Max(speedMatchUntil, Time.time + Tuning.playerRamSpeedMatchDuration);
+            if (rearImpact)
+            {
+                rearRamPushDistance = Tuning.rearRamEnemyForwardPushDistance;
+                rearRamPushDuration = Tuning.rearRamEnemyForwardPushDuration;
+                rearRamPushEasing = Tuning.rearRamEnemyForwardPushEasing;
+                rearRamPushStartedAt = Time.time;
+                rearRamForwardOffset = 0f;
+                return;
+            }
+
+            float side = Mathf.Sign(Vector3.Dot(playerToEnemyDirection, transform.right));
+            sideRamOffsetStart = side * Tuning.sideRamEnemyLaneShiftDistance;
+            sideRamOffset = sideRamOffsetStart;
+            sideRamDuration = Tuning.sideRamEnemyLaneShiftDuration;
+            sideRamEasing = Tuning.sideRamEnemyLaneShiftEasing;
+            sideRamStartedAt = Time.time;
+        }
+
+        private void UpdateRamResponse()
+        {
+            if (rearRamPushStartedAt >= 0f)
+            {
+                float progress = rearRamPushDuration <= 0.001f ? 1f :
+                    Mathf.Clamp01((Time.time - rearRamPushStartedAt) / rearRamPushDuration);
+                rearRamForwardOffset = Mathf.Lerp(0f, rearRamPushDistance,
+                    VoxelEasing.Evaluate(rearRamPushEasing, progress));
+                if (progress >= 1f)
+                {
+                    trackDistance += rearRamPushDistance;
+                    rearRamForwardOffset = 0f;
+                    rearRamPushStartedAt = -1f;
+                }
+            }
+
+            if (sideRamStartedAt < 0f)
+                return;
+
+            float sideProgress = sideRamDuration <= 0.001f ? 1f :
+                Mathf.Clamp01((Time.time - sideRamStartedAt) / sideRamDuration);
+            sideRamOffset = Mathf.Lerp(sideRamOffsetStart, 0f,
+                VoxelEasing.Evaluate(sideRamEasing, sideProgress));
+            if (sideProgress >= 1f)
+                sideRamStartedAt = -1f;
         }
 
         private void RotateWheels()

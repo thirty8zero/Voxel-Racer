@@ -101,6 +101,7 @@ MonoBehaviour:
   segmentLength: 30
   segmentCount: 8
   recycleBehindDistance: 45
+  finishRoadBehindDistance: 150
   turnChancePerSegment: 0.35
   minimumTurnAngle: 12
   maximumTurnAngle: 32

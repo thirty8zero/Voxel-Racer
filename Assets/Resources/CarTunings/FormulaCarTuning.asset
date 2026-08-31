@@ -23,6 +23,7 @@ MonoBehaviour:
   explosionForwardForceMax: 20
   explosionUpwardForce: 5
   explosionSpreadForce: 3
+  explosionEffectScale: 1.15
   laneChangeSpeed: 16
   frontWheelTurnDegrees: 26
   wheelSpinDegreesPerUnit: 145

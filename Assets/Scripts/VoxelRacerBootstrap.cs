@@ -598,6 +598,7 @@ namespace VoxelRacer
             if (follow == null)
                 follow = camera.gameObject.AddComponent<VoxelCameraFollow>();
             follow.target = target;
+            follow.SetTuning(VoxelCameraTuning.Load());
         }
 
         private static void SetupGameplay(Transform environment, Transform car, EndlessVoxelRoad road)

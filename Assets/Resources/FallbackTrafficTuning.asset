@@ -19,6 +19,8 @@ MonoBehaviour:
   minimumObjectsPerWave: 2
   maximumObjectsPerWave: 3
   sameLaneCivilianSpeedTolerance: 1
+  minimumWaveObjectDistanceOffset: 12
+  maximumWaveObjectDistanceOffset: 20
   staticObstacleSpawns: []
   potholeSpawnChance: 0.35
   potholePlayerDamageVoxelsMin: 10

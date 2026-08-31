@@ -28,6 +28,14 @@ namespace VoxelRacer
         [Min(0f)] public float minimumEngageSpeedMultiplier = 0.98f;
         [Min(0f)] public float maximumEngageSpeedMultiplier = 0.98f;
 
+        [Header("Evasive Lane Change")]
+        [Tooltip("Fraction of the vehicle's health that must be lost before its lane-change chance is rolled. 0.5 means 50% damage taken.")]
+        [Range(0f, 1f)] public float laneChangeDamagePercent = 0.5f;
+        [Tooltip("Chance to attempt one evasive lane change once the damage threshold is reached.")]
+        [Range(0f, 1f)] public float laneChangeChance = 0.5f;
+        [Tooltip("Sideways movement speed while changing into a safe adjacent lane.")]
+        [Min(0.1f)] public float laneChangeSpeed = 4.5f;
+
         [Header("Collision")]
         [Tooltip("Lane-space collision width used for a player ram.")]
         [Min(0.1f)] public float collisionHalfWidth = 1.35f;
@@ -38,6 +46,24 @@ namespace VoxelRacer
         [Tooltip("Random range of player-car voxels damaged when this enemy is rammed.")]
         [Min(1)] public int playerDamageVoxelsMin = 10;
         [Min(1)] public int playerDamageVoxelsMax = 12;
+        [Tooltip("Damage this enemy takes from one player-car ram. The enemy only explodes once its health reaches zero.")]
+        [Min(0f)] public float playerRamDamage = 20f;
+
+        [Header("Player Ram Response")]
+        [Tooltip("How long a surviving enemy matches the player's speed after being rammed.")]
+        [Min(0f)] public float playerRamSpeedMatchDuration = 2f;
+        [Min(0f)] public float rearRamEnemyForwardPushDistance = 1.25f;
+        [Min(0.01f)] public float rearRamEnemyForwardPushDuration = 0.18f;
+        public VoxelEasingType rearRamEnemyForwardPushEasing = VoxelEasingType.EaseOutCubic;
+        [Min(0f)] public float playerRearRamRecoilDistance = 0.8f;
+        [Min(0.01f)] public float playerRearRamRecoilDuration = 0.25f;
+        public VoxelEasingType playerRearRamRecoilEasing = VoxelEasingType.EaseOutCubic;
+        [Min(0f)] public float sideRamEnemyLaneShiftDistance = 0.9f;
+        [Min(0.01f)] public float sideRamEnemyLaneShiftDuration = 0.3f;
+        public VoxelEasingType sideRamEnemyLaneShiftEasing = VoxelEasingType.EaseOutCubic;
+        [Min(0f)] public float playerSideRamBounceDistance = 1.2f;
+        [Min(0.01f)] public float playerSideRamBounceDuration = 0.32f;
+        public VoxelEasingType playerSideRamBounceEasing = VoxelEasingType.EaseOutCubic;
 
         [Header("Weapon Damage")]
         [Tooltip("Variation applied when choosing a voxel on the enemy's rear surface. Higher values create a less uniform damage pattern.")]
@@ -54,6 +80,8 @@ namespace VoxelRacer
         [Range(0f, 0.5f)] public float criticalPulseScale = 0.16f;
 
         [Header("Explosion")]
+        [Tooltip("Size multiplier applied to the shared VoxelDestructionExplosion effect.")]
+        [Min(0.1f)] public float explosionEffectScale = 1f;
         [Min(1)] public int explosionVoxelCount = 40;
         [Tooltip("Maximum portion of the active body that can detach during a weapon explosion, preserving a visible flying wreck.")]
         [Range(0f, 0.95f)] public float maximumExplosionVoxelRemovalPercent = 0.65f;

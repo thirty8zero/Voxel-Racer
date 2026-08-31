@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2de6f9a189d5ba4d86ba2aebd7c66b6, type: 3}
+  m_Name: VoxelCameraTuning
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelCameraTuning
+  chaseOffset: {x: -8.5, y: 11, z: -11}
+  chaseLookAhead: 14
+  finishOffset: {x: -4.2, y: 2.5, z: 5.5}
+  finishLookHeight: 0.9
+  finishLookSideOffset: 3.4
+  finishFieldOfView: 42
+  finishSequenceDuration: 2.5
+  laneChangeCameraDuration: 1
+  laneChangeCameraEasing: 6
+  playerVehicleImpactShakeDuration: 0.24
+  playerVehicleImpactShakePositionStrength: 0.32
+  playerVehicleImpactShakeRotationDegrees: 2.4
+  playerVehicleImpactShakeFrequency: 26
+  objectExplosionShakeDuration: 0.36
+  objectExplosionShakePositionStrength: 0.58
+  objectExplosionShakeRotationDegrees: 4
+  objectExplosionShakeFrequency: 19

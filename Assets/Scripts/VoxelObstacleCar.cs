@@ -13,6 +13,7 @@ namespace VoxelRacer
         public float VoxelHealth => EnemyTuning != null ? EnemyTuning.voxelHealth : 1f;
         public float CurrentHealth { get; private set; }
         public float LaneOffset => laneOffset;
+        public float TrackDistance => trackDistance;
         public bool TravelsWithPlayer => travelsWithPlayer;
         public float TravelSpeed => travelSpeed;
 
@@ -114,6 +115,7 @@ namespace VoxelRacer
         {
             nextCollisionTime = Time.time + tuning.collisionCooldown;
             hasBeenHit = true;
+            Camera.main?.GetComponent<VoxelCameraFollow>()?.ShakeFromPlayerVehicleImpact();
             Vector3 hitDirection = (transform.position - target.transform.position).normalized;
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = travelsWithPlayer ? target.transform.forward : -target.transform.forward;
@@ -137,6 +139,8 @@ namespace VoxelRacer
             int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount);
             VoxelMissionProgress.ReportCivilianVoxelDamage(damagedVoxelCount);
             VoxelMissionProgress.ReportCivilianVehicleDestroyed();
+            VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
+                EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
             velocity = hitDirection * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + tuning.destroyedLifetime;
         }
@@ -172,6 +176,8 @@ namespace VoxelRacer
         {
             hasBeenHit = true;
             VoxelMissionProgress.ReportCivilianVehicleDestroyed();
+            VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
+                EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
             ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount);
             velocity = impactDirection.normalized * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + EnemyTuning.destroyedLifetime;
