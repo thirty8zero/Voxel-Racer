@@ -6,15 +6,30 @@ namespace VoxelRacer
     /// <summary>Top-left radial integrity HUD for the player's damageable car voxels.</summary>
     public sealed class VoxelCarIntegrityDisplay : MonoBehaviour
     {
+        public static VoxelCarIntegrityDisplay Active { get; private set; }
         public VoxelCarController target;
 
         private CanvasGroup canvasGroup;
+        private Image backgroundRing;
         private Image healthRing;
         private Text integrityLabelText;
         private Text percentageText;
         private Font voxelFont;
         private Font glitchGoblinFont;
         private Texture2D ringTexture;
+        private float damagePulseStartedAt = -1f;
+        private const float DamagePulseDuration = 0.28f;
+
+        private void OnEnable() => Active = this;
+
+        private void OnDisable()
+        {
+            if (Active == this)
+                Active = null;
+        }
+
+        /// <summary>Brief red radial flash used whenever the player actually loses voxels.</summary>
+        public void PulseDamage() => damagePulseStartedAt = Time.unscaledTime;
 
         private void Awake()
         {
@@ -39,8 +54,17 @@ namespace VoxelRacer
 
             float integrity = Mathf.Clamp01(target.IntegrityPercent / 100f);
             healthRing.fillAmount = integrity;
-            healthRing.color = Color.Lerp(new Color(0.95f, 0.12f, 0.08f),
+            Color normalRingColour = Color.Lerp(new Color(0.95f, 0.12f, 0.08f),
                 new Color(0.16f, 0.92f, 0.28f), integrity);
+            float pulseProgress = damagePulseStartedAt < 0f ? 1f :
+                Mathf.Clamp01((Time.unscaledTime - damagePulseStartedAt) / DamagePulseDuration);
+            float pulse = damagePulseStartedAt < 0f || pulseProgress >= 1f
+                ? 0f
+                : Mathf.Sin(pulseProgress * Mathf.PI);
+            healthRing.color = Color.Lerp(normalRingColour, new Color(1f, 0.05f, 0.03f), pulse);
+            Vector3 radialScale = Vector3.one * (1f + pulse * 0.11f);
+            healthRing.transform.localScale = radialScale;
+            backgroundRing.transform.localScale = radialScale;
 
             Font activeFont = integrity <= 0.5f && glitchGoblinFont != null ? glitchGoblinFont : voxelFont;
             integrityLabelText.font = voxelFont;
@@ -61,7 +85,7 @@ namespace VoxelRacer
             canvasGroup.alpha = 0f;
 
             Sprite ringSprite = CreateRingSprite();
-            Image backgroundRing = CreateRingImage(canvas, ringSprite);
+            backgroundRing = CreateRingImage(canvas, ringSprite);
             backgroundRing.name = "Integrity Ring Background";
             backgroundRing.fillAmount = 1f;
             backgroundRing.color = new Color(0.02f, 0.025f, 0.04f, 0.58f);

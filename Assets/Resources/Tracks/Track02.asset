@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: Traffic Tuning
   m_EditorClassIdentifier: 
   spawnDistanceAhead: 200
-  obstacleCarSpawnChance: 0.9
-  oppositeDirectionChance: 0.5
-  enemyCarSpawnChance: 0.9
-  minimumObjectsPerWave: 2
-  maximumObjectsPerWave: 3
+  obstacleCarSpawnChance: 0.6
+  oppositeDirectionChance: 0.8
+  enemyCarSpawnChance: 0.65
+  minimumObjectsPerWave: 4
+  maximumObjectsPerWave: 8
   sameLaneCivilianSpeedTolerance: 1
   minimumWaveObjectDistanceOffset: 12
   maximumWaveObjectDistanceOffset: 20
@@ -125,7 +125,7 @@ MonoBehaviour:
   raceSceneName: SampleScene
   roadTuning: {fileID: -4439660758796297234}
   obstacleCarTuning: {fileID: -8029312130423065911}
-  missionTuning: {fileID: 0}
+  missionTuning: {fileID: 11400000, guid: 0b58f585fdd976a44a1aa177c20c43da, type: 2}
   staticObstacleSpawns:
   - obstacle: {fileID: 11400000, guid: a2642cf1b770f304089540f52b9277a3, type: 2}
     spawnWeight: 1

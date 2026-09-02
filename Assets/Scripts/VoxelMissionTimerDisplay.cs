@@ -44,9 +44,9 @@ namespace VoxelRacer
             float dialScale = mission.RemainingTime > 0f && mission.RemainingTime <= 10f
                 ? 1.08f + Mathf.Sin(Time.unscaledTime * 14f) * 0.1f
                 : 1f;
-            SetDialScale(dialScale);
 
             bool timeIsUp = mission.RemainingTime <= 0f;
+            SetDialScale(dialScale, timeIsUp);
             timerText.fontSize = timeIsUp ? 44 : 76;
             timerText.resizeTextMaxSize = timeIsUp ? 44 : 76;
             int remainingSeconds = Mathf.CeilToInt(mission.RemainingTime);
@@ -95,12 +95,14 @@ namespace VoxelRacer
             return red;
         }
 
-        private void SetDialScale(float scale)
+        private void SetDialScale(float scale, bool timeIsUp)
         {
             Vector3 dialScale = Vector3.one * scale;
             backgroundRing.transform.localScale = dialScale;
             timerRing.transform.localScale = dialScale;
-            timerText.transform.localScale = dialScale;
+            // Keep the radial dial unchanged while making the two-line timeout
+            // message exactly twice its normal rendered size.
+            timerText.transform.localScale = dialScale * (timeIsUp ? 2f : 1f);
         }
 
         private static Image CreateRingImage(Transform parent, Sprite sprite)

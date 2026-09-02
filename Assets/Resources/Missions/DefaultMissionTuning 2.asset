@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3ac5574a0d1241f7a5f7f94ba58382f9, type: 3}
-  m_Name: DefaultMissionTuning
+  m_Name: DefaultMissionTuning 2
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionTuning
-  displayName: Mission 1
-  requiredPoints: 300
-  completionCurrencyAward: 100
-  timeLimitSeconds: 60
-  timeBonusCurrencyMultiplier: 1.5
+  displayName: Mission  2
+  requiredPoints: 600
+  completionCurrencyAward: 200
+  timeLimitSeconds: 90
+  timeBonusCurrencyMultiplier: 1.6
   enemyVoxelDamagePoints: 1
   enemyVehicleDestroyedPoints: 25
   fuelDrumDestroyedPoints: 5

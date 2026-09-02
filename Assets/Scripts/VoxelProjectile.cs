@@ -21,8 +21,13 @@ namespace VoxelRacer
             var projectileObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             projectileObject.name = "Gun Projectile";
             projectileObject.transform.SetPositionAndRotation(position, Quaternion.LookRotation(direction));
-            projectileObject.transform.localScale = new Vector3(0.09f, 0.09f, 0.26f);
+            // A narrow, elongated tracer reads more clearly than the old cube-like shot,
+            // especially once several hood guns fire together.
+            projectileObject.transform.localScale = new Vector3(0.045f, 0.055f, 0.48f);
             Object.Destroy(projectileObject.GetComponent<BoxCollider>());
+            Material projectileMaterial = VoxelRacerBootstrap.LineMaterial;
+            if (projectileMaterial != null)
+                projectileObject.GetComponent<MeshRenderer>().sharedMaterial = projectileMaterial;
 
             var projectile = projectileObject.AddComponent<VoxelProjectile>();
             projectile.Initialize(direction, tuning);

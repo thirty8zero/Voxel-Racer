@@ -80,13 +80,15 @@ namespace VoxelRacer
         [Min(0f)] public float launchUpwardForce = 6f;
         [Min(0f)] public float destroyedLifetime = 2.5f;
 
-        [Min(0)] public int debrisVoxelsPerDamagedVoxel = 2;
-        [Min(0f)] public float explosionSpawnOffset = 0.45f;
-        [Min(0f)] public float explosionUpwardBias = 0.75f;
-        [Min(0f)] public float explosionForwardForceMin = 7f;
-        [Min(0f)] public float explosionForwardForceMax = 10f;
-        [Min(0f)] public float explosionUpwardForce = 2.5f;
-        [Min(0f)] public float explosionSpreadForce = 1.5f;
+        // Debris is now tuned per individual vehicle in VoxelEnemyVehicleTuning.
+        // Keep the old serialized fields only so existing track assets migrate safely.
+        [HideInInspector] [Min(0)] public int debrisVoxelsPerDamagedVoxel = 2;
+        [HideInInspector] [Min(0f)] public float explosionSpawnOffset = 0.45f;
+        [HideInInspector] [Min(0f)] public float explosionUpwardBias = 0.75f;
+        [HideInInspector] [Min(0f)] public float explosionForwardForceMin = 7f;
+        [HideInInspector] [Min(0f)] public float explosionForwardForceMax = 10f;
+        [HideInInspector] [Min(0f)] public float explosionUpwardForce = 2.5f;
+        [HideInInspector] [Min(0f)] public float explosionSpreadForce = 1.5f;
 
         public static VoxelObstacleCarTuning Load() => Resources.Load<VoxelObstacleCarTuning>("FallbackTrafficTuning");
 

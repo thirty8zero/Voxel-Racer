@@ -6,6 +6,7 @@ namespace VoxelRacer
     /// <summary>A same-direction traffic-car variant that can be damaged by player projectiles.</summary>
     public sealed class VoxelEnemyCar : MonoBehaviour
     {
+        private enum DebrisStyle { Weapon, Ram, Explosion }
         public VoxelEnemyVehicleTuning Tuning { get; private set; }
         public float CurrentHealth { get; private set; }
         public float HealthPercent => Tuning == null ? 0f : Mathf.Clamp01(CurrentHealth / Tuning.vehicleHealth);
@@ -31,6 +32,7 @@ namespace VoxelRacer
         private float targetLaneOffset;
         private bool evasiveChanceRolled;
         private bool evasiveLaneChangePending;
+        private float laneChangeSpeedBoostUntil = -1f;
         private float speedMatchUntil = -1f;
         private float rearRamForwardOffset;
         private float rearRamPushDistance;
@@ -94,7 +96,7 @@ namespace VoxelRacer
             }
 
             UpdateRamResponse();
-            currentSpeed = Time.time < speedMatchUntil ? target.CurrentSpeed : GetPhaseSpeed();
+            currentSpeed = GetCurrentDriveSpeed();
             trackDistance += currentSpeed * Time.deltaTime;
             UpdateEvasiveLaneChange();
             ApplyTrackPose();
@@ -111,6 +113,18 @@ namespace VoxelRacer
 
         public void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection)
         {
+            TakeProjectileHit(hitVoxel, damage, hitPoint, impactDirection, true);
+        }
+
+        /// <summary>Used by hostile hazards. Damage is physical only and never becomes player mission credit.</summary>
+        public void TakeHostileProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection)
+        {
+            TakeProjectileHit(hitVoxel, damage, hitPoint, impactDirection, false);
+        }
+
+        private void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
+            bool awardMissionPoints)
+        {
             if (hasBeenRammed || damage <= 0f)
                 return;
 
@@ -118,16 +132,19 @@ namespace VoxelRacer
             TryRequestEvasiveLaneChange();
             if (hitVoxel != null)
             {
-                VoxelMissionProgress.ReportEnemyVoxelDamage();
-                VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
-                    VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage);
+                if (awardMissionPoints)
+                {
+                    VoxelMissionProgress.ReportEnemyVoxelDamage();
+                    VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
+                        VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage);
+                }
                 voxelHealth.TryGetValue(hitVoxel, out float remainingVoxelHealth);
                 remainingVoxelHealth = remainingVoxelHealth <= 0f ? Tuning.voxelHealth : remainingVoxelHealth;
                 remainingVoxelHealth -= damage;
                 if (remainingVoxelHealth <= 0f)
                 {
                     voxelHealth.Remove(hitVoxel);
-                    SpawnDebris(hitVoxel, impactDirection);
+                    SpawnDebris(hitVoxel, impactDirection, DebrisStyle.Weapon);
                     hitVoxel.gameObject.SetActive(false);
                 }
                 else
@@ -136,7 +153,7 @@ namespace VoxelRacer
 
             healthBar.SetHealth(HealthPercent);
             if (CurrentHealth <= 0f)
-                Explode(hitPoint, impactDirection);
+                Explode(hitPoint, impactDirection, awardMissionPoints);
         }
 
         /// <summary>
@@ -237,7 +254,7 @@ namespace VoxelRacer
             int debrisCount = Mathf.Min(Tuning.explosionVoxelCount, maximumDetachedVoxels);
             for (int index = 0; index < debrisCount; index++)
             {
-                SpawnDebris(voxels[index], impactDirection);
+                SpawnDebris(voxels[index], impactDirection, DebrisStyle.Explosion);
                 voxels[index].gameObject.SetActive(false);
             }
 
@@ -250,8 +267,6 @@ namespace VoxelRacer
         private void RamByPlayer()
         {
             nextCollisionTime = Time.time + trafficTuning.collisionCooldown;
-            Camera.main?.GetComponent<VoxelCameraFollow>()?.ShakeFromPlayerVehicleImpact();
-
             Vector3 hitDirection = (transform.position - target.transform.position).normalized;
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = target.transform.forward;
@@ -293,7 +308,7 @@ namespace VoxelRacer
             int destroyCount = Mathf.Min(voxelCount, candidates.Count);
             for (int index = 0; index < destroyCount; index++)
             {
-                SpawnDebris(candidates[index], impactDirection);
+                SpawnDebris(candidates[index], impactDirection, DebrisStyle.Ram);
                 candidates[index].gameObject.SetActive(false);
             }
             return destroyCount;
@@ -339,6 +354,8 @@ namespace VoxelRacer
             {
                 targetLaneOffset = safeLaneOffset;
                 evasiveLaneChangePending = false;
+                if (Random.value <= Tuning.laneChangeSpeedBoostChance)
+                    laneChangeSpeedBoostUntil = Time.time + Tuning.laneChangeSpeedBoostDuration;
             }
 
             laneOffset = Mathf.MoveTowards(laneOffset, targetLaneOffset,
@@ -353,6 +370,14 @@ namespace VoxelRacer
             if (distanceAhead <= Tuning.approachSpeedDistance)
                 return approachSpeed;
             return spawnSpeed;
+        }
+
+        private float GetCurrentDriveSpeed()
+        {
+            float speed = Time.time < speedMatchUntil ? target.CurrentSpeed : GetPhaseSpeed();
+            if (Time.time < laneChangeSpeedBoostUntil)
+                speed *= 1f + Tuning.laneChangeSpeedBoostMultiplier;
+            return speed;
         }
 
         private bool IsRearImpact(Vector3 playerToEnemyDirection)
@@ -437,13 +462,47 @@ namespace VoxelRacer
             }
         }
 
-        private void SpawnDebris(Transform source, Vector3 impactDirection)
+        private void SpawnDebris(Transform source, Vector3 impactDirection, DebrisStyle style)
         {
+            float scale;
+            float forwardForceMin;
+            float forwardForceMax;
+            float upwardForce;
+            float spreadForce;
+            float lifetime;
+            if (style == DebrisStyle.Weapon)
+            {
+                scale = Tuning.weaponDebrisScale;
+                forwardForceMin = Tuning.weaponDebrisForwardForceMin;
+                forwardForceMax = Tuning.weaponDebrisForwardForceMax;
+                upwardForce = Tuning.weaponDebrisUpwardForce;
+                spreadForce = Tuning.weaponDebrisSpreadForce;
+                lifetime = Tuning.weaponDebrisLifetime;
+            }
+            else if (style == DebrisStyle.Ram)
+            {
+                scale = Tuning.ramDebrisScale;
+                forwardForceMin = Tuning.ramDebrisForwardForceMin;
+                forwardForceMax = Tuning.ramDebrisForwardForceMax;
+                upwardForce = Tuning.ramDebrisUpwardForce;
+                spreadForce = Tuning.ramDebrisSpreadForce;
+                lifetime = Tuning.ramDebrisLifetime;
+            }
+            else
+            {
+                scale = Tuning.explosionDebrisScale;
+                forwardForceMin = Tuning.explosionForwardForceMin;
+                forwardForceMax = Tuning.explosionForwardForceMax;
+                upwardForce = Tuning.explosionUpwardForce;
+                spreadForce = Tuning.explosionSpreadForce;
+                lifetime = Tuning.explosionDebrisLifetime;
+            }
+
             var debris = GameObject.CreatePrimitive(PrimitiveType.Cube);
             debris.name = "Enemy Car Damage Voxel";
             debris.transform.position = source.position + impactDirection.normalized * 0.25f + Random.insideUnitSphere * 0.16f;
             debris.transform.rotation = Random.rotation;
-            debris.transform.localScale = source.lossyScale * Tuning.explosionDebrisScale;
+            debris.transform.localScale = source.lossyScale * scale;
             var sourceRenderer = source.GetComponent<MeshRenderer>();
             var debrisRenderer = debris.GetComponent<MeshRenderer>();
             debrisRenderer.sharedMaterial = sourceRenderer.sharedMaterial;
@@ -451,10 +510,9 @@ namespace VoxelRacer
             sourceRenderer.GetPropertyBlock(colourOverrides);
             debrisRenderer.SetPropertyBlock(colourOverrides);
             Destroy(debris.GetComponent<BoxCollider>());
-            Vector3 burst = impactDirection.normalized * Random.Range(Tuning.explosionForwardForceMin, Tuning.explosionForwardForceMax)
-                + Random.insideUnitSphere * Tuning.explosionSpreadForce
-                + Vector3.up * Tuning.explosionUpwardForce;
-            debris.AddComponent<VoxelDebris>().Launch(burst, Tuning.explosionDebrisLifetime);
+            Vector3 burst = impactDirection.normalized * Random.Range(forwardForceMin, forwardForceMax)
+                + Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce;
+            debris.AddComponent<VoxelDebris>().Launch(burst, lifetime);
         }
     }
 }

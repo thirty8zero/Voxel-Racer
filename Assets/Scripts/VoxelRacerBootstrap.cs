@@ -627,6 +627,21 @@ namespace VoxelRacer
                 ? activeTrack.missionTuning
                 : VoxelMissionTuning.Load());
 
+            var boostController = environment.GetComponent<VoxelBoostController>();
+            if (boostController == null)
+                boostController = environment.gameObject.AddComponent<VoxelBoostController>();
+            boostController.Configure(car.GetComponent<VoxelCarController>(), VoxelBoostTuning.Load());
+
+            var boostDisplay = environment.GetComponent<VoxelBoostDisplay>();
+            if (boostDisplay == null)
+                boostDisplay = environment.gameObject.AddComponent<VoxelBoostDisplay>();
+            boostDisplay.Configure(boostController);
+
+            var turretSpawner = environment.GetComponent<VoxelRoadsideTurretSpawner>();
+            if (turretSpawner == null)
+                turretSpawner = environment.gameObject.AddComponent<VoxelRoadsideTurretSpawner>();
+            turretSpawner.Configure(car.GetComponent<VoxelCarController>(), road, spawner, missionProgress.Tuning);
+
             var runFinish = environment.GetComponentInChildren<VoxelRunFinish>();
             if (runFinish != null)
             {

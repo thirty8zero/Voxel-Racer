@@ -293,19 +293,23 @@ namespace VoxelRacer
             float missingPercent = DisplayedCar == null
                 ? 0f
                 : Mathf.Max(0f, 100f - DisplayedCar.IntegrityPercent);
-            SetRepairButtonAvailability(repair10ButtonLabel, missingPercent >= 10f - 0.001f);
-            SetRepairButtonAvailability(repair25ButtonLabel, missingPercent >= 25f - 0.001f);
-            SetRepairButtonAvailability(repair50ButtonLabel, missingPercent >= 50f - 0.001f);
-            SetRepairButtonAvailability(fullRepairButtonLabel, missingPercent > 0.001f);
+            bool canRepair10 = missingPercent >= 10f - 0.001f;
+            bool canRepair25 = missingPercent >= 25f - 0.001f;
+            bool canRepair50 = missingPercent >= 50f - 0.001f;
+            bool canRepairFull = missingPercent > 0.001f;
+            SetRepairButtonAvailability(repair10ButtonLabel, canRepair10);
+            SetRepairButtonAvailability(repair25ButtonLabel, canRepair25);
+            SetRepairButtonAvailability(repair50ButtonLabel, canRepair50);
+            SetRepairButtonAvailability(fullRepairButtonLabel, canRepairFull);
 
             if (repair10ButtonLabel != null)
-                repair10ButtonLabel.text = RepairLabel("REPAIR 10%", GetRepairCost(10f));
+                repair10ButtonLabel.text = RepairLabel("REPAIR 10%", GetRepairCost(10f), canRepair10);
             if (repair25ButtonLabel != null)
-                repair25ButtonLabel.text = RepairLabel("REPAIR 25%", GetRepairCost(25f));
+                repair25ButtonLabel.text = RepairLabel("REPAIR 25%", GetRepairCost(25f), canRepair25);
             if (repair50ButtonLabel != null)
-                repair50ButtonLabel.text = RepairLabel("REPAIR 50%", GetRepairCost(50f));
+                repair50ButtonLabel.text = RepairLabel("REPAIR 50%", GetRepairCost(50f), canRepair50);
             if (fullRepairButtonLabel != null)
-                fullRepairButtonLabel.text = RepairLabel("FULL REPAIR", GetRepairCost(100f));
+                fullRepairButtonLabel.text = RepairLabel("FULL REPAIR", GetRepairCost(100f), canRepairFull);
 
             VoxelGunTuning gunTuning = VoxelGunUpgradeState.LongGunTuning;
             if (gunUpgradeButton == null || gunUpgradeButtonLabel == null || gunTuning == null)
@@ -320,14 +324,29 @@ namespace VoxelRacer
                 : "GUN SLOTS FULL\n" + owned + "/" + maximum;
         }
 
+        private static string RepairLabel(string repairName, int cost, bool available)
+        {
+            if (!available)
+                return "<color=#787878>" + repairName + "\nCOST -</color>";
+            return repairName + "\nCOST <color=#FFD12A>" + Mathf.Max(0, cost) + "</color>";
+        }
+
         private static void SetRepairButtonAvailability(Text label, bool available)
         {
             if (label == null)
                 return;
 
             Button button = label.GetComponentInParent<Button>();
-            if (button != null)
-                button.interactable = available;
+            if (button == null)
+                return;
+
+            button.interactable = available;
+            Image image = button.GetComponent<Image>();
+            if (image != null)
+                image.color = available
+                    ? new Color(0.14f, 0.18f, 0.27f, 0.96f)
+                    : new Color(0.08f, 0.08f, 0.09f, 0.9f);
+            label.color = available ? Color.white : new Color(0.47f, 0.47f, 0.47f);
         }
 
         public void StartNextRace()

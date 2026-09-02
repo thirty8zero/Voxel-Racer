@@ -6,6 +6,7 @@ namespace VoxelRacer
     /// <summary>A destructible traffic car that can drive with or against the player.</summary>
     public sealed class VoxelObstacleCar : MonoBehaviour
     {
+        private enum DebrisStyle { Weapon, Ram, Explosion }
         [Header("Persistent Tuning")]
         public VoxelObstacleCarTuning tuning;
 
@@ -34,6 +35,9 @@ namespace VoxelRacer
         private float trackDistance;
         private float laneOffset;
         private readonly Dictionary<Transform, float> projectileVoxelHealth = new();
+        private bool nearMissCandidate;
+        private bool nearMissAwarded;
+        private float closestNearMissDistance = float.PositiveInfinity;
 
         public void Configure(VoxelCarController player, VoxelObstacleCarTuning value, bool sameDirection,
             EndlessVoxelRoad road, float distance, float offset, float matchingTravelSpeed = -1f)
@@ -97,7 +101,10 @@ namespace VoxelRacer
                 bool overlapsDepth = Mathf.Abs(target.TrackDistance - trackDistance) < collisionHalfLength;
                 if (overlapsLane && overlapsDepth && Time.time >= nextCollisionTime)
                     HitCar();
-                else if (trackDistance < target.TrackDistance - 30f ||
+                else
+                    UpdateNearMiss();
+
+                if (trackDistance < target.TrackDistance - 30f ||
                          trackDistance > target.TrackDistance + GetMaximumDistanceAhead())
                     Destroy(gameObject);
                 return;
@@ -115,7 +122,6 @@ namespace VoxelRacer
         {
             nextCollisionTime = Time.time + tuning.collisionCooldown;
             hasBeenHit = true;
-            Camera.main?.GetComponent<VoxelCameraFollow>()?.ShakeFromPlayerVehicleImpact();
             Vector3 hitDirection = (transform.position - target.transform.position).normalized;
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = travelsWithPlayer ? target.transform.forward : -target.transform.forward;
@@ -136,7 +142,7 @@ namespace VoxelRacer
             int obstacleDamageCount = Random.Range(
                 Mathf.Min(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax),
                 Mathf.Max(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax) + 1);
-            int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount);
+            int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount, DebrisStyle.Ram);
             VoxelMissionProgress.ReportCivilianVoxelDamage(damagedVoxelCount);
             VoxelMissionProgress.ReportCivilianVehicleDestroyed();
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
@@ -148,20 +154,33 @@ namespace VoxelRacer
         /// <summary>Applies weapon damage without giving civilians an enemy health bar.</summary>
         public void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection)
         {
+            TakeProjectileHit(hitVoxel, damage, hitPoint, impactDirection, true);
+        }
+
+        /// <summary>Used by hostile hazards. Civilian damage remains physical but does not penalise or reward the player.</summary>
+        public void TakeHostileProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection)
+        {
+            TakeProjectileHit(hitVoxel, damage, hitPoint, impactDirection, false);
+        }
+
+        private void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
+            bool awardMissionPoints)
+        {
             if (hasBeenHit || EnemyTuning == null || damage <= 0f)
                 return;
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
             if (hitVoxel != null)
             {
-                VoxelMissionProgress.ReportCivilianVoxelDamage();
+                if (awardMissionPoints)
+                    VoxelMissionProgress.ReportCivilianVoxelDamage();
                 projectileVoxelHealth.TryGetValue(hitVoxel, out float remainingVoxelHealth);
                 remainingVoxelHealth = remainingVoxelHealth <= 0f ? EnemyTuning.voxelHealth : remainingVoxelHealth;
                 remainingVoxelHealth -= damage;
                 if (remainingVoxelHealth <= 0f)
                 {
                     projectileVoxelHealth.Remove(hitVoxel);
-                    SpawnDebris(hitVoxel, impactDirection);
+                    SpawnDebris(hitVoxel, impactDirection, DebrisStyle.Weapon);
                     hitVoxel.gameObject.SetActive(false);
                 }
                 else
@@ -169,16 +188,17 @@ namespace VoxelRacer
             }
 
             if (CurrentHealth <= 0f)
-                DestroyFromWeaponHit(hitPoint, impactDirection);
+                DestroyFromWeaponHit(hitPoint, impactDirection, awardMissionPoints);
         }
 
-        private void DestroyFromWeaponHit(Vector3 hitPoint, Vector3 impactDirection)
+        private void DestroyFromWeaponHit(Vector3 hitPoint, Vector3 impactDirection, bool awardMissionPoints = true)
         {
             hasBeenHit = true;
-            VoxelMissionProgress.ReportCivilianVehicleDestroyed();
+            if (awardMissionPoints)
+                VoxelMissionProgress.ReportCivilianVehicleDestroyed();
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
                 EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
-            ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount);
+            ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount, DebrisStyle.Explosion);
             velocity = impactDirection.normalized * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + EnemyTuning.destroyedLifetime;
         }
@@ -233,7 +253,40 @@ namespace VoxelRacer
         private float GetMaximumDistanceAhead() => Mathf.Max(110f,
             (tuning != null ? tuning.spawnDistanceAhead : 110f) + 30f);
 
-        private int ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount)
+        private void UpdateNearMiss()
+        {
+            VoxelMissionTuning mission = VoxelMissionProgress.Active?.Tuning;
+            if (mission == null || nearMissAwarded)
+                return;
+
+            float lateralGap = Mathf.Max(0f, Mathf.Abs(target.CurrentLaneOffset - laneOffset) -
+                (collisionHalfWidth + mission.civilianNearMissPlayerHalfWidth));
+            float longitudinalGap = Mathf.Max(0f, Mathf.Abs(target.TrackDistance - trackDistance) -
+                (collisionHalfLength + mission.civilianNearMissPlayerHalfLength));
+            float clearDistance = Mathf.Sqrt(lateralGap * lateralGap + longitudinalGap * longitudinalGap);
+            if (clearDistance <= mission.civilianNearMissDistance)
+            {
+                nearMissCandidate = true;
+                closestNearMissDistance = Mathf.Min(closestNearMissDistance, clearDistance);
+            }
+
+            bool safelyBehindPlayer = trackDistance < target.TrackDistance -
+                (collisionHalfLength + mission.civilianNearMissPlayerHalfLength + mission.civilianNearMissPassClearance);
+            if (!nearMissCandidate || !safelyBehindPlayer)
+                return;
+
+            float closeness = 1f - Mathf.Clamp01(closestNearMissDistance / mission.civilianNearMissDistance);
+            float stepFraction = mission.civilianNearMissScoreStepPercent * 0.01f;
+            int closerSteps = Mathf.FloorToInt(closeness / stepFraction + 0.0001f);
+            int points = Mathf.Clamp(mission.civilianNearMissMinPoints + closerSteps,
+                mission.civilianNearMissMinPoints, mission.civilianNearMissMaxPoints);
+            nearMissAwarded = true;
+            VoxelMissionProgress.ReportCivilianNearMiss(points);
+            VoxelScorePopup.ShowNearMiss(transform.position + Vector3.up * 2.8f, points,
+                mission.civilianNearMissPopupDuration);
+        }
+
+        private int ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount, DebrisStyle style)
         {
             var candidates = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
@@ -245,25 +298,63 @@ namespace VoxelRacer
             for (int index = 0; index < destroyCount; index++)
             {
                 Transform voxel = candidates[index];
-                SpawnDebris(voxel, impactDirection);
+                SpawnDebris(voxel, impactDirection, style);
                 voxel.gameObject.SetActive(false);
             }
             return destroyCount;
         }
 
-        private void SpawnDebris(Transform source, Vector3 impactDirection)
+        private void SpawnDebris(Transform source, Vector3 impactDirection, DebrisStyle style)
         {
+            VoxelEnemyVehicleTuning vehicleTuning = EnemyTuning;
+            if (vehicleTuning == null)
+                return;
+
+            float scale;
+            float forwardForceMin;
+            float forwardForceMax;
+            float upwardForce;
+            float spreadForce;
+            float lifetime;
+            if (style == DebrisStyle.Weapon)
+            {
+                scale = vehicleTuning.weaponDebrisScale;
+                forwardForceMin = vehicleTuning.weaponDebrisForwardForceMin;
+                forwardForceMax = vehicleTuning.weaponDebrisForwardForceMax;
+                upwardForce = vehicleTuning.weaponDebrisUpwardForce;
+                spreadForce = vehicleTuning.weaponDebrisSpreadForce;
+                lifetime = vehicleTuning.weaponDebrisLifetime;
+            }
+            else if (style == DebrisStyle.Ram)
+            {
+                scale = vehicleTuning.ramDebrisScale;
+                forwardForceMin = vehicleTuning.ramDebrisForwardForceMin;
+                forwardForceMax = vehicleTuning.ramDebrisForwardForceMax;
+                upwardForce = vehicleTuning.ramDebrisUpwardForce;
+                spreadForce = vehicleTuning.ramDebrisSpreadForce;
+                lifetime = vehicleTuning.ramDebrisLifetime;
+            }
+            else
+            {
+                scale = vehicleTuning.explosionDebrisScale;
+                forwardForceMin = vehicleTuning.explosionForwardForceMin;
+                forwardForceMax = vehicleTuning.explosionForwardForceMax;
+                upwardForce = vehicleTuning.explosionUpwardForce;
+                spreadForce = vehicleTuning.explosionSpreadForce;
+                lifetime = vehicleTuning.explosionDebrisLifetime;
+            }
+
             var debris = GameObject.CreatePrimitive(PrimitiveType.Cube);
             debris.name = "Obstacle Car Damage Voxel";
-            Vector3 burstDirection = (impactDirection.normalized + Vector3.up * tuning.explosionUpwardBias).normalized;
-            debris.transform.position = source.position + burstDirection * tuning.explosionSpawnOffset + Random.insideUnitSphere * 0.16f;
+            Vector3 burstDirection = (impactDirection.normalized + Vector3.up * 0.75f).normalized;
+            debris.transform.position = source.position + burstDirection * 0.45f + Random.insideUnitSphere * 0.16f;
             debris.transform.rotation = Random.rotation;
-            debris.transform.localScale = Vector3.one * Random.Range(0.16f, 0.30f);
+            debris.transform.localScale = source.lossyScale * Random.Range(0.75f, 1.15f) * scale;
             debris.GetComponent<MeshRenderer>().sharedMaterial = source.GetComponent<MeshRenderer>().sharedMaterial;
             Destroy(debris.GetComponent<BoxCollider>());
-            Vector3 burst = burstDirection * Random.Range(tuning.explosionForwardForceMin, tuning.explosionForwardForceMax)
-                + Random.insideUnitSphere * tuning.explosionSpreadForce + Vector3.up * tuning.explosionUpwardForce;
-            debris.AddComponent<VoxelDebris>().Launch(burst);
+            Vector3 burst = burstDirection * Random.Range(forwardForceMin, forwardForceMax)
+                + Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce;
+            debris.AddComponent<VoxelDebris>().Launch(burst, lifetime);
         }
 
         private void BuildVisuals()

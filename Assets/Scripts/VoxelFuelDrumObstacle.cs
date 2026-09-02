@@ -143,6 +143,15 @@ namespace VoxelRacer
             hasExploded = true;
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 1.1f,
                 definition != null ? definition.explosionEffectScale : 1.2f);
+            if (!damagedPlayer)
+            {
+                VoxelMissionProgress.ReportFuelDrumDestroyed();
+                float popupDuration = VoxelMissionProgress.Active?.Tuning != null
+                    ? VoxelMissionProgress.Active.Tuning.fuelDrumDestroyedPopupDuration
+                    : 2f;
+                VoxelScorePopup.ShowFuelDrumDestroyed(transform.position + Vector3.up * 2.8f,
+                    VoxelMissionProgress.GetFuelDrumDestroyedPoints(), popupDuration);
+            }
             if (damagedPlayer)
             {
                 int originalDamage = target.damageVoxelsPerHit;

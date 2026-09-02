@@ -118,6 +118,13 @@ namespace VoxelRacer
             }
             else
             {
+                // Turrets shoot straight through all lanes. Keep later static waves
+                // away from their firing line as well as avoiding existing obstacles
+                // when the turret itself is initially placed.
+                foreach (var turret in FindObjectsByType<VoxelRoadsideTurret>(FindObjectsSortMode.None))
+                    if (Mathf.Abs(turret.TrackDistance - distance) <= 12f)
+                        return;
+
                 if (!TryFindCompletelyEmptyLane(out float laneOffset))
                     return;
 
@@ -334,6 +341,21 @@ namespace VoxelRacer
                     return true;
             foreach (var drums in GetComponentsInChildren<VoxelFuelDrumObstacle>())
                 if (IsInLane(drums.LaneOffset, candidateOffset))
+                    return true;
+            return false;
+        }
+
+        /// <summary>Used by roadside hazards to avoid creating an unavoidable cross-road wall beside a static obstacle.</summary>
+        public bool HasStaticObstacleNearTrackDistance(float candidateDistance, float clearance)
+        {
+            foreach (var obstacle in GetComponentsInChildren<VoxelObstacle>())
+                if (Mathf.Abs(obstacle.TrackDistance - candidateDistance) <= clearance)
+                    return true;
+            foreach (var pothole in GetComponentsInChildren<VoxelPotholeObstacle>())
+                if (Mathf.Abs(pothole.TrackDistance - candidateDistance) <= clearance)
+                    return true;
+            foreach (var drums in GetComponentsInChildren<VoxelFuelDrumObstacle>())
+                if (Mathf.Abs(drums.TrackDistance - candidateDistance) <= clearance)
                     return true;
             return false;
         }

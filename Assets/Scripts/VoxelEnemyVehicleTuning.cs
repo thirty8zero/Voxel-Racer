@@ -35,6 +35,12 @@ namespace VoxelRacer
         [Range(0f, 1f)] public float laneChangeChance = 0.5f;
         [Tooltip("Sideways movement speed while changing into a safe adjacent lane.")]
         [Min(0.1f)] public float laneChangeSpeed = 4.5f;
+        [Tooltip("Chance of receiving a temporary speed burst once an evasive lane change has found a safe destination.")]
+        [Range(0f, 1f)] public float laneChangeSpeedBoostChance = 0.5f;
+        [Tooltip("Extra fraction of the enemy's current phase speed during the lane-change burst. 0.2 means 20% faster.")]
+        [Min(0f)] public float laneChangeSpeedBoostMultiplier = 0.2f;
+        [Tooltip("How long the lane-change speed burst lasts before the enemy resumes its normal speed.")]
+        [Min(0f)] public float laneChangeSpeedBoostDuration = 1f;
 
         [Header("Collision")]
         [Tooltip("Lane-space collision width used for a player ram.")]
@@ -69,6 +75,24 @@ namespace VoxelRacer
         [Tooltip("Variation applied when choosing a voxel on the enemy's rear surface. Higher values create a less uniform damage pattern.")]
         [Min(0f)] public float rearSurfaceHitRandomness = 1.5f;
 
+        [Header("Weapon Damage Debris")]
+        [Tooltip("Scale of voxels removed by weapon fire.")]
+        [Min(0.01f)] public float weaponDebrisScale = 0.65f;
+        [Min(0f)] public float weaponDebrisForwardForceMin = 7f;
+        [Min(0f)] public float weaponDebrisForwardForceMax = 10f;
+        [Min(0f)] public float weaponDebrisUpwardForce = 2.5f;
+        [Min(0f)] public float weaponDebrisSpreadForce = 1.5f;
+        [Min(0.1f)] public float weaponDebrisLifetime = 1.5f;
+
+        [Header("Player Ram Debris")]
+        [Tooltip("Scale of body voxels removed when the player rams this vehicle.")]
+        [Min(0.01f)] public float ramDebrisScale = 0.65f;
+        [Min(0f)] public float ramDebrisForwardForceMin = 7f;
+        [Min(0f)] public float ramDebrisForwardForceMax = 10f;
+        [Min(0f)] public float ramDebrisUpwardForce = 2.5f;
+        [Min(0f)] public float ramDebrisSpreadForce = 1.5f;
+        [Min(0.1f)] public float ramDebrisLifetime = 1.5f;
+
         [Header("Health Bar")]
         [Min(0.1f)] public float healthBarWidth = 2.4f;
         [Min(0.02f)] public float healthBarHeight = 0.22f;
@@ -102,6 +126,9 @@ namespace VoxelRacer
             approachSpeedDistance = Mathf.Max(engageSpeedDistance, approachSpeedDistance);
             maximumApproachSpeedMultiplier = Mathf.Max(minimumApproachSpeedMultiplier, maximumApproachSpeedMultiplier);
             maximumEngageSpeedMultiplier = Mathf.Max(minimumEngageSpeedMultiplier, maximumEngageSpeedMultiplier);
+            laneChangeSpeedBoostChance = Mathf.Clamp01(laneChangeSpeedBoostChance);
+            laneChangeSpeedBoostMultiplier = Mathf.Max(0f, laneChangeSpeedBoostMultiplier);
+            laneChangeSpeedBoostDuration = Mathf.Max(0f, laneChangeSpeedBoostDuration);
             playerDamageVoxelsMin = Mathf.Max(1, playerDamageVoxelsMin);
             playerDamageVoxelsMax = Mathf.Max(playerDamageVoxelsMin, playerDamageVoxelsMax);
             VoxelAssetSaveQueue.Request(this);

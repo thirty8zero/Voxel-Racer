@@ -23,9 +23,12 @@ MonoBehaviour:
   engageSpeedDistance: 0
   minimumEngageSpeedMultiplier: 0.4
   maximumEngageSpeedMultiplier: 0.6
-  laneChangeDamagePercent: 0.1
+  laneChangeDamagePercent: 0.2
   laneChangeChance: 0.7
   laneChangeSpeed: 4.5
+  laneChangeSpeedBoostChance: 1
+  laneChangeSpeedBoostMultiplier: 2
+  laneChangeSpeedBoostDuration: 1
   collisionHalfWidth: 1.35
   collisionHalfLength: 3.8
   playerDamageVoxelsMin: 50
@@ -45,6 +48,18 @@ MonoBehaviour:
   playerSideRamBounceDuration: 0.32
   playerSideRamBounceEasing: 5
   rearSurfaceHitRandomness: 3
+  weaponDebrisScale: 0.8
+  weaponDebrisForwardForceMin: 20
+  weaponDebrisForwardForceMax: 30
+  weaponDebrisUpwardForce: 20
+  weaponDebrisSpreadForce: 10
+  weaponDebrisLifetime: 4
+  ramDebrisScale: 0.8
+  ramDebrisForwardForceMin: 20
+  ramDebrisForwardForceMax: 30
+  ramDebrisUpwardForce: 20
+  ramDebrisSpreadForce: 10
+  ramDebrisLifetime: 4
   healthBarWidth: 2.4
   healthBarHeight: 0.22
   healthBarHeightOffset: 2.8

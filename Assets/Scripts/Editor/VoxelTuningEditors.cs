@@ -127,14 +127,6 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("launchUpwardForce"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("destroyedLifetime"));
 
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Obstacle Voxel Debris", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("debrisVoxelsPerDamagedVoxel"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("explosionSpawnOffset"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("explosionUpwardBias"));
-            VoxelTuningInspector.DrawRange("Forward Force", serializedObject.FindProperty("explosionForwardForceMin"), serializedObject.FindProperty("explosionForwardForceMax"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("explosionUpwardForce"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("explosionSpreadForce"));
             serializedObject.ApplyModifiedProperties();
         }
     }
@@ -194,6 +186,67 @@ namespace VoxelRacer.Editor
         }
     }
 
+    /// <summary>Keeps core mission setup visible while tucking optional scoring and spawning rules into sections.</summary>
+    [CustomEditor(typeof(VoxelMissionTuning))]
+    [CanEditMultipleObjects]
+    internal sealed class VoxelMissionTuningEditor : UnityEditor.Editor
+    {
+        private bool enemyScoreExpanded = true;
+        private bool staticObstacleScoreExpanded = true;
+        private bool roadsideTurretExpanded = true;
+        private bool civilianNearMissExpanded = true;
+        private bool civilianPenaltiesExpanded = true;
+
+        public override void OnInspectorGUI()
+        {
+            serializedObject.Update();
+            VoxelTuningInspector.DrawScript(serializedObject);
+
+            DrawAlwaysVisibleSection("Identity", "displayName");
+            DrawAlwaysVisibleSection("Completion", "requiredPoints");
+            DrawAlwaysVisibleSection("Rewards", "completionCurrencyAward");
+            DrawAlwaysVisibleSection("Time Bonus", "timeLimitSeconds", "timeBonusCurrencyMultiplier");
+
+            enemyScoreExpanded = DrawFoldout(enemyScoreExpanded, "Enemy Score",
+                "enemyVoxelDamagePoints", "enemyVehicleDestroyedPoints");
+            staticObstacleScoreExpanded = DrawFoldout(staticObstacleScoreExpanded, "Static Obstacle Score",
+                "fuelDrumDestroyedPoints", "fuelDrumDestroyedPopupDuration");
+            roadsideTurretExpanded = DrawFoldout(roadsideTurretExpanded, "Roadside Turret Spawning",
+                "roadsideTurretTuning", "roadsideTurretSpawnCheckInterval", "roadsideTurretSpawnChance",
+                "roadsideTurretSpawnDistanceAhead", "maximumActiveRoadsideTurrets");
+            civilianNearMissExpanded = DrawFoldout(civilianNearMissExpanded, "Civilian Near Miss Score",
+                "civilianNearMissDistance", "civilianNearMissMinPoints", "civilianNearMissMaxPoints",
+                "civilianNearMissScoreStepPercent", "civilianNearMissPassClearance", "civilianNearMissPlayerHalfWidth",
+                "civilianNearMissPlayerHalfLength", "civilianNearMissPopupDuration");
+            civilianPenaltiesExpanded = DrawFoldout(civilianPenaltiesExpanded, "Civilian Penalties",
+                "civilianVoxelDamagePoints", "civilianVehicleDestroyedPoints");
+
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        private void DrawAlwaysVisibleSection(string title, params string[] properties)
+        {
+            EditorGUILayout.Space(3f);
+            EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
+            using (new EditorGUI.IndentLevelScope())
+                foreach (string property in properties)
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty(property));
+        }
+
+        private bool DrawFoldout(bool isExpanded, string title, params string[] properties)
+        {
+            EditorGUILayout.Space(3f);
+            isExpanded = EditorGUILayout.Foldout(isExpanded, title, true);
+            if (!isExpanded)
+                return false;
+
+            using (new EditorGUI.IndentLevelScope())
+                foreach (string property in properties)
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty(property));
+            return true;
+        }
+    }
+
     /// <summary>Organises all enemy vehicle tuning assets into focused collapsible groups.</summary>
     [CustomEditor(typeof(VoxelEnemyVehicleTuning))]
     [CanEditMultipleObjects]
@@ -205,6 +258,8 @@ namespace VoxelRacer.Editor
         private bool playerImpactExpanded = true;
         private bool playerRamResponseExpanded = true;
         private bool weaponDamageExpanded = true;
+        private bool weaponDamageDebrisExpanded = true;
+        private bool playerRamDebrisExpanded = true;
         private bool healthBarExpanded = true;
         private bool evasiveLaneChangeExpanded = true;
         private bool explosionExpanded = true;
@@ -230,12 +285,19 @@ namespace VoxelRacer.Editor
                 "playerSideRamBounceEasing");
             weaponDamageExpanded = DrawSection(weaponDamageExpanded, "Weapon Damage",
                 "rearSurfaceHitRandomness");
+            weaponDamageDebrisExpanded = DrawSection(weaponDamageDebrisExpanded, "Weapon Damage Debris",
+                "weaponDebrisScale", "weaponDebrisForwardForceMin", "weaponDebrisForwardForceMax",
+                "weaponDebrisUpwardForce", "weaponDebrisSpreadForce", "weaponDebrisLifetime");
+            playerRamDebrisExpanded = DrawSection(playerRamDebrisExpanded, "Player Ram Debris",
+                "ramDebrisScale", "ramDebrisForwardForceMin", "ramDebrisForwardForceMax",
+                "ramDebrisUpwardForce", "ramDebrisSpreadForce", "ramDebrisLifetime");
             movementExpanded = DrawSection(movementExpanded, "Movement",
                 "minimumSpawnSpeedMultiplier", "maximumSpawnSpeedMultiplier", "approachSpeedDistance",
                 "minimumApproachSpeedMultiplier", "maximumApproachSpeedMultiplier", "engageSpeedDistance",
                 "minimumEngageSpeedMultiplier", "maximumEngageSpeedMultiplier");
             evasiveLaneChangeExpanded = DrawSection(evasiveLaneChangeExpanded, "Evasive Lane Change",
-                "laneChangeDamagePercent", "laneChangeChance", "laneChangeSpeed");
+                "laneChangeDamagePercent", "laneChangeChance", "laneChangeSpeed", "laneChangeSpeedBoostChance",
+                "laneChangeSpeedBoostMultiplier", "laneChangeSpeedBoostDuration");
             collisionExpanded = DrawSection(collisionExpanded, "Collision",
                 "collisionHalfWidth", "collisionHalfLength");
             healthBarExpanded = DrawSection(healthBarExpanded, "Health Bar",
@@ -304,7 +366,7 @@ namespace VoxelRacer.Editor
                 using (new EditorGUI.IndentLevelScope())
                 {
                     playerImpactShakeExpanded = DrawShakeSection(playerImpactShakeExpanded,
-                        "Player Vehicle Impact", "playerVehicleImpactShake");
+                        "Player Damage", "playerVehicleImpactShake");
                     objectExplosionShakeExpanded = DrawShakeSection(objectExplosionShakeExpanded,
                         "Object Explosion", "objectExplosionShake");
                 }

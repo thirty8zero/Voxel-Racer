@@ -113,7 +113,8 @@ namespace VoxelRacer
                 FinishSequenceComplete = true;
         }
 
-        public void ShakeFromPlayerVehicleImpact()
+        /// <summary>Shared shake for every successful player-damage event.</summary>
+        public void ShakeFromPlayerDamage()
         {
             VoxelCameraTuning settings = Tuning;
             if (settings == null || settings.playerVehicleImpactShakeDuration <= 0f)
@@ -124,6 +125,9 @@ namespace VoxelRacer
                 settings.playerVehicleImpactShakeRotationDegrees,
                 settings.playerVehicleImpactShakeFrequency);
         }
+
+        /// <summary>Compatibility entry point retained for existing integrations.</summary>
+        public void ShakeFromPlayerVehicleImpact() => ShakeFromPlayerDamage();
 
         public void ShakeFromObjectExplosion()
         {

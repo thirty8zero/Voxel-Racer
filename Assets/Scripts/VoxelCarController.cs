@@ -70,6 +70,7 @@ namespace VoxelRacer
         private float finishDeceleration;
         private float visualYaw;
         private float visualRoll;
+        private float boostSpeedBonus;
         private float ramForwardOffset;
         private float ramLateralOffset;
         private float ramResponseStartedAt = -1f;
@@ -122,6 +123,9 @@ namespace VoxelRacer
                 CurrentSpeed = 0f;
         }
 
+        /// <summary>Applied by the boost controller and kept separate from the car's tuned normal top speed.</summary>
+        public void SetBoostSpeedBonus(float value) => boostSpeedBonus = Mathf.Max(0f, value);
+
         /// <summary>Stops naturally according to this car's braking performance.</summary>
         public void BeginFinishStop()
         {
@@ -166,7 +170,7 @@ namespace VoxelRacer
 
             var keyboard = Keyboard.current;
             bool braking = keyboard != null && keyboard.spaceKey.isPressed;
-            float targetSpeed = !drivingEnabled || braking || finishingRun ? 0f : topSpeed;
+            float targetSpeed = !drivingEnabled || braking || finishingRun ? 0f : topSpeed + boostSpeedBonus;
             float rate = braking ? brakingForce : finishingRun ? finishDeceleration : acceleration;
             CurrentSpeed = Mathf.MoveTowards(CurrentSpeed, targetSpeed, rate * Time.deltaTime);
             UpdateRamResponse();
@@ -175,7 +179,9 @@ namespace VoxelRacer
             else
                 transform.position += Vector3.forward * (CurrentSpeed * Time.deltaTime);
 
-            if (keyboard != null)
+            // Mission completion immediately locks the player's lane for the finish
+            // sequence, even during the frame before VoxelRunFinish begins braking.
+            if (keyboard != null && VoxelMissionProgress.Active?.IsComplete != true)
             {
                 if (keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame)
                     RequestLaneChange(currentLane - 1);
@@ -345,6 +351,12 @@ namespace VoxelRacer
                 block.gameObject.SetActive(false);
             }
 
+            if (blocksToDestroy.Count > 0)
+            {
+                VoxelCarIntegrityDisplay.Active?.PulseDamage();
+                Camera.main?.GetComponent<VoxelCameraFollow>()?.ShakeFromPlayerDamage();
+            }
+
             if (isLethalHit)
                 DestroyCar(impactDirection);
         }
@@ -436,7 +448,8 @@ namespace VoxelRacer
             EnsureIntegrityBaseline();
             int restoreCount = Mathf.CeilToInt(initialIntegrityVoxels * Mathf.Clamp01(amountPercent / 100f));
             var activeVoxels = new List<Transform>();
-            var missingVoxels = new List<Transform>();
+            var missingTireVoxels = new List<Transform>();
+            var missingBodyVoxels = new List<Transform>();
 
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>(true))
             {
@@ -446,21 +459,28 @@ namespace VoxelRacer
 
                 if (voxel.gameObject.activeInHierarchy)
                     activeVoxels.Add(voxel);
+                else if (voxel.GetComponentInParent<VoxelWheelIntegrity>() != null)
+                    missingTireVoxels.Add(voxel);
                 else
-                    missingVoxels.Add(voxel);
+                    missingBodyVoxels.Add(voxel);
             }
 
             int restored = 0;
-            while (restored < restoreCount && missingVoxels.Count > 0)
+            while (restored < restoreCount && (missingTireVoxels.Count > 0 || missingBodyVoxels.Count > 0))
             {
-                int connectedIndex = FindConnectedMissingVoxel(missingVoxels, activeVoxels);
+                // Tire voxels always take priority. Wheels retain a small intact core
+                // during damage, so these pixels can still reconnect naturally.
+                List<Transform> candidates = missingTireVoxels.Count > 0
+                    ? missingTireVoxels
+                    : missingBodyVoxels;
+                int connectedIndex = FindConnectedMissingVoxel(candidates, activeVoxels);
                 if (connectedIndex < 0)
                     break;
 
-                var voxel = missingVoxels[connectedIndex];
+                var voxel = candidates[connectedIndex];
                 voxel.gameObject.SetActive(true);
                 activeVoxels.Add(voxel);
-                missingVoxels.RemoveAt(connectedIndex);
+                candidates.RemoveAt(connectedIndex);
                 restored++;
             }
             return restored;

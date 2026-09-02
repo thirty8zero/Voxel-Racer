@@ -41,7 +41,7 @@ namespace VoxelRacer
         [Min(0.01f)] public float laneChangeCameraDuration = 0.32f;
         public VoxelEasingType laneChangeCameraEasing = VoxelEasingType.EaseInOutCubic;
 
-        [Header("Player Vehicle Impact Shake")]
+        [Header("Player Damage Shake")]
         [Min(0f)] public float playerVehicleImpactShakeDuration = 0.24f;
         [Min(0f)] public float playerVehicleImpactShakePositionStrength = 0.32f;
         [Min(0f)] public float playerVehicleImpactShakeRotationDegrees = 2.4f;

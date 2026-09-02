@@ -72,6 +72,21 @@ namespace VoxelRacer
         public static int GetEnemyVehicleDestroyedPoints() =>
             Active?.Tuning != null ? Active.Tuning.enemyVehicleDestroyedPoints : 0;
 
+        public static void ReportFuelDrumDestroyed()
+        {
+            if (Active?.Tuning != null)
+                Active.AddPoints(Active.Tuning.fuelDrumDestroyedPoints);
+        }
+
+        public static int GetFuelDrumDestroyedPoints() =>
+            Active?.Tuning != null ? Active.Tuning.fuelDrumDestroyedPoints : 0;
+
+        public static void ReportCivilianNearMiss(int points)
+        {
+            if (Active?.Tuning != null && points > 0)
+                Active.AddPoints(points);
+        }
+
         public static void ReportCivilianVoxelDamage(int count = 1)
         {
             if (Active?.Tuning != null)
