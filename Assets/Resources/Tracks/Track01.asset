@@ -122,7 +122,7 @@ MonoBehaviour:
   minimumWaveInterval: 2.5
   maximumWaveInterval: 4.5
   minimumObjectsPerWave: 3
-  maximumObjectsPerWave: 6
+  maximumObjectsPerWave: 5
   sameLaneCivilianSpeedTolerance: 1
   minimumWaveObjectDistanceOffset: 2
   maximumWaveObjectDistanceOffset: 10

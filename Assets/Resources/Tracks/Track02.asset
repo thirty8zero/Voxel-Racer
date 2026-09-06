@@ -16,10 +16,10 @@ MonoBehaviour:
   obstacleCarSpawnChance: 0.6
   oppositeDirectionChance: 0.8
   enemyCarSpawnChance: 0.55
-  minimumWaveInterval: 1.5
-  maximumWaveInterval: 3
-  minimumObjectsPerWave: 4
-  maximumObjectsPerWave: 8
+  minimumWaveInterval: 2
+  maximumWaveInterval: 4
+  minimumObjectsPerWave: 3
+  maximumObjectsPerWave: 6
   sameLaneCivilianSpeedTolerance: 1
   minimumWaveObjectDistanceOffset: 4
   maximumWaveObjectDistanceOffset: 10

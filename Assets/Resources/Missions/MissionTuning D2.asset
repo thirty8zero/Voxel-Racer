@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: Mission 2
   requiredPoints: 600
   completionCurrencyAward: 200
-  timeLimitSeconds: 55
+  timeLimitSeconds: 75
   timeBonusCurrencyMultiplier: 1.6
   enemyVoxelDamagePoints: 1
   enemyVehicleDestroyedPoints: 25
