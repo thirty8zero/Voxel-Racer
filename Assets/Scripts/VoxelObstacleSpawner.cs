@@ -25,6 +25,19 @@ namespace VoxelRacer
         private VoxelRunFinish runFinish;
         private float nextSpawnTime;
         private bool trafficSpawnWindowOpened;
+        private readonly Queue<SpawnRequest> pendingSpawnRequests = new();
+
+        private struct SpawnRequest
+        {
+            public readonly EndlessVoxelRoad Path;
+            public readonly float Distance;
+
+            public SpawnRequest(EndlessVoxelRoad path, float distance)
+            {
+                Path = path;
+                Distance = distance;
+            }
+        }
 
         public void SetTarget(VoxelCarController player) => target = player;
         public void SetStartCountdown(VoxelStartCountdown value) => countdown = value;
@@ -44,6 +57,14 @@ namespace VoxelRacer
             if (countdown != null && !countdown.IsTrafficSpawnWindowOpen)
                 return;
 
+            // Never allow a queued item from the last traffic wave to appear
+            // during the mission-complete presentation.
+            if (runFinish != null && runFinish.HasFinished || VoxelMissionProgress.Active?.IsComplete == true)
+            {
+                pendingSpawnRequests.Clear();
+                return;
+            }
+
             // Force the first wave when the countdown changes to "1", rather than
             // waiting for a spawn interval that may otherwise elapse after "GO!".
             if (countdown != null && !trafficSpawnWindowOpened)
@@ -52,13 +73,19 @@ namespace VoxelRacer
                 nextSpawnTime = Time.time;
             }
 
+            // Vehicle visual construction creates hundreds of voxel GameObjects.
+            // Spread a wave across frames so a dense road does not produce one
+            // large allocation/collider-registration spike in the Editor or build.
+            if (pendingSpawnRequests.Count > 0)
+            {
+                SpawnRequest request = pendingSpawnRequests.Dequeue();
+                SpawnObject(request.Path, request.Distance);
+            }
+
             if (Time.time < nextSpawnTime)
                 return;
 
             float spawnDistanceAhead = obstacleCarTuning != null ? obstacleCarTuning.spawnDistanceAhead : 65f;
-            if (runFinish != null && runFinish.HasFinished)
-                return;
-
             EndlessVoxelRoad path = target.TrackPath;
             float spawnTrackDistance = target.TrackDistance + spawnDistanceAhead;
             if (path == null)
@@ -83,7 +110,7 @@ namespace VoxelRacer
                     objectDistance += Random.Range(Mathf.Min(minimumOffset, maximumOffset), Mathf.Max(minimumOffset, maximumOffset));
                 }
 
-                SpawnObject(path, objectDistance);
+                pendingSpawnRequests.Enqueue(new SpawnRequest(path, objectDistance));
             }
 
             ScheduleNextSpawn();

@@ -7,6 +7,7 @@ namespace VoxelRacer
     public static class VoxelCarRunState
     {
         private static readonly HashSet<string> missingVoxelPaths = new();
+        private static readonly Dictionary<string, int> armorHealth = new();
         private static string carDefinitionName = string.Empty;
 
         public static int MissingVoxelCount => missingVoxelPaths.Count;
@@ -15,8 +16,10 @@ namespace VoxelRacer
         {
             carDefinitionName = definition != null ? definition.name : string.Empty;
             missingVoxelPaths.Clear();
+            armorHealth.Clear();
             VoxelCurrencyState.Reset();
             VoxelGunUpgradeState.BeginNewRun();
+            VoxelArmorUpgradeState.BeginNewRun();
         }
 
         public static void Capture(VoxelCarController controller, VoxelCarDefinition definition = null)
@@ -27,6 +30,7 @@ namespace VoxelRacer
             definition ??= VoxelCarSelectionState.GetSelectedOrDefault();
             carDefinitionName = definition != null ? definition.name : string.Empty;
             missingVoxelPaths.Clear();
+            armorHealth.Clear();
 
             foreach (MeshRenderer renderer in controller.GetComponentsInChildren<MeshRenderer>(true))
             {
@@ -35,12 +39,15 @@ namespace VoxelRacer
                     continue;
                 if (!voxel.gameObject.activeSelf)
                     missingVoxelPaths.Add(GetSiblingPath(controller.transform, voxel));
+                var armor = voxel.GetComponent<VoxelArmorVoxel>();
+                if (armor != null && armor.NeedsRepair)
+                    armorHealth[GetSiblingPath(controller.transform, voxel)] = armor.RemainingHealth;
             }
         }
 
         public static void Apply(VoxelCarController controller, VoxelCarDefinition definition = null)
         {
-            if (controller == null || missingVoxelPaths.Count == 0)
+            if (controller == null || (missingVoxelPaths.Count == 0 && armorHealth.Count == 0))
                 return;
 
             definition ??= VoxelCarSelectionState.GetSelectedOrDefault();
@@ -52,6 +59,12 @@ namespace VoxelRacer
                 Transform voxel = FindBySiblingPath(controller.transform, path);
                 if (voxel != null)
                     voxel.gameObject.SetActive(false);
+            }
+            foreach (var entry in armorHealth)
+            {
+                Transform voxel = FindBySiblingPath(controller.transform, entry.Key);
+                if (voxel != null)
+                    voxel.GetComponent<VoxelArmorVoxel>()?.RestoreHealth(entry.Value);
             }
         }
 

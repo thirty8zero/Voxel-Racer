@@ -159,6 +159,7 @@ namespace VoxelRacer
             car.gameObject.AddComponent<VoxelCarController>();
             ConfigureCarTuning(car, selectedCar);
             VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
+            VoxelArmorUpgradeState.ApplyTo(car, selectedCar);
             car.GetComponent<VoxelCarController>().ResetIntegrityBaseline();
             VoxelCarRunState.Apply(car.GetComponent<VoxelCarController>(), selectedCar);
             return car;
@@ -612,6 +613,11 @@ namespace VoxelRacer
             spawner.obstacleCarTuning = activeTrack != null && activeTrack.obstacleCarTuning != null
                 ? activeTrack.obstacleCarTuning
                 : VoxelObstacleCarTuning.Load();
+            if (spawner.obstacleCarTuning != null)
+            {
+                spawner.minimumSpawnInterval = spawner.obstacleCarTuning.minimumWaveInterval;
+                spawner.maximumSpawnInterval = spawner.obstacleCarTuning.maximumWaveInterval;
+            }
             spawner.enemyCarTuning = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning");
             spawner.SetStaticObstacleSpawns(spawner.obstacleCarTuning != null
                 ? spawner.obstacleCarTuning.staticObstacleSpawns
@@ -636,6 +642,11 @@ namespace VoxelRacer
             if (boostDisplay == null)
                 boostDisplay = environment.gameObject.AddComponent<VoxelBoostDisplay>();
             boostDisplay.Configure(boostController);
+
+            var mobileControls = environment.GetComponent<VoxelMobileControls>();
+            if (mobileControls == null)
+                mobileControls = environment.gameObject.AddComponent<VoxelMobileControls>();
+            mobileControls.Configure(car.GetComponent<VoxelCarController>());
 
             var turretSpawner = environment.GetComponent<VoxelRoadsideTurretSpawner>();
             if (turretSpawner == null)

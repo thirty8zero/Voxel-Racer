@@ -15,3 +15,6 @@ MonoBehaviour:
   boostSpeed: 20
   boostLength: 1
   rechargeCooldownLength: 5
+  boostForwardOffset: 2
+  boostForwardMovementDuration: 0.22
+  boostForwardMovementEasing: 17

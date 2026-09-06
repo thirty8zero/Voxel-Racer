@@ -171,7 +171,12 @@ namespace VoxelRacer
                 VoxelEasing.Evaluate(easing, progress));
 
             Vector3 roadRight = roadHeading * Vector3.right;
-            Vector3 roadCentre = target.position - roadRight * car.CurrentLaneOffset;
+            // Boost physically shifts the car ahead on the road. Keep the chase
+            // camera at its unboosted reference point so that shift is visible on
+            // screen instead of being cancelled out by camera tracking.
+            Vector3 roadForward = roadHeading * Vector3.forward;
+            Vector3 roadCentre = target.position - roadRight * car.CurrentLaneOffset -
+                roadForward * car.BoostForwardOffset;
             return roadCentre + roadRight * displayedLaneOffset;
         }
 

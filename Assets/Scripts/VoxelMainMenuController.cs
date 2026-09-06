@@ -116,16 +116,23 @@ namespace VoxelRacer
         {
             DisableLegacyCarDisplays();
 
-            if (featuredDisplayRoot != null)
+            // Editor previews and scene-saved displays can outlive the nonserialized
+            // reference when entering Play Mode or reloading scripts.
+            for (int index = transform.childCount - 1; index >= 0; index--)
             {
+                Transform child = transform.GetChild(index);
+                if (child != featuredDisplayRoot && child.name != "Featured Car Displays")
+                    continue;
+
                 // Destroy is deferred until the end of the frame in Play Mode, so
                 // hide the old display immediately to prevent a one-frame overlap.
-                featuredDisplayRoot.gameObject.SetActive(false);
+                child.gameObject.SetActive(false);
                 if (Application.isPlaying)
-                    Destroy(featuredDisplayRoot.gameObject);
+                    Destroy(child.gameObject);
                 else
-                    DestroyImmediate(featuredDisplayRoot.gameObject);
+                    DestroyImmediate(child.gameObject);
             }
+            featuredDisplayRoot = null;
 
             var definitions = GetFeaturedDefinitions();
             ConfigureDisplayAccessories(definitions.Count);

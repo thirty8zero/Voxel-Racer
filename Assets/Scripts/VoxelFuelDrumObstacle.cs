@@ -20,6 +20,7 @@ namespace VoxelRacer
         private bool hasExploded;
         private Vector3 velocity;
         private float destroyTime;
+        private VoxelEnemyHealthBar healthBar;
 
         public void Configure(VoxelCarController player, EndlessVoxelRoad road, VoxelStaticObstacleDefinition value,
             float distance, float offset)
@@ -32,6 +33,11 @@ namespace VoxelRacer
             transform.localScale = Vector3.one * 2f;
             ApplyTrackPose();
             BuildDrums();
+            // Keep this world-space billboard wider than the full drum group while
+            // avoiding any Canvas work for this small, temporary feedback element.
+            healthBar = VoxelEnemyHealthBar.Create(transform, 3.35f, 0.18f, 1.15f,
+                new Color(0.92f, 0.05f, 0.04f), new Color(0.30f, 0.01f, 0.01f));
+            healthBar.gameObject.SetActive(false);
         }
 
         private void Update()
@@ -75,6 +81,12 @@ namespace VoxelRacer
             drumHealth.TryGetValue(drum, out int health);
             health = health <= 0 ? Mathf.Max(1, definition != null ? definition.hitPoints : 3) : health;
             health--;
+            if (healthBar != null)
+            {
+                healthBar.gameObject.SetActive(true);
+                int maximumHealth = Mathf.Max(1, definition != null ? definition.hitPoints : 3);
+                healthBar.SetHealth(health / (float)maximumHealth);
+            }
             if (health > 0)
             {
                 drumHealth[drum] = health;
@@ -95,7 +107,7 @@ namespace VoxelRacer
             float rearSurfaceDistance = float.PositiveInfinity;
             foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
             {
-                if (!renderer.gameObject.activeInHierarchy)
+                if (!renderer.gameObject.activeInHierarchy || FindDrumRoot(renderer.transform) == null)
                     continue;
                 Vector3 offset = renderer.transform.position - segmentStart;
                 float forwardDistance = Vector3.Dot(offset, direction);
@@ -114,7 +126,7 @@ namespace VoxelRacer
             foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
             {
                 Transform voxel = renderer.transform;
-                if (!voxel.gameObject.activeInHierarchy)
+                if (!voxel.gameObject.activeInHierarchy || FindDrumRoot(voxel) == null)
                     continue;
                 Vector3 offset = voxel.position - segmentStart;
                 float forwardDistance = Vector3.Dot(offset, direction);
@@ -141,6 +153,8 @@ namespace VoxelRacer
             if (hasExploded)
                 return;
             hasExploded = true;
+            if (healthBar != null)
+                healthBar.gameObject.SetActive(false);
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 1.1f,
                 definition != null ? definition.explosionEffectScale : 1.2f);
             if (!damagedPlayer)
@@ -164,7 +178,7 @@ namespace VoxelRacer
 
             var voxels = new List<Transform>();
             foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
-                if (renderer.gameObject.activeInHierarchy)
+                if (renderer.gameObject.activeInHierarchy && FindDrumRoot(renderer.transform) != null)
                     voxels.Add(renderer.transform);
             // Fuel drums should completely disintegrate. Reuse each existing
             // voxel as debris instead of instantiating a duplicate for it.

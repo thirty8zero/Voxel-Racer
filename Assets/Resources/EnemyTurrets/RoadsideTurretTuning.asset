@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelRoadsideTurretTuning
   displayName: Roadside Gun Turret
   distanceFromRoadEdge: 2
-  minimumAimAngle: -45
-  maximumAimAngle: 45
+  minimumAimAngle: 0
+  maximumAimAngle: 0
   staticObstacleClearance: 12
   fireRate: 0.05
   bulletsPerVolley: 1
-  firingDuration: 1
+  firingDuration: 0.5
   pauseDuration: 2
   projectileSpeed: 50
   projectileLifetime: 3

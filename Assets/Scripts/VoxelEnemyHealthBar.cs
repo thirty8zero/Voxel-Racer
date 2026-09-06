@@ -18,16 +18,25 @@ namespace VoxelRacer
 
         public static VoxelEnemyHealthBar Create(Transform owner, VoxelEnemyVehicleTuning tuning)
         {
+            return Create(owner, tuning.healthBarWidth, tuning.healthBarHeight, tuning.healthBarHeightOffset,
+                tuning.healthBarFullColour, tuning.healthBarEmptyColour, tuning.criticalHealthPercent,
+                tuning.criticalPulseSpeed, tuning.criticalPulseScale);
+        }
+
+        /// <summary>Creates the same billboard bar for non-vehicle damageable objects.</summary>
+        public static VoxelEnemyHealthBar Create(Transform owner, float barWidth, float barHeight, float heightOffset,
+            Color full, Color empty, float criticalPercent = 0.2f, float pulseSpeed = 7f, float pulseScale = 0.16f)
+        {
             var root = new GameObject("Enemy Health Bar").AddComponent<VoxelEnemyHealthBar>();
             root.transform.SetParent(owner);
-            root.transform.localPosition = Vector3.up * tuning.healthBarHeightOffset;
-            root.width = tuning.healthBarWidth;
-            root.fullColour = tuning.healthBarFullColour;
-            root.emptyColour = tuning.healthBarEmptyColour;
-            root.criticalHealthPercent = tuning.criticalHealthPercent;
-            root.criticalPulseSpeed = tuning.criticalPulseSpeed;
-            root.criticalPulseScale = tuning.criticalPulseScale;
-            root.CreateVisual(tuning.healthBarHeight);
+            root.transform.localPosition = Vector3.up * heightOffset;
+            root.width = barWidth;
+            root.fullColour = full;
+            root.emptyColour = empty;
+            root.criticalHealthPercent = criticalPercent;
+            root.criticalPulseSpeed = pulseSpeed;
+            root.criticalPulseScale = pulseScale;
+            root.CreateVisual(barHeight);
             root.SetHealth(1f);
             return root;
         }

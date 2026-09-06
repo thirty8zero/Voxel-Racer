@@ -20,6 +20,10 @@ namespace VoxelRacer
         private Text feedbackText;
         private Text gunUpgradeButtonLabel;
         private Button gunUpgradeButton;
+        private Text rightArmorUpgradeButtonLabel;
+        private Button rightArmorUpgradeButton;
+        private Text leftArmorUpgradeButtonLabel;
+        private Button leftArmorUpgradeButton;
         private Text repair10ButtonLabel;
         private Text repair25ButtonLabel;
         private Text repair50ButtonLabel;
@@ -97,9 +101,10 @@ namespace VoxelRacer
             DisplayedCar = car.gameObject.AddComponent<VoxelCarController>();
             if (definition != null && definition.tuning != null)
                 DisplayedCar.SetTuning(definition.tuning);
+            VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
+            VoxelArmorUpgradeState.ApplyTo(car, definition);
             DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(DisplayedCar, definition);
-            VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
             DisplayedCar.enabled = false;
 
             // Reuse the same radial integrity widget used during missions. Its
@@ -204,13 +209,21 @@ namespace VoxelRacer
             fullRepairButtonLabel = CreateRepairButton(canvas, "Full Repair Button", -250f,
                 () => TryRepair(100f, GetRepairCost(100f)));
 
-            Image weaponUpgradePanel = VoxelMenuUi.CreatePanel(canvas, "Weapon Upgrade Panel", new Vector2(0f, 0.5f),
-                new Vector2(330f, 0f), new Vector2(610f, 340f));
-            VoxelMenuUi.CreateText(weaponUpgradePanel.transform, "Weapon Upgrade Title", "WEAPON UPGRADE", 75,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 112f), new Vector2(590f, 95f));
-            gunUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Long Gun Purchase Button", string.Empty, 68,
-                new Vector2(0.5f, 0.5f), new Vector2(0f, -42f), new Vector2(560f, 175f), TryPurchaseLongGun);
+            Image weaponUpgradePanel = VoxelMenuUi.CreatePanel(canvas, "Car Upgrade Panel", new Vector2(0f, 0.5f),
+                new Vector2(330f, 0f), new Vector2(610f, 560f));
+            VoxelMenuUi.CreateText(weaponUpgradePanel.transform, "Upgrade Title", "CAR UPGRADES", 65,
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 215f), new Vector2(590f, 90f));
+            gunUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Long Gun Purchase Button", string.Empty, 50,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, 80f), new Vector2(560f, 150f), TryPurchaseLongGun);
             gunUpgradeButtonLabel = gunUpgradeButton.GetComponentInChildren<Text>();
+            rightArmorUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Right Door Armor Purchase Button", string.Empty, 40,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -85f), new Vector2(560f, 120f),
+                () => TryPurchaseDoorArmor(VoxelArmorSide.Right));
+            rightArmorUpgradeButtonLabel = rightArmorUpgradeButton.GetComponentInChildren<Text>();
+            leftArmorUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Left Door Armor Purchase Button", string.Empty, 40,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -220f), new Vector2(560f, 120f),
+                () => TryPurchaseDoorArmor(VoxelArmorSide.Left));
+            leftArmorUpgradeButtonLabel = leftArmorUpgradeButton.GetComponentInChildren<Text>();
 
             feedbackText = VoxelMenuUi.CreateText(canvas, "Repair Feedback", string.Empty, 68,
                 TextAnchor.MiddleCenter, new Vector2(1f, 0.5f), new Vector2(-230f, -370f), new Vector2(340f, 80f));
@@ -278,12 +291,23 @@ namespace VoxelRacer
             RefreshUi();
         }
 
-        private int RepairFull()
+        private void TryPurchaseDoorArmor(VoxelArmorSide side)
         {
-            int before = DisplayedCar.RemainingIntegrityVoxels;
-            DisplayedCar.RepairToFull();
-            return DisplayedCar.RemainingIntegrityVoxels - before;
+            VoxelArmorTuning armor = VoxelArmorTuning.Load();
+            if (DisplayedCar == null || !VoxelArmorUpgradeState.TryPurchase(armor, definition, side))
+            {
+                feedbackText.text = (side == VoxelArmorSide.Right ? "RIGHT" : "LEFT") + " DOOR ARMOUR UNAVAILABLE";
+                RefreshUi();
+                return;
+            }
+            VoxelArmorUpgradeState.ApplyTo(DisplayedCar.transform, definition);
+            DisplayedCar.ResetIntegrityBaseline();
+            VoxelCarRunState.Capture(DisplayedCar, definition);
+            feedbackText.text = (side == VoxelArmorSide.Right ? "RIGHT" : "LEFT") + " DOOR ARMOUR INSTALLED";
+            RefreshUi();
         }
+
+        private int RepairFull() => DisplayedCar.RepairPercent(100f);
 
         private void RefreshUi()
         {
@@ -292,7 +316,7 @@ namespace VoxelRacer
 
             float missingPercent = DisplayedCar == null
                 ? 0f
-                : Mathf.Max(0f, 100f - DisplayedCar.IntegrityPercent);
+                : 100f * DisplayedCar.RepairableIntegrityVoxels / Mathf.Max(1, DisplayedCar.TotalIntegrityVoxels);
             bool canRepair10 = missingPercent >= 10f - 0.001f;
             bool canRepair25 = missingPercent >= 25f - 0.001f;
             bool canRepair50 = missingPercent >= 50f - 0.001f;
@@ -311,6 +335,7 @@ namespace VoxelRacer
             if (fullRepairButtonLabel != null)
                 fullRepairButtonLabel.text = RepairLabel("FULL REPAIR", GetRepairCost(100f), canRepairFull);
 
+            RefreshArmorShop();
             VoxelGunTuning gunTuning = VoxelGunUpgradeState.LongGunTuning;
             if (gunUpgradeButton == null || gunUpgradeButtonLabel == null || gunTuning == null)
                 return;
@@ -322,6 +347,38 @@ namespace VoxelRacer
             gunUpgradeButtonLabel.text = canPurchase
                 ? gunTuning.displayName.ToUpperInvariant() + "\nCOST <color=#FFD12A>" + gunTuning.purchasePrice + "</color>   " + owned + "/" + maximum
                 : "GUN SLOTS FULL\n" + owned + "/" + maximum;
+        }
+
+        private void RefreshArmorShop()
+        {
+            VoxelArmorTuning armor = VoxelArmorTuning.Load();
+            bool compatible = armor != null && armor.panelPrefab != null && armor.Fits(definition);
+            RefreshArmorButton(rightArmorUpgradeButton, rightArmorUpgradeButtonLabel, armor, compatible,
+                VoxelArmorSide.Right);
+            RefreshArmorButton(leftArmorUpgradeButton, leftArmorUpgradeButtonLabel, armor, compatible,
+                VoxelArmorSide.Left);
+        }
+
+        private static void RefreshArmorButton(Button button, Text label, VoxelArmorTuning armor,
+            bool compatible, VoxelArmorSide side)
+        {
+            if (button == null || label == null)
+                return;
+
+            bool owned = VoxelArmorUpgradeState.IsPurchasedFor(side);
+            bool affordable = armor != null && VoxelCurrencyState.Balance >= armor.panelPurchasePrice;
+            button.interactable = compatible && !owned && affordable;
+            string sideName = side == VoxelArmorSide.Right ? "RIGHT" : "LEFT";
+            if (!compatible)
+                label.text = sideName + " DOOR ARMOUR\nUNAVAILABLE FOR THIS CAR";
+            else if (owned)
+                label.text = sideName + " DOOR ARMOUR\nINSTALLED";
+            else
+            {
+                int count = VoxelCarSelectionState.CountIntegrityVoxels(armor.panelPrefab);
+                label.text = sideName + " DOOR ARMOUR\n+" + count + " VOXELS | " +
+                    armor.voxelHitPoints + " HP EACH\nCOST <color=#FFD12A>" + armor.panelPurchasePrice + "</color>";
+            }
         }
 
         private static string RepairLabel(string repairName, int cost, bool available)

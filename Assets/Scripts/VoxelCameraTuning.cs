@@ -19,7 +19,10 @@ namespace VoxelRacer
         EaseInOutSine,
         EaseInExpo,
         EaseOutExpo,
-        EaseInOutExpo
+        EaseInOutExpo,
+        EaseInQuint,
+        EaseOutQuint,
+        EaseInOutQuint
     }
 
     /// <summary>Editable presentation profile shared by the driving camera.</summary>
@@ -80,6 +83,11 @@ namespace VoxelRacer
                 VoxelEasingType.EaseInOutExpo => t <= 0f ? 0f : t >= 1f ? 1f : t < 0.5f
                     ? Mathf.Pow(2f, 20f * t - 10f) * 0.5f
                     : (2f - Mathf.Pow(2f, -20f * t + 10f)) * 0.5f,
+                VoxelEasingType.EaseInQuint => t * t * t * t * t,
+                VoxelEasingType.EaseOutQuint => 1f - Mathf.Pow(1f - t, 5f),
+                VoxelEasingType.EaseInOutQuint => t < 0.5f
+                    ? 16f * t * t * t * t * t
+                    : 1f - Mathf.Pow(-2f * t + 2f, 5f) * 0.5f,
                 _ => t
             };
         }

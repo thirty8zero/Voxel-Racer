@@ -35,7 +35,8 @@ namespace VoxelRacer
             // so resolve it lazily and never permit a spawn before the countdown's GO.
             if (countdown == null)
                 countdown = GetComponent<VoxelStartCountdown>();
-            if (countdown == null || !countdown.IsComplete || runFinish != null && runFinish.HasFinished)
+            if (countdown == null || !countdown.IsComplete || runFinish != null && runFinish.HasFinished ||
+                VoxelMissionProgress.Active?.IsComplete == true)
                 return;
 
             if (!spawnWindowOpened)

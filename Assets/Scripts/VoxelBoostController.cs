@@ -13,6 +13,7 @@ namespace VoxelRacer
         public bool IsReady => !IsBoosting && ChargePercent >= 0.999f;
 
         private float boostEndsAt;
+        private ParticleSystem[] exhaustFireEffects;
 
         public void Configure(VoxelCarController player, VoxelBoostTuning tuning)
         {
@@ -21,6 +22,9 @@ namespace VoxelRacer
             ChargePercent = 1f;
             IsBoosting = false;
             Target?.SetBoostSpeedBonus(0f);
+            SetBoostForwardOffset(false);
+            EnsureExhaustFireEffects();
+            SetExhaustFireEmission(false);
         }
 
         public bool TryActivateBoost()
@@ -32,6 +36,8 @@ namespace VoxelRacer
             ChargePercent = 1f;
             boostEndsAt = Time.time + Tuning.boostLength;
             Target.SetBoostSpeedBonus(Tuning.boostSpeed);
+            SetBoostForwardOffset(true);
+            SetExhaustFireEmission(true);
             return true;
         }
 
@@ -52,6 +58,8 @@ namespace VoxelRacer
                 IsBoosting = false;
                 ChargePercent = 0f;
                 Target.SetBoostSpeedBonus(0f);
+                SetBoostForwardOffset(false);
+                SetExhaustFireEmission(false);
             }
 
             if (ChargePercent < 1f)
@@ -72,7 +80,73 @@ namespace VoxelRacer
         private void OnDisable()
         {
             if (Target != null)
+            {
                 Target.SetBoostSpeedBonus(0f);
+                SetBoostForwardOffset(false);
+            }
+            SetExhaustFireEmission(false);
+        }
+
+        private void SetBoostForwardOffset(bool active)
+        {
+            if (Target == null)
+                return;
+
+            float offset = active && Tuning != null ? Tuning.boostForwardOffset : 0f;
+            float duration = Tuning != null ? Tuning.boostForwardMovementDuration : 0.22f;
+            VoxelEasingType easing = Tuning != null
+                ? Tuning.boostForwardMovementEasing
+                : VoxelEasingType.EaseInOutCubic;
+            Target.SetBoostForwardOffset(offset, duration, easing);
+        }
+
+        private void EnsureExhaustFireEffects()
+        {
+            if (Target == null || exhaustFireEffects != null)
+                return;
+
+            var exhausts = new System.Collections.Generic.List<Transform>();
+            foreach (Transform child in Target.GetComponentsInChildren<Transform>(true))
+            {
+                if (child != Target.transform && child.name.IndexOf("Exhaust", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    exhausts.Add(child);
+            }
+
+            if (exhausts.Count == 0)
+            {
+                // A safe fallback for a future car visual that has not named its exhaust voxels yet.
+                exhausts.Add(Target.transform);
+                exhausts.Add(Target.transform);
+            }
+
+            int effectCount = Mathf.Min(2, exhausts.Count);
+            exhaustFireEffects = new ParticleSystem[effectCount];
+            for (int index = 0; index < effectCount; index++)
+            {
+                Transform exhaust = exhausts[index];
+                Vector3 position = exhaust == Target.transform
+                    ? Target.transform.TransformPoint(new Vector3(index == 0 ? -0.48f : 0.48f, 0.22f, -2.9f))
+                    : exhaust.position - Target.transform.forward * 0.10f;
+                exhaustFireEffects[index] = VoxelFireEffects.CreateBoostExhaustFire(Target.transform, position,
+                    -Target.transform.forward);
+            }
+        }
+
+        private void SetExhaustFireEmission(bool active)
+        {
+            if (exhaustFireEffects == null)
+                return;
+            foreach (ParticleSystem effect in exhaustFireEffects)
+            {
+                if (effect == null)
+                    continue;
+                var emission = effect.emission;
+                emission.enabled = active;
+                if (active && !effect.isPlaying)
+                    effect.Play(true);
+                else if (!active)
+                    effect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
         }
     }
 }

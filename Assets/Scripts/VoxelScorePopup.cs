@@ -25,7 +25,10 @@ namespace VoxelRacer
         private const float WeaponRiseDuration = 0.6f;
         private const float WeaponFadeOutDuration = 0.2f;
         private const float WeaponPopupLifetime = WeaponRiseDuration + WeaponFadeOutDuration;
-        private const float FuelDrumSideDriftSpeed = 5.5f;
+        // Weapon awards are locked into screen space so their motion remains visibly
+        // vertical even while the chase camera and target vehicle are both moving.
+        private const float WeaponScreenRisePixelsPerSecond = 180f;
+        private const float DestroyedScoreSideDriftSpeed = 5.5f;
         private static readonly Queue<VoxelScorePopup> Pool = new();
         private static Transform poolRoot;
 
@@ -103,6 +106,15 @@ namespace VoxelRacer
             displayStyle = style;
             screenPositionLocked = false;
 
+            if (style == Style.WeaponDamage && viewCamera != null)
+            {
+                // Keep the requested random left/right spawn offset, but only use it
+                // as an initial placement. The value must never drift sideways after
+                // that, regardless of vehicle or camera movement.
+                lockedScreenPosition = viewCamera.WorldToScreenPoint(transform.position);
+                screenPositionLocked = true;
+            }
+
             switch (style)
             {
                 case Style.RamDamage:
@@ -143,15 +155,19 @@ namespace VoxelRacer
         private void Update()
         {
             elapsed += Time.deltaTime;
-            if (elapsed <= riseDuration)
+            if (displayStyle == Style.WeaponDamage && screenPositionLocked && elapsed <= riseDuration)
+                lockedScreenPosition.y += WeaponScreenRisePixelsPerSecond * Time.deltaTime;
+            else if (elapsed <= riseDuration)
                 transform.position += Vector3.up * (riseSpeed * Time.deltaTime);
-            else if (displayStyle == Style.FuelDrumDestroyed)
-                transform.position += sideDriftDirection * (FuelDrumSideDriftSpeed * Time.deltaTime);
+            else if (displayStyle == Style.FuelDrumDestroyed || displayStyle == Style.EnemyDestroyed)
+                transform.position += sideDriftDirection * (DestroyedScoreSideDriftSpeed * Time.deltaTime);
 
             // Freeze the final screen position after the short rise. This makes all
             // score awards readable for their complete lifetime even after the player
             // drives past, or their source vehicle/obstacle is destroyed.
-            if (!screenPositionLocked && displayStyle != Style.FuelDrumDestroyed && elapsed >= riseDuration && viewCamera != null)
+            bool driftsTowardScreenEdge = displayStyle == Style.FuelDrumDestroyed ||
+                displayStyle == Style.EnemyDestroyed;
+            if (!screenPositionLocked && !driftsTowardScreenEdge && elapsed >= riseDuration && viewCamera != null)
             {
                 lockedScreenPosition = viewCamera.WorldToScreenPoint(transform.position);
                 screenPositionLocked = true;
@@ -203,13 +219,14 @@ namespace VoxelRacer
             GUIStyle style = GetStyle(displayStyle);
             float width = displayStyle == Style.WeaponDamage ? 150f : 240f;
             float height = displayStyle == Style.WeaponDamage ? 64f : 120f;
-            bool driftsOffscreen = displayStyle == Style.FuelDrumDestroyed;
+            bool driftsOffscreen = displayStyle == Style.FuelDrumDestroyed ||
+                displayStyle == Style.EnemyDestroyed;
             float centerX = driftsOffscreen ? screenPosition.x :
                 Mathf.Clamp(screenPosition.x, width * 0.5f, Screen.width - width * 0.5f);
             float centerY = Mathf.Clamp(Screen.height - screenPosition.y,
                 height * 0.5f, Screen.height - height * 0.5f);
             Rect drawRect = new Rect(centerX - width * 0.5f, centerY - height * 0.5f, width, height);
-            if (displayStyle == Style.WeaponDamage || displayStyle == Style.FuelDrumDestroyed)
+            if (displayStyle == Style.WeaponDamage || driftsOffscreen)
             {
                 // Gun hits are frequent and intentionally form a loose stream of
                 // small numbers, rather than jumping away from one another.

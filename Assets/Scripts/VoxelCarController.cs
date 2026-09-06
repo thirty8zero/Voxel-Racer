@@ -48,6 +48,8 @@ namespace VoxelRacer
         public float TrackDistance { get; private set; }
         public float CurrentLaneOffset { get; private set; }
         public float TargetLaneOffset => (currentLane - (laneCount - 1) * 0.5f) * laneWidth;
+        /// <summary>Current world-space forward offset applied while boost is active.</summary>
+        public float BoostForwardOffset => boostForwardOffset;
         public float PlannedFinishStopDuration { get; private set; }
         public bool IsDestroyed { get; private set; }
         /// <summary>Live count of the player's remaining destructible visual voxels.</summary>
@@ -62,6 +64,16 @@ namespace VoxelRacer
             }
         }
         public int MissingIntegrityVoxels => Mathf.Max(0, TotalIntegrityVoxels - RemainingIntegrityVoxels);
+        public int RepairableIntegrityVoxels
+        {
+            get
+            {
+                int count = MissingIntegrityVoxels;
+                foreach (var armor in GetComponentsInChildren<VoxelArmorVoxel>())
+                    if (armor.NeedsRepair) count++;
+                return count;
+            }
+        }
         public float IntegrityPercent => initialIntegrityVoxels == 0 ? 100f :
             Mathf.Clamp(100f * RemainingIntegrityVoxels / initialIntegrityVoxels, 0f, 100f);
         private float nextDamageTime;
@@ -71,6 +83,12 @@ namespace VoxelRacer
         private float visualYaw;
         private float visualRoll;
         private float boostSpeedBonus;
+        private float boostForwardOffset;
+        private float targetBoostForwardOffset;
+        private float boostForwardOffsetStart;
+        private float boostForwardOffsetStartedAt = -1f;
+        private float boostForwardOffsetDuration = 0.22f;
+        private VoxelEasingType boostForwardOffsetEasing = VoxelEasingType.EaseInOutCubic;
         private float ramForwardOffset;
         private float ramLateralOffset;
         private float ramResponseStartedAt = -1f;
@@ -126,6 +144,21 @@ namespace VoxelRacer
         /// <summary>Applied by the boost controller and kept separate from the car's tuned normal top speed.</summary>
         public void SetBoostSpeedBonus(float value) => boostSpeedBonus = Mathf.Max(0f, value);
 
+        /// <summary>Sets the temporary forward lane offset used to sell the boost launch and recovery.</summary>
+        public void SetBoostForwardOffset(float value, float transitionDuration = 0.22f,
+            VoxelEasingType easing = VoxelEasingType.EaseInOutCubic)
+        {
+            value = Mathf.Max(0f, value);
+            if (Mathf.Approximately(value, targetBoostForwardOffset) && boostForwardOffsetStartedAt >= 0f)
+                return;
+
+            boostForwardOffsetStart = boostForwardOffset;
+            targetBoostForwardOffset = value;
+            boostForwardOffsetDuration = Mathf.Max(0.01f, transitionDuration);
+            boostForwardOffsetEasing = easing;
+            boostForwardOffsetStartedAt = Time.time;
+        }
+
         /// <summary>Stops naturally according to this car's braking performance.</summary>
         public void BeginFinishStop()
         {
@@ -174,6 +207,7 @@ namespace VoxelRacer
             float rate = braking ? brakingForce : finishingRun ? finishDeceleration : acceleration;
             CurrentSpeed = Mathf.MoveTowards(CurrentSpeed, targetSpeed, rate * Time.deltaTime);
             UpdateRamResponse();
+            UpdateBoostForwardOffset();
             if (TrackPath != null)
                 TrackDistance += CurrentSpeed * Time.deltaTime;
             else
@@ -226,7 +260,7 @@ namespace VoxelRacer
             if (TrackPath == null)
                 return;
             VoxelTrackPose pose = TrackPath.Evaluate(TrackDistance);
-            transform.position = pose.position + pose.forward * ramForwardOffset +
+            transform.position = pose.position + pose.forward * (ramForwardOffset + boostForwardOffset) +
                 pose.right * (CurrentLaneOffset + ramLateralOffset);
             transform.rotation = pose.rotation * Quaternion.Euler(0f, visualYaw, visualRoll);
         }
@@ -274,6 +308,18 @@ namespace VoxelRacer
                 ramResponseStartedAt = -1f;
         }
 
+        private void UpdateBoostForwardOffset()
+        {
+            if (boostForwardOffsetStartedAt < 0f)
+                return;
+
+            float progress = Mathf.Clamp01((Time.time - boostForwardOffsetStartedAt) / boostForwardOffsetDuration);
+            boostForwardOffset = Mathf.Lerp(boostForwardOffsetStart, targetBoostForwardOffset,
+                VoxelEasing.Evaluate(boostForwardOffsetEasing, progress));
+            if (progress >= 1f)
+                boostForwardOffsetStartedAt = -1f;
+        }
+
         private void RequestLaneChange(int requestedLane)
         {
             requestedLane = Mathf.Clamp(requestedLane, 0, laneCount - 1);
@@ -282,6 +328,15 @@ namespace VoxelRacer
 
             previousLane = currentLane;
             currentLane = requestedLane;
+        }
+
+        /// <summary>Requests a one-lane move from an on-screen mobile control.</summary>
+        public void RequestLaneChangeDirection(int direction)
+        {
+            if (!Application.isPlaying || IsDestroyed || VoxelMissionProgress.Active?.IsComplete == true)
+                return;
+
+            RequestLaneChange(currentLane + Mathf.Clamp(direction, -1, 1));
         }
 
         private void ReturnToPreviousLane()
@@ -301,37 +356,67 @@ namespace VoxelRacer
 
             nextDamageTime = Time.time + 0.35f;
             var candidates = new List<Transform>();
+            var armorSurfaces = new List<MeshRenderer>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
                 if (renderer.transform != transform && renderer.GetComponentInParent<VoxelIndestructiblePart>() == null)
+                {
                     candidates.Add(renderer.transform);
+                    if (renderer.GetComponent<VoxelArmorVoxel>() != null)
+                        armorSurfaces.Add(renderer);
+                }
             }
             candidates.Sort((first, second) =>
                 (first.position - hitPoint).sqrMagnitude.CompareTo((second.position - hitPoint).sqrMagnitude));
 
             var blocksToDestroy = new List<Transform>();
             var plannedWheelLosses = new Dictionary<VoxelWheelIntegrity, int>();
+            int damageRemaining = Mathf.Max(1, damageVoxelsPerHit);
+            bool appliedDamage = false;
             foreach (var candidate in candidates)
             {
-                if (blocksToDestroy.Count >= damageVoxelsPerHit)
+                if (damageRemaining <= 0)
                     break;
+                if (blocksToDestroy.Contains(candidate))
+                    continue;
 
-                var wheelIntegrity = candidate.GetComponentInParent<VoxelWheelIntegrity>();
-                if (wheelIntegrity != null)
+                while (damageRemaining > 0)
                 {
-                    plannedWheelLosses.TryGetValue(wheelIntegrity, out int plannedLosses);
-                    if (!wheelIntegrity.CanLoseVoxel(plannedLosses))
+                    var armor = candidate.GetComponent<VoxelArmorVoxel>();
+                    if (armor == null)
+                        armor = FindCoveringArmor(candidate.position, impactDirection, armorSurfaces);
+                    if (armor != null)
+                    {
+                        int absorbed = armor.AbsorbDamage(damageRemaining);
+                        damageRemaining -= absorbed;
+                        appliedDamage |= absorbed > 0;
+                        if (armor.RemainingHealth == 0 && !blocksToDestroy.Contains(armor.transform))
+                            blocksToDestroy.Add(armor.transform);
+                        if (armor.transform == candidate || damageRemaining <= 0)
+                            break;
+                        // A depleted covering voxel no longer shields the body behind it.
                         continue;
-                    plannedWheelLosses[wheelIntegrity] = plannedLosses + 1;
-                }
+                    }
 
-                blocksToDestroy.Add(candidate);
+                    var wheelIntegrity = candidate.GetComponentInParent<VoxelWheelIntegrity>();
+                    if (wheelIntegrity != null)
+                    {
+                        plannedWheelLosses.TryGetValue(wheelIntegrity, out int plannedLosses);
+                        if (!wheelIntegrity.CanLoseVoxel(plannedLosses))
+                            break;
+                        plannedWheelLosses[wheelIntegrity] = plannedLosses + 1;
+                    }
+                    blocksToDestroy.Add(candidate);
+                    damageRemaining--;
+                    appliedDamage = true;
+                    break;
+                }
             }
 
             // Normal hits preserve a small wheel core for readable driving damage.
             // Once that is all that remains, the next hit becomes terminal instead
             // of leaving the integrity meter permanently above zero.
-            if (blocksToDestroy.Count == 0 && candidates.Count > 0)
+            if (!appliedDamage && blocksToDestroy.Count == 0 && candidates.Count > 0)
                 blocksToDestroy.AddRange(candidates);
 
             bool isLethalHit = blocksToDestroy.Count >= candidates.Count && candidates.Count > 0;
@@ -351,7 +436,7 @@ namespace VoxelRacer
                 block.gameObject.SetActive(false);
             }
 
-            if (blocksToDestroy.Count > 0)
+            if (appliedDamage || blocksToDestroy.Count > 0)
             {
                 VoxelCarIntegrityDisplay.Active?.PulseDamage();
                 Camera.main?.GetComponent<VoxelCameraFollow>()?.ShakeFromPlayerDamage();
@@ -359,6 +444,25 @@ namespace VoxelRacer
 
             if (isLethalHit)
                 DestroyCar(impactDirection);
+        }
+
+        private static VoxelArmorVoxel FindCoveringArmor(Vector3 position, Vector3 impactDirection,
+            List<MeshRenderer> surfaces)
+        {
+            if (impactDirection.sqrMagnitude < 0.0001f) return null;
+            var ray = new Ray(position, -impactDirection.normalized);
+            float nearest = float.PositiveInfinity;
+            VoxelArmorVoxel result = null;
+            foreach (var surface in surfaces)
+            {
+                var armor = surface.GetComponent<VoxelArmorVoxel>();
+                if (armor.RemainingHealth <= 0 || !surface.gameObject.activeInHierarchy ||
+                    !surface.bounds.IntersectRay(ray, out float distance) || distance >= nearest)
+                    continue;
+                nearest = distance;
+                result = armor;
+            }
+            return result;
         }
 
         private void DestroyCar(Vector3 impactDirection)
@@ -478,9 +582,18 @@ namespace VoxelRacer
                     break;
 
                 var voxel = candidates[connectedIndex];
+                voxel.GetComponent<VoxelArmorVoxel>()?.RepairToFull();
                 voxel.gameObject.SetActive(true);
                 activeVoxels.Add(voxel);
                 candidates.RemoveAt(connectedIndex);
+                restored++;
+            }
+            // Partial armour damage does not remove a voxel, but full repairs must heal it.
+            foreach (var armor in GetComponentsInChildren<VoxelArmorVoxel>())
+            {
+                if (restored >= restoreCount) break;
+                if (!armor.NeedsRepair) continue;
+                armor.RepairToFull();
                 restored++;
             }
             return restored;
@@ -488,7 +601,8 @@ namespace VoxelRacer
 
         public void ResetIntegrityBaseline()
         {
-            initialIntegrityVoxels = CountDestructibleVoxels();
+            // Purchases can change the baseline while existing body voxels are missing.
+            initialIntegrityVoxels = CountDestructibleVoxels(true);
         }
 
         public void EnsureIntegrityBaseline()
@@ -497,10 +611,10 @@ namespace VoxelRacer
                 ResetIntegrityBaseline();
         }
 
-        private int CountDestructibleVoxels()
+        private int CountDestructibleVoxels(bool includeInactive = false)
         {
             int count = 0;
-            foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
+            foreach (var renderer in GetComponentsInChildren<MeshRenderer>(includeInactive))
             {
                 if (renderer.transform != transform && renderer.GetComponentInParent<VoxelIndestructiblePart>() == null)
                     count++;

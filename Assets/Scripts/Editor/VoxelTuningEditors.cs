@@ -74,6 +74,7 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("obstacleCarSpawnChance"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("oppositeDirectionChance"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("enemyCarSpawnChance"));
+            VoxelTuningInspector.DrawRange("Wave Interval", serializedObject.FindProperty("minimumWaveInterval"), serializedObject.FindProperty("maximumWaveInterval"));
             VoxelTuningInspector.DrawRange("Objects Per Wave", serializedObject.FindProperty("minimumObjectsPerWave"), serializedObject.FindProperty("maximumObjectsPerWave"));
             VoxelTuningInspector.DrawRange("Object Distance Offset", serializedObject.FindProperty("minimumWaveObjectDistanceOffset"), serializedObject.FindProperty("maximumWaveObjectDistanceOffset"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("sameLaneCivilianSpeedTolerance"));

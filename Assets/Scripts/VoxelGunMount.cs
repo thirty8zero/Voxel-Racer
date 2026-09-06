@@ -11,7 +11,7 @@ namespace VoxelRacer
 
         public Vector3 MuzzlePosition => muzzle != null ? muzzle.position : transform.position;
         public Vector3 FireDirection => muzzle != null ? muzzle.forward : transform.forward;
-        public bool IsReady => tuning != null &&
+        public bool IsReady => isActiveAndEnabled && tuning != null && DriverAllowsFire &&
             (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete) &&
             (VoxelMissionProgress.Active == null || !VoxelMissionProgress.Active.IsComplete) &&
             Time.time >= nextFireTime &&
@@ -19,6 +19,19 @@ namespace VoxelRacer
 
         private float nextFireTime;
         private int remainingAmmunition;
+        private VoxelCarController owningCar;
+
+        private bool DriverAllowsFire
+        {
+            get
+            {
+                // Visuals may be instantiated before their car controller is added.
+                // Workshop cars disable that controller; menu displays have none.
+                if (owningCar == null)
+                    owningCar = GetComponentInParent<VoxelCarController>();
+                return owningCar != null && owningCar.isActiveAndEnabled && !owningCar.IsDestroyed;
+            }
+        }
 
         private void OnEnable()
         {
@@ -56,13 +69,15 @@ namespace VoxelRacer
         private static bool IsFireHeld()
         {
             var keyboard = Keyboard.current;
-            return keyboard != null && (keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed);
+            return (keyboard != null && (keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed)) ||
+                VoxelMobileControls.IsFireHeld;
         }
 
         private void FireProjectile()
         {
             Vector3 direction = Quaternion.AngleAxis(Random.Range(-tuning.spreadDegrees, tuning.spreadDegrees), Vector3.up) *
                 FireDirection;
+            VoxelFireEffects.PlayMuzzleFire(muzzle != null ? muzzle : transform, direction);
             VoxelProjectile.Create(MuzzlePosition + direction * 0.2f, direction, tuning);
         }
     }

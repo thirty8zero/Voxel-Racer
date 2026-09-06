@@ -126,12 +126,22 @@ namespace VoxelRacer
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = travelsWithPlayer ? target.transform.forward : -target.transform.forward;
 
-            int originalPlayerDamage = target.damageVoxelsPerHit;
-            target.damageVoxelsPerHit = Random.Range(
+            int selectedPlayerDamage = Random.Range(
                 Mathf.Min(tuning.playerDamageVoxelsMin, tuning.playerDamageVoxelsMax),
                 Mathf.Max(tuning.playerDamageVoxelsMin, tuning.playerDamageVoxelsMax) + 1);
+            int originalPlayerDamage = target.damageVoxelsPerHit;
+#if UNITY_EDITOR
+            int integrityBeforeHit = target.RemainingIntegrityVoxels;
+#endif
+            target.damageVoxelsPerHit = selectedPlayerDamage;
             target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection);
             target.damageVoxelsPerHit = originalPlayerDamage;
+#if UNITY_EDITOR
+            int integrityAfterHit = target.RemainingIntegrityVoxels;
+            Debug.Log($"Civilian collision: tuning={tuning.name}, configured={tuning.playerDamageVoxelsMin}-{tuning.playerDamageVoxelsMax}, " +
+                $"selected={selectedPlayerDamage}, removed={integrityBeforeHit - integrityAfterHit}, " +
+                $"integrity={target.IntegrityPercent:F1}%.", this);
+#endif
 
             // Begin damage on the surface facing the player, rather than from the traffic
             // car's centre, so detached voxels consistently identify the collision point.
@@ -270,9 +280,15 @@ namespace VoxelRacer
                 closestNearMissDistance = Mathf.Min(closestNearMissDistance, clearDistance);
             }
 
-            bool safelyBehindPlayer = trackDistance < target.TrackDistance -
-                (collisionHalfLength + mission.civilianNearMissPlayerHalfLength + mission.civilianNearMissPassClearance);
-            if (!nearMissCandidate || !safelyBehindPlayer)
+            // A close call is resolved only after the two vehicle bounds have
+            // separated longitudinally.  This deliberately accepts either pass
+            // direction: the player can overtake a slow semi, or a faster/oncoming
+            // vehicle can pass the player. The previous behind-player-only test
+            // silently rejected the latter case.
+            float safePassDistance = collisionHalfLength + mission.civilianNearMissPlayerHalfLength +
+                mission.civilianNearMissPassClearance;
+            bool safelyPassed = Mathf.Abs(target.TrackDistance - trackDistance) > safePassDistance;
+            if (!nearMissCandidate || !safelyPassed)
                 return;
 
             float closeness = 1f - Mathf.Clamp01(closestNearMissDistance / mission.civilianNearMissDistance);

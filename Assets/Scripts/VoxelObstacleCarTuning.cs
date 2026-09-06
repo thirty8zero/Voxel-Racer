@@ -11,6 +11,9 @@ namespace VoxelRacer
         [Range(0f, 1f)] public float oppositeDirectionChance = 0.5f;
         [Tooltip("Chance that a spawned traffic vehicle becomes the black enemy interceptor.")]
         [Range(0f, 1f)] public float enemyCarSpawnChance = 0.25f;
+        [Tooltip("Seconds between traffic/obstacle spawn waves. Each wave picks a random value within this range.")]
+        [Min(0.1f)] public float minimumWaveInterval = 2.5f;
+        [Min(0.1f)] public float maximumWaveInterval = 4.5f;
         [Tooltip("Number of objects created across different free lanes at each spawn opportunity.")]
         [Min(1)] public int minimumObjectsPerWave = 2;
         [Min(1)] public int maximumObjectsPerWave = 3;
@@ -102,6 +105,7 @@ namespace VoxelRacer
             oncomingSpawnSpeedMultiplierMax = Mathf.Max(oncomingSpawnSpeedMultiplierMin, oncomingSpawnSpeedMultiplierMax);
             oncomingApproachSpeedMultiplierMax = Mathf.Max(oncomingApproachSpeedMultiplierMin, oncomingApproachSpeedMultiplierMax);
             oncomingEngageSpeedMultiplierMax = Mathf.Max(oncomingEngageSpeedMultiplierMin, oncomingEngageSpeedMultiplierMax);
+            maximumWaveInterval = Mathf.Max(minimumWaveInterval, maximumWaveInterval);
             maximumWaveObjectDistanceOffset = Mathf.Max(minimumWaveObjectDistanceOffset, maximumWaveObjectDistanceOffset);
             potholePlayerDamageVoxelsMax = Mathf.Max(potholePlayerDamageVoxelsMin, potholePlayerDamageVoxelsMax);
             VoxelAssetSaveQueue.Request(this);

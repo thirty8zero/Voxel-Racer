@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: MainMenuTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMainMenuTuning
   featuredCars:
-  - {fileID: 11400000, guid: b1f61d07f7f4aed45931c7d4bd70e42d, type: 2}
+  - {fileID: 11400000, guid: 469e13644c9b1ba46adf0a72ec4cf6eb, type: 2}
   showHorizonMountains: 1
   mountainScale: 0.2
   cactusCount: 24

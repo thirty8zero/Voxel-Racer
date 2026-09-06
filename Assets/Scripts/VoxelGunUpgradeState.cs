@@ -39,6 +39,8 @@ namespace VoxelRacer
             if (existing != null)
             {
                 existing.gameObject.SetActive(false);
+                // Keep sibling paths stable immediately, even before deferred destruction.
+                existing.SetParent(null, true);
                 if (Application.isPlaying)
                     Object.Destroy(existing.gameObject);
                 else
@@ -50,6 +52,7 @@ namespace VoxelRacer
 
             Transform upgrades = new GameObject(UpgradeRootName).transform;
             upgrades.SetParent(carRoot, false);
+            upgrades.SetSiblingIndex(1);
             for (int index = 0; index < purchasedLongGunCount; index++)
             {
                 GameObject gun = Object.Instantiate(tuning.visualPrefab, upgrades);

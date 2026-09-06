@@ -55,7 +55,12 @@ namespace VoxelRacer
             if (countdown != null && !countdown.IsComplete)
                 return;
             if (VoxelMissionProgress.Active?.IsComplete == true)
+            {
+                // Do not resume a paused burst if a future flow ever keeps this
+                // turret object alive after the completed-mission presentation.
+                firing = false;
                 return;
+            }
 
             if (!firing)
             {
@@ -95,6 +100,7 @@ namespace VoxelRacer
         {
             Transform muzzle = barrel != null ? barrel : transform;
             int count = Mathf.Max(1, tuning.bulletsPerVolley);
+            VoxelFireEffects.PlayMuzzleFire(muzzle, transform.forward, 0.68f);
             for (int index = 0; index < count; index++)
             {
                 float normalizedIndex = count == 1 ? 0f : index / (float)(count - 1) - 0.5f;

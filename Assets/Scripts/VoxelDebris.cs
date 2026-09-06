@@ -15,6 +15,39 @@ namespace VoxelRacer
         private bool hasBounced;
         private bool hasSettled;
 
+        private void Awake()
+        {
+            ApplyDamageSoot();
+        }
+
+        /// <summary>
+        /// Gives every detached damage voxel a cheap, per-renderer soot variation.
+        /// A MaterialPropertyBlock avoids duplicating materials for the many short-lived
+        /// debris pieces that can be active on mobile.
+        /// </summary>
+        private void ApplyDamageSoot()
+        {
+            foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
+            {
+                if (renderer.sharedMaterial == null)
+                    continue;
+
+                // Mostly near-black, with occasional charcoal-grey fragments so an
+                // impact reads as scorched material rather than a flat black cloud.
+                float brightness = Random.value < 0.68f
+                    ? Random.Range(0.025f, 0.13f)
+                    : Random.Range(0.16f, 0.38f);
+                Color soot = new Color(brightness, brightness, brightness * Random.Range(0.9f, 1f), 1f);
+                var properties = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(properties);
+                if (renderer.sharedMaterial.HasProperty("_BaseColor"))
+                    properties.SetColor("_BaseColor", soot);
+                if (renderer.sharedMaterial.HasProperty("_Color"))
+                    properties.SetColor("_Color", soot);
+                renderer.SetPropertyBlock(properties);
+            }
+        }
+
         public void Launch(Vector3 initialVelocity)
         {
             Launch(initialVelocity, 1.5f);

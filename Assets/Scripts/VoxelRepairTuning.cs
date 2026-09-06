@@ -8,7 +8,7 @@ namespace VoxelRacer
     {
         /// <summary>
         /// Partial repairs cost their percentage of the full car's voxel count.
-        /// A full repair costs exactly the number of voxels currently missing.
+        /// A full repair costs one unit per missing or partially damaged armour voxel.
         /// </summary>
         public int GetRepairCost(VoxelCarController car, float repairPercent)
         {
@@ -16,7 +16,7 @@ namespace VoxelRacer
                 return 0;
 
             if (repairPercent >= 100f)
-                return car.MissingIntegrityVoxels;
+                return car.RepairableIntegrityVoxels;
 
             return Mathf.CeilToInt(car.TotalIntegrityVoxels * Mathf.Clamp01(repairPercent / 100f));
         }
