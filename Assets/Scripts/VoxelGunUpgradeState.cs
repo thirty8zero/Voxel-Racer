@@ -55,11 +55,18 @@ namespace VoxelRacer
             upgrades.SetSiblingIndex(1);
             for (int index = 0; index < purchasedLongGunCount; index++)
             {
-                GameObject gun = Object.Instantiate(tuning.visualPrefab, upgrades);
-                gun.name = tuning.displayName + " " + (index + 1);
-                gun.transform.localPosition = new Vector3(index == 0 ? -0.72f : 0.72f, 1.06f, 1.08f);
-                gun.transform.localRotation = Quaternion.identity;
+                CreateVisual(upgrades, tuning, index);
             }
+        }
+
+        /// <summary>Shared by gameplay and the isolated upgrade fit preview. Does not change ownership.</summary>
+        public static GameObject CreateVisual(Transform parent, VoxelGunTuning tuning, int index)
+        {
+            GameObject gun = Object.Instantiate(tuning.visualPrefab, parent);
+            gun.name = tuning.displayName + " " + (index + 1);
+            gun.transform.localPosition = new Vector3(index == 0 ? -0.72f : 0.72f, 1.06f, 1.08f);
+            gun.transform.localRotation = Quaternion.identity;
+            return gun;
         }
     }
 }

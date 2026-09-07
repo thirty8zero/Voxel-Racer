@@ -13,6 +13,16 @@ namespace VoxelRacer
 
         [Header("Speed")]
         [Min(0f)] public float acceleration = 12f;
+        private float wheelAccelerationMultiplier = 1f, wheelLaneMultiplier = 1f, wheelBrakingMultiplier = 1f;
+        public float EffectiveAcceleration => acceleration * wheelAccelerationMultiplier;
+        public float EffectiveLaneChangeSpeed => laneChangeSpeed * wheelLaneMultiplier;
+        public float EffectiveBrakingForce => brakingForce * wheelBrakingMultiplier;
+        public void SetWheelPerformance(float accelerationPercent, float lanePercent, float brakingPercent = 0f)
+        {
+            wheelAccelerationMultiplier = 1f + Mathf.Max(0, accelerationPercent) / 100f;
+            wheelLaneMultiplier = 1f + Mathf.Max(0, lanePercent) / 100f;
+            wheelBrakingMultiplier = 1f + Mathf.Max(0, brakingPercent) / 100f;
+        }
         [Min(0f)] public float topSpeed = 32f;
         [Min(0f)] public float brakingForce = 42f;
 
@@ -162,10 +172,10 @@ namespace VoxelRacer
         /// <summary>Stops naturally according to this car's braking performance.</summary>
         public void BeginFinishStop()
         {
-            PlannedFinishStopDuration = CalculateFinishStopDuration(CurrentSpeed, brakingForce);
+            PlannedFinishStopDuration = CalculateFinishStopDuration(CurrentSpeed, EffectiveBrakingForce);
             finishDeceleration = PlannedFinishStopDuration > 0.001f
                 ? CurrentSpeed / PlannedFinishStopDuration
-                : Mathf.Max(0.1f, brakingForce);
+                : Mathf.Max(0.1f, EffectiveBrakingForce);
             finishingRun = true;
         }
 
@@ -204,7 +214,7 @@ namespace VoxelRacer
             var keyboard = Keyboard.current;
             bool braking = keyboard != null && keyboard.spaceKey.isPressed;
             float targetSpeed = !drivingEnabled || braking || finishingRun ? 0f : topSpeed + boostSpeedBonus;
-            float rate = braking ? brakingForce : finishingRun ? finishDeceleration : acceleration;
+            float rate = braking ? EffectiveBrakingForce : finishingRun ? finishDeceleration : EffectiveAcceleration;
             CurrentSpeed = Mathf.MoveTowards(CurrentSpeed, targetSpeed, rate * Time.deltaTime);
             UpdateRamResponse();
             UpdateBoostForwardOffset();
@@ -224,7 +234,7 @@ namespace VoxelRacer
             }
 
             float targetLaneOffset = TargetLaneOffset;
-            CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, targetLaneOffset, laneChangeSpeed * Time.deltaTime);
+            CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, targetLaneOffset, EffectiveLaneChangeSpeed * Time.deltaTime);
             float laneOffset = targetLaneOffset - CurrentLaneOffset;
             float steeringTarget = Mathf.Abs(laneOffset) > 0.01f
                 ? Mathf.Sign(laneOffset) * frontWheelTurnDegrees

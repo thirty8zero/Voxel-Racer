@@ -160,6 +160,9 @@ namespace VoxelRacer
             ConfigureCarTuning(car, selectedCar);
             VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
             VoxelArmorUpgradeState.ApplyTo(car, selectedCar);
+            VoxelWheelSpikeUpgradeState.ApplyTo(car);
+            VoxelPerformanceWheelUpgradeState.ApplyTo(car, selectedCar);
+            VoxelBoostUpgradeState.ApplyTo(car, selectedCar);
             car.GetComponent<VoxelCarController>().ResetIntegrityBaseline();
             VoxelCarRunState.Apply(car.GetComponent<VoxelCarController>(), selectedCar);
             return car;
@@ -636,7 +639,8 @@ namespace VoxelRacer
             var boostController = environment.GetComponent<VoxelBoostController>();
             if (boostController == null)
                 boostController = environment.gameObject.AddComponent<VoxelBoostController>();
-            boostController.Configure(car.GetComponent<VoxelCarController>(), VoxelBoostTuning.Load());
+            boostController.Configure(car.GetComponent<VoxelCarController>(),
+                VoxelBoostUpgradeState.ResolveTuning(VoxelCarSelectionState.GetSelectedOrDefault()));
 
             var boostDisplay = environment.GetComponent<VoxelBoostDisplay>();
             if (boostDisplay == null)

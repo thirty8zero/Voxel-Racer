@@ -270,6 +270,7 @@ namespace VoxelRacer
             Vector3 hitDirection = (transform.position - target.transform.position).normalized;
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = target.transform.forward;
+            bool rearImpact = IsRearImpact(hitDirection);
 
             int originalPlayerDamage = target.damageVoxelsPerHit;
             target.damageVoxelsPerHit = Random.Range(
@@ -282,16 +283,16 @@ namespace VoxelRacer
                 -hitDirection, Random.Range(
                     Mathf.Min(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax),
                     Mathf.Max(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax) + 1));
-            CurrentHealth = Mathf.Max(0f, CurrentHealth - Tuning.playerRamDamage);
-            VoxelMissionProgress.ReportEnemyRamDamage(Tuning.playerRamDamage);
+            float ramDamage = Tuning.playerRamDamage + (rearImpact ? 0f : VoxelWheelSpikeUpgradeState.SideRamDamageBonus);
+            CurrentHealth = Mathf.Max(0f, CurrentHealth - ramDamage);
+            VoxelMissionProgress.ReportEnemyRamDamage(ramDamage);
             VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
-                VoxelMissionProgress.GetEnemyRamDamagePoints(Tuning.playerRamDamage), VoxelScorePopup.Style.RamDamage);
+                VoxelMissionProgress.GetEnemyRamDamagePoints(ramDamage), VoxelScorePopup.Style.RamDamage);
             healthBar.SetHealth(HealthPercent);
             if (CurrentHealth <= 0f)
                 Explode(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset, hitDirection);
             else
             {
-                bool rearImpact = IsRearImpact(hitDirection);
                 BeginRamResponse(rearImpact, hitDirection);
                 target.ApplyRamResponse(rearImpact, hitDirection, Tuning);
             }

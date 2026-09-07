@@ -20,6 +20,9 @@ namespace VoxelRacer
             VoxelCurrencyState.Reset();
             VoxelGunUpgradeState.BeginNewRun();
             VoxelArmorUpgradeState.BeginNewRun();
+            VoxelWheelSpikeUpgradeState.BeginNewRun();
+            VoxelPerformanceWheelUpgradeState.BeginNewRun();
+            VoxelBoostUpgradeState.BeginNewRun();
         }
 
         public static void Capture(VoxelCarController controller, VoxelCarDefinition definition = null)

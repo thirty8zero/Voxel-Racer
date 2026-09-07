@@ -4,7 +4,7 @@ namespace VoxelRacer
 {
     /// <summary>Persistent settings for the player's single-charge speed boost.</summary>
     [CreateAssetMenu(menuName = "Voxel Racer/Player/Boost Tuning", fileName = "VoxelBoostTuning")]
-    public sealed class VoxelBoostTuning : ScriptableObject
+    public class VoxelBoostTuning : ScriptableObject
     {
         [Tooltip("Extra speed added to the player's normal top speed while boost is active.")]
         [Min(0f)] public float boostSpeed = 18f;
@@ -24,7 +24,7 @@ namespace VoxelRacer
         public static VoxelBoostTuning Load() => Resources.Load<VoxelBoostTuning>("Boost/DefaultBoostTuning");
 
 #if UNITY_EDITOR
-        private void OnValidate()
+        protected virtual void OnValidate()
         {
             boostSpeed = Mathf.Max(0f, boostSpeed);
             boostLength = Mathf.Max(0.05f, boostLength);

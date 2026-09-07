@@ -76,13 +76,23 @@ namespace VoxelRacer
 
         /// <summary>Also used by the fit preview; creates both panels without changing purchases or currency.</summary>
         public static Transform CreatePair(Transform car, VoxelArmorTuning tuning)
+            => CreatePanels(car, tuning, true, true);
+
+        public static void CreatePanel(Transform car, VoxelArmorTuning tuning, VoxelArmorSide side)
+        {
+            if (car == null || tuning == null || tuning.panelPrefab == null) return;
+            EnsurePanel(EnsureUpgradeRoot(car), tuning, side, true);
+        }
+
+        /// <summary>Creates selected panels for an isolated preview without changing ownership.</summary>
+        public static Transform CreatePanels(Transform car, VoxelArmorTuning tuning, bool right, bool left)
         {
             if (car == null || tuning == null || tuning.panelPrefab == null)
                 return null;
 
             Transform root = EnsureUpgradeRoot(car);
-            EnsurePanel(root, tuning, VoxelArmorSide.Right, true);
-            EnsurePanel(root, tuning, VoxelArmorSide.Left, true);
+            EnsurePanel(root, tuning, VoxelArmorSide.Right, right);
+            EnsurePanel(root, tuning, VoxelArmorSide.Left, left);
             return root;
         }
 

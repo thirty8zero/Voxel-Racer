@@ -24,6 +24,12 @@ namespace VoxelRacer
         private Button rightArmorUpgradeButton;
         private Text leftArmorUpgradeButtonLabel;
         private Button leftArmorUpgradeButton;
+        private Text wheelSpikeUpgradeButtonLabel;
+        private Button wheelSpikeUpgradeButton;
+        private Button performanceWheelButton;
+        private Text performanceWheelLabel;
+        private Button boostUpgradeButton;
+        private Text boostUpgradeLabel;
         private Text repair10ButtonLabel;
         private Text repair25ButtonLabel;
         private Text repair50ButtonLabel;
@@ -103,6 +109,9 @@ namespace VoxelRacer
                 DisplayedCar.SetTuning(definition.tuning);
             VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
             VoxelArmorUpgradeState.ApplyTo(car, definition);
+            VoxelWheelSpikeUpgradeState.ApplyTo(car);
+            VoxelPerformanceWheelUpgradeState.ApplyTo(car, definition);
+            VoxelBoostUpgradeState.ApplyTo(car, definition);
             DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(DisplayedCar, definition);
             DisplayedCar.enabled = false;
@@ -210,20 +219,30 @@ namespace VoxelRacer
                 () => TryRepair(100f, GetRepairCost(100f)));
 
             Image weaponUpgradePanel = VoxelMenuUi.CreatePanel(canvas, "Car Upgrade Panel", new Vector2(0f, 0.5f),
-                new Vector2(330f, 0f), new Vector2(610f, 560f));
+                new Vector2(330f, 0f), new Vector2(610f, 700f));
             VoxelMenuUi.CreateText(weaponUpgradePanel.transform, "Upgrade Title", "CAR UPGRADES", 65,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 215f), new Vector2(590f, 90f));
-            gunUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Long Gun Purchase Button", string.Empty, 50,
-                new Vector2(0.5f, 0.5f), new Vector2(0f, 80f), new Vector2(560f, 150f), TryPurchaseLongGun);
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 285f), new Vector2(590f, 90f));
+            gunUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Long Gun Purchase Button", string.Empty, 36,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, 180f), new Vector2(560f, 100f), TryPurchaseLongGun);
             gunUpgradeButtonLabel = gunUpgradeButton.GetComponentInChildren<Text>();
-            rightArmorUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Right Door Armor Purchase Button", string.Empty, 40,
-                new Vector2(0.5f, 0.5f), new Vector2(0f, -85f), new Vector2(560f, 120f),
+            rightArmorUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Right Door Armor Purchase Button", string.Empty, 30,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, 65f), new Vector2(560f, 100f),
                 () => TryPurchaseDoorArmor(VoxelArmorSide.Right));
             rightArmorUpgradeButtonLabel = rightArmorUpgradeButton.GetComponentInChildren<Text>();
-            leftArmorUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Left Door Armor Purchase Button", string.Empty, 40,
-                new Vector2(0.5f, 0.5f), new Vector2(0f, -220f), new Vector2(560f, 120f),
+            leftArmorUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Left Door Armor Purchase Button", string.Empty, 30,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -50f), new Vector2(560f, 100f),
                 () => TryPurchaseDoorArmor(VoxelArmorSide.Left));
             leftArmorUpgradeButtonLabel = leftArmorUpgradeButton.GetComponentInChildren<Text>();
+            wheelSpikeUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Wheel Spike Purchase Button", string.Empty, 30,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -165f), new Vector2(560f, 100f), TryPurchaseWheelSpikes);
+            wheelSpikeUpgradeButtonLabel = wheelSpikeUpgradeButton.GetComponentInChildren<Text>();
+            performanceWheelButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Performance Wheel Purchase Button", string.Empty, 30,
+                new Vector2(.5f, .5f), new Vector2(0, -280), new Vector2(560, 100), TryPurchasePerformanceWheels);
+            performanceWheelLabel = performanceWheelButton.GetComponentInChildren<Text>();
+            boostUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Boost Bottle Purchase Button", string.Empty, 30,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), TryPurchaseBoostBottle);
+            boostUpgradeLabel = boostUpgradeButton.GetComponentInChildren<Text>();
+            BuildUpgradeScroll(weaponUpgradePanel.transform);
 
             feedbackText = VoxelMenuUi.CreateText(canvas, "Repair Feedback", string.Empty, 68,
                 TextAnchor.MiddleCenter, new Vector2(1f, 0.5f), new Vector2(-230f, -370f), new Vector2(340f, 80f));
@@ -307,6 +326,21 @@ namespace VoxelRacer
             RefreshUi();
         }
 
+        private void TryPurchaseWheelSpikes()
+        {
+            VoxelWheelSpikeTuning tuning = VoxelWheelSpikeTuning.Load();
+            if (DisplayedCar == null || !VoxelWheelSpikeUpgradeState.TryPurchase(tuning))
+            {
+                feedbackText.text = "WHEEL SPIKES UNAVAILABLE";
+                RefreshUi();
+                return;
+            }
+
+            VoxelWheelSpikeUpgradeState.ApplyTo(DisplayedCar.transform, tuning);
+            feedbackText.text = tuning.displayName.ToUpperInvariant() + " INSTALLED";
+            RefreshUi();
+        }
+
         private int RepairFull() => DisplayedCar.RepairPercent(100f);
 
         private void RefreshUi()
@@ -336,6 +370,9 @@ namespace VoxelRacer
                 fullRepairButtonLabel.text = RepairLabel("FULL REPAIR", GetRepairCost(100f), canRepairFull);
 
             RefreshArmorShop();
+            RefreshWheelSpikeShop();
+            RefreshPerformanceWheelShop();
+            RefreshBoostShop();
             VoxelGunTuning gunTuning = VoxelGunUpgradeState.LongGunTuning;
             if (gunUpgradeButton == null || gunUpgradeButtonLabel == null || gunTuning == null)
                 return;
@@ -347,6 +384,105 @@ namespace VoxelRacer
             gunUpgradeButtonLabel.text = canPurchase
                 ? gunTuning.displayName.ToUpperInvariant() + "\nCOST <color=#FFD12A>" + gunTuning.purchasePrice + "</color>   " + owned + "/" + maximum
                 : "GUN SLOTS FULL\n" + owned + "/" + maximum;
+        }
+
+        private void RefreshWheelSpikeShop()
+        {
+            VoxelWheelSpikeTuning tuning = VoxelWheelSpikeTuning.Load();
+            if (wheelSpikeUpgradeButton == null || wheelSpikeUpgradeButtonLabel == null)
+                return;
+
+            if (tuning == null || tuning.spikePrefab == null)
+            {
+                wheelSpikeUpgradeButton.interactable = false;
+                wheelSpikeUpgradeButtonLabel.text = "WHEEL SPIKES\nUNAVAILABLE";
+                return;
+            }
+
+            if (VoxelWheelSpikeUpgradeState.IsPurchased)
+            {
+                wheelSpikeUpgradeButton.interactable = false;
+                wheelSpikeUpgradeButtonLabel.text = tuning.displayName.ToUpperInvariant() + "\nINSTALLED (+" +
+                    tuning.sideRamDamageBonus + " SIDE RAM DAMAGE)";
+                return;
+            }
+
+            bool affordable = VoxelCurrencyState.Balance >= tuning.purchasePrice;
+            wheelSpikeUpgradeButton.interactable = affordable;
+            wheelSpikeUpgradeButtonLabel.text = tuning.displayName.ToUpperInvariant() + " (SET OF 4)\n+" +
+                tuning.sideRamDamageBonus + " SIDE RAM DAMAGE\nCOST <color=#FFD12A>" + tuning.purchasePrice + "</color>";
+        }
+
+        private void BuildUpgradeScroll(Transform panel)
+        {
+            // Keep cards readable as the upgrade catalogue grows; supports mouse wheel and touch drag.
+            var viewport = new GameObject("Upgrade Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image));
+            viewport.transform.SetParent(panel, false);
+            var rect = (RectTransform)viewport.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+            rect.anchoredPosition = new Vector2(0, -52.5f); rect.sizeDelta = new Vector2(580, 565);
+            viewport.GetComponent<Image>().color = new Color(0, 0, 0, .01f);
+            var content = new GameObject("Upgrade Cards", typeof(RectTransform));
+            content.transform.SetParent(viewport.transform, false);
+            var cr = (RectTransform)content.transform;
+            cr.anchorMin = cr.anchorMax = new Vector2(.5f, 1); cr.pivot = new Vector2(.5f, 1);
+            var buttons = new[] { gunUpgradeButton, rightArmorUpgradeButton, leftArmorUpgradeButton,
+                wheelSpikeUpgradeButton, performanceWheelButton, boostUpgradeButton };
+            cr.sizeDelta = new Vector2(560, buttons.Length * 115 - 15);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                var br = (RectTransform)buttons[i].transform; br.SetParent(content.transform, false);
+                br.anchorMin = br.anchorMax = new Vector2(.5f, 1);
+                br.anchoredPosition = new Vector2(0, -50 - i * 115);
+            }
+            var scroll = viewport.AddComponent<ScrollRect>();
+            scroll.viewport = rect; scroll.content = cr; scroll.horizontal = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 35;
+            VoxelMenuUi.CreateText(panel, "Upgrade Scroll Hint", "DRAG OR SCROLL FOR MORE", 22,
+                TextAnchor.MiddleCenter, new Vector2(.5f, .5f), new Vector2(0, 238), new Vector2(560, 26));
+        }
+
+        private void TryPurchaseBoostBottle()
+        {
+            var tuning = VoxelBoostUpgradeTuning.LoadUpgrade();
+            if (DisplayedCar == null || !VoxelBoostUpgradeState.TryPurchase(tuning, definition)) return;
+            VoxelBoostUpgradeState.ApplyTo(DisplayedCar.transform, definition);
+            VoxelCarRunState.Capture(DisplayedCar, definition);
+            feedbackText.text = "BOOST INSTALLED";
+            RefreshUi();
+        }
+
+        private void RefreshBoostShop()
+        {
+            if (boostUpgradeButton == null) return;
+            var tuning = VoxelBoostUpgradeTuning.LoadUpgrade();
+            bool fits = tuning != null && tuning.Fits(definition);
+            boostUpgradeButton.interactable = fits && !VoxelBoostUpgradeState.IsPurchased && VoxelCurrencyState.Balance >= tuning.purchasePrice;
+            boostUpgradeLabel.text = !fits ? "BOOST BOTTLE\nUNAVAILABLE FOR THIS CAR" : tuning.displayName +
+                (VoxelBoostUpgradeState.IsPurchased ? "\nINSTALLED" : "\nSPEED " + tuning.boostSpeed + "  DURATION " + tuning.boostLength +
+                " SEC\nCOST <color=#FFD12A>" + tuning.purchasePrice + "</color>");
+        }
+
+        private void TryPurchasePerformanceWheels()
+        {
+            var tuning = VoxelPerformanceWheelTuning.Load();
+            if (DisplayedCar == null || !VoxelPerformanceWheelUpgradeState.TryPurchase(tuning, definition)) return;
+            VoxelPerformanceWheelUpgradeState.ApplyTo(DisplayedCar.transform, definition);
+            VoxelCarRunState.Capture(DisplayedCar, definition);
+            feedbackText.text = "WHEELS INSTALLED";
+            RefreshUi();
+        }
+
+        private void RefreshPerformanceWheelShop()
+        {
+            if (performanceWheelButton == null) return;
+            var tuning = VoxelPerformanceWheelTuning.Load();
+            bool fits = tuning != null && tuning.Fits(definition);
+            performanceWheelButton.interactable = fits && !VoxelPerformanceWheelUpgradeState.IsPurchased && VoxelCurrencyState.Balance >= tuning.purchasePrice;
+            performanceWheelLabel.text = !fits ? "PERFORMANCE WHEELS\nUNAVAILABLE FOR THIS CAR" :
+                tuning.displayName + (VoxelPerformanceWheelUpgradeState.IsPurchased ? "\nINSTALLED" :
+                " (SET OF 4)\nBONUS PCT " + tuning.accelerationBonusPercent + " ACC  " + tuning.laneChangeBonusPercent +
+                " LANE  " + tuning.brakingBonusPercent + " BRAKE\nCOST <color=#FFD12A>" + tuning.purchasePrice + "</color>");
         }
 
         private void RefreshArmorShop()
