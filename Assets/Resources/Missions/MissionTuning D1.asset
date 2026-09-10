@@ -16,7 +16,15 @@ MonoBehaviour:
   requiredPoints: 300
   completionCurrencyAward: 100
   timeLimitSeconds: 80
-  timeBonusCurrencyMultiplier: 1.5
+  timeBonusCurrencyMultiplier: 1
+  maximumTimeMultiplier: 5
+  enemyVoxelMultiplier: 0.01
+  enemyDestroyedMultiplier: 0.25
+  barrelMultiplier: 0.1
+  nearMissMultiplier: 0.1
+  civilianVoxelMultiplierPenalty: 0.1
+  civilianDestroyedMultiplierPenalty: 1
+  bonusWarningSeconds: 10
   enemyVoxelDamagePoints: 1
   enemyVehicleDestroyedPoints: 25
   fuelDrumDestroyedPoints: 5

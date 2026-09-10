@@ -19,8 +19,17 @@ namespace VoxelRacer
         [Header("Time Bonus")]
         [Tooltip("Seconds available to earn the time-completion bonus. The mission can still be completed after this reaches zero.")]
         [Min(1f)] public float timeLimitSeconds = 120f;
-        [Tooltip("Multiplier applied to the completion award if the mission is completed before the countdown reaches zero. For example, 1.25 pays 125%, 1.5 pays 150%, and 2 pays 200%.")]
-        [Min(1f)] public float timeBonusCurrencyMultiplier = 1.5f;
+        [Tooltip("Starting live multiplier each mission. An on-time finish pays base cash times the final multiplier, with base cash protected below 1x. Running out of time forfeits the extra payout.")]
+        [Min(0f)] public float timeBonusCurrencyMultiplier = 1f;
+        [Header("Live Time Multiplier")]
+        [Min(1f)] public float maximumTimeMultiplier = 5f;
+        [Min(0f)] public float enemyVoxelMultiplier = .01f;
+        [Min(0f)] public float enemyDestroyedMultiplier = .25f;
+        [Min(0f)] public float barrelMultiplier = .1f;
+        [Min(0f)] public float nearMissMultiplier = .1f;
+        [Min(0f)] public float civilianVoxelMultiplierPenalty = .1f;
+        [Min(0f)] public float civilianDestroyedMultiplierPenalty = 1f;
+        [Min(1f)] public float bonusWarningSeconds = 10f;
 
         [Header("Enemy Score")]
         [Min(0)] public int enemyVoxelDamagePoints = 1;
@@ -74,7 +83,8 @@ namespace VoxelRacer
             requiredPoints = Mathf.Max(1, requiredPoints);
             completionCurrencyAward = Mathf.Max(0, completionCurrencyAward);
             timeLimitSeconds = Mathf.Max(1f, timeLimitSeconds);
-            timeBonusCurrencyMultiplier = Mathf.Max(1f, timeBonusCurrencyMultiplier);
+            maximumTimeMultiplier = Mathf.Max(1f, maximumTimeMultiplier);
+            timeBonusCurrencyMultiplier = Mathf.Clamp(timeBonusCurrencyMultiplier, 0f, maximumTimeMultiplier);
             enemyVoxelDamagePoints = Mathf.Max(0, enemyVoxelDamagePoints);
             enemyVehicleDestroyedPoints = Mathf.Max(0, enemyVehicleDestroyedPoints);
             fuelDrumDestroyedPoints = Mathf.Max(0, fuelDrumDestroyedPoints);

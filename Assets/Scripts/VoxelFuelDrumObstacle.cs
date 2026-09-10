@@ -159,7 +159,7 @@ namespace VoxelRacer
                 definition != null ? definition.explosionEffectScale : 1.2f);
             if (!damagedPlayer)
             {
-                VoxelMissionProgress.ReportFuelDrumDestroyed();
+                VoxelMissionProgress.ReportFuelDrumDestroyed(drumHealth.Count, transform.position);
                 float popupDuration = VoxelMissionProgress.Active?.Tuning != null
                     ? VoxelMissionProgress.Active.Tuning.fuelDrumDestroyedPopupDuration
                     : 2f;
@@ -168,6 +168,9 @@ namespace VoxelRacer
             }
             if (damagedPlayer)
             {
+                var mission = VoxelMissionProgress.Active;
+                if (mission?.Tuning != null)
+                    mission.ChangeMultiplier(mission.Tuning.barrelMultiplier * drumHealth.Count, "BARRELS DESTROYED", transform.position);
                 int originalDamage = target.damageVoxelsPerHit;
                 int minimum = definition != null ? definition.playerDamageVoxelsMin : 12;
                 int maximum = definition != null ? definition.playerDamageVoxelsMax : 18;

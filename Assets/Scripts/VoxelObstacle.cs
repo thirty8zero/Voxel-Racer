@@ -70,7 +70,9 @@ namespace VoxelRacer
 
         private void HitCar()
         {
+            if (hasBeenHit) return;
             hasBeenHit = true;
+            VoxelDestructionRewards.ReportDestroyed(definition, transform.position);
             Vector3 hitDirection = (transform.position - target.transform.position).normalized;
             int originalDamage = target.damageVoxelsPerHit;
             if (definition != null)
@@ -183,7 +185,9 @@ namespace VoxelRacer
 
         private void Explode(Vector3 hitPoint, Vector3 impactDirection)
         {
+            if (hasBeenHit) return;
             hasBeenHit = true;
+            VoxelDestructionRewards.ReportDestroyed(definition, transform.position);
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.6f,
                 definition != null ? definition.explosionEffectScale : 0.75f);
             var voxels = new List<Transform>();

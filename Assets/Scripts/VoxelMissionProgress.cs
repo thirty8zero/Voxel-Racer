@@ -3,7 +3,7 @@ using UnityEngine;
 namespace VoxelRacer
 {
     /// <summary>Tracks mission score and presents the top-centre progress HUD.</summary>
-    public sealed class VoxelMissionProgress : MonoBehaviour
+    public sealed partial class VoxelMissionProgress : MonoBehaviour
     {
         public static VoxelMissionProgress Active { get; private set; }
 
@@ -16,6 +16,60 @@ namespace VoxelRacer
         public int BaseCurrencyEarned { get; private set; }
         public int TimeBonusCurrencyEarned { get; private set; }
         public int TotalCurrencyEarned { get; private set; }
+        public int BonusCashEarned { get; private set; }
+        public void AddBonusCash(int amount)
+        {
+            if (Tuning != null && !IsComplete && amount > 0) BonusCashEarned += amount;
+        }
+        public float DestructionMultiplierBonus { get; private set; }
+        public float EffectiveTimeBonusMultiplier { get; private set; } = 1f;
+        private readonly System.Collections.Generic.List<MultiplierFlight> multiplierFlights = new();
+        private struct MultiplierFlight { public float amount, startedAt, valueAfter; public string reason; public Vector2 origin; }
+        private float displayedMultiplierBonus, multiplierPulseUntil;
+        private const float MultiplierFlightDuration = .85f;
+
+        public void AddMultiplierBonus(float amount)
+        {
+            if (amount > 0) ChangeMultiplier(amount, "BOX PRIZE");
+        }
+
+        public void ChangeMultiplier(float amount, string reason, Vector3? worldPosition = null)
+        {
+            if (Tuning == null || IsComplete || !TimeBonusAvailable || amount == 0 ||
+                (startCountdown != null && !startCountdown.IsComplete)) return;
+            float before = EffectiveTimeBonusMultiplier;
+            EffectiveTimeBonusMultiplier = Mathf.Round(Mathf.Clamp(before + amount, 0f,
+                Mathf.Max(1f, Tuning.maximumTimeMultiplier)) * 1000f) / 1000f;
+            float delta = EffectiveTimeBonusMultiplier - before;
+            DestructionMultiplierBonus = EffectiveTimeBonusMultiplier - Tuning.timeBonusCurrencyMultiplier;
+            if (Mathf.Abs(delta) < .0001f) return;
+            var origin = new Vector2(.5f, .45f);
+            if (worldPosition.HasValue && Camera.main != null)
+            {
+                var screen = Camera.main.WorldToViewportPoint(worldPosition.Value);
+                if (screen.z > 0) origin = new Vector2(Mathf.Clamp(screen.x, .15f, .85f), Mathf.Clamp(1f-screen.y, .3f, .8f));
+            }
+            int last = multiplierFlights.Count - 1;
+            if (last >= 0 && multiplierFlights[last].reason == reason &&
+                Time.unscaledTime - multiplierFlights[last].startedAt < .15f)
+            {
+                var grouped = multiplierFlights[last]; grouped.amount += delta;
+                grouped.valueAfter = EffectiveTimeBonusMultiplier; multiplierFlights[last] = grouped;
+            }
+            else multiplierFlights.Add(new MultiplierFlight { amount = delta, reason = reason,
+                startedAt = Time.unscaledTime, valueAfter = EffectiveTimeBonusMultiplier, origin = origin });
+        }
+
+        public static void ReportEnemyVoxelDestroyed(int count, Vector3 position)
+        {
+            if (count > 0 && Active?.Tuning != null)
+                Active.ChangeMultiplier(Active.Tuning.enemyVoxelMultiplier * count, "ENEMY VOXELS", position);
+        }
+        public static void ReportCivilianVoxelDestroyed(int count, Vector3 position)
+        {
+            if (count > 0 && Active?.Tuning != null)
+                Active.ChangeMultiplier(-Active.Tuning.civilianVoxelMultiplierPenalty * count, "CIVILIAN DAMAGE", position);
+        }
 
         private VoxelStartCountdown startCountdown;
         private bool rewardAwarded;
@@ -25,7 +79,15 @@ namespace VoxelRacer
         {
             Tuning = tuning;
             Points = 0;
+            BonusCashEarned = 0;
+            DestructionMultiplierBonus = 0;
+            EffectiveTimeBonusMultiplier = tuning != null ? Mathf.Clamp(tuning.timeBonusCurrencyMultiplier, 0, Mathf.Max(1, tuning.maximumTimeMultiplier)) : 1;
+            displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
+            multiplierPulseUntil = 0;
+            multiplierFlights.Clear();
             IsComplete = false;
+            timeExtensionStartedAt = float.NegativeInfinity;
+            timeExtensionAmount = 0;
             RemainingTime = tuning != null ? tuning.timeLimitSeconds : 0f;
             rewardAwarded = false;
             BaseCurrencyEarned = 0;
@@ -64,28 +126,37 @@ namespace VoxelRacer
         public static int GetEnemyRamDamagePoints(float damage) =>
             Active?.Tuning != null && damage > 0f ? Mathf.RoundToInt(damage) : 0;
 
-        public static void ReportEnemyVehicleDestroyed()
+        public static void ReportEnemyVehicleDestroyed(Vector3? position = null)
         {
             if (Active?.Tuning != null)
+            {
+                Active.ChangeMultiplier(Active.Tuning.enemyDestroyedMultiplier, "ENEMY DESTROYED", position);
                 Active.AddPoints(Active.Tuning.enemyVehicleDestroyedPoints);
+            }
         }
 
         public static int GetEnemyVehicleDestroyedPoints() =>
             Active?.Tuning != null ? Active.Tuning.enemyVehicleDestroyedPoints : 0;
 
-        public static void ReportFuelDrumDestroyed()
+        public static void ReportFuelDrumDestroyed(int drumCount = 1, Vector3? position = null)
         {
             if (Active?.Tuning != null)
+            {
+                Active.ChangeMultiplier(Active.Tuning.barrelMultiplier * Mathf.Max(0, drumCount), "BARRELS DESTROYED", position);
                 Active.AddPoints(Active.Tuning.fuelDrumDestroyedPoints);
+            }
         }
 
         public static int GetFuelDrumDestroyedPoints() =>
             Active?.Tuning != null ? Active.Tuning.fuelDrumDestroyedPoints : 0;
 
-        public static void ReportCivilianNearMiss(int points)
+        public static void ReportCivilianNearMiss(int points, Vector3? position = null)
         {
             if (Active?.Tuning != null && points > 0)
+            {
+                Active.ChangeMultiplier(Active.Tuning.nearMissMultiplier, "CLOSE CALL", position);
                 Active.AddPoints(points);
+            }
         }
 
         public static void ReportCivilianVoxelDamage(int count = 1)
@@ -94,15 +165,18 @@ namespace VoxelRacer
                 Active.AddPoints(Active.Tuning.civilianVoxelDamagePoints * count);
         }
 
-        public static void ReportCivilianVehicleDestroyed()
+        public static void ReportCivilianVehicleDestroyed(Vector3? position = null)
         {
             if (Active?.Tuning != null)
+            {
+                Active.ChangeMultiplier(-Active.Tuning.civilianDestroyedMultiplierPenalty, "CIVILIAN DESTROYED", position);
                 Active.AddPoints(Active.Tuning.civilianVehicleDestroyedPoints);
+            }
         }
 
         private void AddPoints(int points)
         {
-            if (Tuning == null || points == 0)
+            if (Tuning == null || IsComplete || points == 0)
                 return;
 
             Points = Mathf.Max(0, Points + points);
@@ -112,11 +186,33 @@ namespace VoxelRacer
 
         private void Update()
         {
+            for (int i = 0; i < multiplierFlights.Count;)
+            {
+                var flight = multiplierFlights[i];
+                if (Time.unscaledTime - flight.startedAt < MultiplierFlightDuration) break;
+                displayedMultiplierBonus = flight.valueAfter;
+                lastMultiplierWasNegative = flight.amount < 0;
+                multiplierPulseUntil = Time.unscaledTime + .32f;
+                multiplierFlights.RemoveAt(i);
+            }
             if (!Application.isPlaying || Tuning == null || IsComplete || RemainingTime <= 0f ||
                 (startCountdown != null && !startCountdown.IsComplete))
                 return;
 
-            RemainingTime = Mathf.Max(0f, RemainingTime - Time.deltaTime);
+            AdvanceBonusClock(Time.deltaTime);
+        }
+
+        public void AdvanceBonusClock(float seconds)
+        {
+            if (Tuning == null || IsComplete || !TimeBonusAvailable || seconds <= 0 ||
+                (startCountdown != null && !startCountdown.IsComplete)) return;
+            RemainingTime = Mathf.Max(0, RemainingTime - seconds);
+            if (!TimeBonusAvailable)
+            {
+                EffectiveTimeBonusMultiplier = 0; displayedMultiplierBonus = 0;
+                multiplierFlights.Clear(); multiplierPulseUntil = Time.unscaledTime + .6f;
+                lastMultiplierWasNegative = true;
+            }
         }
 
         private void CompleteMission()
@@ -129,11 +225,14 @@ namespace VoxelRacer
             TotalCurrencyEarned = BaseCurrencyEarned;
             if (TimeBonusAvailable)
             {
-                TotalCurrencyEarned = Mathf.RoundToInt(BaseCurrencyEarned * Tuning.timeBonusCurrencyMultiplier);
+                TotalCurrencyEarned = Mathf.Max(BaseCurrencyEarned, Mathf.RoundToInt(BaseCurrencyEarned * EffectiveTimeBonusMultiplier));
                 TimeBonusCurrencyEarned = Mathf.Max(0, TotalCurrencyEarned - BaseCurrencyEarned);
             }
+            TotalCurrencyEarned += BonusCashEarned;
             VoxelCurrencyState.Add(TotalCurrencyEarned);
             rewardAwarded = true;
+            displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
+            multiplierFlights.Clear();
         }
 
         private void OnGUI()
@@ -188,7 +287,9 @@ namespace VoxelRacer
                 Mathf.Max(0f, (barBackground.width - 4f) * Percent), barBackground.height - 4f), Texture2D.whiteTexture);
             GUI.color = new Color(1f, 1f, 1f, hudAlpha);
 
+            DrawMultiplier(area, hudAlpha);
             GUI.color = previousColor;
         }
+
     }
 }

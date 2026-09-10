@@ -15,6 +15,16 @@ namespace VoxelRacer
         private Font voxelFont;
 
         public void Configure(VoxelMissionProgress progress) => mission = progress;
+        public bool TryGetScreenRect(out Rect rect)
+        {
+            rect = default;
+            if (backgroundRing == null) return false;
+            var corners = new Vector3[4];
+            backgroundRing.rectTransform.GetWorldCorners(corners);
+            rect = new Rect(corners[0].x, Screen.height - corners[1].y,
+                corners[2].x - corners[0].x, corners[1].y - corners[0].y);
+            return true;
+        }
 
         private void Awake()
         {
@@ -40,12 +50,14 @@ namespace VoxelRacer
             float remainingPercent = Mathf.Clamp01(mission.RemainingTime / mission.Tuning.timeLimitSeconds);
             timerRing.fillAmount = remainingPercent;
             timerRing.color = GetTimerColour(remainingPercent);
+            if (mission.TimeExtensionPulse > 0) timerRing.color = Color.Lerp(timerRing.color, Color.cyan, mission.TimeExtensionPulse);
 
             float dialScale = mission.RemainingTime > 0f && mission.RemainingTime <= 10f
                 ? 1.08f + Mathf.Sin(Time.unscaledTime * 14f) * 0.1f
                 : 1f;
 
             bool timeIsUp = mission.RemainingTime <= 0f;
+            dialScale += .25f * mission.TimeExtensionPulse * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 12f));
             SetDialScale(dialScale, timeIsUp);
             timerText.fontSize = timeIsUp ? 44 : 76;
             timerText.resizeTextMaxSize = timeIsUp ? 44 : 76;

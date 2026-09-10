@@ -207,6 +207,9 @@ namespace VoxelRacer.Editor
             DrawAlwaysVisibleSection("Completion", "requiredPoints");
             DrawAlwaysVisibleSection("Rewards", "completionCurrencyAward");
             DrawAlwaysVisibleSection("Time Bonus", "timeLimitSeconds", "timeBonusCurrencyMultiplier");
+            DrawAlwaysVisibleSection("Live Time Multiplier", "maximumTimeMultiplier", "enemyVoxelMultiplier",
+                "enemyDestroyedMultiplier", "barrelMultiplier", "nearMissMultiplier",
+                "civilianVoxelMultiplierPenalty", "civilianDestroyedMultiplierPenalty", "bonusWarningSeconds");
 
             enemyScoreExpanded = DrawFoldout(enemyScoreExpanded, "Enemy Score",
                 "enemyVoxelDamagePoints", "enemyVehicleDestroyedPoints");

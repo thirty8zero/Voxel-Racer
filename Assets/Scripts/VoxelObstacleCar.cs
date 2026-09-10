@@ -154,7 +154,8 @@ namespace VoxelRacer
                 Mathf.Max(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax) + 1);
             int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount, DebrisStyle.Ram);
             VoxelMissionProgress.ReportCivilianVoxelDamage(damagedVoxelCount);
-            VoxelMissionProgress.ReportCivilianVehicleDestroyed();
+            VoxelMissionProgress.ReportCivilianVoxelDestroyed(damagedVoxelCount, transform.position);
+            VoxelMissionProgress.ReportCivilianVehicleDestroyed(transform.position);
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
                 EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
             velocity = hitDirection * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
@@ -176,7 +177,7 @@ namespace VoxelRacer
         private void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
             bool awardMissionPoints)
         {
-            if (hasBeenHit || EnemyTuning == null || damage <= 0f)
+            if (hasBeenHit || EnemyTuning == null || damage <= 0f || (hitVoxel != null && !hitVoxel.gameObject.activeInHierarchy))
                 return;
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
@@ -192,6 +193,7 @@ namespace VoxelRacer
                     projectileVoxelHealth.Remove(hitVoxel);
                     SpawnDebris(hitVoxel, impactDirection, DebrisStyle.Weapon);
                     hitVoxel.gameObject.SetActive(false);
+                    if (awardMissionPoints) VoxelMissionProgress.ReportCivilianVoxelDestroyed(1, hitPoint);
                 }
                 else
                     projectileVoxelHealth[hitVoxel] = remainingVoxelHealth;
@@ -205,7 +207,7 @@ namespace VoxelRacer
         {
             hasBeenHit = true;
             if (awardMissionPoints)
-                VoxelMissionProgress.ReportCivilianVehicleDestroyed();
+                VoxelMissionProgress.ReportCivilianVehicleDestroyed(transform.position);
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
                 EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
             ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount, DebrisStyle.Explosion);
@@ -297,7 +299,7 @@ namespace VoxelRacer
             int points = Mathf.Clamp(mission.civilianNearMissMinPoints + closerSteps,
                 mission.civilianNearMissMinPoints, mission.civilianNearMissMaxPoints);
             nearMissAwarded = true;
-            VoxelMissionProgress.ReportCivilianNearMiss(points);
+            VoxelMissionProgress.ReportCivilianNearMiss(points, transform.position);
             VoxelScorePopup.ShowNearMiss(transform.position + Vector3.up * 2.8f, points,
                 mission.civilianNearMissPopupDuration);
         }

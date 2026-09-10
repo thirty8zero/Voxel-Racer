@@ -15,7 +15,8 @@ namespace VoxelRacer
             RamDamage,
             EnemyDestroyed,
             FuelDrumDestroyed,
-            NearMiss
+            NearMiss,
+            BonusCash
         }
 
         private const float QuickLifetime = 0.2f;
@@ -44,6 +45,7 @@ namespace VoxelRacer
         private bool screenPositionLocked;
         private Vector3 lockedScreenPosition;
         private static GUIStyle weaponStyle;
+        private static GUIStyle cashStyle;
         private static GUIStyle ramStyle;
         private static GUIStyle destroyedStyle;
         private static GUIStyle nearMissTitleStyle;
@@ -96,17 +98,18 @@ namespace VoxelRacer
             // Scatter on the camera's screen-horizontal axis so simultaneous awards
             // remain readable regardless of the road's current heading.
             Vector3 screenRight = viewCamera != null ? viewCamera.transform.right : Vector3.right;
-            float horizontalSpread = style == Style.WeaponDamage ? WeaponHorizontalSpread : StandardHorizontalSpread;
+            float horizontalSpread = style == Style.BonusCash ? 0f : style == Style.WeaponDamage ? WeaponHorizontalSpread : StandardHorizontalSpread;
             transform.position = position + screenRight * Random.Range(-horizontalSpread, horizontalSpread);
             float sideDirection = viewCamera != null && viewCamera.WorldToScreenPoint(transform.position).x < Screen.width * 0.5f
                 ? -1f
                 : 1f;
             sideDriftDirection = screenRight * sideDirection;
             displayText = points > 0 ? $"+{points}" : points.ToString();
+            if (style == Style.BonusCash) displayText = $"+${points}";
             displayStyle = style;
             screenPositionLocked = false;
 
-            if (style == Style.WeaponDamage && viewCamera != null)
+            if ((style == Style.WeaponDamage || style == Style.BonusCash) && viewCamera != null)
             {
                 // Keep the requested random left/right spawn offset, but only use it
                 // as an initial placement. The value must never drift sideways after
@@ -117,6 +120,12 @@ namespace VoxelRacer
 
             switch (style)
             {
+                case Style.BonusCash:
+                    riseSpeed = 3f;
+                    lifetime = 1.2f;
+                    riseDuration = 1.2f;
+                    fadeOutDuration = .4f;
+                    break;
                 case Style.RamDamage:
                     riseSpeed = 8.5f;
                     lifetime = 2f;
@@ -155,8 +164,8 @@ namespace VoxelRacer
         private void Update()
         {
             elapsed += Time.deltaTime;
-            if (displayStyle == Style.WeaponDamage && screenPositionLocked && elapsed <= riseDuration)
-                lockedScreenPosition.y += WeaponScreenRisePixelsPerSecond * Time.deltaTime;
+            if ((displayStyle == Style.WeaponDamage || displayStyle == Style.BonusCash) && screenPositionLocked && elapsed <= riseDuration)
+                lockedScreenPosition.y += (displayStyle == Style.BonusCash ? 90f : WeaponScreenRisePixelsPerSecond) * Time.deltaTime;
             else if (elapsed <= riseDuration)
                 transform.position += Vector3.up * (riseSpeed * Time.deltaTime);
             else if (displayStyle == Style.FuelDrumDestroyed || displayStyle == Style.EnemyDestroyed)
@@ -311,6 +320,13 @@ namespace VoxelRacer
         {
             switch (style)
             {
+                case Style.BonusCash:
+                    if (cashStyle == null)
+                    {
+                        cashStyle = CreateStyle(42, new Color(1f, .82f, .12f));
+                        cashStyle.font = Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
+                    }
+                    return cashStyle;
                 case Style.RamDamage:
                     return ramStyle ??= CreateStyle(76, new Color(1f, 0.38f, 0.04f));
                 case Style.EnemyDestroyed:

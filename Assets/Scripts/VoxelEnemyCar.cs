@@ -125,7 +125,7 @@ namespace VoxelRacer
         private void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
             bool awardMissionPoints)
         {
-            if (hasBeenRammed || damage <= 0f)
+            if (hasBeenRammed || damage <= 0f || (hitVoxel != null && !hitVoxel.gameObject.activeInHierarchy))
                 return;
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
@@ -134,7 +134,6 @@ namespace VoxelRacer
             {
                 if (awardMissionPoints)
                 {
-                    VoxelMissionProgress.ReportEnemyVoxelDamage();
                     VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
                         VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage);
                 }
@@ -146,6 +145,7 @@ namespace VoxelRacer
                     voxelHealth.Remove(hitVoxel);
                     SpawnDebris(hitVoxel, impactDirection, DebrisStyle.Weapon);
                     hitVoxel.gameObject.SetActive(false);
+                    if (awardMissionPoints) VoxelMissionProgress.ReportEnemyVoxelDestroyed(1, hitPoint);
                 }
                 else
                     voxelHealth[hitVoxel] = remainingVoxelHealth;
@@ -154,6 +154,7 @@ namespace VoxelRacer
             healthBar.SetHealth(HealthPercent);
             if (CurrentHealth <= 0f)
                 Explode(hitPoint, impactDirection, awardMissionPoints);
+            if (awardMissionPoints && hitVoxel != null) VoxelMissionProgress.ReportEnemyVoxelDamage();
         }
 
         /// <summary>
@@ -239,7 +240,7 @@ namespace VoxelRacer
         {
             if (awardMissionPoints)
             {
-                VoxelMissionProgress.ReportEnemyVehicleDestroyed();
+                VoxelMissionProgress.ReportEnemyVehicleDestroyed(transform.position);
                 VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.55f),
                     VoxelMissionProgress.GetEnemyVehicleDestroyedPoints(), VoxelScorePopup.Style.EnemyDestroyed);
             }
@@ -279,13 +280,13 @@ namespace VoxelRacer
             target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection);
             target.damageVoxelsPerHit = originalPlayerDamage;
 
-            ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,
+            int removedVoxels = ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,
                 -hitDirection, Random.Range(
                     Mathf.Min(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax),
                     Mathf.Max(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax) + 1));
             float ramDamage = Tuning.playerRamDamage + (rearImpact ? 0f : VoxelWheelSpikeUpgradeState.SideRamDamageBonus);
+            VoxelMissionProgress.ReportEnemyVoxelDestroyed(removedVoxels, transform.position);
             CurrentHealth = Mathf.Max(0f, CurrentHealth - ramDamage);
-            VoxelMissionProgress.ReportEnemyRamDamage(ramDamage);
             VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
                 VoxelMissionProgress.GetEnemyRamDamagePoints(ramDamage), VoxelScorePopup.Style.RamDamage);
             healthBar.SetHealth(HealthPercent);
@@ -296,6 +297,7 @@ namespace VoxelRacer
                 BeginRamResponse(rearImpact, hitDirection);
                 target.ApplyRamResponse(rearImpact, hitDirection, Tuning);
             }
+            VoxelMissionProgress.ReportEnemyRamDamage(ramDamage);
         }
 
         private int ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount)
