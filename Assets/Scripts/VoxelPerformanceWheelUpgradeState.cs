@@ -5,6 +5,7 @@ namespace VoxelRacer
     public static class VoxelPerformanceWheelUpgradeState
     {
         public const string InstanceName = "Performance Wheel Visual";
+        public const float OutwardOffset = 0.07f;
         public static bool IsPurchased { get; private set; }
         public static void BeginNewRun() => IsPurchased = false;
         public static bool TryPurchase(VoxelPerformanceWheelTuning tuning, VoxelCarDefinition car)
@@ -37,10 +38,12 @@ namespace VoxelRacer
                 }
                 var visual = Object.Instantiate(tuning.wheelPrefab, wheel);
                 visual.name = InstanceName;
-                visual.transform.localPosition = Vector3.zero;
+                visual.transform.localPosition = Vector3.right * (car.InverseTransformPoint(wheel.position).x >= 0 ? OutwardOffset : -OutwardOffset);
                 visual.transform.localRotation = car.InverseTransformPoint(wheel.position).x >= 0
                     ? Quaternion.identity : Quaternion.Euler(0, 180, 0);
                 visual.transform.localScale = Vector3.one;
+                var spike = wheel.Find(VoxelWheelSpikeUpgradeState.SpikeInstanceName);
+                if (spike != null) spike.localPosition = visual.transform.localPosition;
             }
         }
     }

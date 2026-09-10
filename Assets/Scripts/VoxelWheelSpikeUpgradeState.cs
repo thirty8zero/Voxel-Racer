@@ -63,7 +63,8 @@ namespace VoxelRacer
         {
                 GameObject instance = Object.Instantiate(tuning.spikePrefab, wheel);
                 instance.name = SpikeInstanceName;
-                instance.transform.localPosition = Vector3.zero;
+                var upgradedWheel = wheel.Find(VoxelPerformanceWheelUpgradeState.InstanceName);
+                instance.transform.localPosition = upgradedWheel != null ? upgradedWheel.localPosition : Vector3.zero;
                 // The shared model points along +X. Mirror it on the left side so
                 // every spike projects out from the car rather than through its wheel.
                 bool isRightWheel = car.InverseTransformPoint(wheel.position).x >= 0f;

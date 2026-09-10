@@ -64,7 +64,7 @@ namespace VoxelRacer
         {
             GameObject gun = Object.Instantiate(tuning.visualPrefab, parent);
             gun.name = tuning.displayName + " " + (index + 1);
-            gun.transform.localPosition = new Vector3(index == 0 ? -0.72f : 0.72f, 1.06f, 1.08f);
+            gun.transform.localPosition = new Vector3(index == 0 ? -0.58f : 0.58f, 1.06f, 1.08f);
             gun.transform.localRotation = Quaternion.identity;
             return gun;
         }

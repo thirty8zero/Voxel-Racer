@@ -17,6 +17,9 @@ namespace VoxelRacer
         private Font voxelFont;
         private Font glitchGoblinFont;
         private Texture2D ringTexture;
+        private Sprite ringSprite;
+        private Texture2D dialTexture;
+        private Sprite dialSprite;
         private float damagePulseStartedAt = -1f;
         private const float DamagePulseDuration = 0.28f;
 
@@ -52,6 +55,11 @@ namespace VoxelRacer
             if (alpha <= 0f)
                 return;
 
+            RefreshIntegrity();
+        }
+
+        private void RefreshIntegrity()
+        {
             float integrity = Mathf.Clamp01(target.IntegrityPercent / 100f);
             healthRing.fillAmount = integrity;
             Color normalRingColour = Color.Lerp(new Color(0.95f, 0.12f, 0.08f),
@@ -80,15 +88,33 @@ namespace VoxelRacer
             glitchGoblinFont = Resources.Load<Font>("Fonts/GlitchGoblin");
 
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Player Integrity HUD");
-            canvas.GetComponent<Canvas>().sortingOrder = 100;
+            canvas.GetComponent<Canvas>().sortingOrder = 110;
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            scaler.matchWidthOrHeight = 1f; scaler.enabled = false; scaler.enabled = true;
             canvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
             canvasGroup.alpha = 0f;
 
-            Sprite ringSprite = CreateRingSprite();
+            var disc = new GameObject("Integrity Dial Backplate", typeof(RectTransform), typeof(Image));
+            disc.transform.SetParent(canvas, false);
+            var dr = (RectTransform)disc.transform;
+            dr.anchorMin = dr.anchorMax = new Vector2(0, 1);
+            dr.anchoredPosition = new Vector2(155, -165); dr.sizeDelta = new Vector2(304, 304);
+            dialTexture = new Texture2D(256, 256, TextureFormat.RGBA32, false);
+            for (int y = 0; y < 256; y++) for (int x = 0; x < 256; x++)
+            {
+                float r = Vector2.Distance(new Vector2(x + .5f, y + .5f), new Vector2(128,128)) / 128;
+                Color c = r > .975f ? new Color(.30f,.38f,.40f,.8f) : new Color(.015f,.027f,.031f,.95f);
+                if (r > 1) c.a = 0;
+                dialTexture.SetPixel(x,y,c);
+            }
+            dialTexture.Apply(); dialTexture.wrapMode = TextureWrapMode.Clamp;
+            dialSprite = Sprite.Create(dialTexture, new Rect(0,0,256,256), new Vector2(.5f,.5f));
+            disc.GetComponent<Image>().sprite = dialSprite; disc.GetComponent<Image>().raycastTarget = false;
+            ringSprite = CreateRingSprite();
             backgroundRing = CreateRingImage(canvas, ringSprite);
             backgroundRing.name = "Integrity Ring Background";
             backgroundRing.fillAmount = 1f;
-            backgroundRing.color = new Color(0.02f, 0.025f, 0.04f, 0.58f);
+            backgroundRing.color = new Color(0.025f, 0.15f, 0.075f, 0.9f);
 
             healthRing = CreateRingImage(canvas, ringSprite);
             healthRing.name = "Integrity Ring";
@@ -99,6 +125,8 @@ namespace VoxelRacer
             percentageText.resizeTextForBestFit = true;
             percentageText.resizeTextMinSize = 12;
             percentageText.resizeTextMaxSize = 110;
+            percentageText.font = voxelFont;
+            percentageText.text = "100%";
             percentageText.horizontalOverflow = HorizontalWrapMode.Wrap;
             percentageText.verticalOverflow = VerticalWrapMode.Truncate;
 
@@ -107,6 +135,7 @@ namespace VoxelRacer
             integrityLabelText.resizeTextForBestFit = true;
             integrityLabelText.resizeTextMinSize = 12;
             integrityLabelText.resizeTextMaxSize = 30;
+            integrityLabelText.font = voxelFont;
         }
 
         private static Image CreateRingImage(Transform parent, Sprite sprite)
@@ -132,8 +161,8 @@ namespace VoxelRacer
 
         private Sprite CreateRingSprite()
         {
-            const int textureSize = 128;
-            const float innerRadius = 0.76f;
+            const int textureSize = 512;
+            const float innerRadius = 0.74f;
             ringTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGBA32, false)
             {
                 name = "Runtime Integrity Ring",
@@ -147,8 +176,11 @@ namespace VoxelRacer
             {
                 float distance = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f),
                     new Vector2(radius, radius)) / radius;
-                float alpha = distance >= innerRadius && distance <= 1f ? 1f : 0f;
-                ringTexture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                float angle = Mathf.Atan2(y + .5f - radius, x + .5f - radius) * Mathf.Rad2Deg + 180;
+                float sector = angle % 15f;
+                float alpha = distance >= innerRadius && distance <= .98f && sector > 1.0f && sector < 14f ? 1f : 0f;
+                float shade = distance > .91f ? .65f : 1f;
+                ringTexture.SetPixel(x, y, new Color(shade, shade, shade, alpha));
             }
             ringTexture.Apply();
             return Sprite.Create(ringTexture, new Rect(0f, 0f, textureSize, textureSize),
@@ -159,6 +191,9 @@ namespace VoxelRacer
         {
             if (ringTexture != null)
                 Destroy(ringTexture);
+            if (ringSprite != null) Destroy(ringSprite);
+            if (dialTexture != null) Destroy(dialTexture);
+            if (dialSprite != null) Destroy(dialSprite);
         }
     }
 }

@@ -37,6 +37,7 @@ namespace VoxelRacer
             boostEndsAt = Time.time + Tuning.boostLength;
             Target.SetBoostSpeedBonus(Tuning.boostSpeed);
             SetBoostForwardOffset(true);
+            EnsureExhaustFireEffects();
             SetExhaustFireEmission(true);
             return true;
         }
@@ -102,13 +103,37 @@ namespace VoxelRacer
 
         private void EnsureExhaustFireEffects()
         {
-            if (Target == null || exhaustFireEffects != null)
+            if (exhaustFireEffects != null)
+                foreach (var effect in exhaustFireEffects)
+                    if (effect != null)
+                    {
+                        effect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                        if (Application.isPlaying) Destroy(effect.gameObject);
+                        else DestroyImmediate(effect.gameObject);
+                    }
+            exhaustFireEffects = null;
+            if (Target == null)
                 return;
+
+            // Resolve the current engine on activation, including engines replaced in the shop.
+            var outlets = Target.GetComponentsInChildren<VoxelEngineExhaustOutlet>();
+            if (outlets.Length > 0)
+            {
+                exhaustFireEffects = new ParticleSystem[outlets.Length];
+                for (int index = 0; index < outlets.Length; index++)
+                {
+                    Transform outlet = outlets[index].transform;
+                    exhaustFireEffects[index] = VoxelFireEffects.CreateBoostExhaustFire(
+                        outlet, outlet.position, outlet.forward);
+                }
+                return;
+            }
 
             var exhausts = new System.Collections.Generic.List<Transform>();
             foreach (Transform child in Target.GetComponentsInChildren<Transform>(true))
             {
-                if (child != Target.transform && child.name.IndexOf("Exhaust", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                if (child != Target.transform && child.GetComponent<ParticleSystem>() == null &&
+                    child.name.IndexOf("Exhaust", System.StringComparison.OrdinalIgnoreCase) >= 0)
                     exhausts.Add(child);
             }
 

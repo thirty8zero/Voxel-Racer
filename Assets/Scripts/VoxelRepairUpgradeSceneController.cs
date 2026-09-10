@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace VoxelRacer
 {
     /// <summary>Builds the desert workshop, damaged car display, repair controls, and next-race flow.</summary>
-    public sealed class VoxelRepairUpgradeSceneController : MonoBehaviour
+    public sealed partial class VoxelRepairUpgradeSceneController : MonoBehaviour
     {
         public string raceSceneName = "SampleScene";
         public VoxelRepairTuning repairTuning;
@@ -67,21 +67,12 @@ namespace VoxelRacer
 
         private void BuildWorkshop()
         {
-            Transform workshop = new GameObject("Desert Repair Workshop").transform;
+            Transform workshop = new GameObject("Garage Workshop").transform;
             workshop.SetParent(transform, false);
 
-            VoxelRacerBootstrap.CreateBlock("Brown Ground", workshop,
-                new Vector3(0f, -0.28f, 0f), new Vector3(80f, 0.5f, 80f),
-                VoxelRacerBootstrap.GroundMaterial);
-
-            Material poleMaterial = CreateMaterial("Tent Poles", new Color(0.24f, 0.11f, 0.045f));
-            Material roofMaterial = CreateMaterial("Tent Canvas", new Color(0.88f, 0.52f, 0.20f));
-            BuildTent(workshop, poleMaterial, roofMaterial);
-            BuildCacti(workshop);
+            VoxelGarageEnvironment.Build(workshop);
             BuildCar(workshop);
             SetupCamera();
-            VoxelRacerBootstrap.SetupLighting();
-            VoxelRacerBootstrap.SetupSky(DisplayedCar.transform);
         }
 
         private void BuildCar(Transform workshop)
@@ -89,7 +80,7 @@ namespace VoxelRacer
             Transform car = new GameObject("Workshop Player Car").transform;
             car.SetParent(workshop, false);
             car.localPosition = Vector3.zero;
-            car.localRotation = Quaternion.Euler(0f, 24f, 0f);
+            car.localRotation = Quaternion.Euler(0f, -15f, 0f);
 
             if (definition != null && definition.visualPrefab != null)
             {
@@ -172,7 +163,8 @@ namespace VoxelRacer
                 workshopCamera.tag = "MainCamera";
             }
 
-            workshopCamera.clearFlags = CameraClearFlags.Skybox;
+            workshopCamera.clearFlags = CameraClearFlags.SolidColor;
+            workshopCamera.backgroundColor = new Color(.018f, .023f, .033f);
             ApplyCameraTuning();
         }
 
@@ -250,6 +242,7 @@ namespace VoxelRacer
 
             NextRaceButton = VoxelMenuUi.CreateButton(canvas, "Next Race Button", "NEXT MISSION", 99,
                 new Vector2(0.5f, 0f), new Vector2(0f, 78f), new Vector2(800f, 150f), StartNextRace);
+            StyleGarageUi(canvas);
         }
 
         private int GetRepairCost(float repairPercent) => repairTuning != null
@@ -346,7 +339,7 @@ namespace VoxelRacer
         private void RefreshUi()
         {
             if (currencyText != null)
-                currencyText.text = "CASH  <color=#FFD12A>" + VoxelCurrencyState.Balance + "</color>";
+                currencyText.text = "$ " + VoxelCurrencyState.Balance.ToString("N0");
 
             float missingPercent = DisplayedCar == null
                 ? 0f

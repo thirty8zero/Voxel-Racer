@@ -242,9 +242,9 @@ namespace VoxelRacer.Editor
             shopType.GetMethod("BuildUi", instance).Invoke(shop, null);
             VoxelCurrencyState.Add(tuning.panelPurchasePrice * 2);
             shopType.GetMethod("RefreshUi", instance).Invoke(shop, null);
-            var rightButton = shopObject.GetComponentsInChildren<Button>()
+            var rightButton = shopObject.GetComponentsInChildren<Button>(true)
                 .First(button => button.name == "Right Door Armor Purchase Button");
-            var leftButton = shopObject.GetComponentsInChildren<Button>()
+            var leftButton = shopObject.GetComponentsInChildren<Button>(true)
                 .First(button => button.name == "Left Door Armor Purchase Button");
             Check(rightButton.interactable && leftButton.interactable, "both affordable shop buttons disabled");
             rightButton.onClick.Invoke();

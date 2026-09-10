@@ -49,7 +49,7 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("BuildUi", flags).Invoke(shop, null);
                 VoxelCurrencyState.Add(tuning.purchasePrice * 2);
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("RefreshUi", flags).Invoke(shop, null);
-                var button = root.GetComponentsInChildren<Button>().First(b => b.name == "Boost Bottle Purchase Button");
+                var button = root.GetComponentsInChildren<Button>(true).First(b => b.name == "Boost Bottle Purchase Button");
                 Check(button.interactable, "Shop did not enable affordable upgrade");
                 button.onClick.Invoke();
                 Check(VoxelBoostUpgradeState.IsPurchased && !button.interactable && VoxelCurrencyState.Balance == tuning.purchasePrice, "Shop purchase failed");
@@ -60,7 +60,7 @@ namespace VoxelRacer.Editor
                 Check(VoxelBoostUpgradeState.ResolveTuning(definition) == tuning, "Purchased settings not selected");
                 var bottle = car.transform.Find(VoxelBoostUpgradeState.InstanceName);
                 Check(bottle.localPosition.x > 0 && Vector3.Dot(bottle.up, new Vector3(0, .5f, 1).normalized) > .999f, "Bottle does not follow right panel slope");
-                var scroll = root.GetComponentInChildren<ScrollRect>();
+                var scroll = root.GetComponentInChildren<ScrollRect>(true);
                 Check(scroll != null && scroll.content.rect.height > scroll.viewport.rect.height, "Upgrade list is not scrollable");
                 Check(VoxelUpgradeFitCatalog.Discover().Any(e => e.Asset == tuning && e.Fits(definition)), "Fit preview missing bottle");
                 VoxelBoostUpgradeState.BeginNewRun();

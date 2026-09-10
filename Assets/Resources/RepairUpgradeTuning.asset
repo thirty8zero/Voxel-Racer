@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2db95e677f73c4e4f91ee29408aa2be9, type: 3}
   m_Name: RepairUpgradeTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelRepairUpgradeTuning
-  cameraPosition: {x: 5.28, y: 2.4, z: 1.61}
-  cameraLookAt: {x: 0, y: 0.7, z: 0}
-  cameraFieldOfView: 45
+  cameraPosition: {x: 5.8, y: 2.9, z: 5.8}
+  cameraLookAt: {x: 1.4, y: 0.6, z: -1.1}
+  cameraFieldOfView: 40

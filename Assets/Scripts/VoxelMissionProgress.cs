@@ -19,6 +19,7 @@ namespace VoxelRacer
 
         private VoxelStartCountdown startCountdown;
         private bool rewardAwarded;
+        private Font percentageSymbolFont;
 
         public void Configure(VoxelMissionTuning tuning)
         {
@@ -161,8 +162,23 @@ namespace VoxelRacer
                 normal = { textColor = Color.white }
             };
             labelStyle.normal.textColor = IsComplete ? new Color(0.25f, 1f, 0.38f) : Color.white;
-            GUI.Label(new Rect(area.x + 8f, area.y, area.width - 16f, 42f),
-                IsComplete ? "MISSION COMPLETE" : $"{Tuning.displayName}: {Mathf.RoundToInt(Percent * 100f)}%", labelStyle);
+            var labelRect = new Rect(area.x + 8f, area.y, area.width - 16f, 42f);
+            if (IsComplete)
+                GUI.Label(labelRect, "MISSION COMPLETE", labelStyle);
+            else
+            {
+                // IMPACTED lacks a visible percent glyph. Keep the heading font and
+                // draw the entire numeric percentage in one font, matching the integrity HUD.
+                percentageSymbolFont ??= Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
+                var symbolStyle = new GUIStyle(labelStyle) { font = percentageSymbolFont };
+                string heading = $"{Tuning.displayName}: ";
+                string percentage = $"{Mathf.RoundToInt(Percent * 100f)}%";
+                float headingWidth = labelStyle.CalcSize(new GUIContent(heading)).x;
+                float symbolWidth = symbolStyle.CalcSize(new GUIContent(percentage)).x;
+                float left = labelRect.center.x - (headingWidth + symbolWidth) * 0.5f;
+                GUI.Label(new Rect(left, labelRect.y, headingWidth, labelRect.height), heading, labelStyle);
+                GUI.Label(new Rect(left + headingWidth, labelRect.y, symbolWidth, labelRect.height), percentage, symbolStyle);
+            }
 
             var barBackground = new Rect(area.x + 24f, area.y + 48f, area.width - 48f, 13f);
             GUI.color = new Color(0.08f, 0.09f, 0.12f, hudAlpha);
