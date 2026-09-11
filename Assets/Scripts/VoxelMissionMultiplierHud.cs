@@ -77,11 +77,9 @@ namespace VoxelRacer
                     Fill(new Rect(trail.x - 2, trail.y - 2, 4, 4), colour, alpha * (1 - dot / 6f) * .6f);
                 }
                 float opacity = alpha * (1 - Mathf.Clamp01((t - .9f) / .1f));
-                Fill(new Rect(point.x - 140, point.y - 32, 280, 62), new Color(.015f, .025f, .04f, .9f), opacity);
                 GUI.color = new Color(1, 1, 1, opacity);
-                GUI.Label(new Rect(point.x - 140, point.y - 32, 280, 38),
-                    (flight.amount > 0 ? "+" : "") + flight.amount.ToString("0.00") + "x", BonusStyle(32, colour));
-                GUI.Label(new Rect(point.x - 140, point.y + 4, 280, 24), flight.reason, BonusStyle(16, Color.white));
+                OutlinedBonusLabel(new Rect(point.x - 90, point.y - 18, 180, 30),
+                    (flight.amount > 0 ? "+" : "") + flight.amount.ToString("0.00") + "x", BonusStyle(24, colour));
             }
             DrawTimeExtension(timer, alpha);
             GUI.color = new Color(1, 1, 1, alpha);
@@ -120,6 +118,16 @@ namespace VoxelRacer
                 GUI.color = new Color(1, 1, 1, alpha * (1-burst));
                 GUI.Label(new Rect(panel.x, panel.yMax + 4, panel.width, 28), "+" + timeExtensionAmount + " SEC", BonusStyle(22, cyan));
             }
+        }
+
+        private static void OutlinedBonusLabel(Rect rect, string text, GUIStyle style)
+        {
+            var outline = new GUIStyle(style);
+            outline.normal.textColor = Color.black;
+            for (int x = -1; x <= 1; x++)
+                for (int y = -1; y <= 1; y++)
+                    if (x != 0 || y != 0) GUI.Label(new Rect(rect.x + x * 2, rect.y + y * 2, rect.width, rect.height), text, outline);
+            GUI.Label(rect, text, style);
         }
 
         private static Rect GetCountdownRect()

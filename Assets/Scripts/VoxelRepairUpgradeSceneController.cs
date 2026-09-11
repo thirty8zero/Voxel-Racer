@@ -58,6 +58,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            UpdateCarRotationInput();
             if (cameraTuning != null &&
                 (cameraTuning.cameraPosition != appliedCameraPosition ||
                  cameraTuning.cameraLookAt != appliedCameraLookAt ||

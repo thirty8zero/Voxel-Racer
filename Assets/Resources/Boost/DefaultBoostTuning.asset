@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f310b62bcbfd3a4cadf67eb099cf086, type: 3}
   m_Name: DefaultBoostTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBoostTuning
+  exhaustEffectPrefab: {fileID: 0}
   boostSpeed: 20
   boostLength: 1
   rechargeCooldownLength: 5

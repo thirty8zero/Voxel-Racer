@@ -16,7 +16,7 @@ MonoBehaviour:
   obstacleType: 0
   playerDamageVoxelsMin: 20
   playerDamageVoxelsMax: 50
-  hitPoints: 5
+  hitPoints: 10
   rearSurfaceHitRandomness: 0.8
   weaponDebrisScale: 0.65
   weaponDebrisLifetime: 1.1

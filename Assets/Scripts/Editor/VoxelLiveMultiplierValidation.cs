@@ -28,6 +28,16 @@ namespace VoxelRacer.Editor
                 Equal(mission.EffectiveTimeBonusMultiplier, 1, "Hits must not farm multiplier");
                 VoxelMissionProgress.ReportEnemyVoxelDestroyed(10, Vector3.zero);
                 Equal(mission.EffectiveTimeBonusMultiplier, 1.1f, "Enemy voxel rewards");
+                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                var pending = typeof(VoxelMissionProgress).GetField("pendingVoxelChange", flags);
+                var lastHit = typeof(VoxelMissionProgress).GetField("lastVoxelDamageAt", flags);
+                var flush = typeof(VoxelMissionProgress).GetMethod("FlushVoxelPopup", flags);
+                Equal((float)pending.GetValue(mission), .1f, "Voxel gains accumulated");
+                flush.Invoke(mission, null);
+                Equal((float)pending.GetValue(mission), .1f, "Popup waits for inactivity");
+                lastHit.SetValue(mission, Time.unscaledTime - 1.01f);
+                flush.Invoke(mission, null);
+                Equal((float)pending.GetValue(mission), 0, "One second flushes accumulated popup");
                 VoxelMissionProgress.ReportEnemyVehicleDestroyed();
                 VoxelMissionProgress.ReportFuelDrumDestroyed(3);
                 VoxelMissionProgress.ReportCivilianNearMiss(1);

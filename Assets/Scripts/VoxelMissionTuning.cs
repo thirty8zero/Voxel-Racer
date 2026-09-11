@@ -25,6 +25,7 @@ namespace VoxelRacer
         [Min(1f)] public float maximumTimeMultiplier = 5f;
         [Min(0f)] public float enemyVoxelMultiplier = .01f;
         [Min(0f)] public float enemyDestroyedMultiplier = .25f;
+        [Tooltip("Multiplier awarded once per destroyed fuel-drum group, regardless of how many visual drums it contains.")]
         [Min(0f)] public float barrelMultiplier = .1f;
         [Min(0f)] public float nearMissMultiplier = .1f;
         [Min(0f)] public float civilianVoxelMultiplierPenalty = .1f;

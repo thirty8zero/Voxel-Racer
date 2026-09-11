@@ -124,7 +124,7 @@ namespace VoxelRacer
                 {
                     Transform outlet = outlets[index].transform;
                     exhaustFireEffects[index] = VoxelFireEffects.CreateBoostExhaustFire(
-                        outlet, outlet.position, outlet.forward);
+                        outlet, outlet.position, outlet.forward, Tuning != null ? Tuning.exhaustEffectPrefab : null);
                 }
                 return;
             }
@@ -153,7 +153,7 @@ namespace VoxelRacer
                     ? Target.transform.TransformPoint(new Vector3(index == 0 ? -0.48f : 0.48f, 0.22f, -2.9f))
                     : exhaust.position - Target.transform.forward * 0.10f;
                 exhaustFireEffects[index] = VoxelFireEffects.CreateBoostExhaustFire(Target.transform, position,
-                    -Target.transform.forward);
+                    -Target.transform.forward, Tuning != null ? Tuning.exhaustEffectPrefab : null);
             }
         }
 

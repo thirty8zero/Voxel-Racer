@@ -6,6 +6,8 @@ namespace VoxelRacer
     [CreateAssetMenu(menuName = "Voxel Racer/Player/Boost Tuning", fileName = "VoxelBoostTuning")]
     public class VoxelBoostTuning : ScriptableObject
     {
+        [Tooltip("Optional exhaust effect. Empty uses the standard boost flame.")]
+        public ParticleSystem exhaustEffectPrefab;
         [Tooltip("Extra speed added to the player's normal top speed while boost is active.")]
         [Min(0f)] public float boostSpeed = 18f;
         [Tooltip("Seconds a fully charged boost remains active after one press.")]

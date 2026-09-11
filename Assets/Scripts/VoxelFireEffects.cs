@@ -46,19 +46,20 @@ namespace VoxelRacer
         }
 
         /// <summary>Creates one locally simulated exhaust flame attached to the requested point.</summary>
-        public static ParticleSystem CreateBoostExhaustFire(Transform vehicle, Vector3 worldPosition, Vector3 exhaustDirection)
+        public static ParticleSystem CreateBoostExhaustFire(Transform vehicle, Vector3 worldPosition, Vector3 exhaustDirection, ParticleSystem overridePrefab = null)
         {
             if (vehicle == null)
                 return null;
-            if (boostExhaustPrefab == null)
+            if (boostExhaustPrefab == null && overridePrefab == null)
                 boostExhaustPrefab = Resources.Load<ParticleSystem>("Effects/VoxelBoostExhaustFire");
-            if (boostExhaustPrefab == null)
+            var prefab = overridePrefab != null ? overridePrefab : boostExhaustPrefab;
+            if (prefab == null)
                 return null;
 
             Vector3 direction = exhaustDirection.sqrMagnitude > 0.0001f
                 ? exhaustDirection.normalized
                 : -vehicle.forward;
-            ParticleSystem effect = Object.Instantiate(boostExhaustPrefab, worldPosition,
+            ParticleSystem effect = Object.Instantiate(prefab, worldPosition,
                 Quaternion.LookRotation(direction, vehicle.up), vehicle);
             effect.name = "Boost Exhaust Fire";
             effect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);

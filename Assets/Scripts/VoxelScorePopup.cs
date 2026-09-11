@@ -52,6 +52,11 @@ namespace VoxelRacer
         private static GUIStyle nearMissPointsStyle;
         private static readonly List<Rect> DrawnPopupRects = new();
         private static int popupLayoutFrame = -1;
+        private bool FliesToMission => displayStyle == Style.WeaponDamage || displayStyle == Style.RamDamage ||
+            displayStyle == Style.EnemyDestroyed || displayStyle == Style.FuelDrumDestroyed;
+
+        public static float MissionFlightProgress(float age, float duration) =>
+            Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((age - .12f) / Mathf.Max(.01f, duration - .12f)));
 
         public static void Show(Vector3 position, int points, Style style, float lifetimeOverride = -1f)
         {
@@ -109,7 +114,7 @@ namespace VoxelRacer
             displayStyle = style;
             screenPositionLocked = false;
 
-            if ((style == Style.WeaponDamage || style == Style.BonusCash) && viewCamera != null)
+            if ((FliesToMission || style == Style.BonusCash) && viewCamera != null)
             {
                 // Keep the requested random left/right spawn offset, but only use it
                 // as an initial placement. The value must never drift sideways after
@@ -159,11 +164,27 @@ namespace VoxelRacer
             }
 
             gameObject.SetActive(true);
+            if (FliesToMission) fadeOutDuration = 0f;
         }
 
         private void Update()
         {
             elapsed += Time.deltaTime;
+            if (FliesToMission)
+            {
+                // Keep the spawn point fixed while the camera and damaged vehicle move.
+                if (!screenPositionLocked && Camera.main != null)
+                {
+                    lockedScreenPosition = Camera.main.WorldToScreenPoint(transform.position);
+                    screenPositionLocked = true;
+                }
+                if (elapsed >= lifetime)
+                {
+                    gameObject.SetActive(false);
+                    Pool.Enqueue(this);
+                }
+                return;
+            }
             if ((displayStyle == Style.WeaponDamage || displayStyle == Style.BonusCash) && screenPositionLocked && elapsed <= riseDuration)
                 lockedScreenPosition.y += (displayStyle == Style.BonusCash ? 90f : WeaponScreenRisePixelsPerSecond) * Time.deltaTime;
             else if (elapsed <= riseDuration)
@@ -207,6 +228,25 @@ namespace VoxelRacer
                 : viewCamera.WorldToScreenPoint(transform.position);
             if (screenPosition.z <= 0f)
                 return;
+
+            if (FliesToMission)
+            {
+                float progress = MissionFlightProgress(elapsed, lifetime);
+                float scale = 1f - progress;
+                if (scale <= .0001f) return;
+                Vector2 destination = VoxelMissionProgress.Active != null
+                    ? VoxelMissionProgress.Active.PercentageScreenPosition : new Vector2(Screen.width * .5f, 39f);
+                Vector2 start = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
+                Vector2 center = Vector2.Lerp(start, destination, progress);
+                var matrix = GUI.matrix;
+                try
+                {
+                    GUIUtility.ScaleAroundPivot(Vector2.one * scale, center);
+                    DrawOutlinedLabel(new Rect(center.x - 140f, center.y - 60f, 280f, 120f), displayText, GetStyle(displayStyle));
+                }
+                finally { GUI.matrix = matrix; }
+                return;
+            }
 
             if (displayStyle == Style.NearMiss)
             {
@@ -304,7 +344,7 @@ namespace VoxelRacer
                 GUI.Label(new Rect(rect.x + horizontal * outlinePixels, rect.y + vertical * outlinePixels,
                     rect.width, rect.height), text, style);
             }
-            GUI.color = new Color(originalColour.r, originalColour.g, originalColour.b, originalColour.a * opacity);
+            GUI.color = new Color(1f, 1f, 1f, originalColour.a * opacity);
             GUI.Label(rect, text, style);
             GUI.color = originalColour;
         }
@@ -339,7 +379,7 @@ namespace VoxelRacer
 
         private static GUIStyle CreateStyle(int fontSize, Color colour)
         {
-            return new GUIStyle(GUI.skin.label)
+            var style = new GUIStyle(GUI.skin.label)
             {
                 font = VoxelHudStyles.HudFont,
                 fontSize = fontSize,
@@ -347,6 +387,16 @@ namespace VoxelRacer
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = colour }
             };
+            // Labels can use hover/active states while a finger or mouse remains
+            // over the hit. Every state must keep the same intended popup colour.
+            style.hover.textColor = colour;
+            style.active.textColor = colour;
+            style.focused.textColor = colour;
+            style.onNormal.textColor = colour;
+            style.onHover.textColor = colour;
+            style.onActive.textColor = colour;
+            style.onFocused.textColor = colour;
+            return style;
         }
     }
 }

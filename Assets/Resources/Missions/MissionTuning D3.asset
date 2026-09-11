@@ -19,8 +19,8 @@ MonoBehaviour:
   timeBonusCurrencyMultiplier: 1
   maximumTimeMultiplier: 5
   enemyVoxelMultiplier: 0.01
-  enemyDestroyedMultiplier: 0.25
-  barrelMultiplier: 0.1
+  enemyDestroyedMultiplier: 0.1
+  barrelMultiplier: 0.05
   nearMissMultiplier: 0.1
   civilianVoxelMultiplierPenalty: 0.1
   civilianDestroyedMultiplierPenalty: 1

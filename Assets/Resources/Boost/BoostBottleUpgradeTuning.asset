@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 041ebae20e460c6459465f4617017207, type: 3}
   m_Name: BoostBottleUpgradeTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBoostUpgradeTuning
+  exhaustEffectPrefab: {fileID: 3006793601068203571, guid: ffc4c67d942381c45846bb90d07e975d, type: 3}
   boostSpeed: 30
   boostLength: 1.5
   rechargeCooldownLength: 4

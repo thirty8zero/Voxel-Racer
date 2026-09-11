@@ -13,6 +13,7 @@ namespace VoxelRacer
         public bool IsComplete { get; private set; }
         public float RemainingTime { get; private set; }
         public bool TimeBonusAvailable => RemainingTime > 0f;
+        public Vector2 PercentageScreenPosition { get; private set; }
         public int BaseCurrencyEarned { get; private set; }
         public int TimeBonusCurrencyEarned { get; private set; }
         public int TotalCurrencyEarned { get; private set; }
@@ -27,6 +28,16 @@ namespace VoxelRacer
         private struct MultiplierFlight { public float amount, startedAt, valueAfter; public string reason; public Vector2 origin; }
         private float displayedMultiplierBonus, multiplierPulseUntil;
         private const float MultiplierFlightDuration = .85f;
+        private float pendingVoxelChange, lastVoxelDamageAt;
+        private Vector2 pendingVoxelOrigin;
+
+        private void FlushVoxelPopup()
+        {
+            if (Mathf.Abs(pendingVoxelChange) < .0001f || Time.unscaledTime - lastVoxelDamageAt < 1f) return;
+            multiplierFlights.Add(new MultiplierFlight { amount = pendingVoxelChange, startedAt = Time.unscaledTime,
+                valueAfter = EffectiveTimeBonusMultiplier, reason = "VOXEL DAMAGE", origin = pendingVoxelOrigin });
+            pendingVoxelChange = 0;
+        }
 
         public void AddMultiplierBonus(float amount)
         {
@@ -48,6 +59,13 @@ namespace VoxelRacer
             {
                 var screen = Camera.main.WorldToViewportPoint(worldPosition.Value);
                 if (screen.z > 0) origin = new Vector2(Mathf.Clamp(screen.x, .15f, .85f), Mathf.Clamp(1f-screen.y, .3f, .8f));
+            }
+            if (reason == "ENEMY VOXELS" || reason == "CIVILIAN DAMAGE")
+            {
+                pendingVoxelChange += delta;
+                lastVoxelDamageAt = Time.unscaledTime;
+                pendingVoxelOrigin = origin;
+                return;
             }
             int last = multiplierFlights.Count - 1;
             if (last >= 0 && multiplierFlights[last].reason == reason &&
@@ -85,6 +103,8 @@ namespace VoxelRacer
             displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
             multiplierPulseUntil = 0;
             multiplierFlights.Clear();
+            pendingVoxelChange = 0;
+            PercentageScreenPosition = new Vector2(Screen.width * .5f, 39f);
             IsComplete = false;
             timeExtensionStartedAt = float.NegativeInfinity;
             timeExtensionAmount = 0;
@@ -107,6 +127,7 @@ namespace VoxelRacer
 
         public static void ReportEnemyVoxelDamage(int count = 1)
         {
+            if (count > 0 && Active != null) Active.lastVoxelDamageAt = Time.unscaledTime;
             if (Active?.Tuning != null)
                 Active.AddPoints(Active.Tuning.enemyVoxelDamagePoints * count);
         }
@@ -161,6 +182,7 @@ namespace VoxelRacer
 
         public static void ReportCivilianVoxelDamage(int count = 1)
         {
+            if (count > 0 && Active != null) Active.lastVoxelDamageAt = Time.unscaledTime;
             if (Active?.Tuning != null)
                 Active.AddPoints(Active.Tuning.civilianVoxelDamagePoints * count);
         }
@@ -186,11 +208,12 @@ namespace VoxelRacer
 
         private void Update()
         {
+            FlushVoxelPopup();
             for (int i = 0; i < multiplierFlights.Count;)
             {
                 var flight = multiplierFlights[i];
                 if (Time.unscaledTime - flight.startedAt < MultiplierFlightDuration) break;
-                displayedMultiplierBonus = flight.valueAfter;
+                displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
                 lastMultiplierWasNegative = flight.amount < 0;
                 multiplierPulseUntil = Time.unscaledTime + .32f;
                 multiplierFlights.RemoveAt(i);
@@ -210,6 +233,7 @@ namespace VoxelRacer
             if (!TimeBonusAvailable)
             {
                 EffectiveTimeBonusMultiplier = 0; displayedMultiplierBonus = 0;
+                pendingVoxelChange = 0;
                 multiplierFlights.Clear(); multiplierPulseUntil = Time.unscaledTime + .6f;
                 lastMultiplierWasNegative = true;
             }
@@ -233,6 +257,7 @@ namespace VoxelRacer
             rewardAwarded = true;
             displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
             multiplierFlights.Clear();
+            pendingVoxelChange = 0;
         }
 
         private void OnGUI()
@@ -275,6 +300,7 @@ namespace VoxelRacer
                 float headingWidth = labelStyle.CalcSize(new GUIContent(heading)).x;
                 float symbolWidth = symbolStyle.CalcSize(new GUIContent(percentage)).x;
                 float left = labelRect.center.x - (headingWidth + symbolWidth) * 0.5f;
+                PercentageScreenPosition = new Vector2(left + headingWidth + symbolWidth * .5f, labelRect.center.y);
                 GUI.Label(new Rect(left, labelRect.y, headingWidth, labelRect.height), heading, labelStyle);
                 GUI.Label(new Rect(left + headingWidth, labelRect.y, symbolWidth, labelRect.height), percentage, symbolStyle);
             }
