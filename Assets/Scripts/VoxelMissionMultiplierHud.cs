@@ -69,6 +69,9 @@ namespace VoxelRacer
                 // Briefly hold the labelled gain at its source, then visibly connect it to the counter.
                 float travel = Mathf.SmoothStep(0, 1, Mathf.Clamp01((t - .2f) / .8f));
                 Vector2 from = new Vector2(flight.origin.x * Screen.width, flight.origin.y * Screen.height);
+                // Start above the vehicle rather than over its body, while keeping clear of the header.
+                from.y = Mathf.Max(missionArea.yMax + 24f,
+                    from.y - Mathf.Max(60f, Screen.height * .12f));
                 Vector2 point = Vector2.Lerp(from, target.center, travel);
                 Color colour = flight.amount < 0 ? LossColour : GainColour;
                 for (int dot = 1; dot <= 5; dot++)

@@ -56,7 +56,7 @@ MonoBehaviour:
     spawnWeight: 1
   - obstacle: {fileID: 11400000, guid: 6f275487debd2654bb47e3a2d9f2e5f4, type: 2}
     spawnWeight: 1
-  skyboxMaterial: {fileID: 0}
+  skyboxMaterial: {fileID: 2100000, guid: 09f369df2178e084194d57d31526fab6, type: 2}
   roadMaterial: {fileID: 0}
   groundMaterial: {fileID: 0}
   shoulderMaterial: {fileID: 0}
@@ -86,7 +86,7 @@ MonoBehaviour:
   fogColour: {r: 0.58, g: 0.2, b: 0.18, a: 1}
   fogStartDistance: 90
   fogEndDistance: 320
-  horizonSunEnabled: 1
+  horizonSunEnabled: 0
   sunDistanceAhead: 220
   sunHorizontalOffset: 12
   sunHorizonHeight: -80
@@ -98,6 +98,7 @@ MonoBehaviour:
   maximumMountainPeakHeight: 42
   mountainColour: {r: 0.2, g: 0.08, b: 0.07, a: 1}
   mountainSeed: 481
+  scenerySet: {fileID: 11400000, guid: 59e118b0783dbf94e9a9284803229349, type: 2}
   sceneryPrefabs: []
   minimumSceneryPerSegment: 0
   maximumSceneryPerSegment: 0

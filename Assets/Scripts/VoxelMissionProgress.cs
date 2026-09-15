@@ -30,6 +30,8 @@ namespace VoxelRacer
         private const float MultiplierFlightDuration = .85f;
         private float pendingVoxelChange, lastVoxelDamageAt;
         private Vector2 pendingVoxelOrigin;
+        private int enemyVoxelsTowardsReward;
+        private const int EnemyVoxelsPerReward = 10;
 
         private void FlushVoxelPopup()
         {
@@ -60,7 +62,7 @@ namespace VoxelRacer
                 var screen = Camera.main.WorldToViewportPoint(worldPosition.Value);
                 if (screen.z > 0) origin = new Vector2(Mathf.Clamp(screen.x, .15f, .85f), Mathf.Clamp(1f-screen.y, .3f, .8f));
             }
-            if (reason == "ENEMY VOXELS" || reason == "CIVILIAN DAMAGE")
+            if (reason == "CIVILIAN DAMAGE")
             {
                 pendingVoxelChange += delta;
                 lastVoxelDamageAt = Time.unscaledTime;
@@ -80,8 +82,15 @@ namespace VoxelRacer
 
         public static void ReportEnemyVoxelDestroyed(int count, Vector3 position)
         {
-            if (count > 0 && Active?.Tuning != null)
-                Active.ChangeMultiplier(Active.Tuning.enemyVoxelMultiplier * count, "ENEMY VOXELS", position);
+            var mission = Active;
+            if (count <= 0 || mission?.Tuning == null || mission.IsComplete || !mission.TimeBonusAvailable ||
+                (mission.startCountdown != null && !mission.startCountdown.IsComplete)) return;
+            // Carry partial groups across hits and enemies, but never across missions.
+            long total = (long)mission.enemyVoxelsTowardsReward + count;
+            int rewards = (int)(total / EnemyVoxelsPerReward);
+            mission.enemyVoxelsTowardsReward = (int)(total % EnemyVoxelsPerReward);
+            if (rewards > 0)
+                mission.ChangeMultiplier(mission.Tuning.enemyVoxelMultiplier * rewards, "ENEMY VOXELS", position);
         }
         public static void ReportCivilianVoxelDestroyed(int count, Vector3 position)
         {
@@ -103,6 +112,7 @@ namespace VoxelRacer
             displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
             multiplierPulseUntil = 0;
             multiplierFlights.Clear();
+            enemyVoxelsTowardsReward = 0;
             pendingVoxelChange = 0;
             PercentageScreenPosition = new Vector2(Screen.width * .5f, 39f);
             IsComplete = false;

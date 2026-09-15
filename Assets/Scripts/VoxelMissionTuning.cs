@@ -23,6 +23,7 @@ namespace VoxelRacer
         [Min(0f)] public float timeBonusCurrencyMultiplier = 1f;
         [Header("Live Time Multiplier")]
         [Min(1f)] public float maximumTimeMultiplier = 5f;
+        [Tooltip("Multiplier awarded for every 10 enemy voxels destroyed. Partial groups carry across enemies within the mission; feedback appears immediately when a group completes.")]
         [Min(0f)] public float enemyVoxelMultiplier = .01f;
         [Min(0f)] public float enemyDestroyedMultiplier = .25f;
         [Tooltip("Multiplier awarded once per destroyed fuel-drum group, regardless of how many visual drums it contains.")]

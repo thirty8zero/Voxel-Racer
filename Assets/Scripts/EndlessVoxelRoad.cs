@@ -97,7 +97,11 @@ namespace VoxelRacer
                 targetController.SetTrack(this, FindClosestDistance(player.position));
             UpdateContinuousGroundPosition();
             SyncLaneLayout();
+            if (Application.isPlaying && GetComponent<VoxelDistantScenery>() == null)
+                gameObject.AddComponent<VoxelDistantScenery>();
         }
+
+        internal float SceneryTrackDistance => targetController != null ? targetController.TrackDistance : 0;
 
         public void SetTuning(VoxelRoadTuning value)
         {
@@ -451,10 +455,11 @@ namespace VoxelRacer
                 CreatePlacedBlock("Left Road Marker", segment, pose, -edgeOffset, 0.03f, new Vector3(0.18f, 0.06f, 1.6f), VoxelRacerBootstrap.LineMaterial);
                 CreatePlacedBlock("Right Road Marker", segment, pose, edgeOffset, 0.03f, new Vector3(0.18f, 0.06f, 1.6f), VoxelRacerBootstrap.LineMaterial);
             }
-            int cactusCount = Random.Range(Mathf.Min(minimumCactiPerSegment, maximumCactiPerSegment), Mathf.Max(minimumCactiPerSegment, maximumCactiPerSegment) + 1);
+            int cactusCount = trackDefinition != null && trackDefinition.scenerySet != null ? 0 : Random.Range(Mathf.Min(minimumCactiPerSegment, maximumCactiPerSegment), Mathf.Max(minimumCactiPerSegment, maximumCactiPerSegment) + 1);
             for (int cactus = 0; cactus < cactusCount; cactus++)
                 CreateCactus(segment, data);
             CreateAdditionalScenery(segment, data);
+            CreateScenerySet(segment, data);
             segment.gameObject.AddComponent<VoxelFadeIn>();
             return segment;
         }
@@ -546,6 +551,40 @@ namespace VoxelRacer
             var properties = new MaterialPropertyBlock();
             properties.SetColor("_BaseColor", shade);
             block.GetComponent<MeshRenderer>().SetPropertyBlock(properties);
+        }
+
+        private void CreateScenerySet(Transform segment, RoadSegment data)
+        {
+            var set = trackDefinition != null ? trackDefinition.scenerySet : null;
+            if (set == null) return;
+            var occupied = new List<VoxelSceneryInstance>(GetComponentsInChildren<VoxelSceneryInstance>(true));
+            int count = Random.Range(Mathf.Max(0, Mathf.Min(set.minimumPerSegment, set.maximumPerSegment)),
+                Mathf.Max(0, Mathf.Max(set.minimumPerSegment, set.maximumPerSegment)) + 1);
+            for (int index = 0; index < count; index++)
+            {
+                var entry = set.Choose();
+                if (entry == null) break;
+                float scale = VoxelScenerySet.ChooseScale(entry);
+                float radius = entry.radius * scale;
+                float min = roadWidth * .5f + Mathf.Max(0, entry.roadClearance) + radius;
+                float max = Mathf.Min(groundWidth * .5f - radius, roadWidth * .5f + entry.maximumRoadDistance);
+                if (max <= min) continue;
+                for (int attempt = 0; attempt < 8; attempt++)
+                {
+                    var pose = EvaluateSegment(data, Random.Range(segmentLength * .05f, segmentLength * .95f));
+                    Vector3 position = pose.position + pose.right * (Random.value < .5f ? -1 : 1) * Random.Range(min, max);
+                    bool overlaps = false;
+                    foreach (var other in occupied)
+                    {
+                        Vector3 delta = other.transform.position - position; delta.y = 0;
+                        if (delta.magnitude < radius + entry.spacing * .5f + other.radius) { overlaps = true; break; }
+                    }
+                    if (overlaps) continue;
+                    var instance = VoxelScenerySet.Spawn(entry, segment, position, scale);
+                    occupied.Add(instance.GetComponent<VoxelSceneryInstance>());
+                    break;
+                }
+            }
         }
 
         private void CreateAdditionalScenery(Transform segment, RoadSegment data)

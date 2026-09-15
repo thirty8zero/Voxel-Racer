@@ -126,6 +126,7 @@ namespace VoxelRacer.Editor
 
             DrawSection(ref sceneryOpen, "Additional Scenery", () =>
             {
+                DrawProperty("scenerySet");
                 DrawProperty("sceneryPrefabs", true);
                 VoxelTuningInspector.DrawRange("Scenery Per Segment",
                     serializedObject.FindProperty("minimumSceneryPerSegment"),

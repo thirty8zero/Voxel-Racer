@@ -72,6 +72,19 @@ namespace VoxelRacer
             for (int index = 0; index < cactusCount; index++)
             {
                 Vector3 position = ChooseCactusPosition();
+                if (track != null && track.scenerySet != null)
+                {
+                    var entry = track.scenerySet.Choose();
+                    if (entry != null)
+                    {
+                        float scale = VoxelScenerySet.ChooseScale(entry);
+                        bool overlaps = false;
+                        foreach (var other in desertSceneryRoot.GetComponentsInChildren<VoxelSceneryInstance>())
+                            if (Vector3.Distance(position, other.transform.position) < entry.radius * scale + entry.spacing + other.radius) { overlaps = true; break; }
+                        if (!overlaps) VoxelScenerySet.Spawn(entry, desertSceneryRoot, position, scale);
+                    }
+                    continue;
+                }
                 var cactus = new GameObject("Main Menu Voxel Cactus").transform;
                 cactus.SetParent(desertSceneryRoot, false);
                 cactus.localPosition = position;

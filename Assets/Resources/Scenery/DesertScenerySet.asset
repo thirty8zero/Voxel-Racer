@@ -1,0 +1,133 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07394bb6d5f480544afe485e3e889d01, type: 3}
+  m_Name: DesertScenerySet
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelScenerySet
+  minimumPerSegment: 12
+  maximumPerSegment: 20
+  distantSceneryEnabled: 1
+  distantSceneryDistance: 0
+  distantPropsPerTile: 7
+  distantScenerySeed: 7419
+  entries:
+  - prefab: {fileID: 4836994163291553825, guid: 01ce4247c20947f438fb086f39799a74, type: 3}
+    weight: 3
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 1.1067972
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 7606734739876327567, guid: 87214ab2b875cc2498344e5f455264b8, type: 3}
+    weight: 3
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 1.1067972
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 3825795497471163108, guid: 579d1f576eaf29c4fab5901a07a87ceb, type: 3}
+    weight: 3
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 1.3020753
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 2274293532777567283, guid: bf0d1b12277f48346a0f3951ed12dd87, type: 3}
+    weight: 3
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 0.49497473
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 2242833073287653220, guid: e76a68c5d43768945b977c1f100bc6ea, type: 3}
+    weight: 3
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 1.2869344
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 441170470554440225, guid: 8c0d6844629c7834d8de33b3fa0eb8af, type: 3}
+    weight: 3
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 1.2404032
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 4276613558728905307, guid: d007fc9f7b9e9d74d9f4809f464de61e, type: 3}
+    weight: 4
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 0.99488693
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 359746907300380112, guid: 24d0b739e32c59b4db9d87838eddf012, type: 3}
+    weight: 4
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 1.417392
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 6860273993851999920, guid: 75c62daf3b16b5445921fd71fcb75bd6, type: 3}
+    weight: 4
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 1.3464769
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 413371321997070519, guid: 32a5c6a907355604bb2c9cd182df10d6, type: 3}
+    weight: 4
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 1.1067972
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 7955544857430145904, guid: d9394bd671fdcaa46886c3931401e6da, type: 3}
+    weight: 4
+    scaleRange: {x: 0.8, y: 1.25}
+    roadClearance: 2
+    maximumRoadDistance: 35
+    radius: 1.1067972
+    spacing: 0.5
+    randomRotation: 1
+  - prefab: {fileID: 9178306206656284114, guid: e54e3700fc8565c429998041174dd80b, type: 3}
+    weight: 1
+    scaleRange: {x: 1.6, y: 2.5}
+    roadClearance: 4
+    maximumRoadDistance: 35
+    radius: 1.4716656
+    spacing: 2
+    randomRotation: 1
+  - prefab: {fileID: 8534288129752982283, guid: 7ebb58a29e0e736429fbe8d922ec8934, type: 3}
+    weight: 1
+    scaleRange: {x: 1.6, y: 2.5}
+    roadClearance: 4
+    maximumRoadDistance: 35
+    radius: 1.4716656
+    spacing: 2
+    randomRotation: 1
+  - prefab: {fileID: 6638062203740949470, guid: f41215835fe710641ba14cd6e9566a06, type: 3}
+    weight: 1
+    scaleRange: {x: 1.6, y: 2.5}
+    roadClearance: 4
+    maximumRoadDistance: 35
+    radius: 1.4716656
+    spacing: 2
+    randomRotation: 1

@@ -80,6 +80,8 @@ namespace VoxelRacer
         public int mountainSeed = 481;
 
         [Header("Additional Scenery")]
+        [Tooltip("Replaces legacy procedural cacti with a weighted scenery collection. Extra legacy prefabs remain supported.")]
+        public VoxelScenerySet scenerySet;
         [Tooltip("Optional decorative prefabs randomly placed beside generated road segments.")]
         public GameObject[] sceneryPrefabs;
         [Min(0)] public int minimumSceneryPerSegment;
