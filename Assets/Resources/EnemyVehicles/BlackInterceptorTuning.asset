@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: BlackInterceptorTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
   displayName: Black Interceptor
+  modelPrefab: {fileID: 5282499240650397249, guid: 252dd31da1ef29840b810106dbfc8010, type: 3}
   voxelHealth: 1
   vehicleHealth: 80
   minimumSpawnSpeedMultiplier: 0.1

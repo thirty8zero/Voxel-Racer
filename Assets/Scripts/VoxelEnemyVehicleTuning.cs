@@ -8,6 +8,8 @@ namespace VoxelRacer
     {
         [Header("Identity")]
         public string displayName = "Enemy Vehicle";
+        [Tooltip("Authored visual model. Individual mesh pieces retain the enemy's existing voxel damage behaviour.")]
+        public GameObject modelPrefab;
 
         [Header("Durability")]
         [Tooltip("Damage each body voxel can absorb before it is removed.")]

@@ -154,7 +154,9 @@ namespace VoxelRacer
             image.type = Image.Type.Filled;
             image.fillMethod = Image.FillMethod.Radial360;
             image.fillOrigin = (int)Image.Origin360.Top;
-            image.fillClockwise = true;
+            // Remaining integrity fills counterclockwise, so damage empties the dial
+            // clockwise from twelve o'clock as fillAmount decreases.
+            image.fillClockwise = false;
             image.raycastTarget = false;
             return image;
         }

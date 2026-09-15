@@ -276,6 +276,7 @@ namespace VoxelRacer.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Identity", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("displayName"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("modelPrefab"));
 
             durabilityExpanded = DrawSection(durabilityExpanded, "Durability",
                 "voxelHealth", "vehicleHealth");

@@ -44,6 +44,7 @@ namespace VoxelRacer
         private float sideRamStartedAt = -1f;
         private float sideRamDuration;
         private VoxelEasingType sideRamEasing;
+        private Transform[] modelWheels;
 
         public void Configure(VoxelCarController player, VoxelObstacleCarTuning traffic, VoxelEnemyVehicleTuning enemy,
             EndlessVoxelRoad road, float distance, float offset)
@@ -70,10 +71,24 @@ namespace VoxelRacer
                 Mathf.Min(enemy.minimumEngageSpeedMultiplier, enemy.maximumEngageSpeedMultiplier),
                 Mathf.Max(enemy.minimumEngageSpeedMultiplier, enemy.maximumEngageSpeedMultiplier));
             currentSpeed = spawnSpeed;
-            VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);
-            ApplyBlackPaint();
+            CreateModel(enemy);
             healthBar = VoxelEnemyHealthBar.Create(transform, enemy);
             ApplyTrackPose();
+        }
+
+        private void CreateModel(VoxelEnemyVehicleTuning enemy)
+        {
+            if (enemy.modelPrefab != null)
+                Instantiate(enemy.modelPrefab, transform, false);
+            else
+            {
+                VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);
+                ApplyBlackPaint();
+            }
+            var wheels = new List<Transform>();
+            foreach (var child in GetComponentsInChildren<Transform>())
+                if (child.name == "Obstacle Voxel Wheel") wheels.Add(child);
+            modelWheels = wheels.ToArray();
         }
 
         private void Update()
@@ -440,9 +455,8 @@ namespace VoxelRacer
 
         private void RotateWheels()
         {
-            foreach (Transform child in transform)
-                if (child.name == "Obstacle Voxel Wheel")
-                    child.Rotate(Vector3.right, currentSpeed * trafficTuning.wheelSpinDegreesPerUnit * Time.deltaTime, Space.Self);
+            foreach (Transform child in modelWheels)
+                child.Rotate(Vector3.right, currentSpeed * trafficTuning.wheelSpinDegreesPerUnit * Time.deltaTime, Space.Self);
         }
 
         private void ApplyBlackPaint()

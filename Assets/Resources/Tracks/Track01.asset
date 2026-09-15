@@ -26,9 +26,9 @@ MonoBehaviour:
   recycleBehindDistance: 45
   finishRoadBehindDistance: 150
   turnChancePerSegment: 0.05
-  minimumTurnAngle: 12
-  maximumTurnAngle: 32
-  minimumStraightSegmentsBetweenTurns: 1
+  minimumTurnAngle: 5
+  maximumTurnAngle: 15
+  minimumStraightSegmentsBetweenTurns: 2
   maximumTrackHeading: 65
   curveDegreesPerSlice: 5
   turnSeed: 173

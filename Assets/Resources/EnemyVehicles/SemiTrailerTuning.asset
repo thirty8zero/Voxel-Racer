@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: SemiTrailerTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
   displayName: Semi Trailer
+  modelPrefab: {fileID: 0}
   voxelHealth: 1
   vehicleHealth: 80
   minimumSpawnSpeedMultiplier: 0.1

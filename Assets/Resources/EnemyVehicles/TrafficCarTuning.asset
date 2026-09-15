@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: TrafficCarTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
   displayName: Traffic Car
+  modelPrefab: {fileID: 0}
   voxelHealth: 1
   vehicleHealth: 50
   minimumSpawnSpeedMultiplier: 0.3
