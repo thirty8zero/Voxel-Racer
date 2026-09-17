@@ -80,7 +80,7 @@ namespace VoxelRacer
         {
             Transform car = new GameObject("Workshop Player Car").transform;
             car.SetParent(workshop, false);
-            car.localPosition = Vector3.zero;
+            car.localPosition = new Vector3(0f, .18f, 0f);
             car.localRotation = Quaternion.Euler(0f, -15f, 0f);
 
             if (definition != null && definition.visualPrefab != null)
@@ -107,6 +107,7 @@ namespace VoxelRacer
             DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(DisplayedCar, definition);
             DisplayedCar.enabled = false;
+            VoxelCarTurntable.Create(workshop, car);
 
             // Reuse the same radial integrity widget used during missions. Its
             // built-in top-left anchors keep the workshop view consistent with the HUD.

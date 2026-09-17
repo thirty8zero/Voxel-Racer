@@ -31,17 +31,23 @@ namespace VoxelRacer
 
         public void BuildDesertScenery()
         {
-            if (desertSceneryRoot != null)
+            // Generated roots can survive scene saves/domain reloads while the field does not.
+            // Remove every previous generated backdrop so a stale mountain wall cannot remain.
+            for (int i = transform.childCount - 1; i >= 0; i--)
             {
-                desertSceneryRoot.gameObject.SetActive(false);
-                if (Application.isPlaying) Destroy(desertSceneryRoot.gameObject);
-                else DestroyImmediate(desertSceneryRoot.gameObject);
+                var previous = transform.GetChild(i);
+                if (previous.name != "Main Menu Desert Scenery") continue;
+                previous.gameObject.SetActive(false);
+                if (Application.isPlaying) Destroy(previous.gameObject);
+                else DestroyImmediate(previous.gameObject);
             }
 
             desertSceneryRoot = new GameObject("Main Menu Desert Scenery").transform;
             desertSceneryRoot.SetParent(transform, false);
             VoxelTrackDefinition track = VoxelRacerBootstrap.ActiveTrack;
             VoxelRacerBootstrap.PrepareTrackMaterials(track);
+            if (track != null && track.skyboxMaterial != null)
+                RenderSettings.skybox = track.skyboxMaterial;
 
             var surroundingGround = VoxelRacerBootstrap.CreateBlock("Main Menu Surrounding Ground",
                 desertSceneryRoot, new Vector3(0f, -0.305f, -18f),
@@ -134,7 +140,7 @@ namespace VoxelRacer
             for (int index = transform.childCount - 1; index >= 0; index--)
             {
                 Transform child = transform.GetChild(index);
-                if (child != featuredDisplayRoot && child.name != "Featured Car Displays")
+                if (child != featuredDisplayRoot && child.name != "Featured Car Displays" && child.name != "Car Turntable")
                     continue;
 
                 // Destroy is deferred until the end of the frame in Play Mode, so
@@ -154,10 +160,19 @@ namespace VoxelRacer
 
             featuredDisplayRoot = new GameObject("Featured Car Displays").transform;
             featuredDisplayRoot.SetParent(transform, false);
+            VoxelCarTurntable.Create(transform, featuredDisplayRoot, definitions.Count == 1 ? 3.2f : 5.7f);
             for (int index = 0; index < definitions.Count; index++)
             {
                 VoxelCarDefinition definition = definitions[index];
-                GameObject display = Instantiate(definition.visualPrefab, featuredDisplayRoot);
+                GameObject display;
+#if UNITY_EDITOR
+                // Keep scene previews linked so model edits propagate without a rebuild.
+                if (!Application.isPlaying)
+                    display = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(
+                        definition.visualPrefab, featuredDisplayRoot);
+                else
+#endif
+                    display = Instantiate(definition.visualPrefab, featuredDisplayRoot);
                 display.name = definition.displayName + " Main Menu Display";
                 float x = definitions.Count == 1 ? 0f : index == 0 ? -2.65f : 2.65f;
                 float yaw = definitions.Count == 1 ? 0f : index == 0 ? -25f : 25f;
@@ -220,7 +235,7 @@ namespace VoxelRacer
                     spotlights.Add(child);
             }
 
-            ConfigureAccessoryList(plinths, displayCount);
+            foreach (var plinth in plinths) plinth.gameObject.SetActive(false);
             ConfigureAccessoryList(spotlights, displayCount);
         }
 

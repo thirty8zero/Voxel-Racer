@@ -175,7 +175,7 @@ namespace VoxelRacer
                 int minimum = definition != null ? definition.playerDamageVoxelsMin : 12;
                 int maximum = definition != null ? definition.playerDamageVoxelsMax : 18;
                 target.damageVoxelsPerHit = Random.Range(Mathf.Min(minimum, maximum), Mathf.Max(minimum, maximum) + 1);
-                target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), direction);
+                target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), direction, "Fuel-drum collision");
                 target.damageVoxelsPerHit = originalDamage;
             }
 

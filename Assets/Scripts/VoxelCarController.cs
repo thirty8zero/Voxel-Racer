@@ -359,7 +359,7 @@ namespace VoxelRacer
             previousLane = laneBeforeBounce;
         }
 
-        public void ApplyDamage(Vector3 hitPoint, Vector3 impactDirection)
+        public void ApplyDamage(Vector3 hitPoint, Vector3 impactDirection, string source = "Other damage")
         {
             if (IsDestroyed || Time.time < nextDamageTime)
                 return;
@@ -430,6 +430,9 @@ namespace VoxelRacer
                 blocksToDestroy.AddRange(candidates);
 
             bool isLethalHit = blocksToDestroy.Count >= candidates.Count && candidates.Count > 0;
+            if (VoxelMissionProgress.Active != null && !VoxelMissionProgress.Active.IsComplete)
+                VoxelMissionProgress.Active.Breakdown.Add(VoxelMissionBreakdown.Group.IntegrityLost,
+                    source, isLethalHit ? candidates.Count : blocksToDestroy.Count);
             if (isLethalHit)
             {
                 // Keep a visible shell for the death wreck rather than removing every

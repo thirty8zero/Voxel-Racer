@@ -9,6 +9,7 @@ namespace VoxelRacer
 
         public VoxelMissionTuning Tuning { get; private set; }
         public int Points { get; private set; }
+        public VoxelMissionBreakdown Breakdown { get; } = new();
         public float Percent => Tuning == null ? 0f : Mathf.Clamp01((float)Points / Tuning.requiredPoints);
         public bool IsComplete { get; private set; }
         public float RemainingTime { get; private set; }
@@ -56,6 +57,8 @@ namespace VoxelRacer
             float delta = EffectiveTimeBonusMultiplier - before;
             DestructionMultiplierBonus = EffectiveTimeBonusMultiplier - Tuning.timeBonusCurrencyMultiplier;
             if (Mathf.Abs(delta) < .0001f) return;
+            Breakdown.Add(delta > 0 ? VoxelMissionBreakdown.Group.MultiplierGained : VoxelMissionBreakdown.Group.MultiplierLost,
+                reason, Mathf.Abs(delta));
             var origin = new Vector2(.5f, .45f);
             if (worldPosition.HasValue && Camera.main != null)
             {
@@ -105,6 +108,7 @@ namespace VoxelRacer
         public void Configure(VoxelMissionTuning tuning)
         {
             Tuning = tuning;
+            Breakdown.Clear();
             Points = 0;
             BonusCashEarned = 0;
             DestructionMultiplierBonus = 0;
@@ -139,7 +143,7 @@ namespace VoxelRacer
         {
             if (count > 0 && Active != null) Active.lastVoxelDamageAt = Time.unscaledTime;
             if (Active?.Tuning != null)
-                Active.AddPoints(Active.Tuning.enemyVoxelDamagePoints * count);
+                Active.AddPoints(Active.Tuning.enemyVoxelDamagePoints * count, "Enemy weapon damage", count);
         }
 
         /// <summary>Returns the score currently awarded by one successful enemy weapon hit.</summary>
@@ -150,7 +154,7 @@ namespace VoxelRacer
         public static void ReportEnemyRamDamage(float damage)
         {
             if (Active?.Tuning != null && damage > 0f)
-                Active.AddPoints(Mathf.RoundToInt(damage));
+                Active.AddPoints(Mathf.RoundToInt(damage), "Enemy ram / wheel-spike damage");
         }
 
         /// <summary>Ram score is intentionally tied to the enemy's configured player-ram damage.</summary>
@@ -162,7 +166,7 @@ namespace VoxelRacer
             if (Active?.Tuning != null)
             {
                 Active.ChangeMultiplier(Active.Tuning.enemyDestroyedMultiplier, "ENEMY DESTROYED", position);
-                Active.AddPoints(Active.Tuning.enemyVehicleDestroyedPoints);
+                Active.AddPoints(Active.Tuning.enemyVehicleDestroyedPoints, "Enemy vehicles destroyed");
             }
         }
 
@@ -174,7 +178,7 @@ namespace VoxelRacer
             if (Active?.Tuning != null)
             {
                 Active.ChangeMultiplier(Active.Tuning.barrelMultiplier * Mathf.Max(0, drumCount), "BARRELS DESTROYED", position);
-                Active.AddPoints(Active.Tuning.fuelDrumDestroyedPoints);
+                Active.AddPoints(Active.Tuning.fuelDrumDestroyedPoints, "Fuel-drum groups destroyed");
             }
         }
 
@@ -186,7 +190,7 @@ namespace VoxelRacer
             if (Active?.Tuning != null && points > 0)
             {
                 Active.ChangeMultiplier(Active.Tuning.nearMissMultiplier, "CLOSE CALL", position);
-                Active.AddPoints(points);
+                Active.AddPoints(points, "Civilian near misses");
             }
         }
 
@@ -194,7 +198,7 @@ namespace VoxelRacer
         {
             if (count > 0 && Active != null) Active.lastVoxelDamageAt = Time.unscaledTime;
             if (Active?.Tuning != null)
-                Active.AddPoints(Active.Tuning.civilianVoxelDamagePoints * count);
+                Active.AddPoints(Active.Tuning.civilianVoxelDamagePoints * count, "Civilian damage", count);
         }
 
         public static void ReportCivilianVehicleDestroyed(Vector3? position = null)
@@ -202,16 +206,19 @@ namespace VoxelRacer
             if (Active?.Tuning != null)
             {
                 Active.ChangeMultiplier(-Active.Tuning.civilianDestroyedMultiplierPenalty, "CIVILIAN DESTROYED", position);
-                Active.AddPoints(Active.Tuning.civilianVehicleDestroyedPoints);
+                Active.AddPoints(Active.Tuning.civilianVehicleDestroyedPoints, "Civilian vehicles destroyed");
             }
         }
 
-        private void AddPoints(int points)
+        private void AddPoints(int points, string source = "Other", int count = 1)
         {
             if (Tuning == null || IsComplete || points == 0)
                 return;
 
+            int before = Points;
             Points = Mathf.Max(0, Points + points);
+            Breakdown.Add(points > 0 ? VoxelMissionBreakdown.Group.ProgressGained : VoxelMissionBreakdown.Group.ProgressLost,
+                source, Mathf.Abs(Points - before), count);
             if (Points >= Tuning.requiredPoints && !IsComplete)
                 CompleteMission();
         }
@@ -242,6 +249,7 @@ namespace VoxelRacer
             RemainingTime = Mathf.Max(0, RemainingTime - seconds);
             if (!TimeBonusAvailable)
             {
+                Breakdown.Add(VoxelMissionBreakdown.Group.MultiplierLost, "Countdown expired", EffectiveTimeBonusMultiplier);
                 EffectiveTimeBonusMultiplier = 0; displayedMultiplierBonus = 0;
                 pendingVoxelChange = 0;
                 multiplierFlights.Clear(); multiplierPulseUntil = Time.unscaledTime + .6f;

@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace VoxelRacer
 {
     /// <summary>Reveals the workshop transition only after a finished car has stopped.</summary>
-    public sealed class VoxelPostRaceContinue : MonoBehaviour
+    public sealed partial class VoxelPostRaceContinue : MonoBehaviour
     {
         public VoxelRunFinish runFinish;
         public VoxelMissionProgress missionProgress;
@@ -89,6 +89,7 @@ namespace VoxelRacer
             timeBonusText.gameObject.SetActive(false);
             totalRewardText.gameObject.SetActive(false);
             rewardSequenceStartedAt = Time.unscaledTime;
+            BuildBreakdownPage(canvas, panel);
         }
 
         private void UpdateRewardSequence()

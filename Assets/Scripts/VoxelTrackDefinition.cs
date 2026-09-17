@@ -71,6 +71,9 @@ namespace VoxelRacer
 
         [Header("Horizon Mountains")]
         public bool horizonMountainsEnabled = true;
+        public Material mountainCardMaterial;
+        [Tooltip("Vertical UV range containing the mountain artwork, excluding empty sky and borders.")]
+        public Vector2 mountainCardVerticalUV = new(.035f,.33f);
         [Min(20f)] public float mountainDistance = 170f;
         [Min(0.1f)] public float mountainScale = 1f;
         public float mountainBaseHeight = -45f;

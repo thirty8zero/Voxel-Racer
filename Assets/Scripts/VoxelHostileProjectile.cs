@@ -76,7 +76,7 @@ namespace VoxelRacer
             {
                 int originalDamage = player.damageVoxelsPerHit;
                 player.damageVoxelsPerHit = tuning.playerDamageVoxels;
-                player.ApplyDamage(hit.point, direction);
+                player.ApplyDamage(hit.point, direction, "Roadside turret fire");
                 player.damageVoxelsPerHit = originalDamage;
                 return;
             }

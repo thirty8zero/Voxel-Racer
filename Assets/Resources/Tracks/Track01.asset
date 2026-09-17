@@ -91,6 +91,8 @@ MonoBehaviour:
   sunHorizontalOffset: 12
   sunHorizonHeight: -80
   horizonMountainsEnabled: 1
+  mountainCardMaterial: {fileID: 2100000, guid: 623b048a329eb854893a0a1016020954, type: 2}
+  mountainCardVerticalUV: {x: 0.035, y: 0.325}
   mountainDistance: 170
   mountainScale: 1
   mountainBaseHeight: -45

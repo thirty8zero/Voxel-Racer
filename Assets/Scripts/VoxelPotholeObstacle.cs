@@ -53,7 +53,7 @@ namespace VoxelRacer
             int minimum = definition != null ? definition.playerDamageVoxelsMin : 10;
             int maximum = definition != null ? definition.playerDamageVoxelsMax : 14;
             target.damageVoxelsPerHit = Random.Range(Mathf.Min(minimum, maximum), Mathf.Max(minimum, maximum) + 1);
-            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), target.transform.forward);
+            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), target.transform.forward, "Potholes");
             target.damageVoxelsPerHit = originalDamage;
         }
 

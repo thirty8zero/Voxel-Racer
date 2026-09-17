@@ -77,7 +77,7 @@ namespace VoxelRacer
             int originalDamage = target.damageVoxelsPerHit;
             if (definition != null)
                 target.damageVoxelsPerHit = Random.Range(definition.playerDamageVoxelsMin, definition.playerDamageVoxelsMax + 1);
-            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection);
+            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, definition != null ? definition.displayName + " collision" : "Obstacle collision");
             target.damageVoxelsPerHit = originalDamage;
             velocity = hitDirection * 15f + Vector3.up * 6f;
             destroyTime = Time.time + 2.5f;

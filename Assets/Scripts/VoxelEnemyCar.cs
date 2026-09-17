@@ -292,7 +292,7 @@ namespace VoxelRacer
             target.damageVoxelsPerHit = Random.Range(
                 Mathf.Min(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax),
                 Mathf.Max(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax) + 1);
-            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection);
+            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, "Enemy collision");
             target.damageVoxelsPerHit = originalPlayerDamage;
 
             int removedVoxels = ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,

@@ -53,7 +53,8 @@ namespace VoxelRacer
         private static readonly List<Rect> DrawnPopupRects = new();
         private static int popupLayoutFrame = -1;
         private bool FliesToMission => displayStyle == Style.WeaponDamage || displayStyle == Style.RamDamage ||
-            displayStyle == Style.EnemyDestroyed || displayStyle == Style.FuelDrumDestroyed;
+            displayStyle == Style.EnemyDestroyed || displayStyle == Style.FuelDrumDestroyed ||
+            displayStyle == Style.NearMiss;
 
         public static float MissionFlightProgress(float age, float duration) =>
             Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((age - .12f) / Mathf.Max(.01f, duration - .12f)));
@@ -242,26 +243,17 @@ namespace VoxelRacer
                 try
                 {
                     GUIUtility.ScaleAroundPivot(Vector2.one * scale, center);
-                    DrawOutlinedLabel(new Rect(center.x - 140f, center.y - 60f, 280f, 120f), displayText, GetStyle(displayStyle));
+                    if (displayStyle == Style.NearMiss)
+                    {
+                        DrawOutlinedLabel(new Rect(center.x - 130f, center.y - 72f, 260f, 54f), "NEAR MISS!",
+                            nearMissTitleStyle ??= CreateStyle(38, Color.white));
+                        DrawOutlinedLabel(new Rect(center.x - 130f, center.y - 20f, 260f, 78f), displayText,
+                            nearMissPointsStyle ??= CreateStyle(76, new Color(1f, .86f, .08f)));
+                    }
+                    else
+                        DrawOutlinedLabel(new Rect(center.x - 140f, center.y - 60f, 280f, 120f), displayText, GetStyle(displayStyle));
                 }
                 finally { GUI.matrix = matrix; }
-                return;
-            }
-
-            if (displayStyle == Style.NearMiss)
-            {
-                const float nearMissWidth = 260f;
-                const float nearMissHeight = 150f;
-                float nearMissCenterX = Mathf.Clamp(screenPosition.x, nearMissWidth * 0.5f,
-                    Screen.width - nearMissWidth * 0.5f);
-                float nearMissCenterY = Mathf.Clamp(Screen.height - screenPosition.y, nearMissHeight * 0.5f,
-                    Screen.height - nearMissHeight * 0.5f);
-                Rect groupRect = ReserveVisibleRect(new Rect(nearMissCenterX - nearMissWidth * 0.5f,
-                    nearMissCenterY - 72f, nearMissWidth, nearMissHeight));
-                DrawOutlinedLabel(new Rect(groupRect.x, groupRect.y, nearMissWidth, 54f), "NEAR MISS!",
-                    nearMissTitleStyle ??= CreateStyle(38, Color.white));
-                DrawOutlinedLabel(new Rect(groupRect.x, groupRect.y + 52f, nearMissWidth, 78f), displayText,
-                    nearMissPointsStyle ??= CreateStyle(76, new Color(1f, 0.86f, 0.08f)));
                 return;
             }
 

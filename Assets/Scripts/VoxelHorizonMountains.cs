@@ -16,7 +16,7 @@ namespace VoxelRacer
 
         private float radius = 170f;
         private float verticalScale = 1f;
-        private float verticalScaleMultiplier = 1f;
+        [SerializeField, HideInInspector] private float verticalScaleMultiplier = 1f;
         private float baseHeight = -45f;
         private float minimumPeakHeight = 14f;
         private float maximumPeakHeight = 42f;
@@ -30,6 +30,8 @@ namespace VoxelRacer
         private float appliedMaximumPeakHeight;
         private Color appliedColour;
         private int appliedSeed;
+        private Material appliedCardMaterial;
+        private Vector2 appliedCardUV;
 
         public void Configure(Transform followTarget, VoxelTrackDefinition track,
             float scaleMultiplier = 1f)
@@ -77,7 +79,8 @@ namespace VoxelRacer
                 !Mathf.Approximately(appliedBaseHeight, trackDefinition.mountainBaseHeight) ||
                 !Mathf.Approximately(appliedMinimumPeakHeight, trackDefinition.minimumMountainPeakHeight) ||
                 !Mathf.Approximately(appliedMaximumPeakHeight, trackDefinition.maximumMountainPeakHeight) ||
-                appliedColour != trackDefinition.mountainColour || appliedSeed != trackDefinition.mountainSeed;
+                appliedColour != trackDefinition.mountainColour || appliedSeed != trackDefinition.mountainSeed ||
+                appliedCardMaterial != trackDefinition.mountainCardMaterial || appliedCardUV != trackDefinition.mountainCardVerticalUV;
         }
 
         private void Build()
@@ -102,8 +105,10 @@ namespace VoxelRacer
             Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader == null)
                 shader = Shader.Find("Unlit/Color");
-            var material = new Material(shader) { name = "Horizon Mountain Card", color = colour };
-            if (material.HasProperty("_BaseColor"))
+            var material = trackDefinition != null ? trackDefinition.mountainCardMaterial : null;
+            bool textured = material != null;
+            if (!textured) material = new Material(shader) { name = "Horizon Mountain Card", color = colour };
+            if (!textured && material.HasProperty("_BaseColor"))
                 material.SetColor("_BaseColor", colour);
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
@@ -117,6 +122,8 @@ namespace VoxelRacer
             appliedMaximumPeakHeight = maximumPeakHeight;
             appliedColour = colour;
             appliedSeed = seed;
+            appliedCardMaterial = trackDefinition != null ? trackDefinition.mountainCardMaterial : null;
+            appliedCardUV = trackDefinition != null ? trackDefinition.mountainCardVerticalUV : Vector2.zero;
         }
 
         private Mesh CreateMountainMesh()
@@ -127,6 +134,8 @@ namespace VoxelRacer
                 peakHeights[peak] = Mathf.Lerp(minimumPeakHeight, maximumPeakHeight, (float)random.NextDouble());
 
             var vertices = new Vector3[(CardSegments + 1) * 2];
+            var uv = new Vector2[vertices.Length];
+            bool textured = trackDefinition != null && trackDefinition.mountainCardMaterial != null;
             var triangles = new int[CardSegments * 6];
             for (int segment = 0; segment <= CardSegments; segment++)
             {
@@ -136,11 +145,14 @@ namespace VoxelRacer
                 int nextPeak = (firstPeak + 1) % MountainPeaks;
                 float blend = peakPosition - Mathf.Floor(peakPosition);
                 float peakHeight = Mathf.Lerp(peakHeights[firstPeak], peakHeights[nextPeak], blend);
+                if (textured) peakHeight = maximumPeakHeight;
                 float angle = normalized * Mathf.PI * 2f;
                 Vector3 radial = new(Mathf.Sin(angle) * radius, 0f, Mathf.Cos(angle) * radius);
                 int vertex = segment * 2;
                 vertices[vertex] = radial + Vector3.up * (baseHeight * verticalScale);
                 vertices[vertex + 1] = radial + Vector3.up * (peakHeight * verticalScale);
+                uv[vertex] = new Vector2(normalized, textured ? trackDefinition.mountainCardVerticalUV.x : 0);
+                uv[vertex + 1] = new Vector2(normalized, textured ? trackDefinition.mountainCardVerticalUV.y : 1);
 
                 if (segment == CardSegments)
                     continue;
@@ -155,6 +167,7 @@ namespace VoxelRacer
 
             var mesh = new Mesh { name = MeshName };
             mesh.vertices = vertices;
+            mesh.uv = uv;
             mesh.triangles = triangles;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();

@@ -63,9 +63,20 @@ namespace VoxelRacer
             var rewards = Resources.Load<VoxelDestructionRewards>("DestructionRewards");
             if (rewards == null) return;
             var prize = rewards.Roll(source, Random.value, Random.value, Random.value);
+            float oldMultiplier = mission.EffectiveTimeBonusMultiplier;
+            float oldTime = mission.RemainingTime;
             if (prize.multiplier > 0) mission.ChangeMultiplier(prize.multiplier, "BOX PRIZE", position);
             mission.AddBonusCash(prize.cash);
             if (prize.timeSeconds > 0) mission.AddBonusTime(prize.timeSeconds, position);
+            if (prize.cash > 0)
+                mission.Breakdown.Add(VoxelMissionBreakdown.Group.CrateRewards, "$" + prize.cash + " cash", 1);
+            if (prize.multiplier > 0)
+                mission.Breakdown.Add(VoxelMissionBreakdown.Group.CrateRewards,
+                    "+" + prize.multiplier.ToString("0.00") + "x multiplier (applied " +
+                    (mission.EffectiveTimeBonusMultiplier - oldMultiplier).ToString("0.00") + "x)", 1);
+            if (prize.timeSeconds > 0)
+                mission.Breakdown.Add(VoxelMissionBreakdown.Group.CrateRewards,
+                    "+" + prize.timeSeconds + "s time (applied " + (mission.RemainingTime-oldTime).ToString("0") + "s)", 1);
             if (prize.cash > 0) VoxelScorePopup.Show(position + Vector3.up * 1.5f, prize.cash, VoxelScorePopup.Style.BonusCash);
         }
     }

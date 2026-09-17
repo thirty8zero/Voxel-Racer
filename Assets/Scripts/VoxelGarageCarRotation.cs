@@ -10,6 +10,9 @@ namespace VoxelRacer
     {
         [Tooltip("Rotation from dragging across the full screen width.")]
         [Min(1f)] public float garageRotationDegreesPerScreen = 360f;
+        [Min(0f)] public float garageAutoRotationDegreesPerSecond = 12f;
+        [Min(0f)] public float garageAutoRotationResumeDelay = 5f;
+        private float resumeAutoRotationAt;
         private bool rotatingCar, rotationUsesTouch;
         private int rotationTouchId;
         private Vector2 previousRotationPointer;
@@ -23,8 +26,11 @@ namespace VoxelRacer
                 return;
             }
             var touch = Touchscreen.current?.primaryTouch;
+            if (!rotatingCar && Time.unscaledTime >= resumeAutoRotationAt)
+                DisplayedCar.transform.Rotate(Vector3.up, garageAutoRotationDegreesPerSecond * Time.unscaledDeltaTime, Space.World);
             if (rotatingCar)
             {
+                resumeAutoRotationAt = Time.unscaledTime + garageAutoRotationResumeDelay;
                 bool held = rotationUsesTouch
                     ? touch != null && touch.press.isPressed && touch.touchId.ReadValue() == rotationTouchId
                     : Mouse.current != null && Mouse.current.leftButton.isPressed;

@@ -36,6 +36,7 @@ namespace VoxelRacer
         private float laneOffset;
         private readonly Dictionary<Transform, float> projectileVoxelHealth = new();
         private bool nearMissCandidate;
+        private Transform[] modelWheels = System.Array.Empty<Transform>();
         private bool nearMissAwarded;
         private float closestNearMissDistance = float.PositiveInfinity;
 
@@ -134,7 +135,7 @@ namespace VoxelRacer
             int integrityBeforeHit = target.RemainingIntegrityVoxels;
 #endif
             target.damageVoxelsPerHit = selectedPlayerDamage;
-            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection);
+            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, isSemiTrailer ? "Truck collision" : "Civilian car collision");
             target.damageVoxelsPerHit = originalPlayerDamage;
 #if UNITY_EDITOR
             int integrityAfterHit = target.RemainingIntegrityVoxels;
@@ -369,6 +370,9 @@ namespace VoxelRacer
             debris.transform.rotation = Random.rotation;
             debris.transform.localScale = source.lossyScale * Random.Range(0.75f, 1.15f) * scale;
             debris.GetComponent<MeshRenderer>().sharedMaterial = source.GetComponent<MeshRenderer>().sharedMaterial;
+            var paintProperties = new MaterialPropertyBlock();
+            source.GetComponent<MeshRenderer>().GetPropertyBlock(paintProperties);
+            debris.GetComponent<MeshRenderer>().SetPropertyBlock(paintProperties);
             Destroy(debris.GetComponent<BoxCollider>());
             Vector3 burst = burstDirection * Random.Range(forwardForceMin, forwardForceMax)
                 + Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce;
@@ -379,8 +383,14 @@ namespace VoxelRacer
         {
             if (isSemiTrailer)
                 VoxelRacerBootstrap.CreateObstacleSemiTrailerVisuals(transform);
+            else if (EnemyTuning != null && EnemyTuning.modelPrefab != null)
+                Instantiate(EnemyTuning.modelPrefab, transform, false);
             else
                 VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);
+            var wheels = new List<Transform>();
+            foreach (var child in GetComponentsInChildren<Transform>())
+                if (child.name == "Obstacle Voxel Wheel") wheels.Add(child);
+            modelWheels = wheels.ToArray();
         }
 
         private void ApplyRandomPaintColour()
@@ -389,9 +399,11 @@ namespace VoxelRacer
                 return;
 
             Color paintColour = tuning.paintColours[Random.Range(0, tuning.paintColours.Length)];
+            var modelPaint = GetComponentInChildren<VoxelTrafficPaint>();
+            Material paintMaterial = modelPaint != null ? modelPaint.bodyMaterial : VoxelRacerBootstrap.ObstacleCarPaintMaterial;
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
-                if (renderer.sharedMaterial != VoxelRacerBootstrap.ObstacleCarPaintMaterial)
+                if (renderer.sharedMaterial != paintMaterial)
                     continue;
 
                 var properties = new MaterialPropertyBlock();
@@ -403,8 +415,8 @@ namespace VoxelRacer
 
         private void RotateWheels(float speed)
         {
-            foreach (Transform child in transform)
-                if (child.name == "Obstacle Voxel Wheel")
+            foreach (Transform child in modelWheels)
+                if (child != null)
                     child.Rotate(Vector3.right, speed * tuning.wheelSpinDegreesPerUnit * Time.deltaTime, Space.Self);
         }
     }

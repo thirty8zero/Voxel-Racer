@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: Mission 3
   requiredPoints: 1000
   completionCurrencyAward: 300
-  timeLimitSeconds: 70
+  timeLimitSeconds: 80
   timeBonusCurrencyMultiplier: 1
   maximumTimeMultiplier: 5
   enemyVoxelMultiplier: 0.01
@@ -30,7 +30,7 @@ MonoBehaviour:
   fuelDrumDestroyedPoints: 5
   fuelDrumDestroyedPopupDuration: 2
   roadsideTurretTuning: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
-  roadsideTurretSpawnCheckInterval: 6
+  roadsideTurretSpawnCheckInterval: 5
   roadsideTurretSpawnChance: 0.4
   roadsideTurretSpawnDistanceAhead: 200
   maximumActiveRoadsideTurrets: 1

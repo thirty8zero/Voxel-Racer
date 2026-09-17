@@ -29,6 +29,13 @@ namespace VoxelRacer.Editor
                 var cr=new GameObject("Preview Car");cr.transform.SetParent(root.transform,false);cr.transform.localRotation=Quaternion.Euler(0,-15,0);
                 UnityEngine.Object.Instantiate(definition.visualPrefab,cr.transform);
                 var car=cr.AddComponent<VoxelCarController>();car.enabled=false;car.ResetIntegrityBaseline();
+                cr.transform.localPosition=Vector3.up*.18f;
+                int originalIntegrity=car.TotalIntegrityVoxels;
+                var table=VoxelCarTurntable.Create(root.transform,cr.transform);
+                Check(car.TotalIntegrityVoxels==originalIntegrity,"Turntable changed car integrity");
+                cr.transform.Rotate(0,45,0);Invoke(table,"LateUpdate");
+                Check(Quaternion.Angle(table.transform.Find("Rotating steel deck").rotation,cr.transform.rotation)<.01f,"Deck does not follow car rotation");
+                cr.transform.localRotation=Quaternion.Euler(0,-15,0);Invoke(table,"LateUpdate");
                 var shop=root.AddComponent<VoxelRepairUpgradeSceneController>();
                 typeof(VoxelRepairUpgradeSceneController).GetField("definition",Flags).SetValue(shop,definition);
                 typeof(VoxelRepairUpgradeSceneController).GetProperty("DisplayedCar").SetValue(shop,car);

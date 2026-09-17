@@ -114,6 +114,8 @@ namespace VoxelRacer.Editor
             DrawSection(ref mountainsOpen, "Horizon Mountains", () =>
             {
                 DrawProperty("horizonMountainsEnabled");
+                DrawProperty("mountainCardMaterial");
+                DrawProperty("mountainCardVerticalUV");
                 DrawProperty("mountainDistance");
                 DrawProperty("mountainScale");
                 DrawProperty("mountainBaseHeight");
