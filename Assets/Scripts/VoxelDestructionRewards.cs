@@ -21,15 +21,16 @@ namespace VoxelRacer
 
         public Entry[] entries = System.Array.Empty<Entry>();
 
-        public Prize Roll(VoxelStaticObstacleDefinition source, float randomValue, float prizeChoice, float cashRoll)
+        public Prize Roll(VoxelStaticObstacleDefinition source, float randomValue, float prizeChoice, float cashRoll,
+            bool timeRewardAvailable = true)
         {
             if (source == null) return default;
             foreach (var entry in entries)
                 if (entry != null && entry.source == source)
                 {
                     if (entry.chance <= 0 || (entry.chance < 1 && randomValue >= entry.chance)) return default;
-                    if (prizeChoice < 1f / 3f) return new Prize { multiplier = Mathf.Max(0, entry.multiplierBonus) };
-                    if (prizeChoice >= 2f / 3f)
+                    if (prizeChoice < (timeRewardAvailable ? 1f / 3f : .5f)) return new Prize { multiplier = Mathf.Max(0, entry.multiplierBonus) };
+                    if (timeRewardAvailable && prizeChoice >= 2f / 3f)
                     {
                         int timeMin = Mathf.Max(1, Mathf.RoundToInt(entry.minimumTimeSeconds / 5f));
                         int timeMax = Mathf.Max(timeMin, Mathf.RoundToInt(entry.maximumTimeSeconds / 5f));
@@ -62,19 +63,19 @@ namespace VoxelRacer
             if (mission == null || mission.IsComplete) return;
             var rewards = Resources.Load<VoxelDestructionRewards>("DestructionRewards");
             if (rewards == null) return;
-            var prize = rewards.Roll(source, Random.value, Random.value, Random.value);
+            var prize = rewards.Roll(source, Random.value, Random.value, Random.value, mission.TimeBonusAvailable);
             float oldMultiplier = mission.EffectiveTimeBonusMultiplier;
             float oldTime = mission.RemainingTime;
             if (prize.multiplier > 0) mission.ChangeMultiplier(prize.multiplier, "BOX PRIZE", position);
             mission.AddBonusCash(prize.cash);
-            if (prize.timeSeconds > 0) mission.AddBonusTime(prize.timeSeconds, position);
+            bool timeGranted = prize.timeSeconds > 0 && mission.AddBonusTime(prize.timeSeconds, position);
             if (prize.cash > 0)
                 mission.Breakdown.Add(VoxelMissionBreakdown.Group.CrateRewards, "$" + prize.cash + " cash", 1);
             if (prize.multiplier > 0)
                 mission.Breakdown.Add(VoxelMissionBreakdown.Group.CrateRewards,
                     "+" + prize.multiplier.ToString("0.00") + "x multiplier (applied " +
                     (mission.EffectiveTimeBonusMultiplier - oldMultiplier).ToString("0.00") + "x)", 1);
-            if (prize.timeSeconds > 0)
+            if (timeGranted)
                 mission.Breakdown.Add(VoxelMissionBreakdown.Group.CrateRewards,
                     "+" + prize.timeSeconds + "s time (applied " + (mission.RemainingTime-oldTime).ToString("0") + "s)", 1);
             if (prize.cash > 0) VoxelScorePopup.Show(position + Vector3.up * 1.5f, prize.cash, VoxelScorePopup.Style.BonusCash);

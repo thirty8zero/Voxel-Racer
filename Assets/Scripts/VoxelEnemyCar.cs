@@ -74,6 +74,7 @@ namespace VoxelRacer
             CreateModel(enemy);
             healthBar = VoxelEnemyHealthBar.Create(transform, enemy);
             ApplyTrackPose();
+            gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure();
         }
 
         private void CreateModel(VoxelEnemyVehicleTuning enemy)

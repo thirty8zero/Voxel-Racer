@@ -154,6 +154,11 @@ namespace VoxelRacer
 
         private void BuildVoxelBox()
         {
+            if (definition != null && definition.modelPrefab != null)
+            {
+                Instantiate(definition.modelPrefab, transform, false);
+                return;
+            }
             const float voxelSize = 0.55f;
             for (int x = -1; x <= 1; x++)
             for (int y = 0; y < 3; y++)

@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: Mission 3
   requiredPoints: 1000
   completionCurrencyAward: 300
-  timeLimitSeconds: 80
+  timeLimitSeconds: 90
   timeBonusCurrencyMultiplier: 1
   maximumTimeMultiplier: 5
   enemyVoxelMultiplier: 0.01

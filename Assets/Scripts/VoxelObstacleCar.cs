@@ -80,6 +80,7 @@ namespace VoxelRacer
             BuildVisuals();
             ApplyRandomPaintColour();
             ApplyTrackPose();
+            gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure(isSemiTrailer);
         }
 
         private void Update()
@@ -157,6 +158,7 @@ namespace VoxelRacer
             VoxelMissionProgress.ReportCivilianVoxelDamage(damagedVoxelCount);
             VoxelMissionProgress.ReportCivilianVoxelDestroyed(damagedVoxelCount, transform.position);
             VoxelMissionProgress.ReportCivilianVehicleDestroyed(transform.position);
+            CurrentHealth = 0f;
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
                 EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
             velocity = hitDirection * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;

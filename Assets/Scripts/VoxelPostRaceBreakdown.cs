@@ -31,7 +31,7 @@ namespace VoxelRacer
             cashLabel.resizeTextForBestFit=true;cashLabel.resizeTextMinSize=30;cashLabel.resizeTextMaxSize=72;
             var next=VoxelMenuUi.CreateButton(rewards.transform,"Show Breakdown",">",44,new Vector2(.5f,.5f),new Vector2(400,210),new Vector2(64,64),()=>ShowBreakdown(true));
             next.GetComponentInChildren<Text>().font=Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
-            var panel=VoxelMenuUi.CreatePanel(canvas,"Mission Breakdown Panel",new Vector2(0,.5f),new Vector2(470,0),new Vector2(900,520));
+            var panel=VoxelMenuUi.CreatePanel(canvas,"Mission Breakdown Panel",new Vector2(0,.5f),PostRacePanelPosition,new Vector2(900,520));
             panel.color=rewards.color;breakdownPage=panel.gameObject;
             VoxelMenuUi.CreateText(panel.transform,"Breakdown Title","MISSION BREAKDOWN",46,TextAnchor.MiddleCenter,new Vector2(.5f,.5f),new Vector2(30,210),new Vector2(730,64));
             var back=VoxelMenuUi.CreateButton(panel.transform,"Return to Rewards","<",44,new Vector2(.5f,.5f),new Vector2(-400,210),new Vector2(64,64),()=>ShowBreakdown(false));

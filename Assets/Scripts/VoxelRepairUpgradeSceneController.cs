@@ -184,6 +184,7 @@ namespace VoxelRacer
             if (lookDirection.sqrMagnitude > 0.0001f)
                 workshopCamera.transform.rotation = Quaternion.LookRotation(lookDirection);
             workshopCamera.fieldOfView = Mathf.Clamp(cameraTuning.cameraFieldOfView, 10f, 90f);
+            garageZoomAmount = 0f;
             appliedCameraPosition = cameraTuning.cameraPosition;
             appliedCameraLookAt = cameraTuning.cameraLookAt;
             appliedCameraFieldOfView = cameraTuning.cameraFieldOfView;

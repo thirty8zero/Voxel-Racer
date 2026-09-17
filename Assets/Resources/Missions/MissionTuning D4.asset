@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3ac5574a0d1241f7a5f7f94ba58382f9, type: 3}
   m_Name: MissionTuning D4
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionTuning
-  displayName: Mission 3
+  displayName: Mission 4
   requiredPoints: 1200
   completionCurrencyAward: 500
-  timeLimitSeconds: 90
+  timeLimitSeconds: 100
   timeBonusCurrencyMultiplier: 1
   maximumTimeMultiplier: 5
   enemyVoxelMultiplier: 0.01

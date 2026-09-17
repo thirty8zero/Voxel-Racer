@@ -15,6 +15,8 @@ namespace VoxelRacer
     {
         public string displayName = "Static Obstacle";
         public VoxelStaticObstacleType obstacleType;
+        [Tooltip("Optional authored voxel model for box obstacles. Other obstacle types use their own builders.")]
+        public GameObject modelPrefab;
 
         [Header("Player Impact")]
         [Min(1)] public int playerDamageVoxelsMin = 8;

@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelStaticObstacleDefinition
   displayName: POTHOLE
   obstacleType: 1
+  modelPrefab: {fileID: 0}
   playerDamageVoxelsMin: 50
   playerDamageVoxelsMax: 500
   hitPoints: 1

@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelStaticObstacleDefinition
   displayName: VOXEL BOX
   obstacleType: 0
+  modelPrefab: {fileID: 8597568737746121653, guid: 87e2f986c62cf45468eeea222e86eea5, type: 3}
   playerDamageVoxelsMin: 20
   playerDamageVoxelsMax: 50
   hitPoints: 10

@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d0edb0c9009cbb4e98a50bde7a8a80c, type: 3}
   m_Name: LongtailCarTuning
   m_EditorClassIdentifier: 
-  acceleration: 30
-  topSpeed: 40
-  brakingForce: 20
+  acceleration: 20
+  topSpeed: 35
+  brakingForce: 15
   damageVoxelsPerHit: 50
   debrisVoxelsPerDamagedVoxel: 2
   explosionSpawnOffset: 0.9
@@ -24,8 +24,8 @@ MonoBehaviour:
   explosionUpwardForce: 5
   explosionSpreadForce: 3
   explosionEffectScale: 1.15
-  laneChangeSpeed: 14
-  frontWheelTurnDegrees: 24
+  laneChangeSpeed: 10
+  frontWheelTurnDegrees: 15
   wheelSpinDegreesPerUnit: 130
   laneChangeBodyRollDegrees: 1
   laneChangeYawDegrees: 4

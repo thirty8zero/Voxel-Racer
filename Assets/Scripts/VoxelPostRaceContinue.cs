@@ -18,6 +18,18 @@ namespace VoxelRacer
         private Text totalRewardText;
         private GameObject bonusCashPanel;
         private float rewardSequenceStartedAt = -1f;
+        // Height-based canvases match the integrity dial: its bottom is y=763,
+        // while Continue's top is y=130 in the 1080-high reference layout.
+        // A 520-high panel centred at 446.5 leaves 56.5 units on each side.
+        private static readonly Vector2 PostRacePanelPosition = new Vector2(470f, -93.5f);
+
+        private static void MatchPostRaceCanvasHeight(RectTransform canvas)
+        {
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            scaler.matchWidthOrHeight = 1f;
+            scaler.enabled = false;
+            scaler.enabled = true;
+        }
 
         public void Configure(VoxelRunFinish finish, VoxelMissionProgress mission)
         {
@@ -43,6 +55,7 @@ namespace VoxelRacer
                 return;
 
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Post Race UI");
+            MatchPostRaceCanvasHeight(canvas);
             ContinueButton = VoxelMenuUi.CreateButton(canvas, "Continue Button", "CONTINUE", 78,
                 new Vector2(0f, 0f), new Vector2(470f, 78f), new Vector2(700f, 104f), OpenWorkshop);
         }
@@ -50,9 +63,10 @@ namespace VoxelRacer
         private void BuildRewardSequence()
         {
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Mission Reward UI");
+            MatchPostRaceCanvasHeight(canvas);
             canvas.GetComponent<Canvas>().sortingOrder = 101;
             Image panel = VoxelMenuUi.CreatePanel(canvas, "Mission Reward Panel", new Vector2(0f, 0.5f),
-                new Vector2(470f, 0f), new Vector2(900f, 520f));
+                PostRacePanelPosition, new Vector2(900f, 520f));
             panel.color = new Color(0.02f, 0.025f, 0.04f, 0.72f);
             baseRewardText = VoxelMenuUi.CreateText(panel.transform, "Base Mission Reward", string.Empty, 84,
                 TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 185f), new Vector2(860f, 90f));

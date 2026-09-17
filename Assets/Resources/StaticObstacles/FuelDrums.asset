@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelStaticObstacleDefinition
   displayName: FUEL DRUMS
   obstacleType: 2
+  modelPrefab: {fileID: 0}
   playerDamageVoxelsMin: 80
   playerDamageVoxelsMax: 120
   hitPoints: 50
