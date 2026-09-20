@@ -45,6 +45,8 @@ namespace VoxelRacer
         private float sideRamDuration;
         private VoxelEasingType sideRamEasing;
         private Transform[] modelWheels;
+        private float nextMineTime;
+        private float postDropLaneChangeAt = float.PositiveInfinity;
 
         public void Configure(VoxelCarController player, VoxelObstacleCarTuning traffic, VoxelEnemyVehicleTuning enemy,
             EndlessVoxelRoad road, float distance, float offset)
@@ -75,6 +77,7 @@ namespace VoxelRacer
             healthBar = VoxelEnemyHealthBar.Create(transform, enemy);
             ApplyTrackPose();
             gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure();
+            nextMineTime = Time.time + (enemy.mineLayer != null ? Mathf.Max(.1f, enemy.mineLayer.dropInterval) : 0f);
         }
 
         private void CreateModel(VoxelEnemyVehicleTuning enemy)
@@ -117,6 +120,7 @@ namespace VoxelRacer
             UpdateEvasiveLaneChange();
             ApplyTrackPose();
             RotateWheels();
+            UpdateMineLayer();
 
             bool overlapsLane = Mathf.Abs(target.CurrentLaneOffset - LaneOffset) < Tuning.collisionHalfWidth;
             bool overlapsDepth = Mathf.Abs(target.TrackDistance - TrackDistance) < Tuning.collisionHalfLength;
@@ -125,6 +129,28 @@ namespace VoxelRacer
 
             if (TrackDistance < target.TrackDistance - 30f || TrackDistance > target.TrackDistance + GetMaximumDistanceAhead())
                 Destroy(gameObject);
+        }
+
+        private void UpdateMineLayer()
+        {
+            var mines = Tuning.mineLayer;
+            if (mines == null || target.IsDestroyed || VoxelMissionProgress.Active?.IsComplete == true ||
+                (VoxelStartCountdown.Active != null && !VoxelStartCountdown.Active.IsComplete)) return;
+            if (Time.time < nextMineTime) return;
+            nextMineTime = Time.time + Mathf.Max(.1f, mines.dropInterval);
+            if (Random.value >= Mathf.Clamp01(mines.dropChance) || mines.minePrefab == null) return;
+            var mine = new GameObject("Enemy Road Mine").AddComponent<VoxelRoadMine>();
+            mine.transform.SetParent(transform.parent, false);
+            mine.Configure(target, path, mines, TrackDistance - 2.9f, LaneOffset);
+            SchedulePostDropLaneChange(mines, Random.value, Time.time);
+        }
+
+        private void SchedulePostDropLaneChange(VoxelMineLayerTuning mines, float roll, float now)
+        {
+            float chance = Mathf.Clamp01(mines.postDropLaneChangeChance);
+            if (chance <= 0f || (chance < 1f && roll >= chance)) return;
+            // Further drops never postpone an already pending move or build up a queue of swerves.
+            postDropLaneChangeAt = Mathf.Min(postDropLaneChangeAt, now + Mathf.Max(0f, mines.postDropLaneChangeDelay));
         }
 
         public void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection)
@@ -256,9 +282,9 @@ namespace VoxelRacer
         {
             if (awardMissionPoints)
             {
-                VoxelMissionProgress.ReportEnemyVehicleDestroyed(transform.position);
+                VoxelMissionProgress.ReportEnemyVehicleDestroyed(transform.position, Tuning);
                 VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.55f),
-                    VoxelMissionProgress.GetEnemyVehicleDestroyedPoints(), VoxelScorePopup.Style.EnemyDestroyed);
+                    VoxelMissionProgress.GetEnemyVehicleDestroyedPoints(Tuning), VoxelScorePopup.Style.EnemyDestroyed);
             }
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f, Tuning.explosionEffectScale);
             healthBar.gameObject.SetActive(false);
@@ -368,11 +394,14 @@ namespace VoxelRacer
             if (Tuning == null)
                 return;
 
-            if (evasiveLaneChangePending && spawner != null &&
+            bool postDropReady = Time.time >= postDropLaneChangeAt;
+            bool settledInLane = Mathf.Abs(laneOffset - targetLaneOffset) < .01f;
+            if ((evasiveLaneChangePending || postDropReady) && settledInLane && spawner != null &&
                 spawner.TryFindSafeEnemyLane(this, out float safeLaneOffset))
             {
                 targetLaneOffset = safeLaneOffset;
                 evasiveLaneChangePending = false;
+                if (postDropReady) postDropLaneChangeAt = float.PositiveInfinity;
                 if (Random.value <= Tuning.laneChangeSpeedBoostChance)
                     laneChangeSpeedBoostUntil = Time.time + Tuning.laneChangeSpeedBoostDuration;
             }

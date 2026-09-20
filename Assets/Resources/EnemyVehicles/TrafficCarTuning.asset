@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
   displayName: Traffic Car
   modelPrefab: {fileID: 726285558947219515, guid: 80642e52234745c4f819cd4f6e52232a, type: 3}
+  mineLayer: {fileID: 0}
+  destructionScore: 25
   voxelHealth: 1
   vehicleHealth: 50
   minimumSpawnSpeedMultiplier: 0.3

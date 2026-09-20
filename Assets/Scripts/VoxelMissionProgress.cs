@@ -161,17 +161,18 @@ namespace VoxelRacer
         public static int GetEnemyRamDamagePoints(float damage) =>
             Active?.Tuning != null && damage > 0f ? Mathf.RoundToInt(damage) : 0;
 
-        public static void ReportEnemyVehicleDestroyed(Vector3? position = null)
+        public static void ReportEnemyVehicleDestroyed(Vector3? position = null, VoxelEnemyVehicleTuning enemy = null)
         {
             if (Active?.Tuning != null)
             {
                 Active.ChangeMultiplier(Active.Tuning.enemyDestroyedMultiplier, "ENEMY DESTROYED", position);
-                Active.AddPoints(Active.Tuning.enemyVehicleDestroyedPoints, "Enemy vehicles destroyed");
+                string source = enemy != null ? enemy.displayName + " destroyed" : "Enemy vehicles destroyed";
+                Active.AddPoints(GetEnemyVehicleDestroyedPoints(enemy), source);
             }
         }
 
-        public static int GetEnemyVehicleDestroyedPoints() =>
-            Active?.Tuning != null ? Active.Tuning.enemyVehicleDestroyedPoints : 0;
+        public static int GetEnemyVehicleDestroyedPoints(VoxelEnemyVehicleTuning enemy = null) =>
+            Active?.Tuning != null ? Mathf.Max(0, enemy != null ? enemy.destructionScore : Active.Tuning.enemyVehicleDestroyedPoints) : 0;
 
         public static void ReportFuelDrumDestroyed(int drumCount = 1, Vector3? position = null)
         {

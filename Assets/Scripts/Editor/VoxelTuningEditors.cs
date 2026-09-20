@@ -212,7 +212,9 @@ namespace VoxelRacer.Editor
                 "civilianVoxelMultiplierPenalty", "civilianDestroyedMultiplierPenalty", "bonusWarningSeconds");
 
             enemyScoreExpanded = DrawFoldout(enemyScoreExpanded, "Enemy Score",
-                "enemyVoxelDamagePoints", "enemyVehicleDestroyedPoints");
+                "enemyVoxelDamagePoints");
+            if (enemyScoreExpanded)
+                EditorGUILayout.HelpBox("Enemy destruction points are set on each Enemy Vehicle Tuning under Mission Score. The destruction multiplier remains under Live Time Multiplier.", MessageType.Info);
             staticObstacleScoreExpanded = DrawFoldout(staticObstacleScoreExpanded, "Static Obstacle Score",
                 "fuelDrumDestroyedPoints", "fuelDrumDestroyedPopupDuration");
             roadsideTurretExpanded = DrawFoldout(roadsideTurretExpanded, "Roadside Turret Spawning",
@@ -277,6 +279,10 @@ namespace VoxelRacer.Editor
             EditorGUILayout.LabelField("Identity", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("displayName"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("modelPrefab"));
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Mission Score", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("destructionScore"));
 
             durabilityExpanded = DrawSection(durabilityExpanded, "Durability",
                 "voxelHealth", "vehicleHealth");

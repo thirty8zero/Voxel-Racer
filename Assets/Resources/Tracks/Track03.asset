@@ -40,7 +40,7 @@ MonoBehaviour:
   - {r: 0.55, g: 0.18, b: 0.82, a: 1}
   - {r: 0.735849, g: 0.18396226, b: 0.46626332, a: 1}
   - {r: 0.41509432, g: 0.37789246, b: 0.39688915, a: 1}
-  semiTrailerSpawnChance: 0.35
+  semiTrailerSpawnChance: 0
   trafficCarEnemyTuning: {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
   semiTrailerEnemyTuning: {fileID: 11400000, guid: 2e00307876f8dcd4bad78a259ae5cced, type: 2}
   sameDirectionSpeedMin: 10

@@ -10,6 +10,11 @@ namespace VoxelRacer
         public string displayName = "Enemy Vehicle";
         [Tooltip("Authored visual model. Individual mesh pieces retain the enemy's existing voxel damage behaviour.")]
         public GameObject modelPrefab;
+        public VoxelMineLayerTuning mineLayer;
+
+        [Header("Mission Score")]
+        [Tooltip("Mission progress points awarded when the player destroys this enemy type. Also used by the destruction score popup.")]
+        [Min(0)] public int destructionScore = 25;
 
         [Header("Durability")]
         [Tooltip("Damage each body voxel can absorb before it is removed.")]

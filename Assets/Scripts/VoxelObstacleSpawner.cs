@@ -18,6 +18,7 @@ namespace VoxelRacer
         [Tooltip("Controls traffic-car spawn frequency, direction, speed, impacts, and debris.")]
         public VoxelObstacleCarTuning obstacleCarTuning;
         public VoxelEnemyVehicleTuning enemyCarTuning;
+        public VoxelEnemyVehicleTuning mineLayerEnemyTuning;
         private VoxelStaticObstacleSpawnEntry[] staticObstacleSpawns;
 
         private VoxelCarController target;
@@ -126,9 +127,11 @@ namespace VoxelRacer
                     if (!TryFindEmptyVehicleLane(out float enemyLaneOffset))
                         return;
 
-                    var enemy = new GameObject("Black Enemy Interceptor").AddComponent<VoxelEnemyCar>();
+                    var selected = mineLayerEnemyTuning != null && mineLayerEnemyTuning.mineLayer != null &&
+                        Random.value < mineLayerEnemyTuning.mineLayer.enemySelectionChance ? mineLayerEnemyTuning : enemyCarTuning;
+                    var enemy = new GameObject(selected.displayName).AddComponent<VoxelEnemyCar>();
                     enemy.transform.SetParent(transform);
-                    enemy.Configure(target, obstacleCarTuning, enemyCarTuning, path, distance, enemyLaneOffset);
+                    enemy.Configure(target, obstacleCarTuning, selected, path, distance, enemyLaneOffset);
                     enemy.gameObject.AddComponent<VoxelFadeIn>();
                     return;
                 }

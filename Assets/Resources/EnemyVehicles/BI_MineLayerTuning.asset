@@ -10,22 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dcc4cdaf0291f6e43a4c07fb3d57d9ec, type: 3}
-  m_Name: BlackInterceptorTuning
+  m_Name: BI_MineLayerTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
-  displayName: Black Interceptor
-  modelPrefab: {fileID: 5282499240650397249, guid: 252dd31da1ef29840b810106dbfc8010, type: 3}
-  mineLayer: {fileID: 0}
-  destructionScore: 25
+  displayName: BI Mine Layer
+  modelPrefab: {fileID: 6271244311448806527, guid: 4f28c467e13622645bdde13d3dabf5c2, type: 3}
+  mineLayer: {fileID: 11400000, guid: 370aafc339cf9034d9f4a23e162ae5c9, type: 2}
+  destructionScore: 40
   voxelHealth: 1
-  vehicleHealth: 80
+  vehicleHealth: 100
   minimumSpawnSpeedMultiplier: 0.1
   maximumSpawnSpeedMultiplier: 0.2
   approachSpeedDistance: 80
-  minimumApproachSpeedMultiplier: 0.4
-  maximumApproachSpeedMultiplier: 0.6
+  minimumApproachSpeedMultiplier: 0.6
+  maximumApproachSpeedMultiplier: 0.8
   engageSpeedDistance: 0
-  minimumEngageSpeedMultiplier: 0.4
-  maximumEngageSpeedMultiplier: 0.6
+  minimumEngageSpeedMultiplier: 0.6
+  maximumEngageSpeedMultiplier: 0.8
   laneChangeDamagePercent: 0.2
   laneChangeChance: 0.7
   laneChangeSpeed: 4.5

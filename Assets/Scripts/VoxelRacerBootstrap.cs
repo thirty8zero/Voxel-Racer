@@ -622,6 +622,7 @@ namespace VoxelRacer
                 spawner.maximumSpawnInterval = spawner.obstacleCarTuning.maximumWaveInterval;
             }
             spawner.enemyCarTuning = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning");
+            spawner.mineLayerEnemyTuning = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BI_MineLayerTuning");
             spawner.SetStaticObstacleSpawns(spawner.obstacleCarTuning != null
                 ? spawner.obstacleCarTuning.staticObstacleSpawns
                 : null);

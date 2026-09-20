@@ -35,7 +35,8 @@ namespace VoxelRacer
 
         [Header("Enemy Score")]
         [Min(0)] public int enemyVoxelDamagePoints = 1;
-        [Min(0)] public int enemyVehicleDestroyedPoints = 25;
+        // Legacy fallback for callers without an enemy identity; gameplay uses the enemy vehicle tuning.
+        [HideInInspector, Min(0)] public int enemyVehicleDestroyedPoints = 25;
 
         [Header("Static Obstacle Score")]
         [Tooltip("Points awarded when the player detonates a fuel-drum group with weapons.")]
