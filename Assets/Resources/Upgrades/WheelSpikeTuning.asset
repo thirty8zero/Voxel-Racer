@@ -3,10 +3,16 @@
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6bba765ca914d194889235d31fb46792, type: 3}
   m_Name: WheelSpikeTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelWheelSpikeTuning
   displayName: WHEEL SPIKES
   spikePrefab: {fileID: 1000, guid: 02de77a9cabd44f1ac800a3f4a123456, type: 3}
-  purchasePrice: 125
-  sideRamDamageBonus: 12
+  purchasePrice: 150
+  sideRamDamageBonus: 15

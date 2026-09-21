@@ -30,6 +30,8 @@ namespace VoxelRacer
         private Text performanceWheelLabel;
         private Button boostUpgradeButton;
         private Text boostUpgradeLabel;
+        private Button engineUpgradeButton;
+        private Text engineUpgradeLabel;
         private Text repair10ButtonLabel;
         private Text repair25ButtonLabel;
         private Text repair50ButtonLabel;
@@ -104,6 +106,7 @@ namespace VoxelRacer
             VoxelWheelSpikeUpgradeState.ApplyTo(car);
             VoxelPerformanceWheelUpgradeState.ApplyTo(car, definition);
             VoxelBoostUpgradeState.ApplyTo(car, definition);
+            VoxelEngineUpgradeState.ApplyTo(car, definition);
             DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(DisplayedCar, definition);
             DisplayedCar.enabled = false;
@@ -237,6 +240,9 @@ namespace VoxelRacer
             boostUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Boost Bottle Purchase Button", string.Empty, 30,
                 new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), TryPurchaseBoostBottle);
             boostUpgradeLabel = boostUpgradeButton.GetComponentInChildren<Text>();
+            engineUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "V6 Engine Purchase Button", string.Empty, 30,
+                new Vector2(.5f,.5f), Vector2.zero, new Vector2(560,100), TryPurchaseEngine);
+            engineUpgradeLabel = engineUpgradeButton.GetComponentInChildren<Text>();
             BuildUpgradeScroll(weaponUpgradePanel.transform);
 
             feedbackText = VoxelMenuUi.CreateText(canvas, "Repair Feedback", string.Empty, 68,
@@ -368,6 +374,7 @@ namespace VoxelRacer
             RefreshArmorShop();
             RefreshWheelSpikeShop();
             RefreshPerformanceWheelShop();
+            RefreshEngineShop();
             RefreshBoostShop();
             VoxelGunTuning gunTuning = VoxelGunUpgradeState.LongGunTuning;
             if (gunUpgradeButton == null || gunUpgradeButtonLabel == null || gunTuning == null)
@@ -423,7 +430,7 @@ namespace VoxelRacer
             var cr = (RectTransform)content.transform;
             cr.anchorMin = cr.anchorMax = new Vector2(.5f, 1); cr.pivot = new Vector2(.5f, 1);
             var buttons = new[] { gunUpgradeButton, rightArmorUpgradeButton, leftArmorUpgradeButton,
-                wheelSpikeUpgradeButton, performanceWheelButton, boostUpgradeButton };
+                wheelSpikeUpgradeButton, performanceWheelButton, boostUpgradeButton, engineUpgradeButton };
             cr.sizeDelta = new Vector2(560, buttons.Length * 115 - 15);
             for (int i = 0; i < buttons.Length; i++)
             {
@@ -436,6 +443,25 @@ namespace VoxelRacer
             scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 35;
             VoxelMenuUi.CreateText(panel, "Upgrade Scroll Hint", "DRAG OR SCROLL FOR MORE", 22,
                 TextAnchor.MiddleCenter, new Vector2(.5f, .5f), new Vector2(0, 238), new Vector2(560, 26));
+        }
+
+        private void TryPurchaseEngine()
+        {
+            var tuning=VoxelEngineUpgradeTuning.Load();
+            if(DisplayedCar==null || !VoxelEngineUpgradeState.TryPurchase(tuning,definition)) return;
+            VoxelEngineUpgradeState.ApplyTo(DisplayedCar.transform,definition);
+            VoxelCarRunState.Capture(DisplayedCar,definition);
+            feedbackText.text="V6 INSTALLED"; RefreshUi();
+        }
+        private void RefreshEngineShop()
+        {
+            if(engineUpgradeButton==null) return;
+            var tuning=VoxelEngineUpgradeTuning.Load();
+            bool fits=tuning!=null && tuning.Fits(definition);
+            engineUpgradeButton.interactable=fits && !VoxelEngineUpgradeState.IsPurchased && VoxelCurrencyState.Balance>=tuning.purchasePrice;
+            engineUpgradeLabel.text=!fits?"V6 ENGINE\nUNAVAILABLE FOR THIS CAR":tuning.displayName+
+                (VoxelEngineUpgradeState.IsPurchased?"\nINSTALLED":"\n+"+tuning.topSpeedBonusPercent+"% SPEED  +"+tuning.accelerationBonusPercent+
+                "% ACCEL\nCOST <color=#FFD12A>"+tuning.purchasePrice+"</color>");
         }
 
         private void TryPurchaseBoostBottle()

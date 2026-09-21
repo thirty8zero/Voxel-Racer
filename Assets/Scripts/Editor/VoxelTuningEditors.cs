@@ -91,9 +91,11 @@ namespace VoxelRacer.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Traffic Models", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("semiTrailerSpawnChance"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("semiTrailerSpawnChance"),
+                new GUIContent("Van Spawn Chance", "Chance that a civilian spawn uses the van instead of the car."));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("trafficCarEnemyTuning"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("semiTrailerEnemyTuning"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("semiTrailerEnemyTuning"),
+                new GUIContent("Van Vehicle Tuning", "Model and durability settings for civilian vans."));
 
             EditorGUILayout.Space();
             movementExpanded = EditorGUILayout.Foldout(movementExpanded, "Civilian Movement", true);
@@ -122,7 +124,8 @@ namespace VoxelRacer.Editor
             VoxelTuningInspector.DrawRange("Player Damage Voxels", serializedObject.FindProperty("playerDamageVoxelsMin"), serializedObject.FindProperty("playerDamageVoxelsMax"));
             VoxelTuningInspector.DrawRange("Obstacle Damage Voxels", serializedObject.FindProperty("obstacleDamageVoxelsMin"), serializedObject.FindProperty("obstacleDamageVoxelsMax"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("impactVoxelDamageSurfaceOffset"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("semiImpactVoxelDamageSurfaceOffset"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("semiImpactVoxelDamageSurfaceOffset"),
+                new GUIContent("Van Impact Voxel Damage Surface Offset"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("collisionCooldown"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("launchForce"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("launchUpwardForce"));

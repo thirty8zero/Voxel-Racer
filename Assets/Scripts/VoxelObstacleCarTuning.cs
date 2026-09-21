@@ -39,10 +39,13 @@ namespace VoxelRacer
             new Color(0.55f, 0.18f, 0.82f)
         };
 
+        // Retain serialized names to migrate existing tracks without losing their settings.
+        [InspectorName("Van Spawn Chance")]
         [Range(0f, 1f)] public float semiTrailerSpawnChance = 0.35f;
         [Tooltip("Combat durability used by the regular traffic car.")]
         public VoxelEnemyVehicleTuning trafficCarEnemyTuning;
-        [Tooltip("Combat durability used by the semi-trailer.")]
+        [InspectorName("Van Vehicle Tuning")]
+        [Tooltip("Model and durability used by the civilian van (replaces the former semi-trailer slot).")]
         public VoxelEnemyVehicleTuning semiTrailerEnemyTuning;
 
         [Tooltip("Civilian vehicles choose all phase speeds from the player's maximum speed. These legacy absolute speed values are retained for existing assets but are no longer used.")]
@@ -77,7 +80,8 @@ namespace VoxelRacer
         [Min(1)] public int obstacleDamageVoxelsMin = 100;
         [Min(1)] public int obstacleDamageVoxelsMax = 150;
         [Min(0f)] public float impactVoxelDamageSurfaceOffset = 1.7f;
-        [Min(0f)] public float semiImpactVoxelDamageSurfaceOffset = 4.4f;
+        [InspectorName("Van Impact Voxel Damage Surface Offset")]
+        [Min(0f)] public float semiImpactVoxelDamageSurfaceOffset = 2.2f;
         [Min(0f)] public float collisionCooldown = 0.35f;
         [Min(0f)] public float launchForce = 15f;
         [Min(0f)] public float launchUpwardForce = 6f;

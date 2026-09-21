@@ -14,7 +14,14 @@ namespace VoxelRacer
         [Header("Speed")]
         [Min(0f)] public float acceleration = 12f;
         private float wheelAccelerationMultiplier = 1f, wheelLaneMultiplier = 1f, wheelBrakingMultiplier = 1f;
-        public float EffectiveAcceleration => acceleration * wheelAccelerationMultiplier;
+        private float engineSpeedMultiplier=1f, engineAccelerationMultiplier=1f;
+        public float EffectiveTopSpeed => topSpeed * engineSpeedMultiplier;
+        public float EffectiveAcceleration => acceleration * wheelAccelerationMultiplier * engineAccelerationMultiplier;
+        public void SetEnginePerformance(float speedPercent,float accelerationPercent)
+        {
+            engineSpeedMultiplier=1f+Mathf.Max(0,speedPercent)/100f;
+            engineAccelerationMultiplier=1f+Mathf.Max(0,accelerationPercent)/100f;
+        }
         public float EffectiveLaneChangeSpeed => laneChangeSpeed * wheelLaneMultiplier;
         public float EffectiveBrakingForce => brakingForce * wheelBrakingMultiplier;
         public void SetWheelPerformance(float accelerationPercent, float lanePercent, float brakingPercent = 0f)
@@ -213,7 +220,7 @@ namespace VoxelRacer
 
             var keyboard = Keyboard.current;
             bool braking = keyboard != null && keyboard.spaceKey.isPressed;
-            float targetSpeed = !drivingEnabled || braking || finishingRun ? 0f : topSpeed + boostSpeedBonus;
+            float targetSpeed = !drivingEnabled || braking || finishingRun ? 0f : EffectiveTopSpeed + boostSpeedBonus;
             float rate = braking ? EffectiveBrakingForce : finishingRun ? finishDeceleration : EffectiveAcceleration;
             CurrentSpeed = Mathf.MoveTowards(CurrentSpeed, targetSpeed, rate * Time.deltaTime);
             UpdateRamResponse();

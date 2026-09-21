@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dcc4cdaf0291f6e43a4c07fb3d57d9ec, type: 3}
+  m_Name: CivilianVanTuning
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelEnemyVehicleTuning
+  displayName: Civilian Transit Van
+  modelPrefab: {fileID: 1909683467865791251, guid: cb8c1e84913cd0147b29658cc14edc3a, type: 3}
+  mineLayer: {fileID: 0}
+  destructionScore: 25
+  voxelHealth: 1
+  vehicleHealth: 50
+  minimumSpawnSpeedMultiplier: 0.3
+  maximumSpawnSpeedMultiplier: 0.6
+  approachSpeedDistance: 100
+  minimumApproachSpeedMultiplier: 0.3
+  maximumApproachSpeedMultiplier: 0.6
+  engageSpeedDistance: 0
+  minimumEngageSpeedMultiplier: 0.3
+  maximumEngageSpeedMultiplier: 0.6
+  laneChangeDamagePercent: 0.5
+  laneChangeChance: 0.5
+  laneChangeSpeed: 4.5
+  laneChangeSpeedBoostChance: 0.5
+  laneChangeSpeedBoostMultiplier: 0.2
+  laneChangeSpeedBoostDuration: 1
+  collisionHalfWidth: 1.4
+  collisionHalfLength: 2.65
+  playerDamageVoxelsMin: 100
+  playerDamageVoxelsMax: 200
+  playerRamDamage: 20
+  playerRamSpeedMatchDuration: 2
+  rearRamEnemyForwardPushDistance: 1.25
+  rearRamEnemyForwardPushDuration: 0.18
+  rearRamEnemyForwardPushEasing: 5
+  playerRearRamRecoilDistance: 0.8
+  playerRearRamRecoilDuration: 0.25
+  playerRearRamRecoilEasing: 5
+  sideRamEnemyLaneShiftDistance: 0.9
+  sideRamEnemyLaneShiftDuration: 0.3
+  sideRamEnemyLaneShiftEasing: 5
+  playerSideRamBounceDistance: 1.2
+  playerSideRamBounceDuration: 0.32
+  playerSideRamBounceEasing: 5
+  rearSurfaceHitRandomness: 2
+  weaponDebrisScale: 0.65
+  weaponDebrisForwardForceMin: 7
+  weaponDebrisForwardForceMax: 10
+  weaponDebrisUpwardForce: 2.5
+  weaponDebrisSpreadForce: 1.5
+  weaponDebrisLifetime: 1.5
+  ramDebrisScale: 0.65
+  ramDebrisForwardForceMin: 7
+  ramDebrisForwardForceMax: 10
+  ramDebrisUpwardForce: 2.5
+  ramDebrisSpreadForce: 1.5
+  ramDebrisLifetime: 1.5
+  healthBarWidth: 2.4
+  healthBarHeight: 0.22
+  healthBarHeightOffset: 2.8
+  healthBarFullColour: {r: 0.92, g: 0.05, b: 0.04, a: 1}
+  healthBarEmptyColour: {r: 0.36, g: 0.01, b: 0.01, a: 1}
+  criticalHealthPercent: 0.2
+  criticalPulseSpeed: 7
+  criticalPulseScale: 0.16
+  explosionEffectScale: 1.4
+  explosionVoxelCount: 40
+  maximumExplosionVoxelRemovalPercent: 0.65
+  explosionForwardForceMin: 7
+  explosionForwardForceMax: 10
+  explosionUpwardForce: 2.5
+  explosionSpreadForce: 1.5
+  explosionDebrisScale: 0.65
+  explosionDebrisLifetime: 1.5
+  destroyedLifetime: 2.5

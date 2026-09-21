@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
   displayName: LONG BARREL GUN
   visualPrefab: {fileID: 4125248041604159245, guid: a424565e8cb5851408940778327aa5aa, type: 3}
-  purchasePrice: 250
+  purchasePrice: 400
   maximumPurchases: 2
   shotsPerSecond: 5
   bulletsPerShot: 1

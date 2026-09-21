@@ -73,14 +73,14 @@ namespace VoxelRacer
             CurrentHealth = EnemyTuning != null ? EnemyTuning.vehicleHealth : 1f;
             if (isSemiTrailer)
             {
-                collisionHalfWidth = 1.55f;
-                collisionHalfLength = 4.8f;
-                gameObject.name = sameDirection ? "Traffic Semi (Same Direction)" : "Traffic Semi (Oncoming)";
+                collisionHalfWidth = EnemyTuning != null ? EnemyTuning.collisionHalfWidth : 1.4f;
+                collisionHalfLength = EnemyTuning != null ? EnemyTuning.collisionHalfLength : 2.65f;
+                gameObject.name = sameDirection ? "Civilian Van (Same Direction)" : "Civilian Van (Oncoming)";
             }
             BuildVisuals();
             ApplyRandomPaintColour();
             ApplyTrackPose();
-            gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure(isSemiTrailer);
+            gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure();
         }
 
         private void Update()
@@ -136,7 +136,7 @@ namespace VoxelRacer
             int integrityBeforeHit = target.RemainingIntegrityVoxels;
 #endif
             target.damageVoxelsPerHit = selectedPlayerDamage;
-            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, isSemiTrailer ? "Truck collision" : "Civilian car collision");
+            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, isSemiTrailer ? "Civilian van collision" : "Civilian car collision");
             target.damageVoxelsPerHit = originalPlayerDamage;
 #if UNITY_EDITOR
             int integrityAfterHit = target.RemainingIntegrityVoxels;
@@ -383,9 +383,7 @@ namespace VoxelRacer
 
         private void BuildVisuals()
         {
-            if (isSemiTrailer)
-                VoxelRacerBootstrap.CreateObstacleSemiTrailerVisuals(transform);
-            else if (EnemyTuning != null && EnemyTuning.modelPrefab != null)
+            if (EnemyTuning != null && EnemyTuning.modelPrefab != null)
                 Instantiate(EnemyTuning.modelPrefab, transform, false);
             else
                 VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);

@@ -34,7 +34,7 @@ MonoBehaviour:
   - {r: 0.55, g: 0.18, b: 0.82, a: 1}
   semiTrailerSpawnChance: 0.35
   trafficCarEnemyTuning: {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
-  semiTrailerEnemyTuning: {fileID: 11400000, guid: 2e00307876f8dcd4bad78a259ae5cced, type: 2}
+  semiTrailerEnemyTuning: {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}
   sameDirectionSpeedMin: 10
   sameDirectionSpeedMax: 18
   oppositeDirectionSpeedMin: 22
@@ -59,7 +59,7 @@ MonoBehaviour:
   obstacleDamageVoxelsMin: 50
   obstacleDamageVoxelsMax: 200
   impactVoxelDamageSurfaceOffset: 1.7
-  semiImpactVoxelDamageSurfaceOffset: 4.4
+  semiImpactVoxelDamageSurfaceOffset: 2.2
   collisionCooldown: 0.35
   launchForce: 20
   launchUpwardForce: 15

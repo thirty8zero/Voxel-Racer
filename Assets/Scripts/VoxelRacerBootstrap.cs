@@ -163,6 +163,7 @@ namespace VoxelRacer
             VoxelWheelSpikeUpgradeState.ApplyTo(car);
             VoxelPerformanceWheelUpgradeState.ApplyTo(car, selectedCar);
             VoxelBoostUpgradeState.ApplyTo(car, selectedCar);
+            VoxelEngineUpgradeState.ApplyTo(car, selectedCar);
             car.GetComponent<VoxelCarController>().ResetIntegrityBaseline();
             VoxelCarRunState.Apply(car.GetComponent<VoxelCarController>(), selectedCar);
             return car;
