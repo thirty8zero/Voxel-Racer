@@ -17,10 +17,17 @@ namespace VoxelRacer
         public float TrackDistance => trackDistance;
         public bool TravelsWithPlayer => travelsWithPlayer;
         public float TravelSpeed => travelSpeed;
+        public float TrafficHalfLength => collisionHalfLength;
+        public bool IsDrivingTraffic => !hasBeenHit;
+        public const float TrafficGap = 1.5f;
+        private static readonly List<VoxelObstacleCar> ActiveTraffic = new();
+        private void OnEnable() { if(!ActiveTraffic.Contains(this)) ActiveTraffic.Add(this); }
+        private void OnDisable() => ActiveTraffic.Remove(this);
 
         private VoxelCarController target;
         private bool travelsWithPlayer;
         private bool isSemiTrailer;
+        private Vector2 previousCollisionRelative;
         private float travelSpeed;
         private float spawnSpeed;
         private float approachSpeed;
@@ -52,8 +59,8 @@ namespace VoxelRacer
             float playerMaximumSpeed = Mathf.Max(0f, player.topSpeed);
             if (matchingTravelSpeed >= 0f)
             {
-                // Preserve the existing same-lane traffic rule: shared-lane
-                // civilians retain a matching profile and cannot catch each other.
+                // Start at the existing lane speed. Following clearance below also
+                // handles later phase changes in the leading vehicle's speed.
                 spawnSpeed = matchingTravelSpeed;
                 approachSpeed = matchingTravelSpeed;
                 engageSpeed = matchingTravelSpeed;
@@ -80,6 +87,7 @@ namespace VoxelRacer
             BuildVisuals();
             ApplyRandomPaintColour();
             ApplyTrackPose();
+            previousCollisionRelative=target.CollisionTrackPosition-new Vector2(laneOffset,trackDistance);
             gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure();
         }
 
@@ -94,15 +102,17 @@ namespace VoxelRacer
             if (!hasBeenHit)
             {
                 float direction = travelsWithPlayer ? 1f : -1f;
-                travelSpeed = GetPhaseSpeed();
+                travelSpeed = GetSafeTrafficSpeed(GetPhaseSpeed(),Time.deltaTime);
                 trackDistance += direction * travelSpeed * Time.deltaTime;
                 ApplyTrackPose();
                 RotateWheels(direction * travelSpeed);
 
-                bool overlapsLane = Mathf.Abs(target.CurrentLaneOffset - laneOffset) < collisionHalfWidth;
-                bool overlapsDepth = Mathf.Abs(target.TrackDistance - trackDistance) < collisionHalfLength;
-                if (overlapsLane && overlapsDepth && Time.time >= nextCollisionTime)
-                    HitCar();
+                var relative=target.CollisionTrackPosition-new Vector2(laneOffset,trackDistance);
+                bool contactFound=VoxelVehicleCollision.Sweep(previousCollisionRelative,relative,
+                    new Vector2(collisionHalfWidth,collisionHalfLength),out var contact);
+                previousCollisionRelative=relative;
+                if (contactFound && Time.time >= nextCollisionTime)
+                    HitCar(VoxelVehicleCollision.ImpactDirection(contact,target.transform));
                 else
                     UpdateNearMiss();
 
@@ -120,11 +130,11 @@ namespace VoxelRacer
                 Destroy(gameObject);
         }
 
-        private void HitCar()
+        private void HitCar(Vector3? sweptDirection = null)
         {
             nextCollisionTime = Time.time + tuning.collisionCooldown;
             hasBeenHit = true;
-            Vector3 hitDirection = (transform.position - target.transform.position).normalized;
+            Vector3 hitDirection = sweptDirection ?? (transform.position - target.transform.position).normalized;
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = travelsWithPlayer ? target.transform.forward : -target.transform.forward;
 
@@ -237,6 +247,26 @@ namespace VoxelRacer
             return spawnSpeed;
         }
 
+        private float GetSafeTrafficSpeed(float desiredSpeed,float deltaTime)
+        {
+            if(deltaTime<=0) return 0;
+            float direction=travelsWithPlayer?1f:-1f;
+            float allowedDistance=Mathf.Max(0,desiredSpeed)*deltaTime;
+            foreach(var other in ActiveTraffic)
+            {
+                if(other==this || other==null || !other.IsDrivingTraffic || other.target==null || other.path!=path ||
+                    other.transform.parent!=transform.parent || other.travelsWithPlayer!=travelsWithPlayer ||
+                    Mathf.Abs(other.laneOffset-laneOffset)>=collisionHalfWidth+other.collisionHalfWidth) continue;
+                float ahead=(other.trackDistance-trackDistance)*direction;
+                if(ahead<=0) continue;
+                float clearance=collisionHalfLength+other.collisionHalfLength+TrafficGap;
+                // Bound this frame's movement against the leader's current position:
+                // safe even if it brakes, or Unity updates the follower first.
+                allowedDistance=Mathf.Min(allowedDistance,Mathf.Max(0,ahead-clearance));
+            }
+            return allowedDistance/deltaTime;
+        }
+
         private static void GetPhaseMultiplierRange(VoxelObstacleCarTuning value, bool sameDirection,
             int phase, out float minimum, out float maximum)
         {
@@ -274,9 +304,9 @@ namespace VoxelRacer
             if (mission == null || nearMissAwarded)
                 return;
 
-            float lateralGap = Mathf.Max(0f, Mathf.Abs(target.CurrentLaneOffset - laneOffset) -
+            float lateralGap = Mathf.Max(0f, Mathf.Abs(target.CollisionTrackPosition.x - laneOffset) -
                 (collisionHalfWidth + mission.civilianNearMissPlayerHalfWidth));
-            float longitudinalGap = Mathf.Max(0f, Mathf.Abs(target.TrackDistance - trackDistance) -
+            float longitudinalGap = Mathf.Max(0f, Mathf.Abs(target.CollisionTrackPosition.y - trackDistance) -
                 (collisionHalfLength + mission.civilianNearMissPlayerHalfLength));
             float clearDistance = Mathf.Sqrt(lateralGap * lateralGap + longitudinalGap * longitudinalGap);
             if (clearDistance <= mission.civilianNearMissDistance)
@@ -292,7 +322,7 @@ namespace VoxelRacer
             // silently rejected the latter case.
             float safePassDistance = collisionHalfLength + mission.civilianNearMissPlayerHalfLength +
                 mission.civilianNearMissPassClearance;
-            bool safelyPassed = Mathf.Abs(target.TrackDistance - trackDistance) > safePassDistance;
+            bool safelyPassed = Mathf.Abs(target.CollisionTrackPosition.y - trackDistance) > safePassDistance;
             if (!nearMissCandidate || !safelyPassed)
                 return;
 

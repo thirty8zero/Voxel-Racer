@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBoostUpgradeTuning
   exhaustEffectPrefab: {fileID: 3006793601068203571, guid: ffc4c67d942381c45846bb90d07e975d, type: 3}
   boostSpeed: 30
+  boostAccelerationMultiplier: 3
   boostLength: 1.5
   rechargeCooldownLength: 4
   boostForwardOffset: 4

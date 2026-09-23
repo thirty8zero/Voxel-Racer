@@ -10,6 +10,8 @@ namespace VoxelRacer
         public ParticleSystem exhaustEffectPrefab;
         [Tooltip("Extra speed added to the player's normal top speed while boost is active.")]
         [Min(0f)] public float boostSpeed = 18f;
+        [Tooltip("Multiplier applied to acceleration while boosting, including below normal top speed. Stacks with engine and tyre acceleration bonuses.")]
+        [Min(1f)] public float boostAccelerationMultiplier = 3f;
         [Tooltip("Seconds a fully charged boost remains active after one press.")]
         [Min(0.05f)] public float boostLength = 1.5f;
         [Tooltip("Seconds required to recharge an empty boost back to full.")]

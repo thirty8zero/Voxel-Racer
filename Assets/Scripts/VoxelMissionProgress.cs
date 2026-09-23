@@ -10,8 +10,21 @@ namespace VoxelRacer
         public VoxelMissionTuning Tuning { get; private set; }
         public int Points { get; private set; }
         public VoxelMissionBreakdown Breakdown { get; } = new();
-        public float Percent => Tuning == null ? 0f : Mathf.Clamp01((float)Points / Tuning.requiredPoints);
+        public float Percent => IsBossEncounter ? (IsComplete?1f:missionBoss!=null?1f-missionBoss.HealthPercent:0f) :
+            Tuning == null ? 0f : Mathf.Clamp01((float)Points / Tuning.requiredPoints);
         public bool IsComplete { get; private set; }
+        public bool IsFailed {get;private set;}
+        public void FailBossEncounter() { if(IsBossEncounter && !IsComplete) IsFailed=true; }
+        public bool IsBossEncounter {get;private set;}
+        private VoxelEnemyCar missionBoss;
+        private string bossName;
+        public void SetBossEncounter(bool enabled) {IsBossEncounter=enabled;missionBoss=null;}
+        public void ShowBoss(VoxelEnemyCar boss,string name) {missionBoss=boss;bossName=name;}
+        public void CompleteBossEncounter()
+        {
+            if(IsBossEncounter && !IsComplete && !IsFailed && missionBoss!=null && missionBoss.CurrentHealth<=0)
+                CompleteMission();
+        }
         public float RemainingTime { get; private set; }
         public bool TimeBonusAvailable => RemainingTime > 0f;
         public Vector2 PercentageScreenPosition { get; private set; }
@@ -21,7 +34,7 @@ namespace VoxelRacer
         public int BonusCashEarned { get; private set; }
         public void AddBonusCash(int amount)
         {
-            if (Tuning != null && !IsComplete && amount > 0) BonusCashEarned += amount;
+            if (Tuning != null && !IsComplete && !IsFailed && amount > 0) BonusCashEarned += amount;
         }
         public float DestructionMultiplierBonus { get; private set; }
         public float EffectiveTimeBonusMultiplier { get; private set; } = 1f;
@@ -49,7 +62,7 @@ namespace VoxelRacer
 
         public void ChangeMultiplier(float amount, string reason, Vector3? worldPosition = null)
         {
-            if (Tuning == null || IsComplete || !TimeBonusAvailable || amount == 0 ||
+            if (Tuning == null || IsComplete || IsFailed || !TimeBonusAvailable || amount == 0 ||
                 (startCountdown != null && !startCountdown.IsComplete)) return;
             float before = EffectiveTimeBonusMultiplier;
             EffectiveTimeBonusMultiplier = Mathf.Round(Mathf.Clamp(before + amount, 0f,
@@ -108,6 +121,7 @@ namespace VoxelRacer
         public void Configure(VoxelMissionTuning tuning)
         {
             Tuning = tuning;
+            IsBossEncounter=false;missionBoss=null;
             Breakdown.Clear();
             Points = 0;
             BonusCashEarned = 0;
@@ -119,7 +133,7 @@ namespace VoxelRacer
             enemyVoxelsTowardsReward = 0;
             pendingVoxelChange = 0;
             PercentageScreenPosition = new Vector2(Screen.width * .5f, 39f);
-            IsComplete = false;
+            IsComplete = false; IsFailed = false;
             timeExtensionStartedAt = float.NegativeInfinity;
             timeExtensionAmount = 0;
             RemainingTime = tuning != null ? tuning.timeLimitSeconds : 0f;
@@ -213,14 +227,14 @@ namespace VoxelRacer
 
         private void AddPoints(int points, string source = "Other", int count = 1)
         {
-            if (Tuning == null || IsComplete || points == 0)
+            if (Tuning == null || IsComplete || IsFailed || points == 0)
                 return;
 
             int before = Points;
             Points = Mathf.Max(0, Points + points);
             Breakdown.Add(points > 0 ? VoxelMissionBreakdown.Group.ProgressGained : VoxelMissionBreakdown.Group.ProgressLost,
                 source, Mathf.Abs(Points - before), count);
-            if (Points >= Tuning.requiredPoints && !IsComplete)
+            if (!IsBossEncounter && Points >= Tuning.requiredPoints && !IsComplete)
                 CompleteMission();
         }
 
@@ -236,7 +250,7 @@ namespace VoxelRacer
                 multiplierPulseUntil = Time.unscaledTime + .32f;
                 multiplierFlights.RemoveAt(i);
             }
-            if (!Application.isPlaying || Tuning == null || IsComplete || RemainingTime <= 0f ||
+            if (!Application.isPlaying || Tuning == null || IsComplete || IsFailed || RemainingTime <= 0f ||
                 (startCountdown != null && !startCountdown.IsComplete))
                 return;
 
@@ -245,7 +259,7 @@ namespace VoxelRacer
 
         public void AdvanceBonusClock(float seconds)
         {
-            if (Tuning == null || IsComplete || !TimeBonusAvailable || seconds <= 0 ||
+            if (Tuning == null || IsComplete || IsFailed || !TimeBonusAvailable || seconds <= 0 ||
                 (startCountdown != null && !startCountdown.IsComplete)) return;
             RemainingTime = Mathf.Max(0, RemainingTime - seconds);
             if (!TimeBonusAvailable)
@@ -292,7 +306,7 @@ namespace VoxelRacer
             GUI.color = new Color(1f, 1f, 1f, hudAlpha);
 
             const float width = 540f;
-            const float height = 70f;
+            float height = IsBossEncounter && (missionBoss!=null || IsComplete) ? 92f : 70f;
             var area = new Rect((Screen.width - width) * 0.5f, 18f, width, height);
             GUI.Box(area, string.Empty, VoxelHudStyles.Box(30));
 
@@ -308,6 +322,13 @@ namespace VoxelRacer
             var labelRect = new Rect(area.x + 8f, area.y, area.width - 16f, 42f);
             if (IsComplete)
                 GUI.Label(labelRect, "MISSION COMPLETE", labelStyle);
+            else if(IsBossEncounter)
+            {
+                string title=missionBoss!=null?bossName:"Find the boss";
+                labelStyle.fontSize=Mathf.Min(40,Mathf.FloorToInt(40f*(labelRect.width/Mathf.Max(labelRect.width,labelStyle.CalcSize(new GUIContent(title)).x))));
+                GUI.Label(labelRect,title,labelStyle);
+                PercentageScreenPosition=labelRect.center;
+            }
             else
             {
                 // IMPACTED lacks a visible percent glyph. Keep the heading font and
@@ -324,12 +345,15 @@ namespace VoxelRacer
                 GUI.Label(new Rect(left + headingWidth, labelRect.y, symbolWidth, labelRect.height), percentage, symbolStyle);
             }
 
-            var barBackground = new Rect(area.x + 24f, area.y + 48f, area.width - 48f, 13f);
+            var barBackground = new Rect(area.x + 24f, area.y + 48f, area.width - 48f, IsBossEncounter?30f:13f);
+            if(!IsBossEncounter || missionBoss!=null || IsComplete)
+            {
             GUI.color = new Color(0.08f, 0.09f, 0.12f, hudAlpha);
             GUI.DrawTexture(barBackground, Texture2D.whiteTexture);
             GUI.color = IsComplete ? new Color(0.25f, 1f, 0.38f, hudAlpha) : new Color(1f, 0.72f, 0.14f, hudAlpha);
             GUI.DrawTexture(new Rect(barBackground.x + 2f, barBackground.y + 2f,
-                Mathf.Max(0f, (barBackground.width - 4f) * Percent), barBackground.height - 4f), Texture2D.whiteTexture);
+                Mathf.Max(0f, (barBackground.width - 4f) * (IsBossEncounter?(IsComplete?0:missionBoss.HealthPercent):Percent)), barBackground.height - 4f), Texture2D.whiteTexture);
+            }
             GUI.color = new Color(1f, 1f, 1f, hudAlpha);
 
             DrawMultiplier(area, hudAlpha);

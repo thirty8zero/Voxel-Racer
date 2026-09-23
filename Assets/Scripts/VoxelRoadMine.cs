@@ -15,7 +15,7 @@ namespace VoxelRacer
             float trackDistance, float laneOffset)
         {
             target = player; tuning = settings; distance = trackDistance; offset = laneOffset; born = Time.time;
-            previousPlayer = new Vector2(player.CurrentLaneOffset, player.TrackDistance);
+            previousPlayer = player.CollisionTrackPosition;
             var pose = road.Evaluate(distance);
             transform.SetPositionAndRotation(pose.position + pose.right * offset, pose.rotation);
             visual = Instantiate(settings.minePrefab, transform, false).transform;
@@ -28,7 +28,7 @@ namespace VoxelRacer
             { Destroy(gameObject); return; }
             float age = Time.time - born;
             if (visual != null) visual.localPosition = Vector3.up * (.35f * (1f - Mathf.Clamp01(age / .3f)));
-            var current = new Vector2(target.CurrentLaneOffset, target.TrackDistance);
+            var current = target.CollisionTrackPosition;
             if (!detonated && age >= tuning.armingDelay && CrossesMine(previousPlayer, current,
                 new Vector2(offset, distance), new Vector2(tuning.collisionHalfWidth, tuning.collisionHalfLength)))
             {

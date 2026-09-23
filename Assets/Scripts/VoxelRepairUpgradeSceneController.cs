@@ -109,6 +109,8 @@ namespace VoxelRacer
             VoxelEngineUpgradeState.ApplyTo(car, definition);
             DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(DisplayedCar, definition);
+            var damageEffects=car.GetComponent<VoxelVehicleDamageEffects>() ?? car.gameObject.AddComponent<VoxelVehicleDamageEffects>();
+            damageEffects.Configure();
             DisplayedCar.enabled = false;
             VoxelCarTurntable.Create(workshop, car);
 

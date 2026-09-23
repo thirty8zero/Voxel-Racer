@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace VoxelRacer
 {
-    /// <summary>Health-driven, world-space smoke and fire for traffic vehicles.</summary>
+    /// <summary>Health-driven, world-space smoke and fire for player and traffic vehicles.</summary>
     public sealed class VoxelVehicleDamageEffects : MonoBehaviour
     {
         [Range(0,1)] public float smokeDamageThreshold=.25f;
@@ -10,6 +10,7 @@ namespace VoxelRacer
         public Vector3 windVelocity=new Vector3(.7f,0,.25f);
         private VoxelEnemyCar enemy;
         private VoxelObstacleCar civilian;
+        private VoxelCarController player;
         private ParticleSystem smoke,fire;
         private Vector3 previousPosition;
         private static Material particleMaterial;
@@ -19,6 +20,12 @@ namespace VoxelRacer
         public void Configure(bool truck=false)
         {
             enemy=GetComponent<VoxelEnemyCar>();civilian=GetComponent<VoxelObstacleCar>();
+            player=GetComponent<VoxelCarController>();
+            if(player!=null)
+            {
+                smokeDamageThreshold=.5f;
+                fireDamageThreshold=.75f;
+            }
             previousPosition=transform.position;
             if(smoke!=null) return;
             var origin=new Vector3(0,truck?1.05f:.95f,truck?3.35f:1.15f);
@@ -54,7 +61,7 @@ namespace VoxelRacer
         private void LateUpdate()
         {
             if(smoke==null) return;
-            float health=enemy!=null?enemy.HealthPercent:civilian!=null && civilian.EnemyTuning!=null?
+            float health=player!=null?Mathf.Clamp01(player.IntegrityPercent*.01f):enemy!=null?enemy.HealthPercent:civilian!=null && civilian.EnemyTuning!=null?
                 Mathf.Clamp01(civilian.CurrentHealth/Mathf.Max(.001f,civilian.EnemyTuning.vehicleHealth)):1;
             SetDamageFraction(1-health);
             var velocity=Time.deltaTime>0?(transform.position-previousPosition)/Time.deltaTime:Vector3.zero;
@@ -78,6 +85,12 @@ namespace VoxelRacer
         {
             if(smoke!=null)smoke.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);
             if(fire!=null)fire.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+        private void OnEnable()
+        {
+            previousPosition=transform.position;
+            if(smoke!=null)smoke.Play();
+            if(fire!=null)fire.Play();
         }
     }
 }

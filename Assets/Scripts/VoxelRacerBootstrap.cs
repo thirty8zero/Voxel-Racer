@@ -166,6 +166,8 @@ namespace VoxelRacer
             VoxelEngineUpgradeState.ApplyTo(car, selectedCar);
             car.GetComponent<VoxelCarController>().ResetIntegrityBaseline();
             VoxelCarRunState.Apply(car.GetComponent<VoxelCarController>(), selectedCar);
+            var damageEffects=car.GetComponent<VoxelVehicleDamageEffects>() ?? car.gameObject.AddComponent<VoxelVehicleDamageEffects>();
+            damageEffects.Configure();
             return car;
         }
 
@@ -697,6 +699,12 @@ namespace VoxelRacer
             countdown.Prepare(car.GetComponent<VoxelCarController>());
             spawner.SetStartCountdown(countdown);
             missionProgress.SetStartCountdown(countdown);
+            if(activeTrack!=null && activeTrack.isBossLevel)
+            {
+                turretSpawner.enabled=false;
+                var encounter=environment.GetComponent<VoxelBossEncounter>() ?? environment.gameObject.AddComponent<VoxelBossEncounter>();
+                encounter.Configure(activeTrack.boss,car.GetComponent<VoxelCarController>(),road,spawner,missionProgress,countdown);
+            }
 
             var missionTimer = environment.GetComponent<VoxelMissionTimerDisplay>();
             if (missionTimer == null)

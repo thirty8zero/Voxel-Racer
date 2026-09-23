@@ -35,7 +35,7 @@ namespace VoxelRacer
             IsBoosting = true;
             ChargePercent = 1f;
             boostEndsAt = Time.time + Tuning.boostLength;
-            Target.SetBoostSpeedBonus(Tuning.boostSpeed);
+            Target.SetBoostSpeedBonus(Tuning.boostSpeed, Tuning.boostAccelerationMultiplier);
             SetBoostForwardOffset(true);
             EnsureExhaustFireEffects();
             SetExhaustFireEmission(true);

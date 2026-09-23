@@ -14,11 +14,23 @@ namespace VoxelRacer
 
         private bool isLoading;
         private bool isShown;
+        private bool pausedForEscape;
+        private float previousTimeScale;
+        public void ShowBossEscaped()
+        {
+            if(isShown) return;
+            previousTimeScale=Time.timeScale;pausedForEscape=true;Time.timeScale=0;
+            Show();
+            var canvas=transform.Find("Mission Failed UI");
+            if(canvas!=null) VoxelMenuUi.CreateText((RectTransform)canvas,"Failure Reason","THE BOSS ESCAPED",42,
+                TextAnchor.MiddleCenter,new Vector2(.5f,.5f),new Vector2(0,-52),new Vector2(900,60));
+        }
 
         public void Configure(VoxelCarController player) => target = player;
 
         private void OnDisable()
         {
+            if(pausedForEscape) {Time.timeScale=previousTimeScale;pausedForEscape=false;}
             if (IsShowing)
                 IsShowing = false;
         }

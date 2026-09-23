@@ -45,6 +45,21 @@ namespace VoxelRacer
         private float sideRamDuration;
         private VoxelEasingType sideRamEasing;
         private Transform[] modelWheels;
+        public event System.Action<VoxelEnemyCar> Defeated;
+        public bool IsBoss => bossSettings!=null;
+        private VoxelBossSettings bossSettings;
+        private float bossLaneWidth, bossVisualScale, nextBossLaneChange;
+        private int bossLaneCount, bossLanePair;
+        private bool bossMovingAway;
+        private bool bossCatchingUp;
+        public void ConfigureBoss(VoxelBossSettings settings,float laneWidth,int laneCount)
+        {
+            bossSettings=settings;bossLaneWidth=laneWidth;bossLaneCount=Mathf.Max(2,laneCount);
+            bossVisualScale=laneWidth*1.8f/2.23f;
+            bossLanePair=(bossLaneCount-2)/2;
+            nextBossLaneChange=Time.time+Mathf.Max(.1f,settings.minimumLaneChangeInterval);
+        }
+        private Vector2 previousCollisionRelative;
         private float nextMineTime;
         private float postDropLaneChangeAt = float.PositiveInfinity;
 
@@ -57,7 +72,8 @@ namespace VoxelRacer
             path = road;
             trackDistance = distance;
             laneOffset = offset;
-            targetLaneOffset = offset;
+            if(IsBoss) laneOffset=(bossLanePair-(bossLaneCount-2)*.5f)*bossLaneWidth;
+            targetLaneOffset = laneOffset;
             spawner = GetComponentInParent<VoxelObstacleSpawner>();
             CurrentHealth = enemy.vehicleHealth;
             float minimumMultiplier = Mathf.Min(enemy.minimumSpawnSpeedMultiplier, enemy.maximumSpawnSpeedMultiplier);
@@ -73,17 +89,34 @@ namespace VoxelRacer
                 Mathf.Min(enemy.minimumEngageSpeedMultiplier, enemy.maximumEngageSpeedMultiplier),
                 Mathf.Max(enemy.minimumEngageSpeedMultiplier, enemy.maximumEngageSpeedMultiplier));
             currentSpeed = spawnSpeed;
+            if(IsBoss) currentSpeed=GetBossDriveSpeed();
             CreateModel(enemy);
-            healthBar = VoxelEnemyHealthBar.Create(transform, enemy);
+            if(!IsBoss) healthBar = VoxelEnemyHealthBar.Create(transform, enemy);
             ApplyTrackPose();
+            previousCollisionRelative=target.CollisionTrackPosition-new Vector2(LaneOffset,TrackDistance);
             gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure();
+            if(IsBoss)
+            {
+                var effects=GetComponent<VoxelVehicleDamageEffects>();
+                effects.smokeDamageThreshold=bossSettings.smokeDamageThreshold;
+                effects.fireDamageThreshold=bossSettings.fireDamageThreshold;
+                foreach(var ps in GetComponentsInChildren<ParticleSystem>())
+                    ps.transform.localPosition=new Vector3(0,ps.name=="Damage Fire"?1.4f:1.25f,1.5f)*bossVisualScale;
+            }
             nextMineTime = Time.time + (enemy.mineLayer != null ? Mathf.Max(.1f, enemy.mineLayer.dropInterval) : 0f);
         }
 
         private void CreateModel(VoxelEnemyVehicleTuning enemy)
         {
             if (enemy.modelPrefab != null)
-                Instantiate(enemy.modelPrefab, transform, false);
+            {
+                var visual=Instantiate(enemy.modelPrefab, transform, false);
+                if(IsBoss)
+                {
+                    visual.transform.localScale*=bossVisualScale;
+                    visual.AddComponent<VoxelBossEntrance>().Configure(bossSettings.entranceDuration);
+                }
+            }
             else
             {
                 VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);
@@ -115,20 +148,73 @@ namespace VoxelRacer
             }
 
             UpdateRamResponse();
-            currentSpeed = GetCurrentDriveSpeed();
+            currentSpeed = IsBoss ? AdvanceBossSpeed(Time.deltaTime) : GetCurrentDriveSpeed();
             trackDistance += currentSpeed * Time.deltaTime;
-            UpdateEvasiveLaneChange();
+            if(IsBoss) UpdateBossLaneChange(); else UpdateEvasiveLaneChange();
             ApplyTrackPose();
             RotateWheels();
             UpdateMineLayer();
 
-            bool overlapsLane = Mathf.Abs(target.CurrentLaneOffset - LaneOffset) < Tuning.collisionHalfWidth;
-            bool overlapsDepth = Mathf.Abs(target.TrackDistance - TrackDistance) < Tuning.collisionHalfLength;
-            if (overlapsLane && overlapsDepth && Time.time >= nextCollisionTime)
-                RamByPlayer();
+            var relative=target.CollisionTrackPosition-new Vector2(LaneOffset,TrackDistance);
+            bool contactFound=VoxelVehicleCollision.Sweep(previousCollisionRelative,relative,
+                new Vector2(Tuning.collisionHalfWidth,Tuning.collisionHalfLength),out var contact);
+            previousCollisionRelative=relative;
+            if (contactFound && Time.time >= nextCollisionTime)
+                RamByPlayer(VoxelVehicleCollision.ImpactDirection(contact,target.transform));
 
-            if (TrackDistance < target.TrackDistance - 30f || TrackDistance > target.TrackDistance + GetMaximumDistanceAhead())
+            if (!IsBoss && (TrackDistance < target.TrackDistance - 30f || TrackDistance > target.TrackDistance + GetMaximumDistanceAhead()))
                 Destroy(gameObject);
+        }
+
+        private float GetBossDriveSpeed()
+        {
+            float minimum=Mathf.Max(Tuning.collisionHalfLength+5f,Mathf.Min(bossSettings.minimumDistanceAhead,bossSettings.maximumDistanceAhead));
+            float maximum=Mathf.Max(minimum+2f,Mathf.Max(bossSettings.minimumDistanceAhead,bossSettings.maximumDistanceAhead));
+            float gap=TrackDistance-target.CollisionTrackPosition.y;
+            float catchDistance=Mathf.Clamp(bossSettings.catchUpDistance,2,bossSettings.WarningDistance);
+            if(gap>=catchDistance) bossCatchingUp=true;
+            else if(bossCatchingUp && gap<=Mathf.Clamp(bossSettings.catchUpResumeDistance,1,catchDistance-1))
+            {
+                bossCatchingUp=false;
+                bossMovingAway=true;
+            }
+            float topSpeed=target.EffectiveTopSpeed;
+            float cruise=topSpeed*Mathf.Clamp(bossSettings.minimumCruiseSpeedFraction,.1f,1f);
+            if(bossCatchingUp) return Mathf.Max(cruise,topSpeed*Mathf.Clamp(bossSettings.catchUpSpeedFraction,.1f,1f));
+            // Start recovering before the player closes the minimum gap while we accelerate.
+            float closingSpeed=Mathf.Max(0,topSpeed-currentSpeed);
+            float recoveryDistance=closingSpeed*closingSpeed/(2f*Mathf.Max(.1f,bossSettings.acceleration));
+            if(gap<=minimum+1f+recoveryDistance) bossMovingAway=true;
+            if(gap>=maximum-1f) bossMovingAway=false;
+            float desired=bossMovingAway?maximum:minimum;
+            return Mathf.Clamp(topSpeed+Mathf.Clamp((desired-gap)*2f,-bossSettings.distanceAdjustmentSpeed,bossSettings.distanceAdjustmentSpeed),cruise,topSpeed+bossSettings.distanceAdjustmentSpeed);
+        }
+        private float AdvanceBossSpeed(float deltaTime)
+        {
+            float desired=GetBossDriveSpeed();
+            float rate=desired>currentSpeed ? bossSettings.acceleration : bossSettings.braking;
+            return Mathf.MoveTowards(currentSpeed,desired,Mathf.Max(.1f,rate)*Mathf.Max(0,deltaTime));
+        }
+        private void UpdateBossLaneChange()
+        {
+            if(Time.time>=nextBossLaneChange && Mathf.Abs(laneOffset-targetLaneOffset)<.02f)
+            {
+                int pairs=bossLaneCount-1;
+                if(pairs>1)
+                {
+                    int candidate=Random.Range(0,pairs-1);
+                    if(candidate>=bossLanePair)candidate++;
+                    bossLanePair=candidate;
+                    targetLaneOffset=(candidate-(bossLaneCount-2)*.5f)*bossLaneWidth;
+                }
+                nextBossLaneChange=float.PositiveInfinity;
+            }
+            laneOffset=Mathf.MoveTowards(laneOffset,targetLaneOffset,Mathf.Max(.1f,bossSettings.laneChangeSpeed)*Time.deltaTime);
+            if(float.IsPositiveInfinity(nextBossLaneChange) && Mathf.Abs(laneOffset-targetLaneOffset)<.02f)
+            {
+                float min=Mathf.Max(.1f,bossSettings.minimumLaneChangeInterval);
+                nextBossLaneChange=Time.time+Random.Range(min,Mathf.Max(min,bossSettings.maximumLaneChangeInterval));
+            }
         }
 
         private void UpdateMineLayer()
@@ -139,10 +225,15 @@ namespace VoxelRacer
             if (Time.time < nextMineTime) return;
             nextMineTime = Time.time + Mathf.Max(.1f, mines.dropInterval);
             if (Random.value >= Mathf.Clamp01(mines.dropChance) || mines.minePrefab == null) return;
-            var mine = new GameObject("Enemy Road Mine").AddComponent<VoxelRoadMine>();
-            mine.transform.SetParent(transform.parent, false);
-            mine.Configure(target, path, mines, TrackDistance - 2.9f, LaneOffset);
-            SchedulePostDropLaneChange(mines, Random.value, Time.time);
+            int count=IsBoss?2:1;
+            for(int i=0;i<count;i++)
+            {
+                var mine = new GameObject("Enemy Road Mine").AddComponent<VoxelRoadMine>();
+                mine.transform.SetParent(transform.parent, false);
+                float offset=LaneOffset+(IsBoss?(i==0?-.5f:.5f)*bossLaneWidth:0);
+                mine.Configure(target, path, mines, TrackDistance-(IsBoss?3f*bossVisualScale:2.9f),offset);
+            }
+            if(!IsBoss) SchedulePostDropLaneChange(mines, Random.value, Time.time);
         }
 
         private void SchedulePostDropLaneChange(VoxelMineLayerTuning mines, float roll, float now)
@@ -193,7 +284,8 @@ namespace VoxelRacer
                     voxelHealth[hitVoxel] = remainingVoxelHealth;
             }
 
-            healthBar.SetHealth(HealthPercent);
+            CheckBossBodyDestroyed();
+            if(healthBar!=null) healthBar.SetHealth(HealthPercent);
             if (CurrentHealth <= 0f)
                 Explode(hitPoint, impactDirection, awardMissionPoints);
             if (awardMissionPoints && hitVoxel != null) VoxelMissionProgress.ReportEnemyVoxelDamage();
@@ -280,6 +372,7 @@ namespace VoxelRacer
 
         private void Explode(Vector3 hitPoint, Vector3 impactDirection, bool awardMissionPoints = true)
         {
+            if(hasBeenRammed) return;
             if (awardMissionPoints)
             {
                 VoxelMissionProgress.ReportEnemyVehicleDestroyed(transform.position, Tuning);
@@ -287,10 +380,10 @@ namespace VoxelRacer
                     VoxelMissionProgress.GetEnemyVehicleDestroyedPoints(Tuning), VoxelScorePopup.Style.EnemyDestroyed);
             }
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f, Tuning.explosionEffectScale);
-            healthBar.gameObject.SetActive(false);
+            if(healthBar!=null) healthBar.gameObject.SetActive(false);
             var voxels = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
-                if (renderer.transform != transform && renderer.transform != healthBar.transform)
+                if (renderer.transform != transform && renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null)
                     voxels.Add(renderer.transform);
             voxels.Sort((first, second) => (first.position - hitPoint).sqrMagnitude.CompareTo((second.position - hitPoint).sqrMagnitude));
             int maximumDetachedVoxels = Mathf.FloorToInt(voxels.Count * Tuning.maximumExplosionVoxelRemovalPercent);
@@ -305,12 +398,22 @@ namespace VoxelRacer
             velocity = impactDirection.normalized * Random.Range(Tuning.explosionForwardForceMin, Tuning.explosionForwardForceMax)
                 + Vector3.up * Tuning.explosionUpwardForce;
             destroyTime = Time.time + Tuning.destroyedLifetime;
+            if(IsBoss) Defeated?.Invoke(this);
         }
 
-        private void RamByPlayer()
+        private void CheckBossBodyDestroyed()
+        {
+            // An extreme total-health setting must not leave an invisible, unhittable boss.
+            if(!IsBoss) return;
+            foreach(var renderer in GetComponentsInChildren<MeshRenderer>())
+                if(renderer.GetComponentInParent<VoxelEnemyHealthBar>()==null) return;
+            CurrentHealth=0;
+        }
+
+        private void RamByPlayer(Vector3? sweptDirection = null)
         {
             nextCollisionTime = Time.time + trafficTuning.collisionCooldown;
-            Vector3 hitDirection = (transform.position - target.transform.position).normalized;
+            Vector3 hitDirection = sweptDirection ?? (transform.position - target.transform.position).normalized;
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = target.transform.forward;
             bool rearImpact = IsRearImpact(hitDirection);
@@ -329,9 +432,10 @@ namespace VoxelRacer
             float ramDamage = Tuning.playerRamDamage + (rearImpact ? 0f : VoxelWheelSpikeUpgradeState.SideRamDamageBonus);
             VoxelMissionProgress.ReportEnemyVoxelDestroyed(removedVoxels, transform.position);
             CurrentHealth = Mathf.Max(0f, CurrentHealth - ramDamage);
+            CheckBossBodyDestroyed();
             VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
                 VoxelMissionProgress.GetEnemyRamDamagePoints(ramDamage), VoxelScorePopup.Style.RamDamage);
-            healthBar.SetHealth(HealthPercent);
+            if(healthBar!=null) healthBar.SetHealth(HealthPercent);
             if (CurrentHealth <= 0f)
                 Explode(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset, hitDirection);
             else
@@ -346,7 +450,7 @@ namespace VoxelRacer
         {
             var candidates = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
-                if (renderer.transform != transform && renderer.transform != healthBar.transform)
+                if (renderer.transform != transform && renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null)
                     candidates.Add(renderer.transform);
 
             candidates.Sort((first, second) => (first.position - hitPoint).sqrMagnitude.CompareTo((second.position - hitPoint).sqrMagnitude));

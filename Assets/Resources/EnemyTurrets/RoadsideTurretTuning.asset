@@ -23,6 +23,6 @@ MonoBehaviour:
   pauseDuration: 2
   projectileSpeed: 50
   projectileLifetime: 3
-  playerDamageVoxels: 15
+  playerDamageVoxels: 50
   enemyHealthDamage: 1
   volleySpreadDegrees: 3

@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c1a5743791b9c574ea4803415fbc2dbb, type: 3}
   m_Name: Road Tuning
   m_EditorClassIdentifier: 
-  laneCount: 3
-  roadWidth: 16
+  laneCount: 4
+  roadWidth: 20
   groundWidth: 700
   minimumCactiPerSegment: 8
   maximumCactiPerSegment: 20
@@ -42,53 +42,53 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6997a3a6ac6a8a24da582b5cbc898ccb, type: 3}
-  m_Name: Track01
+  m_Name: TrackBoss01
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
-  displayName: DESERT RUN 1
+  displayName: Red Menace Boss
   raceSceneName: SampleScene
   roadTuning: {fileID: -2389841375544596361}
   obstacleCarTuning: {fileID: 2345100223370931295}
-  missionTuning: {fileID: 11400000, guid: 26987ec217816ce4783cd37932f33bd9, type: 2}
-  isBossLevel: 0
+  missionTuning: {fileID: 7251224122306998669}
+  isBossLevel: 1
   boss:
-    trafficDuration: 25
+    trafficDuration: 5
     minimumWaveInterval: 0.8
     maximumWaveInterval: 1.4
     minimumVehiclesPerWave: 2
     maximumVehiclesPerWave: 4
     minimumVehicleSpacing: 10
     maximumVehicleSpacing: 18
-    oncomingTrafficChance: 0.6
+    oncomingTrafficChance: 0.7
     roadClearDuration: 2
     bossName: RED MENACE
-    bossPrefab: {fileID: 0}
-    entranceDuration: 0.75
-    health: 2000
+    bossPrefab: {fileID: 8721871037261989453, guid: 93ff97f93c087374e958c785242c963d, type: 3}
+    entranceDuration: 2
+    health: 1000
     voxelHealth: 8
     playerCollisionDamageMin: 35
     playerCollisionDamageMax: 50
-    minimumDistanceAhead: 18
-    maximumDistanceAhead: 36
+    minimumDistanceAhead: 50
+    maximumDistanceAhead: 210
     escapeWarningDistance: 150
     escapeFailureDistance: 200
     minimumCruiseSpeedFraction: 0.6
     catchUpDistance: 100
-    catchUpResumeDistance: 70
-    catchUpSpeedFraction: 0.85
-    distanceAdjustmentSpeed: 10
-    acceleration: 24
-    braking: 40
-    minimumLaneChangeInterval: 2
-    maximumLaneChangeInterval: 4
-    laneChangeSpeed: 4
+    catchUpResumeDistance: 40
+    catchUpSpeedFraction: 0.95
+    distanceAdjustmentSpeed: 16
+    acceleration: 60
+    braking: 80
+    minimumLaneChangeInterval: 1
+    maximumLaneChangeInterval: 2
+    laneChangeSpeed: 12
     minesEnabled: 1
-    mineTuning: {fileID: 0}
+    mineTuning: {fileID: 11400000, guid: 48ca1b85ee3448d4e866fa715d6d74fd, type: 2}
     mineDropChance: 0.6
     mineDropInterval: 3
     mineArmingDelay: 0.5
     mineLifetime: 25
-    mineDamageMin: 60
-    mineDamageMax: 80
+    mineDamageMin: 100
+    mineDamageMax: 200
     mineExplosionScale: 2
     smokeDamageThreshold: 0.25
     fireDamageThreshold: 0.5
@@ -228,3 +228,47 @@ MonoBehaviour:
   explosionForwardForceMax: 20
   explosionUpwardForce: 5
   explosionSpreadForce: 10
+--- !u!114 &7251224122306998669
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ac5574a0d1241f7a5f7f94ba58382f9, type: 3}
+  m_Name: Boss Mission Rewards
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionTuning
+  displayName: Red Menace
+  requiredPoints: 300
+  completionCurrencyAward: 1000
+  timeLimitSeconds: 150
+  timeBonusCurrencyMultiplier: 1
+  maximumTimeMultiplier: 5
+  enemyVoxelMultiplier: 0.01
+  enemyDestroyedMultiplier: 0.1
+  barrelMultiplier: 0.05
+  nearMissMultiplier: 0.1
+  civilianVoxelMultiplierPenalty: 0.1
+  civilianDestroyedMultiplierPenalty: 1
+  bonusWarningSeconds: 10
+  enemyVoxelDamagePoints: 1
+  enemyVehicleDestroyedPoints: 25
+  fuelDrumDestroyedPoints: 10
+  fuelDrumDestroyedPopupDuration: 2
+  roadsideTurretTuning: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
+  roadsideTurretSpawnCheckInterval: 6
+  roadsideTurretSpawnChance: 0.2
+  roadsideTurretSpawnDistanceAhead: 200
+  maximumActiveRoadsideTurrets: 1
+  civilianNearMissDistance: 1
+  civilianNearMissMinPoints: 1
+  civilianNearMissMaxPoints: 10
+  civilianNearMissScoreStepPercent: 10
+  civilianNearMissPassClearance: 0.5
+  civilianNearMissPlayerHalfWidth: 1.3
+  civilianNearMissPlayerHalfLength: 2.3
+  civilianNearMissPopupDuration: 2
+  civilianVoxelDamagePoints: -2
+  civilianVehicleDestroyedPoints: -30

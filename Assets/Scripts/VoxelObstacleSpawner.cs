@@ -41,6 +41,11 @@ namespace VoxelRacer
         }
 
         public void SetTarget(VoxelCarController player) => target = player;
+        public void StopSpawning()
+        {
+            pendingSpawnRequests.Clear();
+            enabled=false;
+        }
         public void SetStartCountdown(VoxelStartCountdown value) => countdown = value;
         public void SetRunFinish(VoxelRunFinish value) => runFinish = value;
         public void SetStaticObstacleSpawns(VoxelStaticObstacleSpawnEntry[] entries) => staticObstacleSpawns = entries;
@@ -137,7 +142,7 @@ namespace VoxelRacer
                 }
 
                 bool sameDirection = Random.value >= obstacleCarTuning.oppositeDirectionChance;
-                if (!TryFindCivilianLane(sameDirection, out float civilianLaneOffset, out float matchingSpeed))
+                if (!TryFindCivilianLane(sameDirection, distance, out float civilianLaneOffset, out float matchingSpeed))
                     return;
 
                 var obstacle = new GameObject(sameDirection ? "Red Traffic Car (Same Direction)" : "Red Traffic Car (Oncoming)")
@@ -212,8 +217,12 @@ namespace VoxelRacer
             return true;
         }
 
-        private bool TryFindCivilianLane(bool travelsWithPlayer, out float laneOffset, out float matchingSpeed)
+        private bool TryFindCivilianLane(bool travelsWithPlayer, float spawnDistance, out float laneOffset, out float matchingSpeed)
         {
+            float spawnHalfLength=2.3f;
+            if(obstacleCarTuning.trafficCarEnemyTuning!=null) spawnHalfLength=Mathf.Max(spawnHalfLength,obstacleCarTuning.trafficCarEnemyTuning.collisionHalfLength);
+            if(obstacleCarTuning.semiTrailerSpawnChance>0)
+                spawnHalfLength=Mathf.Max(spawnHalfLength,obstacleCarTuning.semiTrailerEnemyTuning!=null?obstacleCarTuning.semiTrailerEnemyTuning.collisionHalfLength:2.65f);
             var availableLanes = new List<(float offset, float speed)>();
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
@@ -228,6 +237,11 @@ namespace VoxelRacer
                 {
                     if (!IsInLane(civilian.LaneOffset, candidateOffset))
                         continue;
+                    if(Mathf.Abs(civilian.TrackDistance-spawnDistance)<spawnHalfLength+civilian.TrafficHalfLength+VoxelObstacleCar.TrafficGap)
+                    {
+                        compatible=false;
+                        break;
+                    }
                     if (civilian.TravelsWithPlayer != travelsWithPlayer)
                     {
                         compatible = false;

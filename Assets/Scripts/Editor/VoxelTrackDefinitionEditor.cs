@@ -60,6 +60,13 @@ namespace VoxelRacer.Editor
             });
 
             DrawSection(ref missionOpen, "Mission", () => DrawProperty("missionTuning"));
+            EditorGUILayout.Space();
+            DrawProperty("isBossLevel");
+            if(serializedObject.FindProperty("isBossLevel").boolValue)
+            {
+                EditorGUILayout.HelpBox("Survive the civilian traffic, then destroy the boss. Boss width is two lanes; use a road with at least three lanes to allow dodging. Mission tuning still controls cash and time bonus rewards.",MessageType.Info);
+                DrawProperty("boss",true);
+            }
 
             DrawSection(ref materialsOpen, "Materials & Colours", () =>
             {

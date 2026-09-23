@@ -159,7 +159,15 @@ namespace VoxelRacer
         }
 
         /// <summary>Applied by the boost controller and kept separate from the car's tuned normal top speed.</summary>
-        public void SetBoostSpeedBonus(float value) => boostSpeedBonus = Mathf.Max(0f, value);
+        private float boostAccelerationMultiplier = 1f;
+        public float BoostedAcceleration => EffectiveAcceleration * boostAccelerationMultiplier;
+        public Vector2 CollisionTrackPosition => new Vector2(CurrentLaneOffset + ramLateralOffset,
+            TrackDistance + ramForwardOffset + boostForwardOffset);
+        public void SetBoostSpeedBonus(float value, float accelerationMultiplier = 1f)
+        {
+            boostSpeedBonus = Mathf.Max(0f, value);
+            boostAccelerationMultiplier = Mathf.Max(1f, accelerationMultiplier);
+        }
 
         /// <summary>Sets the temporary forward lane offset used to sell the boost launch and recovery.</summary>
         public void SetBoostForwardOffset(float value, float transitionDuration = 0.22f,
@@ -220,9 +228,7 @@ namespace VoxelRacer
 
             var keyboard = Keyboard.current;
             bool braking = keyboard != null && keyboard.spaceKey.isPressed;
-            float targetSpeed = !drivingEnabled || braking || finishingRun ? 0f : EffectiveTopSpeed + boostSpeedBonus;
-            float rate = braking ? EffectiveBrakingForce : finishingRun ? finishDeceleration : EffectiveAcceleration;
-            CurrentSpeed = Mathf.MoveTowards(CurrentSpeed, targetSpeed, rate * Time.deltaTime);
+            CurrentSpeed = CalculateNextDriveSpeed(CurrentSpeed, braking, Time.deltaTime);
             UpdateRamResponse();
             UpdateBoostForwardOffset();
             if (TrackPath != null)
@@ -270,6 +276,14 @@ namespace VoxelRacer
                 if (child.name == "Voxel Wheel")
                     child.Rotate(Vector3.right, CurrentSpeed * wheelSpinDegreesPerUnit * Time.deltaTime, Space.Self);
             }
+        }
+
+        private float CalculateNextDriveSpeed(float speed, bool braking, float deltaTime)
+        {
+            float targetSpeed = !drivingEnabled || braking || finishingRun ? 0f : EffectiveTopSpeed + boostSpeedBonus;
+            float rate = braking ? EffectiveBrakingForce : finishingRun ? finishDeceleration :
+                speed < targetSpeed ? BoostedAcceleration : EffectiveAcceleration;
+            return Mathf.MoveTowards(speed, targetSpeed, rate * deltaTime);
         }
 
         private void ApplyTrackPose()
