@@ -67,7 +67,7 @@ MonoBehaviour:
     voxelHealth: 8
     playerCollisionDamageMin: 35
     playerCollisionDamageMax: 50
-    minimumDistanceAhead: 50
+    minimumDistanceAhead: 30
     maximumDistanceAhead: 210
     escapeWarningDistance: 150
     escapeFailureDistance: 200

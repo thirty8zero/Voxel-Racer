@@ -36,6 +36,7 @@ namespace VoxelRacer.Editor
                         copy.transform.localPosition=piece.localPosition+Vector3.forward*2.55f;
                     }
                 }
+                VoxelBossStructureBuilder.AddStructure(root);
                 PrefabUtility.SaveAsPrefabAsset(root,PrefabPath);
             }
             finally {Object.DestroyImmediate(root);}

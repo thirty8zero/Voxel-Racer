@@ -258,7 +258,7 @@ namespace VoxelRacer
         private void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
             bool awardMissionPoints)
         {
-            if (hasBeenRammed || damage <= 0f || (hitVoxel != null && !hitVoxel.gameObject.activeInHierarchy))
+            if (hasBeenRammed || damage <= 0f || (hitVoxel != null && (!hitVoxel.gameObject.activeInHierarchy || hitVoxel.GetComponentInParent<VoxelIndestructiblePart>() != null)))
                 return;
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
@@ -308,7 +308,7 @@ namespace VoxelRacer
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
                 Transform voxel = renderer.transform;
-                if (voxel == transform || voxel.GetComponentInParent<VoxelEnemyHealthBar>() != null)
+                if (voxel == transform || voxel.GetComponentInParent<VoxelEnemyHealthBar>() != null || voxel.GetComponentInParent<VoxelIndestructiblePart>() != null)
                     continue;
 
                 Vector3 offset = voxel.position - segmentStart;
@@ -331,7 +331,7 @@ namespace VoxelRacer
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
                 Transform voxel = renderer.transform;
-                if (voxel == transform || voxel.GetComponentInParent<VoxelEnemyHealthBar>() != null)
+                if (voxel == transform || voxel.GetComponentInParent<VoxelEnemyHealthBar>() != null || voxel.GetComponentInParent<VoxelIndestructiblePart>() != null)
                     continue;
 
                 Vector3 offset = voxel.position - segmentStart;
@@ -383,7 +383,7 @@ namespace VoxelRacer
             if(healthBar!=null) healthBar.gameObject.SetActive(false);
             var voxels = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
-                if (renderer.transform != transform && renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null)
+                if (renderer.transform != transform && renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null && renderer.GetComponentInParent<VoxelIndestructiblePart>() == null)
                     voxels.Add(renderer.transform);
             voxels.Sort((first, second) => (first.position - hitPoint).sqrMagnitude.CompareTo((second.position - hitPoint).sqrMagnitude));
             int maximumDetachedVoxels = Mathf.FloorToInt(voxels.Count * Tuning.maximumExplosionVoxelRemovalPercent);
@@ -406,7 +406,7 @@ namespace VoxelRacer
             // An extreme total-health setting must not leave an invisible, unhittable boss.
             if(!IsBoss) return;
             foreach(var renderer in GetComponentsInChildren<MeshRenderer>())
-                if(renderer.GetComponentInParent<VoxelEnemyHealthBar>()==null) return;
+                if(renderer.GetComponentInParent<VoxelEnemyHealthBar>()==null && renderer.GetComponentInParent<VoxelIndestructiblePart>()==null) return;
             CurrentHealth=0;
         }
 
@@ -450,7 +450,7 @@ namespace VoxelRacer
         {
             var candidates = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
-                if (renderer.transform != transform && renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null)
+                if (renderer.transform != transform && renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null && renderer.GetComponentInParent<VoxelIndestructiblePart>() == null)
                     candidates.Add(renderer.transform);
 
             candidates.Sort((first, second) => (first.position - hitPoint).sqrMagnitude.CompareTo((second.position - hitPoint).sqrMagnitude));
