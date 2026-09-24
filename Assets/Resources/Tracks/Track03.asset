@@ -160,6 +160,22 @@ MonoBehaviour:
     minimumLaneChangeInterval: 2
     maximumLaneChangeInterval: 4
     laneChangeSpeed: 4
+    spikeAttackEnabled: 1
+    spikeAttackChance: 0.45
+    spikeAttackCheckInterval: 12
+    spikeAttackWarningDuration: 2
+    spikeAttackHoldDuration: 2
+    spikeAttackBraking: 90
+    spikeAttackClosingResponse: 6
+    spikeAttackClosingSpeed: 60
+    spikeAttackMissDistance: 0
+    spikeAttackAcceleration: 100
+    spikeAttackPullAwaySpeed: 55
+    spikeAttackRetreatDistance: 110
+    spikeAttackApproachTimeout: 8
+    spikeAttackRetractDuration: 1
+    spikeAttackDamageMin: 70
+    spikeAttackDamageMax: 100
     minesEnabled: 1
     mineTuning: {fileID: 0}
     mineDropChance: 0.6

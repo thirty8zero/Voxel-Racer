@@ -60,7 +60,7 @@ MonoBehaviour:
     maximumVehicleSpacing: 18
     oncomingTrafficChance: 0.7
     roadClearDuration: 2
-    bossName: RED MENACE
+    bossName: The Vandit
     bossPrefab: {fileID: 8721871037261989453, guid: 93ff97f93c087374e958c785242c963d, type: 3}
     entranceDuration: 2
     health: 1000
@@ -81,6 +81,22 @@ MonoBehaviour:
     minimumLaneChangeInterval: 1
     maximumLaneChangeInterval: 2
     laneChangeSpeed: 12
+    spikeAttackEnabled: 1
+    spikeAttackChance: 0.8
+    spikeAttackCheckInterval: 5
+    spikeAttackWarningDuration: 1
+    spikeAttackHoldDuration: 1
+    spikeAttackBraking: 360
+    spikeAttackClosingResponse: 12
+    spikeAttackClosingSpeed: 1000
+    spikeAttackMissDistance: 0
+    spikeAttackAcceleration: 100
+    spikeAttackPullAwaySpeed: 55
+    spikeAttackRetreatDistance: 110
+    spikeAttackApproachTimeout: 8
+    spikeAttackRetractDuration: 1
+    spikeAttackDamageMin: 200
+    spikeAttackDamageMax: 300
     minesEnabled: 1
     mineTuning: {fileID: 11400000, guid: 48ca1b85ee3448d4e866fa715d6d74fd, type: 2}
     mineDropChance: 0.6
@@ -243,7 +259,7 @@ MonoBehaviour:
   displayName: Red Menace
   requiredPoints: 300
   completionCurrencyAward: 1000
-  timeLimitSeconds: 150
+  timeLimitSeconds: 120
   timeBonusCurrencyMultiplier: 1
   maximumTimeMultiplier: 5
   enemyVoxelMultiplier: 0.01

@@ -58,6 +58,8 @@ namespace VoxelRacer.Editor
             string group=VoxelTrackOdinLayout.Section(typeof(VoxelBossSettings),member.Name);
             attributes.Add(new FoldoutGroupAttribute(group));
             VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBossSettings),member.Name,group,attributes);
+            if(group=="Spike Brake Attack" && member.Name!="spikeAttackEnabled") attributes.Add(new ShowIfAttribute("spikeAttackEnabled"));
+            if(member.Name=="spikeAttackRetreatDistance") attributes.Add(new InfoBoxAttribute("Retreat distance is capped 5m below the escape warning distance.",InfoMessageType.Info));
             if(member.Name=="catchUpDistance")
             {
                 attributes.Add(new InfoBoxAttribute("Catch-up starts inside the preferred combat range, so it interrupts the full distance cycle.",InfoMessageType.Warning,"@catchUpDistance < maximumDistanceAhead"));

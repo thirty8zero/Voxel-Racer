@@ -37,6 +37,8 @@ namespace VoxelRacer.Editor
                     }
                 }
                 VoxelBossStructureBuilder.AddStructure(root);
+                VoxelBossSpikeBuilder.AddRig(root);
+                VoxelBossEyesBuilder.AddEyes(root);
                 PrefabUtility.SaveAsPrefabAsset(root,PrefabPath);
             }
             finally {Object.DestroyImmediate(root);}

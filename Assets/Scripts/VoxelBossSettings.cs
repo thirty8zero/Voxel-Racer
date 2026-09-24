@@ -54,6 +54,29 @@ namespace VoxelRacer
         [Min(.1f)] public float maximumLaneChangeInterval=2;
         [Tooltip("Sideways speed in metres per second.")]
         [Min(.1f)] public float laneChangeSpeed=6;
+        [Header("Spike Brake Attack")]
+        public bool spikeAttackEnabled=true;
+        [Range(0,1)] public float spikeAttackChance=.45f;
+        [Min(1)] public float spikeAttackCheckInterval=12;
+        [Tooltip("Doors open, then spikes extend, before braking begins. Mines stop immediately.")]
+        [Min(.5f)] public float spikeAttackWarningDuration=2;
+        [Min(.1f)] public float spikeAttackHoldDuration=2;
+        [Min(1)] public float spikeAttackBraking=180;
+        [Tooltip("How quickly the attack closes its remaining gap. Twice the original response is 6.")]
+        [Min(.1f)] public float spikeAttackClosingResponse=6;
+        [Tooltip("Maximum closing speed relative to the player, in m/s. The van reverses when necessary to achieve this during the spike slam.")]
+        [Min(1)] public float spikeAttackClosingSpeed=60;
+        [Tooltip("Distance ahead to reach when the player dodges. Zero brings the van alongside the player. Body separation still applies if lanes overlap.")]
+        [Min(0)] public float spikeAttackMissDistance=0;
+        [Min(1)] public float spikeAttackAcceleration=100;
+        [Min(1)] public float spikeAttackPullAwaySpeed=55;
+        [Min(20)] public float spikeAttackRetreatDistance=110;
+        [Tooltip("Maximum approach duration before the boss abandons the slam and retreats.")]
+        [Min(1)] public float spikeAttackApproachTimeout=8;
+        [Min(.1f)] public float spikeAttackRetractDuration=1;
+        [Tooltip("Player damage in voxel units. Applied once per spike attack on contact; armour retains its normal damage handling.")]
+        [Min(0)] public int spikeAttackDamageMin=70;
+        [Min(0)] public int spikeAttackDamageMax=100;
         [Header("Twin Mine Layers")]
         public bool minesEnabled=true;
         [Tooltip("Boss-specific mine model, hit area, damage and explosion. Empty uses the legacy mine settings below.")]

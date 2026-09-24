@@ -4,7 +4,7 @@ using UnityEngine;
 namespace VoxelRacer
 {
     /// <summary>A same-direction traffic-car variant that can be damaged by player projectiles.</summary>
-    public sealed class VoxelEnemyCar : MonoBehaviour
+    public sealed partial class VoxelEnemyCar : MonoBehaviour
     {
         private enum DebrisStyle { Weapon, Ram, Explosion }
         public VoxelEnemyVehicleTuning Tuning { get; private set; }
@@ -58,6 +58,7 @@ namespace VoxelRacer
             bossVisualScale=laneWidth*1.8f/2.23f;
             bossLanePair=(bossLaneCount-2)/2;
             nextBossLaneChange=Time.time+Mathf.Max(.1f,settings.minimumLaneChangeInterval);
+            spikeCheckTime=Mathf.Max(1,settings.spikeAttackCheckInterval)+Mathf.Max(0,settings.entranceDuration);
         }
         private Vector2 previousCollisionRelative;
         private float nextMineTime;
@@ -147,20 +148,28 @@ namespace VoxelRacer
                 return;
             }
 
+            if(IsBoss) UpdateSpikeAttack(Time.deltaTime);
             UpdateRamResponse();
             currentSpeed = IsBoss ? AdvanceBossSpeed(Time.deltaTime) : GetCurrentDriveSpeed();
             trackDistance += currentSpeed * Time.deltaTime;
-            if(IsBoss) UpdateBossLaneChange(); else UpdateEvasiveLaneChange();
+            if(IsBoss) { if(!SpikeAttackActive) UpdateBossLaneChange(); } else UpdateEvasiveLaneChange();
             ApplyTrackPose();
             RotateWheels();
             UpdateMineLayer();
 
             var relative=target.CollisionTrackPosition-new Vector2(LaneOffset,TrackDistance);
-            bool contactFound=VoxelVehicleCollision.Sweep(previousCollisionRelative,relative,
-                new Vector2(Tuning.collisionHalfWidth,Tuning.collisionHalfLength),out var contact);
+            float spikeReach = SpikeAttackDangerous ? SpikeHitDistance - Tuning.collisionHalfLength : 0f;
+            Vector2 spikeShift = new Vector2(0, spikeReach * .5f);
+            bool contactFound=VoxelVehicleCollision.Sweep(previousCollisionRelative + spikeShift,relative + spikeShift,
+                new Vector2(Tuning.collisionHalfWidth,Tuning.collisionHalfLength + spikeReach * .5f),out var contact);
             previousCollisionRelative=relative;
-            if (contactFound && Time.time >= nextCollisionTime)
-                RamByPlayer(VoxelVehicleCollision.ImpactDirection(contact,target.transform));
+            if (contactFound)
+            {
+                // Contact always ends the slam, even while ordinary collision damage is on cooldown.
+                if(SpikeAttackDangerous) ApplySpikeRam();
+                else if(!(SpikeAttackActive && spikeRamApplied) && Time.time >= nextCollisionTime)
+                    RamByPlayer(VoxelVehicleCollision.ImpactDirection(contact,target.transform));
+            }
 
             if (!IsBoss && (TrackDistance < target.TrackDistance - 30f || TrackDistance > target.TrackDistance + GetMaximumDistanceAhead()))
                 Destroy(gameObject);
@@ -191,8 +200,9 @@ namespace VoxelRacer
         }
         private float AdvanceBossSpeed(float deltaTime)
         {
-            float desired=GetBossDriveSpeed();
+            float desired=SpikeAttackActive ? GetSpikeAttackSpeed() : GetBossDriveSpeed();
             float rate=desired>currentSpeed ? bossSettings.acceleration : bossSettings.braking;
+            if(SpikeAttackActive) rate=desired>currentSpeed ? bossSettings.spikeAttackAcceleration : bossSettings.spikeAttackBraking;
             return Mathf.MoveTowards(currentSpeed,desired,Mathf.Max(.1f,rate)*Mathf.Max(0,deltaTime));
         }
         private void UpdateBossLaneChange()
@@ -219,6 +229,7 @@ namespace VoxelRacer
 
         private void UpdateMineLayer()
         {
+            if(SpikeAttackActive) return;
             var mines = Tuning.mineLayer;
             if (mines == null || target.IsDestroyed || VoxelMissionProgress.Active?.IsComplete == true ||
                 (VoxelStartCountdown.Active != null && !VoxelStartCountdown.Active.IsComplete)) return;
