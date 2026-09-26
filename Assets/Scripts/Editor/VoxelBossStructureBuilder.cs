@@ -7,7 +7,7 @@ namespace VoxelRacer.Editor
     public static class VoxelBossStructureBuilder
     {
         public const string StructureName = "Indestructible Boss Chassis";
-        [MenuItem("Tools/Voxel Racer/Update Red Boss Structure")]
+        [MenuItem("Tools/Voxel Racer/Update Vandito Boss Structure")]
         public static void UpdatePrefab()
         {
             var root = PrefabUtility.LoadPrefabContents(VoxelRedVanBossBuilder.PrefabPath);
@@ -23,13 +23,13 @@ namespace VoxelRacer.Editor
             var structure = new GameObject(StructureName);
             structure.transform.SetParent(root.transform, false);
             structure.AddComponent<VoxelIndestructiblePart>();
-            var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Bosses/RedBossChassis.mat");
+            var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Bosses/VanditoBossChassis.mat");
             if (material == null)
             {
                 material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
                 material.SetColor("_BaseColor", new Color(.23f, .26f, .28f));
                 material.SetFloat("_Smoothness", .22f);
-                AssetDatabase.CreateAsset(material, "Assets/Resources/Bosses/RedBossChassis.mat");
+                AssetDatabase.CreateAsset(material, "Assets/Resources/Bosses/VanditoBossChassis.mat");
             }
             // Van-local dimensions; the encounter scales the complete model to span two lanes.
             // Axles reach into the inner tyre faces at x +/- .90, with centres at y .46.
@@ -57,9 +57,9 @@ namespace VoxelRacer.Editor
             foreach (float x in new[] { -.83f, 0f, .83f })
                 Box(new Vector3(x, 1.37f, .045f), new Vector3(.065f, 1.30f, .055f));
             Box(new Vector3(0, 2.025f, .10f), new Vector3(1.94f, .07f, .15f));
-            var mesh = new Mesh { name = "Red Boss Chassis Mesh" };
+            var mesh = new Mesh { name = "Vandito Boss Chassis Mesh" };
             mesh.CombineMeshes(pieces.ToArray(), true, true);
-            const string path = "Assets/Resources/Bosses/RedBossChassis.asset";
+            const string path = "Assets/Resources/Bosses/VanditoBossChassis.asset";
             var saved = AssetDatabase.LoadAssetAtPath<Mesh>(path);
             if (saved == null) { AssetDatabase.CreateAsset(mesh, path); saved = mesh; }
             else { EditorUtility.CopySerialized(mesh, saved); Object.DestroyImmediate(mesh); EditorUtility.SetDirty(saved); }

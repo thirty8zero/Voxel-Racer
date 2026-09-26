@@ -14,8 +14,11 @@ namespace VoxelRacer
         public VoxelRoadTuning roadTuning;
         public VoxelObstacleCarTuning obstacleCarTuning;
         public VoxelMissionTuning missionTuning;
-        public bool isBossLevel;
-        public VoxelBossSettings boss = new VoxelBossSettings();
+        [Tooltip("Assign a boss definition to enable a boss encounter on this track.")]
+        public VoxelBossDefinition boss;
+        [Tooltip("Track-specific traffic and timing before the selected boss appears.")]
+        public VoxelBossEncounterSettings bossEncounter = new VoxelBossEncounterSettings();
+        public bool isBossLevel => boss != null;
 
         // Legacy storage, migrated into this track's embedded traffic tuning by
         // VoxelTrackDefinitionEditor. Keeping it prevents existing tracks losing their list.

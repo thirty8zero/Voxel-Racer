@@ -1,3 +1,7 @@
+# Project reference
+
+Read [VoxelAgents.md](VoxelAgents.md) for core systems, content authoring workflows, asset locations and validation tools before creating or extending game content. Keep that reference current when changing these integration points.
+
 # Upgrade development
 
 Every new car upgrade must be available in **Tools > Voxel Racer > Upgrade Fit Preview** before the work is considered complete.

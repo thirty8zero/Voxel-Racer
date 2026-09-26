@@ -24,6 +24,9 @@ namespace VoxelRacer.Editor
             var root=new GameObject("Temporary boss validation");
             UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root,scene);
             var missionTuning=Object.Instantiate(VoxelMissionTuning.Load());
+            var settings=ScriptableObject.CreateInstance<VoxelBossDefinition>();
+            settings.bossPrefab=AssetDatabase.LoadAssetAtPath<GameObject>(VoxelRedVanBossBuilder.PrefabPath);
+            var mineAttack=ScriptableObject.CreateInstance<VoxelBossMineAttackTuning>();
             try
             {
                 var playerObject=new GameObject("Player");playerObject.transform.SetParent(root.transform);
@@ -36,16 +39,37 @@ namespace VoxelRacer.Editor
                 var road=root.AddComponent<EndlessVoxelRoad>();road.enabled=false;road.segmentCount=3;
                 road.minimumCactiPerSegment=road.maximumCactiPerSegment=0;
                 var spawner=root.AddComponent<VoxelObstacleSpawner>();spawner.obstacleCarTuning=VoxelObstacleCarTuning.Load();
-                spawner.laneCount=4;spawner.laneWidth=3;
-                var settings=new VoxelBossSettings { trafficDuration=5, roadClearDuration=2, mineDropChance=1 };
-                settings.mineTuning=AssetDatabase.LoadAssetAtPath<VoxelMineLayerTuning>(VoxelBossMineBuilder.TuningPath);
+                spawner.laneCount=4;spawner.laneWidth=3;spawner.SetTarget(player);
+                var encounterSettings=new VoxelBossEncounterSettings { radarInterceptorSpawnChance=100, roadClearDuration=2 };
+                mineAttack.dropChance=1;
+                mineAttack.mineTuning=AssetDatabase.LoadAssetAtPath<VoxelMineLayerTuning>(VoxelBossMineBuilder.TuningPath);
+                settings.attacks=new VoxelBossAttackDefinition[]{mineAttack};
                 var encounter=root.AddComponent<VoxelBossEncounter>();encounter.enabled=false;
-                encounter.Configure(settings,player,road,spawner,mission,null);
+                encounter.Configure(settings,encounterSettings,player,road,spawner,mission,null);
                 Check(mission.IsBossEncounter && encounter.CurrentStage==VoxelBossEncounter.Stage.Traffic,"Approach did not start");
                 Check(spawner.obstacleCarTuning!=VoxelObstacleCarTuning.Load() && spawner.obstacleCarTuning.enemyCarSpawnChance==0,"Traffic isolation failed");
                 VoxelMissionProgress.ReportEnemyVoxelDamage(100000);
                 Check(!mission.IsComplete,"Score prematurely completed boss mission");
-                Call(encounter,"AdvanceEncounter",5f);
+                Call(encounter,"AdvanceEncounter",500f);
+                Check(encounter.CurrentStage==VoxelBossEncounter.Stage.Traffic,"Approach is still timed");
+                Call(spawner,"SpawnObject",road,65f);
+                var radar=spawner.GetComponentInChildren<VoxelObstacleCar>();
+                Check(radar!=null && radar.IsEnemyTraffic,"Radar objective did not spawn");
+                Check(radar.CurrentHealth==5 && radar.GetComponentInChildren<VoxelRadarDish>()!=null,"Weak tuning or radar dish missing");
+                Call(spawner,"SpawnObject",road,100f);
+                Check(spawner.GetComponentsInChildren<VoxelObstacleCar>().Count(c=>c.IsEnemyTraffic)==1,"Duplicate radar spawned");
+                Object.DestroyImmediate(radar.gameObject);
+                Check(encounter.CurrentStage==VoxelBossEncounter.Stage.Traffic,"Despawn completed objective");
+                Call(spawner,"SpawnObject",road,140f);
+                radar=spawner.GetComponentsInChildren<VoxelObstacleCar>().First(c=>c.IsEnemyTraffic);
+                radar.TakeProjectileHit(null,1f,radar.transform.position,Vector3.forward);
+                Check(radar.CurrentHealth==4 && encounter.CurrentStage==VoxelBossEncounter.Stage.Traffic,"Nonlethal hit completed objective");
+                // Exercise the destruction notification without spawning play-mode-only debris in an editor scene.
+                Call(radar,"ReportDestroyed",true);
+                Check(radar.CurrentHealth==0,"Destruction left health");
+                foreach(var civilian in spawner.GetComponentsInChildren<VoxelObstacleCar>())
+                    if(civilian!=radar) Object.DestroyImmediate(civilian.gameObject);
+                Object.DestroyImmediate(radar.gameObject);
                 Check(encounter.CurrentStage==VoxelBossEncounter.Stage.Clearing && !spawner.enabled,"Traffic did not stop");
                 var lastTraffic=new GameObject("Last civilian traffic");lastTraffic.transform.SetParent(spawner.transform);
                 lastTraffic.AddComponent<VoxelObstacleCar>().enabled=false;
@@ -56,18 +80,20 @@ namespace VoxelRacer.Editor
                 Object.DestroyImmediate(lastTraffic);
                 Call(encounter,"AdvanceEncounter",0f);
                 var boss=encounter.Boss;
-                Check(boss!=null && boss.IsBoss && boss.CurrentHealth==settings.health,"Boss spawn/health failed");
-                if(settings.mineTuning!=null)
+                Check(boss!=null && boss.IsBoss && boss.CurrentHealth==settings.health &&
+                    Mathf.Approximately(boss.Tuning.playerRamDamage,settings.playerRamDamage),"Boss spawn, health or player ram damage failed");
+                if(mineAttack.mineTuning!=null)
                 {
-                    Check(boss.Tuning.mineLayer!=settings.mineTuning,"Boss mutates shared mine tuning");
-                    Check(boss.Tuning.mineLayer.minePrefab==settings.mineTuning.minePrefab &&
-                        boss.Tuning.mineLayer.playerDamageVoxelsMin==settings.mineTuning.playerDamageVoxelsMin &&
-                        boss.Tuning.mineLayer.playerDamageVoxelsMax==settings.mineTuning.playerDamageVoxelsMax,
+                    Check(boss.Tuning.mineLayer!=mineAttack.mineTuning,"Boss mutates shared mine tuning");
+                    Check(boss.Tuning.mineLayer.minePrefab==mineAttack.mineTuning.minePrefab &&
+                        boss.Tuning.mineLayer.playerDamageVoxelsMin==mineAttack.mineTuning.playerDamageVoxelsMin &&
+                        boss.Tuning.mineLayer.playerDamageVoxelsMax==mineAttack.mineTuning.playerDamageVoxelsMax,
                         "Boss mine model or independent damage was overridden");
                 }
                 Check(boss.GetComponentInChildren<VoxelTrafficPaint>()==null,"Boss can be recoloured by traffic");
                 Check(boss.GetComponentsInChildren<Transform>().Count(t=>t.name.EndsWith("Mine Dispenser"))==2,"Twin dispensers missing");
-                Check(boss.GetComponentsInChildren<MeshRenderer>().Length<650,"Boss mesh piece budget exceeded");
+                Check(boss.GetComponentsInChildren<MeshRenderer>().Length<1250,"Boss mesh piece budget exceeded");
+                Check((int)Call(boss,"GetRamVoxelLimit",200)==80 && (int)Call(boss,"GetRamVoxelLimit",20)==20,"Boss ram voxel cap failed");
                 var entrance=boss.GetComponentInChildren<VoxelBossEntrance>();
                 Check(entrance!=null && entrance.transform.localScale==Vector3.zero,"Boss entrance does not start at zero");
                 Vector3 bossPosition=boss.transform.position;
@@ -151,7 +177,7 @@ namespace VoxelRacer.Editor
             }
             finally
             {
-                Object.DestroyImmediate(root);Object.DestroyImmediate(missionTuning);
+                Object.DestroyImmediate(root);Object.DestroyImmediate(missionTuning);Object.DestroyImmediate(settings);Object.DestroyImmediate(mineAttack);
                 UnityEditor.SceneManagement.EditorSceneManager.ClosePreviewScene(scene);
                 typeof(VoxelMissionProgress).GetField("<Active>k__BackingField",BindingFlags.Static|BindingFlags.NonPublic).SetValue(null,previousMission);
                 UnityEngine.Random.state=random;

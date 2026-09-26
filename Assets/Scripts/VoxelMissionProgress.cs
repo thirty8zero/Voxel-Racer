@@ -306,26 +306,28 @@ namespace VoxelRacer
             GUI.color = new Color(1f, 1f, 1f, hudAlpha);
 
             const float width = 540f;
-            float height = IsBossEncounter && (missionBoss!=null || IsComplete) ? 92f : 70f;
+            bool compactBossHud = IsBossEncounter && (missionBoss != null || IsComplete);
+            float height = compactBossHud ? 60f : 70f;
             var area = new Rect((Screen.width - width) * 0.5f, 18f, width, height);
             GUI.Box(area, string.Empty, VoxelHudStyles.Box(30));
 
+            int baseFontSize = compactBossHud ? 28 : 40;
             var labelStyle = new GUIStyle(GUI.skin.label)
             {
                 font = VoxelHudStyles.HudFont,
-                fontSize = 40,
+                fontSize = baseFontSize,
                 fontStyle = FontStyle.Normal,
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = Color.white }
             };
             labelStyle.normal.textColor = IsComplete ? new Color(0.25f, 1f, 0.38f) : Color.white;
-            var labelRect = new Rect(area.x + 8f, area.y, area.width - 16f, 42f);
+            var labelRect = new Rect(area.x + 8f, area.y, area.width - 16f, compactBossHud ? 30f : 42f);
             if (IsComplete)
                 GUI.Label(labelRect, "MISSION COMPLETE", labelStyle);
             else if(IsBossEncounter)
             {
-                string title=missionBoss!=null?bossName:"Find the boss";
-                labelStyle.fontSize=Mathf.Min(40,Mathf.FloorToInt(40f*(labelRect.width/Mathf.Max(labelRect.width,labelStyle.CalcSize(new GUIContent(title)).x))));
+                string title=missionBoss!=null?bossName:"Destroy the Radar Interceptor";
+                labelStyle.fontSize=Mathf.Min(baseFontSize,Mathf.FloorToInt(baseFontSize*(labelRect.width/Mathf.Max(labelRect.width,labelStyle.CalcSize(new GUIContent(title)).x))));
                 GUI.Label(labelRect,title,labelStyle);
                 PercentageScreenPosition=labelRect.center;
             }
@@ -345,7 +347,8 @@ namespace VoxelRacer
                 GUI.Label(new Rect(left + headingWidth, labelRect.y, symbolWidth, labelRect.height), percentage, symbolStyle);
             }
 
-            var barBackground = new Rect(area.x + 24f, area.y + 48f, area.width - 48f, IsBossEncounter?30f:13f);
+            var barBackground = new Rect(area.x + 24f, area.y + (compactBossHud ? 34f : 48f), area.width - 48f,
+                compactBossHud ? 15f : IsBossEncounter ? 30f : 13f);
             if(!IsBossEncounter || missionBoss!=null || IsComplete)
             {
             GUI.color = new Color(0.08f, 0.09f, 0.12f, hudAlpha);

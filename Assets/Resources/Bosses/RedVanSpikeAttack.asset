@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 478a4ce3d0ba4bba951a9ed9d1779e35, type: 3}
+  m_Name: RedVanSpikeAttack
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBossSpikeAttackTuning
+  chance: 0.8
+  checkInterval: 5
+  warningDuration: 1
+  holdDuration: 1
+  braking: 360
+  closingResponse: 12
+  closingSpeed: 1000
+  missDistance: 0
+  dodgeLaneFraction: 0.85
+  acceleration: 100
+  pullAwaySpeed: 55
+  retreatDistance: 110
+  approachTimeout: 8
+  retractDuration: 1
+  damageMin: 200
+  damageMax: 300

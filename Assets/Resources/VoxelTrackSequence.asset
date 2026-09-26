@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: VoxelTrackSequence
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackSequence
   tracks:
+  - {fileID: 11400000, guid: de88e44beaad9724ab2b2f884882d79e, type: 2}
   - {fileID: 11400000, guid: 17cd5398c4a9ce149890972317035ab6, type: 2}
   - {fileID: 11400000, guid: d9704478790f6b64db568c79dd75f1d9, type: 2}
   - {fileID: 11400000, guid: b1d4f1cbed3f74d41bce84c85cc49d9d, type: 2}
   - {fileID: 11400000, guid: 847004ac1e623124c9981b94dcccb92e, type: 2}
-  - {fileID: 11400000, guid: de88e44beaad9724ab2b2f884882d79e, type: 2}
   loopSequence: 1

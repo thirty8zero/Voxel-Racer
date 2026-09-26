@@ -6,22 +6,20 @@ namespace VoxelRacer.Editor
     public static class VoxelRedVanBossBuilder
     {
         public const string PrefabPath="Assets/Resources/Bosses/RedTransitBoss.prefab";
+        public const string DefinitionPath="Assets/Resources/Bosses/RedVanBoss.asset";
+        public const string SpikeAttackPath="Assets/Resources/Bosses/RedVanSpikeAttack.asset";
+        public const string MineAttackPath="Assets/Resources/Bosses/RedVanMineAttack.asset";
         public const string TrackPath="Assets/Resources/Tracks/TrackBoss01.asset";
         [MenuItem("Tools/Voxel Racer/Build Red Van Boss")]
         public static void Build()
         {
             System.IO.Directory.CreateDirectory("Assets/Resources/Bosses");
             var source=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Cars/CivilianTransitVan.prefab");
-            var root=Object.Instantiate(source);root.name="Red Transit Boss";
+            var root=Object.Instantiate(source);root.name="Vandito Boss Van";
             try
             {
-                const string matPath="Assets/Resources/Bosses/RedBossPaint.mat";
-                var paint=AssetDatabase.LoadAssetAtPath<Material>(matPath);
                 var marker=root.GetComponent<VoxelTrafficPaint>();
-                if(paint==null){paint=new Material(marker.bodyMaterial);AssetDatabase.CreateAsset(paint,matPath);}
-                paint.SetColor("_BaseColor",new Color(.68f,.025f,.018f));EditorUtility.SetDirty(paint);
-                foreach(var renderer in root.GetComponentsInChildren<MeshRenderer>())
-                    if(renderer.sharedMaterial==marker.bodyMaterial) renderer.sharedMaterial=paint;
+                var bodyMaterial=marker.bodyMaterial;
                 Object.DestroyImmediate(marker);
                 var layer=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Cars/BI_MineLayerEnemyCar.prefab");
                 string[] names={"Mine hopper","Hopper lid","Hazard chevron voxel","Discharge slot","Outlet guide","Ejection tray","Dispenser warning lamp","Dispenser chassis bracket"};
@@ -38,15 +36,41 @@ namespace VoxelRacer.Editor
                 }
                 VoxelBossStructureBuilder.AddStructure(root);
                 VoxelBossSpikeBuilder.AddRig(root);
+                VoxelBossVoxelDetailBuilder.Apply(root);
                 VoxelBossEyesBuilder.AddEyes(root);
+                VoxelVanditoBossAppearanceBuilder.Apply(root,bodyMaterial);
+                VoxelBossBodyFinishingBuilder.Apply(root);
                 PrefabUtility.SaveAsPrefabAsset(root,PrefabPath);
             }
             finally {Object.DestroyImmediate(root);}
             bool newTrack=AssetDatabase.LoadAssetAtPath<VoxelTrackDefinition>(TrackPath)==null;
             if(newTrack) AssetDatabase.CopyAsset("Assets/Resources/Tracks/Track01.asset",TrackPath);
             var track=AssetDatabase.LoadAssetAtPath<VoxelTrackDefinition>(TrackPath);
-            track.displayName="Red Menace Boss";track.isBossLevel=true;track.boss ??= new VoxelBossSettings();
-            track.boss.bossPrefab=AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            var boss=AssetDatabase.LoadAssetAtPath<VoxelBossDefinition>(DefinitionPath);
+            if(boss==null)
+            {
+                boss=ScriptableObject.CreateInstance<VoxelBossDefinition>();
+                boss.name="VanditoBoss";
+                AssetDatabase.CreateAsset(boss,DefinitionPath);
+            }
+            boss.bossPrefab=AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            var spikeAttack=AssetDatabase.LoadAssetAtPath<VoxelBossSpikeAttackTuning>(SpikeAttackPath);
+            if(spikeAttack==null)
+            {
+                spikeAttack=ScriptableObject.CreateInstance<VoxelBossSpikeAttackTuning>();
+                spikeAttack.name="VanditoSpikeAttack";
+                AssetDatabase.CreateAsset(spikeAttack,SpikeAttackPath);
+            }
+            var mineAttack=AssetDatabase.LoadAssetAtPath<VoxelBossMineAttackTuning>(MineAttackPath);
+            if(mineAttack==null)
+            {
+                mineAttack=ScriptableObject.CreateInstance<VoxelBossMineAttackTuning>();
+                mineAttack.name="VanditoMineAttack";
+                AssetDatabase.CreateAsset(mineAttack,MineAttackPath);
+            }
+            mineAttack.mineTuning=AssetDatabase.LoadAssetAtPath<VoxelMineLayerTuning>(VoxelBossMineBuilder.TuningPath);
+            boss.SetAttack(spikeAttack);boss.SetAttack(mineAttack);
+            track.displayName="Red Menace Boss";track.boss=boss;
             if(newTrack && track.missionTuning!=null)
             {
                 var mission=Object.Instantiate(track.missionTuning);mission.name="Boss Mission Rewards";
@@ -59,8 +83,8 @@ namespace VoxelRacer.Editor
                 sequence.tracks=(sequence.tracks ?? new VoxelTrackDefinition[0]).Append(track).ToArray();
                 EditorUtility.SetDirty(sequence);
             }
-            EditorUtility.SetDirty(track);AssetDatabase.SaveAssets();
-            Debug.Log("Red van boss prefab and TrackBoss01 ready at the end of the campaign sequence.");
+            EditorUtility.SetDirty(boss);EditorUtility.SetDirty(spikeAttack);EditorUtility.SetDirty(mineAttack);EditorUtility.SetDirty(track);AssetDatabase.SaveAssets();
+            Debug.Log("Vandito boss prefab and TrackBoss01 ready at the end of the campaign sequence.");
         }
     }
 }

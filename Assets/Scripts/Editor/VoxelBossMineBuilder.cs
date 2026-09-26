@@ -4,17 +4,18 @@ namespace VoxelRacer.Editor
 {
     public static class VoxelBossMineBuilder
     {
-        public const string PrefabPath="Assets/Resources/Bosses/RedBossMine.prefab";
-        public const string TuningPath="Assets/Resources/Bosses/RedBossMineTuning.asset";
-        [MenuItem("Tools/Voxel Racer/Build Red Boss Mine")]
+        public const string PrefabPath="Assets/Resources/Bosses/VanditoBossMine.prefab";
+        public const string TuningPath="Assets/Resources/Bosses/VanditoBossMineTuning.asset";
+        public const string AttackTuningPath=VoxelRedVanBossBuilder.MineAttackPath;
+        [MenuItem("Tools/Voxel Racer/Build Vandito Boss Mine")]
         public static void Build()
         {
             var standard=Resources.Load<VoxelMineLayerTuning>("EnemyVehicles/MineLayerAttackTuning");
-            const string materialPath="Assets/Resources/Bosses/RedBossMine.mat";
+            const string materialPath="Assets/Resources/Bosses/VanditoBossMine.mat";
             var red=AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             if(red==null) {red=new Material(Shader.Find("Universal Render Pipeline/Lit"));AssetDatabase.CreateAsset(red,materialPath);}
             red.SetColor("_BaseColor",new Color(1f,.015f,.025f));EditorUtility.SetDirty(red);
-            var root=new GameObject("Red Boss Mine");
+                var root=new GameObject("Vandito Boss Mine");
             try
             {
                 var body=Object.Instantiate(standard.minePrefab,root.transform,false);
@@ -40,18 +41,26 @@ namespace VoxelRacer.Editor
             finally {Object.DestroyImmediate(root);}
             var track=AssetDatabase.LoadAssetAtPath<VoxelTrackDefinition>(VoxelRedVanBossBuilder.TrackPath);
             var tuning=AssetDatabase.LoadAssetAtPath<VoxelMineLayerTuning>(TuningPath);
+            var attack=AssetDatabase.LoadAssetAtPath<VoxelBossMineAttackTuning>(AttackTuningPath);
+            if(attack==null)
+            {
+                attack=ScriptableObject.CreateInstance<VoxelBossMineAttackTuning>();
+                attack.name="VanditoBossMineAttack";
+                attack.dropChance=.6f;attack.dropInterval=3;attack.armingDelay=.5f;attack.lifetime=25;
+                AssetDatabase.CreateAsset(attack,AttackTuningPath);
+            }
             if(tuning==null)
             {
-                tuning=Object.Instantiate(standard);tuning.name="RedBossMineTuning";
-                tuning.playerDamageVoxelsMin=track.boss.mineDamageMin;tuning.playerDamageVoxelsMax=track.boss.mineDamageMax;
+                tuning=Object.Instantiate(standard);tuning.name="VanditoBossMineTuning";
                 // Enlarge only the mine portion of the swept hit area, preserving the player's footprint allowance.
                 tuning.collisionHalfWidth=standard.collisionHalfWidth+.65f;
                 tuning.collisionHalfLength=standard.collisionHalfLength+.65f;
-                tuning.explosionScale=track.boss.mineExplosionScale;
                 AssetDatabase.CreateAsset(tuning,TuningPath);
             }
             tuning.minePrefab=AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
-            track.boss.mineTuning=tuning;EditorUtility.SetDirty(tuning);EditorUtility.SetDirty(track);AssetDatabase.SaveAssets();
+            attack.mineTuning=tuning;
+            track.boss.SetAttack(attack);
+            EditorUtility.SetDirty(tuning);EditorUtility.SetDirty(attack);EditorUtility.SetDirty(track.boss);EditorUtility.SetDirty(track);AssetDatabase.SaveAssets();
             var preview=new PreviewRenderUtility();
             try
             {
@@ -62,7 +71,7 @@ namespace VoxelRacer.Editor
                 preview.lights[0].intensity=2;preview.lights[0].transform.rotation=Quaternion.Euler(45,30,0);
                 preview.lights[1].intensity=1;preview.ambientColor=Color.gray;
                 preview.BeginStaticPreview(new Rect(0,0,900,650));preview.Render(true);
-                var image=preview.EndStaticPreview();System.IO.File.WriteAllBytes("Temp/RedBossMine.png",image.EncodeToPNG());Object.DestroyImmediate(image);
+                var image=preview.EndStaticPreview();System.IO.File.WriteAllBytes("Temp/VanditoBossMine.png",image.EncodeToPNG());Object.DestroyImmediate(image);
             }
             finally {preview.Cleanup();}
         }

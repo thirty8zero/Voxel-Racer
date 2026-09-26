@@ -29,7 +29,7 @@ namespace VoxelRacer.Editor
             rig.spikes = Pivot("Retractable Triple Spikes", Vector3.zero);
             rig.spikes.gameObject.AddComponent<VoxelIndestructiblePart>();
             var steel = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/CarMaterials/TransitSteel.mat");
-            var dark = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Bosses/RedBossChassis.mat");
+            var dark = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Bosses/VanditoBossChassis.mat");
             void Box(Transform parent, string name, Vector3 position, Vector3 scale, Material material)
             {
                 var go = GameObject.CreatePrimitive(PrimitiveType.Cube); go.name = name;

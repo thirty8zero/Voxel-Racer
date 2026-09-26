@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4afe53cc6f9f1c2428ef16d1040ce1c8, type: 3}
+  m_Name: VanditoBossMineTuning
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMineLayerTuning
+  enemySelectionChance: 0.2
+  dropChance: 0.2
+  dropInterval: 3
+  minePrefab: {fileID: 2784513041749878071, guid: 8195a86f06e33de48be59835452e0a56, type: 3}
+  postDropLaneChangeChance: 0.5
+  postDropLaneChangeDelay: 3
+  armingDelay: 0.5
+  lifetime: 25
+  playerDamageVoxelsMin: 200
+  playerDamageVoxelsMax: 300
+  collisionHalfWidth: 2.125
+  collisionHalfLength: 2.975
+  explosionScale: 2

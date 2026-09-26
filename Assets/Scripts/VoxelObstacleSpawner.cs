@@ -21,6 +21,17 @@ namespace VoxelRacer
         public VoxelEnemyVehicleTuning mineLayerEnemyTuning;
         private VoxelStaticObstacleSpawnEntry[] staticObstacleSpawns;
 
+        private VoxelBossEncounter radarEncounter;
+        private VoxelEnemyVehicleTuning radarTuning;
+        private VoxelObstacleCar activeRadar;
+        private float radarChance;
+        public void ConfigureRadarObjective(VoxelBossEncounter encounter, float chance)
+        {
+            radarEncounter = encounter;
+            radarChance = Mathf.Clamp(chance, 1, 100) / 100f;
+            radarTuning = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/RadarInterceptorTuning");
+        }
+
         private VoxelCarController target;
         private VoxelStartCountdown countdown;
         private VoxelRunFinish runFinish;
@@ -141,6 +152,8 @@ namespace VoxelRacer
                     return;
                 }
 
+                bool spawnRadar = radarEncounter != null && radarEncounter.CurrentStage == VoxelBossEncounter.Stage.Traffic &&
+                    activeRadar == null && radarTuning != null && Random.value < radarChance;
                 bool sameDirection = Random.value >= obstacleCarTuning.oppositeDirectionChance;
                 if (!TryFindCivilianLane(sameDirection, distance, out float civilianLaneOffset, out float matchingSpeed))
                     return;
@@ -148,7 +161,13 @@ namespace VoxelRacer
                 var obstacle = new GameObject(sameDirection ? "Red Traffic Car (Same Direction)" : "Red Traffic Car (Oncoming)")
                     .AddComponent<VoxelObstacleCar>();
                 obstacle.transform.SetParent(transform);
-                obstacle.Configure(target, obstacleCarTuning, sameDirection, path, distance, civilianLaneOffset, matchingSpeed);
+                obstacle.Configure(target, obstacleCarTuning, sameDirection, path, distance, civilianLaneOffset, matchingSpeed, spawnRadar ? radarTuning : null);
+                if (spawnRadar)
+                {
+                    obstacle.name = "Radar Interceptor";
+                    activeRadar = obstacle;
+                    obstacle.Defeated += radarEncounter.RadarDefeated;
+                }
                 obstacle.gameObject.AddComponent<VoxelFadeIn>();
             }
             else
@@ -223,6 +242,7 @@ namespace VoxelRacer
             if(obstacleCarTuning.trafficCarEnemyTuning!=null) spawnHalfLength=Mathf.Max(spawnHalfLength,obstacleCarTuning.trafficCarEnemyTuning.collisionHalfLength);
             if(obstacleCarTuning.semiTrailerSpawnChance>0)
                 spawnHalfLength=Mathf.Max(spawnHalfLength,obstacleCarTuning.semiTrailerEnemyTuning!=null?obstacleCarTuning.semiTrailerEnemyTuning.collisionHalfLength:2.65f);
+            if (radarTuning != null) spawnHalfLength = Mathf.Max(spawnHalfLength, radarTuning.collisionHalfLength);
             var availableLanes = new List<(float offset, float speed)>();
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {

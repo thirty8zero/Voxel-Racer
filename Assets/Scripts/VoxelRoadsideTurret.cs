@@ -9,6 +9,7 @@ namespace VoxelRacer
         private EndlessVoxelRoad path;
         private VoxelRoadsideTurretTuning tuning;
         private float trackDistance;
+        private float maximumAheadDistance;
         private float side;
         private float aimAngle;
         private float nextShotTime;
@@ -26,6 +27,7 @@ namespace VoxelRacer
             path = road;
             tuning = value;
             trackDistance = distance;
+            maximumAheadDistance = Mathf.Max(180f, distance - player.TrackDistance);
             side = Mathf.Sign(roadsideSide);
             if (Mathf.Approximately(side, 0f))
                 side = 1f;
@@ -45,7 +47,8 @@ namespace VoxelRacer
             }
 
             ApplyTrackPose();
-            if (trackDistance < target.TrackDistance - 35f || trackDistance > target.TrackDistance + 180f)
+            if (trackDistance < target.TrackDistance - 35f ||
+                trackDistance > target.TrackDistance + maximumAheadDistance)
             {
                 Destroy(gameObject);
                 return;

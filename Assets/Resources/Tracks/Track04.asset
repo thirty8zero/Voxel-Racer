@@ -128,9 +128,9 @@ MonoBehaviour:
   roadTuning: {fileID: -4439660758796297234}
   obstacleCarTuning: {fileID: -8029312130423065911}
   missionTuning: {fileID: 11400000, guid: 1d946b800bac67d47a5f7230e18af871, type: 2}
-  isBossLevel: 0
-  boss:
-    trafficDuration: 25
+  boss: {fileID: 0}
+  bossEncounter:
+    radarInterceptorSpawnChance: 10
     minimumWaveInterval: 0.8
     maximumWaveInterval: 1.4
     minimumVehiclesPerWave: 2
@@ -139,54 +139,6 @@ MonoBehaviour:
     maximumVehicleSpacing: 18
     oncomingTrafficChance: 0.6
     roadClearDuration: 2
-    bossName: RED MENACE
-    bossPrefab: {fileID: 0}
-    entranceDuration: 0.75
-    health: 2000
-    voxelHealth: 8
-    playerCollisionDamageMin: 35
-    playerCollisionDamageMax: 50
-    minimumDistanceAhead: 18
-    maximumDistanceAhead: 36
-    escapeWarningDistance: 150
-    escapeFailureDistance: 200
-    minimumCruiseSpeedFraction: 0.6
-    catchUpDistance: 100
-    catchUpResumeDistance: 70
-    catchUpSpeedFraction: 0.85
-    distanceAdjustmentSpeed: 10
-    acceleration: 24
-    braking: 40
-    minimumLaneChangeInterval: 2
-    maximumLaneChangeInterval: 4
-    laneChangeSpeed: 4
-    spikeAttackEnabled: 1
-    spikeAttackChance: 0.45
-    spikeAttackCheckInterval: 12
-    spikeAttackWarningDuration: 2
-    spikeAttackHoldDuration: 2
-    spikeAttackBraking: 90
-    spikeAttackClosingResponse: 6
-    spikeAttackClosingSpeed: 60
-    spikeAttackMissDistance: 0
-    spikeAttackAcceleration: 100
-    spikeAttackPullAwaySpeed: 55
-    spikeAttackRetreatDistance: 110
-    spikeAttackApproachTimeout: 8
-    spikeAttackRetractDuration: 1
-    spikeAttackDamageMin: 70
-    spikeAttackDamageMax: 100
-    minesEnabled: 1
-    mineTuning: {fileID: 0}
-    mineDropChance: 0.6
-    mineDropInterval: 3
-    mineArmingDelay: 0.5
-    mineLifetime: 25
-    mineDamageMin: 60
-    mineDamageMax: 80
-    mineExplosionScale: 2
-    smokeDamageThreshold: 0.25
-    fireDamageThreshold: 0.5
   staticObstacleSpawns:
   - obstacle: {fileID: 11400000, guid: a2642cf1b770f304089540f52b9277a3, type: 2}
     spawnWeight: 1

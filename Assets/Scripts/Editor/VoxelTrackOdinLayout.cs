@@ -17,12 +17,12 @@ namespace VoxelRacer.Editor
             attributes.RemoveAll(a=>a is HeaderAttribute);
             string name=member.Name;
             string group=name=="roadTuning"?"Road":name=="obstacleCarTuning"?"Traffic":
-                name=="missionTuning"?"Mission":name=="boss"||name=="isBossLevel"?"Boss":
+                name=="missionTuning"?"Mission":name=="boss"||name=="bossEncounter"?"Boss":
                 name=="displayName"||name=="raceSceneName"?"General":"Environment";
             attributes.Add(new FoldoutGroupAttribute(group));
             if(group=="Environment")
                 attributes.Add(new FoldoutGroupAttribute("Environment/"+Section(typeof(VoxelTrackDefinition),name)));
-            if(name=="boss") {attributes.Add(new ShowIfAttribute("isBossLevel"));attributes.Add(new HideLabelAttribute());attributes.Add(new InlinePropertyAttribute());}
+            if(name=="bossEncounter") {attributes.Add(new ShowIfAttribute("@boss != null"));attributes.Add(new HideLabelAttribute());attributes.Add(new InlinePropertyAttribute());}
             if(name=="roadTuning" || name=="obstacleCarTuning")
             {
                 attributes.Add(new InlineEditorAttribute(InlineEditorModes.FullEditor,InlineEditorObjectFieldModes.Hidden));
@@ -49,17 +49,28 @@ namespace VoxelRacer.Editor
         }
     }
 
-    public sealed class VoxelBossOdinLayout : OdinAttributeProcessor<VoxelBossSettings>
+    public sealed class VoxelBossEncounterOdinLayout : OdinAttributeProcessor<VoxelBossEncounterSettings>
     {
         public override void ProcessChildMemberAttributes(InspectorProperty parent,MemberInfo member,List<Attribute> attributes)
         {
             if(!(member is FieldInfo)) return;
             attributes.RemoveAll(a=>a is HeaderAttribute);
-            string group=VoxelTrackOdinLayout.Section(typeof(VoxelBossSettings),member.Name);
+            if(member.Name=="radarInterceptorSpawnChance") attributes.Add(new LabelTextAttribute("Radar Interceptor Spawn Chance (%)"));
+            string group=VoxelTrackOdinLayout.Section(typeof(VoxelBossEncounterSettings),member.Name);
             attributes.Add(new FoldoutGroupAttribute(group));
-            VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBossSettings),member.Name,group,attributes);
-            if(group=="Spike Brake Attack" && member.Name!="spikeAttackEnabled") attributes.Add(new ShowIfAttribute("spikeAttackEnabled"));
-            if(member.Name=="spikeAttackRetreatDistance") attributes.Add(new InfoBoxAttribute("Retreat distance is capped 5m below the escape warning distance.",InfoMessageType.Info));
+            VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBossEncounterSettings),member.Name,group,attributes);
+        }
+    }
+
+    public sealed class VoxelBossDefinitionOdinLayout : OdinAttributeProcessor<VoxelBossDefinition>
+    {
+        public override void ProcessChildMemberAttributes(InspectorProperty parent,MemberInfo member,List<Attribute> attributes)
+        {
+            if(!(member is FieldInfo)) return;
+            attributes.RemoveAll(a=>a is HeaderAttribute);
+            string group=VoxelTrackOdinLayout.Section(typeof(VoxelBossDefinition),member.Name);
+            attributes.Add(new FoldoutGroupAttribute(group));
+            VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBossDefinition),member.Name,group,attributes);
             if(member.Name=="catchUpDistance")
             {
                 attributes.Add(new InfoBoxAttribute("Catch-up starts inside the preferred combat range, so it interrupts the full distance cycle.",InfoMessageType.Warning,"@catchUpDistance < maximumDistanceAhead"));
@@ -67,10 +78,33 @@ namespace VoxelRacer.Editor
             }
             if(member.Name=="escapeFailureDistance") attributes.Add(new InfoBoxAttribute("Failure distance must be greater than warning distance.",InfoMessageType.Warning,"@escapeFailureDistance <= escapeWarningDistance"));
             if(member.Name=="minimumDistanceAhead") attributes.Add(new InfoBoxAttribute("Minimum combat distance must be below the catch-up resume distance.",InfoMessageType.Warning,"@minimumDistanceAhead >= catchUpResumeDistance"));
-            if(member.Name=="mineTuning") attributes.Add(new InfoBoxAttribute("This asset supplies the mine model, hit area, damage and explosion. Drop timing, chance, arming and lifetime remain controlled here on the Track.",InfoMessageType.Info));
-            if(member.Name.StartsWith("mine") && member.Name!="minesEnabled") attributes.Add(new ShowIfAttribute("minesEnabled"));
+        }
+    }
+
+    public sealed class VoxelBossSpikeAttackOdinLayout : OdinAttributeProcessor<VoxelBossSpikeAttackTuning>
+    {
+        public override void ProcessChildMemberAttributes(InspectorProperty parent,MemberInfo member,List<Attribute> attributes)
+        {
+            if(!(member is FieldInfo)) return;
+            attributes.RemoveAll(a=>a is HeaderAttribute);
+            string group=VoxelTrackOdinLayout.Section(typeof(VoxelBossSpikeAttackTuning),member.Name);
+            attributes.Add(new FoldoutGroupAttribute(group));
+            VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBossSpikeAttackTuning),member.Name,group,attributes);
+            if(member.Name=="retreatDistance") attributes.Add(new InfoBoxAttribute("Retreat distance is capped 5m below the boss escape warning distance.",InfoMessageType.Info));
+        }
+    }
+
+    public sealed class VoxelBossMineAttackOdinLayout : OdinAttributeProcessor<VoxelBossMineAttackTuning>
+    {
+        public override void ProcessChildMemberAttributes(InspectorProperty parent,MemberInfo member,List<Attribute> attributes)
+        {
+            if(!(member is FieldInfo)) return;
+            attributes.RemoveAll(a=>a is HeaderAttribute);
+            string group=VoxelTrackOdinLayout.Section(typeof(VoxelBossMineAttackTuning),member.Name);
+            attributes.Add(new FoldoutGroupAttribute(group));
+            VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBossMineAttackTuning),member.Name,group,attributes);
             if(member.Name=="mineTuning") attributes.Add(new InlineEditorAttribute());
-            if(member.Name=="mineDamageMin" || member.Name=="mineDamageMax" || member.Name=="mineExplosionScale")
+            if(member.Name.StartsWith("fallback") && member.Name!="mineTuning")
                 attributes.Add(new HideIfAttribute("@mineTuning != null"));
         }
     }

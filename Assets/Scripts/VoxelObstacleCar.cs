@@ -6,6 +6,8 @@ namespace VoxelRacer
     /// <summary>A destructible traffic car that can drive with or against the player.</summary>
     public sealed class VoxelObstacleCar : MonoBehaviour
     {
+        public event System.Action<VoxelObstacleCar> Defeated;
+        public bool IsEnemyTraffic { get; private set; }
         private enum DebrisStyle { Weapon, Ram, Explosion }
         [Header("Persistent Tuning")]
         public VoxelObstacleCarTuning tuning;
@@ -44,11 +46,12 @@ namespace VoxelRacer
         private readonly Dictionary<Transform, float> projectileVoxelHealth = new();
         private bool nearMissCandidate;
         private Transform[] modelWheels = System.Array.Empty<Transform>();
+        private MeshRenderer[] projectileRenderers;
         private bool nearMissAwarded;
         private float closestNearMissDistance = float.PositiveInfinity;
 
         public void Configure(VoxelCarController player, VoxelObstacleCarTuning value, bool sameDirection,
-            EndlessVoxelRoad road, float distance, float offset, float matchingTravelSpeed = -1f)
+            EndlessVoxelRoad road, float distance, float offset, float matchingTravelSpeed = -1f, VoxelEnemyVehicleTuning vehicleOverride = null)
         {
             target = player;
             tuning = value;
@@ -75,8 +78,14 @@ namespace VoxelRacer
                 engageSpeed = playerMaximumSpeed * Random.Range(engageMin, engageMax);
             }
             travelSpeed = spawnSpeed;
-            isSemiTrailer = Random.value < tuning.semiTrailerSpawnChance;
-            EnemyTuning = isSemiTrailer ? tuning.semiTrailerEnemyTuning : tuning.trafficCarEnemyTuning;
+            IsEnemyTraffic = vehicleOverride != null;
+            isSemiTrailer = !IsEnemyTraffic && Random.value < tuning.semiTrailerSpawnChance;
+            EnemyTuning = vehicleOverride != null ? vehicleOverride : (isSemiTrailer ? tuning.semiTrailerEnemyTuning : tuning.trafficCarEnemyTuning);
+            if (IsEnemyTraffic)
+            {
+                collisionHalfWidth = EnemyTuning.collisionHalfWidth;
+                collisionHalfLength = EnemyTuning.collisionHalfLength;
+            }
             CurrentHealth = EnemyTuning != null ? EnemyTuning.vehicleHealth : 1f;
             if (isSemiTrailer)
             {
@@ -85,7 +94,7 @@ namespace VoxelRacer
                 gameObject.name = sameDirection ? "Civilian Van (Same Direction)" : "Civilian Van (Oncoming)";
             }
             BuildVisuals();
-            ApplyRandomPaintColour();
+            if (!IsEnemyTraffic) ApplyRandomPaintColour();
             ApplyTrackPose();
             previousCollisionRelative=target.CollisionTrackPosition-new Vector2(laneOffset,trackDistance);
             gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure();
@@ -130,6 +139,14 @@ namespace VoxelRacer
                 Destroy(gameObject);
         }
 
+        public void GetPlayerCollisionDamageRange(out int minimum, out int maximum)
+        {
+            int first = IsEnemyTraffic && EnemyTuning != null ? EnemyTuning.playerDamageVoxelsMin : tuning.playerDamageVoxelsMin;
+            int second = IsEnemyTraffic && EnemyTuning != null ? EnemyTuning.playerDamageVoxelsMax : tuning.playerDamageVoxelsMax;
+            minimum = Mathf.Max(0, Mathf.Min(first, second));
+            maximum = Mathf.Max(minimum, Mathf.Max(first, second));
+        }
+
         private void HitCar(Vector3? sweptDirection = null)
         {
             nextCollisionTime = Time.time + tuning.collisionCooldown;
@@ -138,19 +155,18 @@ namespace VoxelRacer
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = travelsWithPlayer ? target.transform.forward : -target.transform.forward;
 
-            int selectedPlayerDamage = Random.Range(
-                Mathf.Min(tuning.playerDamageVoxelsMin, tuning.playerDamageVoxelsMax),
-                Mathf.Max(tuning.playerDamageVoxelsMin, tuning.playerDamageVoxelsMax) + 1);
+            GetPlayerCollisionDamageRange(out int damageMin, out int damageMax);
+            int selectedPlayerDamage = Random.Range(damageMin, damageMax + 1);
             int originalPlayerDamage = target.damageVoxelsPerHit;
 #if UNITY_EDITOR
             int integrityBeforeHit = target.RemainingIntegrityVoxels;
 #endif
             target.damageVoxelsPerHit = selectedPlayerDamage;
-            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, isSemiTrailer ? "Civilian van collision" : "Civilian car collision");
+            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, IsEnemyTraffic ? EnemyTuning.displayName + " collision" : (isSemiTrailer ? "Civilian van collision" : "Civilian car collision"));
             target.damageVoxelsPerHit = originalPlayerDamage;
 #if UNITY_EDITOR
             int integrityAfterHit = target.RemainingIntegrityVoxels;
-            Debug.Log($"Civilian collision: tuning={tuning.name}, configured={tuning.playerDamageVoxelsMin}-{tuning.playerDamageVoxelsMax}, " +
+            Debug.Log($"Civilian collision: tuning={tuning.name}, configured={damageMin}-{damageMax}, " +
                 $"selected={selectedPlayerDamage}, removed={integrityBeforeHit - integrityAfterHit}, " +
                 $"integrity={target.IntegrityPercent:F1}%.", this);
 #endif
@@ -165,14 +181,46 @@ namespace VoxelRacer
                 Mathf.Min(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax),
                 Mathf.Max(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax) + 1);
             int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount, DebrisStyle.Ram);
-            VoxelMissionProgress.ReportCivilianVoxelDamage(damagedVoxelCount);
-            VoxelMissionProgress.ReportCivilianVoxelDestroyed(damagedVoxelCount, transform.position);
-            VoxelMissionProgress.ReportCivilianVehicleDestroyed(transform.position);
+            ReportVoxelDamage(damagedVoxelCount);
+            ReportVoxelDestroyed(damagedVoxelCount, transform.position);
+            ReportDestroyed(true);
             CurrentHealth = 0f;
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
                 EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
             velocity = hitDirection * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + tuning.destroyedLifetime;
+        }
+
+        /// <summary>Finds the nearest intact traffic voxel along a finite bullet segment, without per-voxel colliders.</summary>
+        public static bool TryFindProjectileHit(Vector3 start, Vector3 direction, float distance,
+            out VoxelObstacleCar vehicle, out Transform voxel, out Vector3 point, out float hitDistance)
+        {
+            vehicle = null; voxel = null; point = default; hitDistance = float.PositiveInfinity;
+            if (distance <= 0 || direction.sqrMagnitude < .000001f) return false;
+            direction.Normalize();
+            foreach (var car in ActiveTraffic)
+            {
+                if (car == null || car.hasBeenHit || !car.gameObject.activeInHierarchy) continue;
+                car.projectileRenderers ??= car.GetComponentsInChildren<MeshRenderer>(true);
+                foreach (var renderer in car.projectileRenderers)
+                {
+                    if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy ||
+                        renderer.GetComponentInParent<VoxelIndestructiblePart>() != null) continue;
+                    var filter = renderer.GetComponent<MeshFilter>();
+                    if (filter == null || filter.sharedMesh == null) continue;
+                    // Test in the voxel's own space, so rotated cars and the spinning dish remain hittable.
+                    var localStart = renderer.transform.InverseTransformPoint(start);
+                    var localDirection = renderer.transform.InverseTransformVector(direction).normalized;
+                    var bounds = filter.sharedMesh.bounds;
+                    float entry = 0;
+                    if (!bounds.Contains(localStart) && !bounds.IntersectRay(new Ray(localStart, localDirection), out entry)) continue;
+                    var worldPoint = renderer.transform.TransformPoint(localStart + localDirection * entry);
+                    float along = Vector3.Dot(worldPoint - start, direction);
+                    if (along < 0 || along > distance || along >= hitDistance) continue;
+                    vehicle = car; voxel = renderer.transform; point = worldPoint; hitDistance = along;
+                }
+            }
+            return vehicle != null;
         }
 
         /// <summary>Applies weapon damage without giving civilians an enemy health bar.</summary>
@@ -197,7 +245,7 @@ namespace VoxelRacer
             if (hitVoxel != null)
             {
                 if (awardMissionPoints)
-                    VoxelMissionProgress.ReportCivilianVoxelDamage();
+                    ReportVoxelDamage(1);
                 projectileVoxelHealth.TryGetValue(hitVoxel, out float remainingVoxelHealth);
                 remainingVoxelHealth = remainingVoxelHealth <= 0f ? EnemyTuning.voxelHealth : remainingVoxelHealth;
                 remainingVoxelHealth -= damage;
@@ -206,7 +254,7 @@ namespace VoxelRacer
                     projectileVoxelHealth.Remove(hitVoxel);
                     SpawnDebris(hitVoxel, impactDirection, DebrisStyle.Weapon);
                     hitVoxel.gameObject.SetActive(false);
-                    if (awardMissionPoints) VoxelMissionProgress.ReportCivilianVoxelDestroyed(1, hitPoint);
+                    if (awardMissionPoints) ReportVoxelDestroyed(1, hitPoint);
                 }
                 else
                     projectileVoxelHealth[hitVoxel] = remainingVoxelHealth;
@@ -219,13 +267,33 @@ namespace VoxelRacer
         private void DestroyFromWeaponHit(Vector3 hitPoint, Vector3 impactDirection, bool awardMissionPoints = true)
         {
             hasBeenHit = true;
-            if (awardMissionPoints)
-                VoxelMissionProgress.ReportCivilianVehicleDestroyed(transform.position);
+            ReportDestroyed(awardMissionPoints);
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
                 EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
             ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount, DebrisStyle.Explosion);
             velocity = impactDirection.normalized * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + EnemyTuning.destroyedLifetime;
+        }
+
+        private void ReportVoxelDamage(int count)
+        {
+            if (IsEnemyTraffic) VoxelMissionProgress.ReportEnemyVoxelDamage(count);
+            else VoxelMissionProgress.ReportCivilianVoxelDamage(count);
+        }
+        private void ReportVoxelDestroyed(int count, Vector3 position)
+        {
+            if (IsEnemyTraffic) VoxelMissionProgress.ReportEnemyVoxelDestroyed(count, position);
+            else VoxelMissionProgress.ReportCivilianVoxelDestroyed(count, position);
+        }
+        private void ReportDestroyed(bool award)
+        {
+            CurrentHealth = 0;
+            if (award)
+            {
+                if (IsEnemyTraffic) VoxelMissionProgress.ReportEnemyVehicleDestroyed(transform.position, EnemyTuning);
+                else VoxelMissionProgress.ReportCivilianVehicleDestroyed(transform.position);
+            }
+            Defeated?.Invoke(this);
         }
 
         private void ApplyTrackPose()
@@ -417,6 +485,7 @@ namespace VoxelRacer
                 Instantiate(EnemyTuning.modelPrefab, transform, false);
             else
                 VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);
+            projectileRenderers = GetComponentsInChildren<MeshRenderer>(true);
             var wheels = new List<Transform>();
             foreach (var child in GetComponentsInChildren<Transform>())
                 if (child.name == "Obstacle Voxel Wheel") wheels.Add(child);

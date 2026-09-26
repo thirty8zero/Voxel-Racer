@@ -47,18 +47,22 @@ namespace VoxelRacer
         private Transform[] modelWheels;
         public event System.Action<VoxelEnemyCar> Defeated;
         public bool IsBoss => bossSettings!=null;
-        private VoxelBossSettings bossSettings;
+        private VoxelBossDefinition bossSettings;
+        private VoxelBossSpikeAttackTuning spikeAttackTuning;
         private float bossLaneWidth, bossVisualScale, nextBossLaneChange;
         private int bossLaneCount, bossLanePair;
         private bool bossMovingAway;
         private bool bossCatchingUp;
-        public void ConfigureBoss(VoxelBossSettings settings,float laneWidth,int laneCount)
+        public void ConfigureBoss(VoxelBossDefinition settings,float laneWidth,int laneCount)
         {
             bossSettings=settings;bossLaneWidth=laneWidth;bossLaneCount=Mathf.Max(2,laneCount);
             bossVisualScale=laneWidth*1.8f/2.23f;
             bossLanePair=(bossLaneCount-2)/2;
             nextBossLaneChange=Time.time+Mathf.Max(.1f,settings.minimumLaneChangeInterval);
-            spikeCheckTime=Mathf.Max(1,settings.spikeAttackCheckInterval)+Mathf.Max(0,settings.entranceDuration);
+            spikeAttackTuning=settings.GetAttack<VoxelBossSpikeAttackTuning>();
+            spikeCheckTime=spikeAttackTuning!=null
+                ? Mathf.Max(1,spikeAttackTuning.checkInterval)+Mathf.Max(0,settings.entranceDuration)
+                : float.PositiveInfinity;
         }
         private Vector2 previousCollisionRelative;
         private float nextMineTime;
@@ -161,14 +165,17 @@ namespace VoxelRacer
             float spikeReach = SpikeAttackDangerous ? SpikeHitDistance - Tuning.collisionHalfLength : 0f;
             Vector2 spikeShift = new Vector2(0, spikeReach * .5f);
             bool contactFound=VoxelVehicleCollision.Sweep(previousCollisionRelative + spikeShift,relative + spikeShift,
-                new Vector2(Tuning.collisionHalfWidth,Tuning.collisionHalfLength + spikeReach * .5f),out var contact);
+                new Vector2(CollisionHalfWidth,Tuning.collisionHalfLength + spikeReach * .5f),out var contact);
             previousCollisionRelative=relative;
             if (contactFound)
             {
-                // Contact always ends the slam, even while ordinary collision damage is on cooldown.
-                if(SpikeAttackDangerous) ApplySpikeRam();
-                else if(!(SpikeAttackActive && spikeRamApplied) && Time.time >= nextCollisionTime)
-                    RamByPlayer(VoxelVehicleCollision.ImpactDirection(contact,target.transform));
+                if(!IsSpikeDodgeCornerContact)
+                {
+                    // Contact always ends the slam, even while ordinary collision damage is on cooldown.
+                    if(SpikeAttackDangerous) ApplySpikeRam();
+                    else if(!(SpikeAttackActive && spikeRamApplied) && Time.time >= nextCollisionTime)
+                        RamByPlayer(VoxelVehicleCollision.ImpactDirection(contact,target.transform));
+                }
             }
 
             if (!IsBoss && (TrackDistance < target.TrackDistance - 30f || TrackDistance > target.TrackDistance + GetMaximumDistanceAhead()))
@@ -202,7 +209,7 @@ namespace VoxelRacer
         {
             float desired=SpikeAttackActive ? GetSpikeAttackSpeed() : GetBossDriveSpeed();
             float rate=desired>currentSpeed ? bossSettings.acceleration : bossSettings.braking;
-            if(SpikeAttackActive) rate=desired>currentSpeed ? bossSettings.spikeAttackAcceleration : bossSettings.spikeAttackBraking;
+            if(SpikeAttackActive) rate=desired>currentSpeed ? spikeAttackTuning.acceleration : spikeAttackTuning.braking;
             return Mathf.MoveTowards(currentSpeed,desired,Mathf.Max(.1f,rate)*Mathf.Max(0,deltaTime));
         }
         private void UpdateBossLaneChange()
@@ -272,8 +279,16 @@ namespace VoxelRacer
             if (hasBeenRammed || damage <= 0f || (hitVoxel != null && (!hitVoxel.gameObject.activeInHierarchy || hitVoxel.GetComponentInParent<VoxelIndestructiblePart>() != null)))
                 return;
 
+            // Keep the animated rear-attack assembly intact while allowing shots to
+            // continue reducing the boss's overall health.
+            bool hitAttackRig = IsSpikeAttackActivePart(hitVoxel);
+            if(hitAttackRig) hitVoxel = null;
+
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
             TryRequestEvasiveLaneChange();
+            if(hitAttackRig && awardMissionPoints)
+                VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
+                    VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage);
             if (hitVoxel != null)
             {
                 if (awardMissionPoints)
@@ -299,7 +314,7 @@ namespace VoxelRacer
             if(healthBar!=null) healthBar.SetHealth(HealthPercent);
             if (CurrentHealth <= 0f)
                 Explode(hitPoint, impactDirection, awardMissionPoints);
-            if (awardMissionPoints && hitVoxel != null) VoxelMissionProgress.ReportEnemyVoxelDamage();
+            if (awardMissionPoints && (hitVoxel != null || hitAttackRig)) VoxelMissionProgress.ReportEnemyVoxelDamage();
         }
 
         /// <summary>
@@ -457,6 +472,10 @@ namespace VoxelRacer
             VoxelMissionProgress.ReportEnemyRamDamage(ramDamage);
         }
 
+        internal int GetRamVoxelLimit(int requested) => IsBoss
+            ? Mathf.Clamp(requested, 0, Mathf.Max(0, bossSettings.maximumVoxelsRemovedPerRam))
+            : Mathf.Max(0, requested);
+
         private int ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount)
         {
             var candidates = new List<Transform>();
@@ -465,7 +484,7 @@ namespace VoxelRacer
                     candidates.Add(renderer.transform);
 
             candidates.Sort((first, second) => (first.position - hitPoint).sqrMagnitude.CompareTo((second.position - hitPoint).sqrMagnitude));
-            int destroyCount = Mathf.Min(voxelCount, candidates.Count);
+            int destroyCount = Mathf.Min(GetRamVoxelLimit(voxelCount), candidates.Count);
             for (int index = 0; index < destroyCount; index++)
             {
                 SpawnDebris(candidates[index], impactDirection, DebrisStyle.Ram);

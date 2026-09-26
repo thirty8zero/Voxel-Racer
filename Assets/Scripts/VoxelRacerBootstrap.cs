@@ -699,11 +699,11 @@ namespace VoxelRacer
             countdown.Prepare(car.GetComponent<VoxelCarController>());
             spawner.SetStartCountdown(countdown);
             missionProgress.SetStartCountdown(countdown);
-            if(activeTrack!=null && activeTrack.isBossLevel)
+            if(activeTrack!=null && activeTrack.boss!=null)
             {
                 turretSpawner.enabled=false;
                 var encounter=environment.GetComponent<VoxelBossEncounter>() ?? environment.gameObject.AddComponent<VoxelBossEncounter>();
-                encounter.Configure(activeTrack.boss,car.GetComponent<VoxelCarController>(),road,spawner,missionProgress,countdown);
+                encounter.Configure(activeTrack.boss,activeTrack.bossEncounter,car.GetComponent<VoxelCarController>(),road,spawner,missionProgress,countdown);
             }
 
             var missionTimer = environment.GetComponent<VoxelMissionTimerDisplay>();

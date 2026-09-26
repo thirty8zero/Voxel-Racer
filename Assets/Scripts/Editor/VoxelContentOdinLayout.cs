@@ -66,12 +66,16 @@ namespace VoxelRacer.Editor
     [CustomEditor(typeof(VoxelCarDefinition)), CanEditMultipleObjects] internal sealed class VoxelCarDefinitionOdinEditor : VoxelContentOdinEditor { }
     [CustomEditor(typeof(VoxelMainMenuTuning)), CanEditMultipleObjects] internal sealed class VoxelMenuOdinEditor : VoxelContentOdinEditor { }
     [CustomEditor(typeof(VoxelRepairUpgradeTuning)), CanEditMultipleObjects] internal sealed class VoxelGarageOdinEditor : VoxelContentOdinEditor { }
+    [CustomEditor(typeof(VoxelBossDefinition)), CanEditMultipleObjects] internal sealed class VoxelBossDefinitionOdinEditor : VoxelContentOdinEditor { }
+    [CustomEditor(typeof(VoxelBossSpikeAttackTuning)), CanEditMultipleObjects] internal sealed class VoxelBossSpikeAttackOdinEditor : VoxelContentOdinEditor { }
+    [CustomEditor(typeof(VoxelBossMineAttackTuning)), CanEditMultipleObjects] internal sealed class VoxelBossMineAttackOdinEditor : VoxelContentOdinEditor { }
 
     internal static class VoxelContentOdinLayout
     {
         internal static bool Supports(Type type) => type == typeof(VoxelScenerySet) || type == typeof(VoxelTrackSequence) ||
             type == typeof(VoxelCameraTuning) || type == typeof(VoxelStaticObstacleDefinition) || type == typeof(VoxelRoadsideTurretTuning) ||
-            type == typeof(VoxelCarDefinition) || type == typeof(VoxelMainMenuTuning) || type == typeof(VoxelRepairUpgradeTuning);
+            type == typeof(VoxelCarDefinition) || type == typeof(VoxelMainMenuTuning) || type == typeof(VoxelRepairUpgradeTuning) ||
+            type == typeof(VoxelBossDefinition) || type == typeof(VoxelBossSpikeAttackTuning) || type == typeof(VoxelBossMineAttackTuning);
 
         internal static string Configure(Type type, string name, string group, List<Attribute> attributes)
         {

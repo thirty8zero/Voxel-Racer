@@ -18,8 +18,11 @@ namespace VoxelRacer.Editor
             var root=Object.Instantiate(prefab);
             var playerObject=new GameObject("Spike test player");
             var tuning=ScriptableObject.CreateInstance<VoxelEnemyVehicleTuning>();
+            tuning.mineLayer=ScriptableObject.CreateInstance<VoxelMineLayerTuning>();
             var traffic=ScriptableObject.CreateInstance<VoxelObstacleCarTuning>();
             var random=UnityEngine.Random.state;
+            VoxelBossDefinition settings=null;
+            VoxelBossSpikeAttackTuning spikeAttack=null;
             try
             {
                 var rig=root.GetComponent<VoxelBossSpikeRig>();
@@ -30,7 +33,10 @@ namespace VoxelRacer.Editor
                 rig.SetPose(0,0);
                 var enemy=root.AddComponent<VoxelEnemyCar>();enemy.enabled=false;
                 var player=playerObject.AddComponent<VoxelCarController>();player.enabled=false;
-                var settings=new VoxelBossSettings {spikeAttackChance=1,spikeAttackCheckInterval=1};
+                settings=ScriptableObject.CreateInstance<VoxelBossDefinition>();
+                spikeAttack=ScriptableObject.CreateInstance<VoxelBossSpikeAttackTuning>();
+                spikeAttack.chance=1;spikeAttack.checkInterval=1;
+                settings.attacks=new VoxelBossAttackDefinition[]{spikeAttack};
                 enemy.ConfigureBoss(settings,3,4);
                 tuning.collisionHalfLength=6.4f;
                 Set(enemy,"<Tuning>k__BackingField",tuning);Set(enemy,"target",player);Set(enemy,"trafficTuning",traffic);
@@ -39,7 +45,7 @@ namespace VoxelRacer.Editor
                 Call(enemy,"BeginSpikeAttack");
                 Check(float.IsPositiveInfinity((float)typeof(VoxelEnemyCar).GetField("nextMineTime",Flags).GetValue(enemy)),"Mines not suspended");
                 Call(enemy,"UpdateMineLayer");
-                Call(enemy,"UpdateSpikeAttack",settings.spikeAttackWarningDuration);
+                Call(enemy,"UpdateSpikeAttack",spikeAttack.warningDuration);
                 Check(enemy.SpikePhase==VoxelEnemyCar.SpikeAttackPhase.Braking,"Warning did not finish");
                 Check(Mathf.Approximately((float)Call(enemy,"GetSpikeAttackSpeed"),-30f),"Attack does not close at 60m/s relative to a 30m/s player");
                 Check(Mathf.Approximately((float)Call(enemy,"AdvanceBossSpeed",.1f),12f),"Attack braking is not twice the original 90m/s²");
@@ -62,13 +68,13 @@ namespace VoxelRacer.Editor
                 Check(!float.IsPositiveInfinity((float)typeof(VoxelEnemyCar).GetField("nextMineTime",Flags).GetValue(enemy)),"Mines never resumed");
                 // A stopped player no longer prevents the boss from closing the gap.
                 Set(player,"<CurrentSpeed>k__BackingField",0f);Set(enemy,"trackDistance",100f);
-                Call(enemy,"BeginSpikeAttack");Call(enemy,"UpdateSpikeAttack",settings.spikeAttackWarningDuration);
+                Call(enemy,"BeginSpikeAttack");Call(enemy,"UpdateSpikeAttack",spikeAttack.warningDuration);
                 Check(Mathf.Approximately((float)Call(enemy,"GetSpikeAttackSpeed"),-60f),"Boss does not reverse toward a stopped player");
-                Call(enemy,"UpdateSpikeAttack",settings.spikeAttackApproachTimeout+.1f);
+                Call(enemy,"UpdateSpikeAttack",spikeAttack.approachTimeout+.1f);
                 Check(enemy.SpikePhase==VoxelEnemyCar.SpikeAttackPhase.Retreating,"Stopped-player escape timeout failed");
                 Check(VoxelVehicleCollision.Sweep(new Vector2(0,-30),new Vector2(0,0),new Vector2(3,10),out _),"Fast ram skips collision");
                 Check(!VoxelVehicleCollision.Sweep(new Vector2(5,-30),new Vector2(5,0),new Vector2(3,10),out _),"Lane dodge still collides");
-                settings.spikeAttackDamageMin=settings.spikeAttackDamageMax=0;
+                spikeAttack.damageMin=spikeAttack.damageMax=0;
                 Call(enemy,"BeginSpikeAttack");
                 Set(enemy,"trackDistance",0f);Set(enemy,"currentSpeed",0f);
                 Set(player,"<CurrentSpeed>k__BackingField",60f);
@@ -85,7 +91,7 @@ namespace VoxelRacer.Editor
                 Check(enemy.TrackDistance>=9f,"Retreat does not preserve body clearance");
                 Debug.Log("PASS spike attack: warning, braking, hold, 110m retreat, doors/spikes, mine suppression/resume, stopped-player timeout and swept lane dodge.");
             }
-            finally {Object.DestroyImmediate(root);Object.DestroyImmediate(playerObject);Object.DestroyImmediate(tuning);Object.DestroyImmediate(traffic);UnityEngine.Random.state=random;}
+            finally {Object.DestroyImmediate(root);Object.DestroyImmediate(playerObject);Object.DestroyImmediate(tuning.mineLayer);Object.DestroyImmediate(tuning);Object.DestroyImmediate(traffic);if(settings!=null)Object.DestroyImmediate(settings);if(spikeAttack!=null)Object.DestroyImmediate(spikeAttack);UnityEngine.Random.state=random;}
         }
         public static void Render()
         {
@@ -101,7 +107,7 @@ namespace VoxelRacer.Editor
                 preview.lights[1].intensity=1.3f;preview.lights[1].transform.rotation=Quaternion.Euler(30,20,0);
                 preview.ambientColor=new Color(.5f,.5f,.5f);
                 preview.BeginStaticPreview(new Rect(0,0,1200,800));preview.Render(true);
-                var image=preview.EndStaticPreview();File.WriteAllBytes("Temp/RedBossSpikeAttack.png",image.EncodeToPNG());Object.DestroyImmediate(image);
+                var image=preview.EndStaticPreview();File.WriteAllBytes("Temp/VanditoBossSpikeAttack.png",image.EncodeToPNG());Object.DestroyImmediate(image);
             }
             finally {preview.Cleanup();}
         }

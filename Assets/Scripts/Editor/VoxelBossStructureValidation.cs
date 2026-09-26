@@ -13,6 +13,7 @@ namespace VoxelRacer.Editor
         {
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
             var root = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(VoxelRedVanBossBuilder.PrefabPath));
+            var definition = ScriptableObject.CreateInstance<VoxelBossDefinition>();
             try
             {
                 var structure = root.transform.Find(VoxelBossStructureBuilder.StructureName);
@@ -21,7 +22,7 @@ namespace VoxelRacer.Editor
                 foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>())
                     if (renderer.GetComponentInParent<VoxelIndestructiblePart>() == null) renderer.gameObject.SetActive(false);
                 var enemy = root.AddComponent<VoxelEnemyCar>(); enemy.enabled = false;
-                typeof(VoxelEnemyCar).GetField("bossSettings", flags).SetValue(enemy, new VoxelBossSettings());
+                typeof(VoxelEnemyCar).GetField("bossSettings", flags).SetValue(enemy, definition);
                 typeof(VoxelEnemyCar).GetField("<CurrentHealth>k__BackingField", flags).SetValue(enemy, 100f);
                 enemy.TakeProjectileHit(structure, 50f, Vector3.zero, Vector3.forward);
                 if (enemy.CurrentHealth != 100f || !structure.gameObject.activeSelf) throw new Exception("Direct hit damaged structure");
@@ -32,7 +33,7 @@ namespace VoxelRacer.Editor
                 if (enemy.CurrentHealth != 0) throw new Exception("Structure prevents boss body defeat");
                 Debug.Log("PASS boss structure: protected direct hits, projectile targeting, ram removal, body defeat; one renderer and no colliders.");
             }
-            finally { Object.DestroyImmediate(root); }
+            finally { Object.DestroyImmediate(root);Object.DestroyImmediate(definition); }
         }
         public static void Render()
         {
@@ -53,7 +54,7 @@ namespace VoxelRacer.Editor
                     preview.lights[1].intensity = 1.3f; preview.lights[1].transform.rotation = Quaternion.Euler(30, 210, 0);
                     preview.ambientColor = new Color(.5f,.5f,.5f);
                     preview.BeginStaticPreview(new Rect(0,0,1100,750)); preview.Render(true);
-                    var image = preview.EndStaticPreview(); File.WriteAllBytes("Temp/RedBossStructure" + view + ".png", image.EncodeToPNG()); Object.DestroyImmediate(image);
+                    var image = preview.EndStaticPreview(); File.WriteAllBytes("Temp/VanditoBossStructure" + view + ".png", image.EncodeToPNG()); Object.DestroyImmediate(image);
                 }
                 finally { preview.Cleanup(); }
             }

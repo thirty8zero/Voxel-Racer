@@ -96,6 +96,18 @@ namespace VoxelRacer
                 }
             }
 
+            // Authored traffic models (including the Radar Interceptor) have no voxel
+            // colliders. Compare their mesh hits with the closest physics obstruction.
+            if (VoxelObstacleCar.TryFindProjectileHit(transform.position, direction, distance,
+                out var trafficVehicle, out var trafficVoxel, out var trafficPoint, out float trafficDistance) &&
+                (!hitSomething || trafficDistance < closestHit.distance))
+            {
+                trafficVehicle.TakeProjectileHit(trafficVoxel, Damage, trafficPoint, direction);
+                CreateImpactSparks(trafficPoint, direction);
+                Object.Destroy(gameObject);
+                return;
+            }
+
             // A wall, road object, or any other collider closer than a vehicle absorbs
             // the shot as well, so every visible impact produces the same feedback.
             if (hitSomething && (!hitVehicle || closestHit.distance < closestVehicleHit.distance) &&

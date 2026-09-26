@@ -44,13 +44,16 @@ namespace VoxelRacer.Editor
                 var vertices=new List<Vector3>();var triangles=new List<int>();
                 Vector3 centre=root.transform.InverseTransformPoint(glass.transform.position);
                 int side=centre.x<0?-1:1;
+                var bounds=new Bounds(centre,Vector3.zero);
+                foreach(var vertex in cube.vertices) bounds.Encapsulate(root.transform.InverseTransformPoint(glass.transform.TransformPoint(vertex)));
                 for(int x=0;x<28;x++) for(int y=0;y<18;y++)
                 {
                     var uv=new Vector2((x+.5f)/28f,(y+.5f)/18f);
                     if(!Inside(uv,Brow) && !(Inside(uv,Eye)&&!Inside(uv,Inner)) && !Inside(uv,Pupil))continue;
-                    float a=side*(.84f-x*.74f/28),b=side*(.84f-(x+1)*.74f/28);
-                    float left=Mathf.Max(Mathf.Min(a,b),centre.x-.13f),right=Mathf.Min(Mathf.Max(a,b),centre.x+.13f);
-                    float bottom=Mathf.Max(1.365f+y*.43f/18,centre.y-.12f),top=Mathf.Min(1.365f+(y+1)*.43f/18,centre.y+.12f);
+                    // Leave a narrow margin at the inside edge of each door.
+                    float a=side*(.76f-x*.74f/28),b=side*(.76f-(x+1)*.74f/28);
+                    float left=Mathf.Max(Mathf.Min(a,b),bounds.min.x),right=Mathf.Min(Mathf.Max(a,b),bounds.max.x);
+                    float bottom=Mathf.Max(1.365f+y*.43f/18,bounds.min.y),top=Mathf.Min(1.365f+(y+1)*.43f/18,bounds.max.y);
                     if(right<=left || top<=bottom)continue;
                     int n=vertices.Count;
                     foreach(var p in new[]{new Vector3(left,bottom,-2.362f),new Vector3(left,top,-2.362f),new Vector3(right,top,-2.362f),new Vector3(right,bottom,-2.362f)})
@@ -64,7 +67,13 @@ namespace VoxelRacer.Editor
                 combined.name=Path.GetFileNameWithoutExtension(path);
                 var saved=AssetDatabase.LoadAssetAtPath<Mesh>(path);
                 if(saved==null){AssetDatabase.CreateAsset(combined,path);saved=combined;}
-                else{EditorUtility.CopySerialized(combined,saved);Object.DestroyImmediate(combined);EditorUtility.SetDirty(saved);}
+                else
+                {
+                    saved.Clear();
+                    saved.CombineMeshes(new[]{new CombineInstance{mesh=cube,transform=Matrix4x4.identity},new CombineInstance{mesh=decal,transform=Matrix4x4.identity}},false,true);
+                    saved.name=combined.name;
+                    Object.DestroyImmediate(combined);EditorUtility.SetDirty(saved);
+                }
                 glass.GetComponent<MeshFilter>().sharedMesh=saved;
                 glass.sharedMaterials=new[]{glass.sharedMaterial,red};Object.DestroyImmediate(decal);
             }
@@ -83,7 +92,7 @@ namespace VoxelRacer.Editor
                 preview.lights[1].intensity=1.3f;preview.lights[1].transform.rotation=Quaternion.Euler(30,20,0);
                 preview.ambientColor=new Color(.5f,.5f,.5f);
                 preview.BeginStaticPreview(new Rect(0,0,1000,800));preview.Render(true);
-                var image=preview.EndStaticPreview();File.WriteAllBytes("Temp/RedBossAngryEyes.png",image.EncodeToPNG());Object.DestroyImmediate(image);
+                var image=preview.EndStaticPreview();File.WriteAllBytes("Temp/VanditoBossAngryEyes.png",image.EncodeToPNG());Object.DestroyImmediate(image);
             }
             finally{preview.Cleanup();}
         }

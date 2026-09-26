@@ -49,9 +49,9 @@ MonoBehaviour:
   roadTuning: {fileID: -2389841375544596361}
   obstacleCarTuning: {fileID: 2345100223370931295}
   missionTuning: {fileID: 7251224122306998669}
-  isBossLevel: 1
-  boss:
-    trafficDuration: 5
+  boss: {fileID: 11400000, guid: 679ab5612dc6433b8b69fc0420a5d5bd, type: 2}
+  bossEncounter:
+    radarInterceptorSpawnChance: 10
     minimumWaveInterval: 0.8
     maximumWaveInterval: 1.4
     minimumVehiclesPerWave: 2
@@ -60,54 +60,6 @@ MonoBehaviour:
     maximumVehicleSpacing: 18
     oncomingTrafficChance: 0.7
     roadClearDuration: 2
-    bossName: The Vandit
-    bossPrefab: {fileID: 8721871037261989453, guid: 93ff97f93c087374e958c785242c963d, type: 3}
-    entranceDuration: 2
-    health: 1000
-    voxelHealth: 8
-    playerCollisionDamageMin: 35
-    playerCollisionDamageMax: 50
-    minimumDistanceAhead: 30
-    maximumDistanceAhead: 210
-    escapeWarningDistance: 150
-    escapeFailureDistance: 200
-    minimumCruiseSpeedFraction: 0.6
-    catchUpDistance: 100
-    catchUpResumeDistance: 40
-    catchUpSpeedFraction: 0.95
-    distanceAdjustmentSpeed: 16
-    acceleration: 60
-    braking: 80
-    minimumLaneChangeInterval: 1
-    maximumLaneChangeInterval: 2
-    laneChangeSpeed: 12
-    spikeAttackEnabled: 1
-    spikeAttackChance: 0.8
-    spikeAttackCheckInterval: 5
-    spikeAttackWarningDuration: 1
-    spikeAttackHoldDuration: 1
-    spikeAttackBraking: 360
-    spikeAttackClosingResponse: 12
-    spikeAttackClosingSpeed: 1000
-    spikeAttackMissDistance: 0
-    spikeAttackAcceleration: 100
-    spikeAttackPullAwaySpeed: 55
-    spikeAttackRetreatDistance: 110
-    spikeAttackApproachTimeout: 8
-    spikeAttackRetractDuration: 1
-    spikeAttackDamageMin: 200
-    spikeAttackDamageMax: 300
-    minesEnabled: 1
-    mineTuning: {fileID: 11400000, guid: 48ca1b85ee3448d4e866fa715d6d74fd, type: 2}
-    mineDropChance: 0.6
-    mineDropInterval: 3
-    mineArmingDelay: 0.5
-    mineLifetime: 25
-    mineDamageMin: 100
-    mineDamageMax: 200
-    mineExplosionScale: 2
-    smokeDamageThreshold: 0.25
-    fireDamageThreshold: 0.5
   staticObstacleSpawns:
   - obstacle: {fileID: 11400000, guid: a2642cf1b770f304089540f52b9277a3, type: 2}
     spawnWeight: 1
@@ -274,8 +226,8 @@ MonoBehaviour:
   fuelDrumDestroyedPoints: 10
   fuelDrumDestroyedPopupDuration: 2
   roadsideTurretTuning: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
-  roadsideTurretSpawnCheckInterval: 6
-  roadsideTurretSpawnChance: 0.2
+  roadsideTurretSpawnCheckInterval: 5
+  roadsideTurretSpawnChance: 0.4
   roadsideTurretSpawnDistanceAhead: 200
   maximumActiveRoadsideTurrets: 1
   civilianNearMissDistance: 1
