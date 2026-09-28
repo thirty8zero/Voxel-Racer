@@ -9,14 +9,17 @@ namespace VoxelRacer
         private static bool purchased;
 
         public static bool IsPurchased => purchased;
-        public static float SideRamDamageBonus
+        public static float SideRamDamageBonusPercent
         {
             get
             {
                 VoxelWheelSpikeTuning tuning = VoxelWheelSpikeTuning.Load();
-                return purchased && tuning != null ? Mathf.Max(0f, tuning.sideRamDamageBonus) : 0f;
+                return purchased && tuning != null ? Mathf.Max(0f, tuning.sideRamDamageBonusPercent) : 0f;
             }
         }
+
+        public static float CalculateRamDamage(float baseDamage, bool rearImpact) =>
+            baseDamage * (rearImpact ? 1f : 1f + SideRamDamageBonusPercent / 100f);
 
         public static void BeginNewRun() => purchased = false;
 

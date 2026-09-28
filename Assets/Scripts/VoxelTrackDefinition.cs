@@ -36,12 +36,20 @@ namespace VoxelRacer
         public Material obstacleMaterial;
 
         [Header("Generated Material Colours")]
-        public Color roadColour = new(0.10f, 0.12f, 0.16f);
+        public Color roadColour = new(0.29f, 0.29f, 0.32f);
         public Color groundColour = new(0.31f, 0.18f, 0.07f);
         public Color shoulderColour = new(0.72f, 0.38f, 0.15f);
         public Color roadLineColour = new(1f, 0.78f, 0.16f);
         public Color cactusColour = new(0.12f, 0.34f, 0.12f);
         public Color obstacleColour = new(0.34f, 0.17f, 0.07f);
+
+        [Header("Road Texture")]
+        public bool roadTextureEnabled = true;
+        [Range(0f, .35f)] public float roadTextureVariation = .14f;
+        [Tooltip("Width of the subtle longitudinal asphalt patches, in metres.")]
+        [Min(.1f)] public float roadTexturePatchWidth = .65f;
+        [Tooltip("Average patch length along the road, in metres.")]
+        [Min(.5f)] public float roadTexturePatchLength = 7f;
 
         [Header("Ground Pixel Noise")]
         public bool groundPixelNoiseEnabled = true;

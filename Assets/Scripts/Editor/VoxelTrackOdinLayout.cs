@@ -31,6 +31,7 @@ namespace VoxelRacer.Editor
             if(name=="missionTuning" || name=="scenerySet") attributes.Add(new InlineEditorAttribute());
             if(name.StartsWith("fog") && name!="fogEnabled") attributes.Add(new ShowIfAttribute("fogEnabled"));
             if(name.StartsWith("groundNoise")) attributes.Add(new ShowIfAttribute("groundPixelNoiseEnabled"));
+            if(name.StartsWith("roadTexture") && name!="roadTextureEnabled") attributes.Add(new ShowIfAttribute("roadTextureEnabled"));
             if(name.StartsWith("sun")) attributes.Add(new ShowIfAttribute("horizonSunEnabled"));
             if(name.StartsWith("mountain") || name=="minimumMountainPeakHeight" || name=="maximumMountainPeakHeight")
                 attributes.Add(new ShowIfAttribute("horizonMountainsEnabled"));

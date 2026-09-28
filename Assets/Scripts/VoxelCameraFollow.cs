@@ -68,12 +68,16 @@ namespace VoxelRacer
                 return;
             }
 
-            Quaternion roadHeading = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
+            var player = target.GetComponent<VoxelCarController>();
+            bool oilSpin = player != null && player.IsOilSpinning && player.TrackPath != null;
+            Quaternion roadHeading = oilSpin ? player.TrackPath.Evaluate(player.TrackDistance).rotation :
+                Quaternion.Euler(0f, target.eulerAngles.y, 0f);
             Vector3 cameraTargetPosition = GetSmoothedLaneTargetPosition(roadHeading);
             Vector3 chaseOffset = Tuning != null ? Tuning.chaseOffset : offset;
             float chaseLookAhead = Tuning != null ? Tuning.chaseLookAhead : lookAhead;
             transform.position = cameraTargetPosition + roadHeading * chaseOffset;
-            transform.rotation = Quaternion.LookRotation(cameraTargetPosition + target.forward * chaseLookAhead + Vector3.up * 0.3f - transform.position);
+            Vector3 lookForward = oilSpin ? roadHeading * Vector3.forward : target.forward;
+            transform.rotation = Quaternion.LookRotation(cameraTargetPosition + lookForward * chaseLookAhead + Vector3.up * 0.3f - transform.position);
             ApplyShake();
         }
 

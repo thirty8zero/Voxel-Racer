@@ -10,16 +10,31 @@ namespace VoxelRacer
         public VoxelMissionTuning Tuning { get; private set; }
         public int Points { get; private set; }
         public VoxelMissionBreakdown Breakdown { get; } = new();
-        public float Percent => IsBossEncounter ? (IsComplete?1f:missionBoss!=null?1f-missionBoss.HealthPercent:0f) :
-            Tuning == null ? 0f : Mathf.Clamp01((float)Points / Tuning.requiredPoints);
+        public float Percent
+        {
+            get
+            {
+                if (IsComplete) return 1f;
+                float progress;
+                if (IsBossEncounter)
+                    progress = missionBoss != null ? 1f - missionBoss.HealthPercent : 0f;
+                else
+                    progress = Tuning == null ? 0f : (float)Points / Tuning.requiredPoints;
+                // Keep incomplete missions short of a full bar, even if score or
+                // boss-health math would otherwise round/clamp all the way to 1.
+                return Mathf.Clamp(progress, 0f, .999f);
+            }
+        }
         public bool IsComplete { get; private set; }
         public bool IsFailed {get;private set;}
         public void FailBossEncounter() { if(IsBossEncounter && !IsComplete) IsFailed=true; }
         public bool IsBossEncounter {get;private set;}
         private VoxelEnemyCar missionBoss;
         private string bossName;
-        public void SetBossEncounter(bool enabled) {IsBossEncounter=enabled;missionBoss=null;}
-        public void ShowBoss(VoxelEnemyCar boss,string name) {missionBoss=boss;bossName=name;}
+        public void SetBossEncounter(bool enabled) {IsBossEncounter=enabled;missionBoss=null;radarDestroyedAt=-1f;bossArrivedAt=-1f;}
+        public void ShowBoss(VoxelEnemyCar boss,string name) {missionBoss=boss;bossName=name;bossArrivedAt=Time.unscaledTime;}
+        private float radarDestroyedAt = -1f, bossArrivedAt = -1f;
+        public void ShowRadarDestroyed() { if (radarDestroyedAt < 0f) radarDestroyedAt = Time.unscaledTime; }
         public void CompleteBossEncounter()
         {
             if(IsBossEncounter && !IsComplete && !IsFailed && missionBoss!=null && missionBoss.CurrentHealth<=0)
@@ -305,6 +320,25 @@ namespace VoxelRacer
             Color previousColor = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, hudAlpha);
 
+            // Keep the completed objective through road clearing, then cross-fade on arrival.
+            float arrivalFade = bossArrivedAt < 0f ? 0f : Mathf.SmoothStep(0f, 1f,
+                (Time.unscaledTime - bossArrivedAt) / .8f);
+            if (IsBossEncounter && !IsComplete && !IsFailed && arrivalFade < 1f)
+            {
+                var objectiveArea = VoxelRadarObjectiveHud.Area(Screen.width);
+                VoxelRadarObjectiveHud.Draw(objectiveArea, hudAlpha * (1f - arrivalFade),
+                    radarDestroyedAt >= 0f, radarDestroyedAt < 0f ? 0f : Time.unscaledTime - radarDestroyedAt);
+                PercentageScreenPosition = objectiveArea.center;
+                if (missionBoss == null)
+                {
+                    DrawMultiplier(objectiveArea, hudAlpha);
+                    GUI.color = previousColor;
+                    return;
+                }
+            }
+            if (IsBossEncounter && missionBoss != null && !IsComplete) hudAlpha *= arrivalFade;
+            GUI.color = new Color(1f, 1f, 1f, hudAlpha);
+
             const float width = 540f;
             bool compactBossHud = IsBossEncounter && (missionBoss != null || IsComplete);
             float height = compactBossHud ? 60f : 70f;
@@ -326,7 +360,7 @@ namespace VoxelRacer
                 GUI.Label(labelRect, "MISSION COMPLETE", labelStyle);
             else if(IsBossEncounter)
             {
-                string title=missionBoss!=null?bossName:"Destroy the Radar Interceptor";
+                string title=missionBoss!=null?bossName:VoxelRadarObjectiveHud.Instruction;
                 labelStyle.fontSize=Mathf.Min(baseFontSize,Mathf.FloorToInt(baseFontSize*(labelRect.width/Mathf.Max(labelRect.width,labelStyle.CalcSize(new GUIContent(title)).x))));
                 GUI.Label(labelRect,title,labelStyle);
                 PercentageScreenPosition=labelRect.center;
@@ -338,7 +372,9 @@ namespace VoxelRacer
                 percentageSymbolFont ??= Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
                 var symbolStyle = new GUIStyle(labelStyle) { font = percentageSymbolFont };
                 string heading = $"{Tuning.displayName}: ";
-                string percentage = $"{Mathf.RoundToInt(Percent * 100f)}%";
+                int wholePercent = Mathf.RoundToInt(Percent * 100f);
+                if (!IsComplete) wholePercent = Mathf.Min(wholePercent, 99);
+                string percentage = $"{wholePercent}%";
                 float headingWidth = labelStyle.CalcSize(new GUIContent(heading)).x;
                 float symbolWidth = symbolStyle.CalcSize(new GUIContent(percentage)).x;
                 float left = labelRect.center.x - (headingWidth + symbolWidth) * 0.5f;

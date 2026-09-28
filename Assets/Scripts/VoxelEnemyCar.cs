@@ -455,7 +455,7 @@ namespace VoxelRacer
                 -hitDirection, Random.Range(
                     Mathf.Min(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax),
                     Mathf.Max(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax) + 1));
-            float ramDamage = Tuning.playerRamDamage + (rearImpact ? 0f : VoxelWheelSpikeUpgradeState.SideRamDamageBonus);
+            float ramDamage = VoxelWheelSpikeUpgradeState.CalculateRamDamage(Tuning.playerRamDamage, rearImpact);
             VoxelMissionProgress.ReportEnemyVoxelDestroyed(removedVoxels, transform.position);
             CurrentHealth = Mathf.Max(0f, CurrentHealth - ramDamage);
             CheckBossBodyDestroyed();

@@ -92,6 +92,7 @@ namespace VoxelRacer
             if (CurrentStage != Stage.Traffic || defeated == null || !defeated.IsEnemyTraffic || defeated.CurrentHealth > 0) return;
             CurrentStage = Stage.Clearing;
             elapsed = 0;
+            mission.ShowRadarDestroyed();
             spawner.StopSpawning();
         }
 

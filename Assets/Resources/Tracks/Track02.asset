@@ -30,6 +30,8 @@ MonoBehaviour:
     spawnWeight: 1
   - obstacle: {fileID: 11400000, guid: 6f275487debd2654bb47e3a2d9f2e5f4, type: 2}
     spawnWeight: 1
+  - obstacle: {fileID: 11400000, guid: 19611ab95d5ae8444b5f57946cd9c1a3, type: 2}
+    spawnWeight: 0.7
   potholeSpawnChance: 0.35
   potholePlayerDamageVoxelsMin: 10
   potholePlayerDamageVoxelsMax: 14
@@ -153,12 +155,16 @@ MonoBehaviour:
   roadLineMaterial: {fileID: 0}
   cactusMaterial: {fileID: 0}
   obstacleMaterial: {fileID: 0}
-  roadColour: {r: 0.1, g: 0.12, b: 0.16, a: 1}
+  roadColour: {r: 0.29, g: 0.29, b: 0.32, a: 1}
   groundColour: {r: 0.31, g: 0.18, b: 0.07, a: 1}
   shoulderColour: {r: 0.72, g: 0.38, b: 0.15, a: 1}
   roadLineColour: {r: 1, g: 0.78, b: 0.16, a: 1}
   cactusColour: {r: 0.12, g: 0.34, b: 0.12, a: 1}
   obstacleColour: {r: 0.34, g: 0.17, b: 0.07, a: 1}
+  roadTextureEnabled: 1
+  roadTextureVariation: 0.14
+  roadTexturePatchWidth: 0.65
+  roadTexturePatchLength: 7
   groundPixelNoiseEnabled: 1
   groundNoisePixelSize: 0.75
   groundNoiseDensity: 0.6

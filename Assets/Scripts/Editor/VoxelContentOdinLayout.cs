@@ -105,7 +105,10 @@ namespace VoxelRacer.Editor
             {
                 if (group == "Settings") group = "Identity & Model";
                 if (name == "modelPrefab") { attributes.Add(new PreviewFieldAttribute(80)); attributes.Add(new ShowIfAttribute("@obstacleType == VoxelRacer.VoxelStaticObstacleType.VoxelBox")); }
-                if (group == "Weapon Damage" || group == "Explosion") attributes.Add(new HideIfAttribute("@obstacleType == VoxelRacer.VoxelStaticObstacleType.Pothole"));
+                if (group == "Weapon Damage" || group == "Explosion") attributes.Add(new HideIfAttribute("@obstacleType == VoxelRacer.VoxelStaticObstacleType.Pothole || obstacleType == VoxelRacer.VoxelStaticObstacleType.OilSlick"));
+                if (group == "Player Impact") attributes.Add(new HideIfAttribute("@obstacleType == VoxelRacer.VoxelStaticObstacleType.OilSlick"));
+                if (group == "Oil Slick") attributes.Add(new ShowIfAttribute("@obstacleType == VoxelRacer.VoxelStaticObstacleType.OilSlick"));
+                if (name == "oilSpinDuration" || name == "oilTireMarkLifetime") attributes.Add(new SuffixLabelAttribute("s"));
             }
             if (type == typeof(VoxelCameraTuning) && group.Contains("Shake")) group = "Screen Shake/" + group;
             if (name.Contains("Degrees") || name.Contains("Angle") || name.EndsWith("FieldOfView")) attributes.Add(new SuffixLabelAttribute("degrees"));

@@ -15,4 +15,4 @@ MonoBehaviour:
   displayName: WHEEL SPIKES
   spikePrefab: {fileID: 1000, guid: 02de77a9cabd44f1ac800a3f4a123456, type: 3}
   purchasePrice: 150
-  sideRamDamageBonus: 15
+  sideRamDamageBonusPercent: 15

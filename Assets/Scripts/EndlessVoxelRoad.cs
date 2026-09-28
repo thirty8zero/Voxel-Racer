@@ -437,7 +437,11 @@ namespace VoxelRacer
             {
                 VoxelTrackPose pose = EvaluateSegment(data, (slice + 0.5f) * sliceLength);
                 float depth = sliceLength + (slices > 1 ? 0.65f : 0f);
-                CreatePlacedBlock("Road", segment, pose, 0f, -0.14f, new Vector3(roadWidth, 0.28f, depth), VoxelRacerBootstrap.RoadMaterial);
+                var asphalt = CreatePlacedBlock("Road", segment, pose, 0f, -0.14f, new Vector3(roadWidth, 0.28f, depth), VoxelRacerBootstrap.RoadMaterial);
+                var roadProperties = new MaterialPropertyBlock();
+                roadProperties.SetVector("_RoadCoordinates", new Vector4(roadWidth, depth,
+                    data.startDistance + (slice + .5f) * sliceLength, 0f));
+                asphalt.GetComponent<MeshRenderer>().SetPropertyBlock(roadProperties);
                 CreatePlacedBlock("Left Shoulder", segment, pose, -roadWidth * 0.5f - 0.55f, -0.08f, new Vector3(1.1f, 0.18f, depth), VoxelRacerBootstrap.ShoulderMaterial);
                 CreatePlacedBlock("Right Shoulder", segment, pose, roadWidth * 0.5f + 0.55f, -0.08f, new Vector3(1.1f, 0.18f, depth), VoxelRacerBootstrap.ShoulderMaterial);
             }

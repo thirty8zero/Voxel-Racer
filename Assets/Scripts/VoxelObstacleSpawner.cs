@@ -188,6 +188,14 @@ namespace VoxelRacer
 
                 switch (definition.obstacleType)
                 {
+                    case VoxelStaticObstacleType.OilSlick:
+                    {
+                        var oil = new GameObject(definition.displayName).AddComponent<VoxelOilSlickObstacle>();
+                        oil.transform.SetParent(transform);
+                        oil.Configure(target, path, definition, distance, laneOffset, laneWidth);
+                        oil.gameObject.AddComponent<VoxelFadeIn>();
+                        break;
+                    }
                     case VoxelStaticObstacleType.Pothole:
                     {
                         var pothole = new GameObject(definition.displayName).AddComponent<VoxelPotholeObstacle>();
@@ -397,6 +405,8 @@ namespace VoxelRacer
 
         private bool HasStaticObstacleInLane(float candidateOffset)
         {
+            foreach (var oil in GetComponentsInChildren<VoxelOilSlickObstacle>())
+                if (IsInLane(oil.LaneOffset, candidateOffset)) return true;
             foreach (var obstacle in GetComponentsInChildren<VoxelObstacle>())
                 if (IsInLane(obstacle.LaneOffset, candidateOffset))
                     return true;
@@ -412,6 +422,8 @@ namespace VoxelRacer
         /// <summary>Used by roadside hazards to avoid creating an unavoidable cross-road wall beside a static obstacle.</summary>
         public bool HasStaticObstacleNearTrackDistance(float candidateDistance, float clearance)
         {
+            foreach (var oil in GetComponentsInChildren<VoxelOilSlickObstacle>())
+                if (Mathf.Abs(oil.TrackDistance - candidateDistance) <= clearance) return true;
             foreach (var obstacle in GetComponentsInChildren<VoxelObstacle>())
                 if (Mathf.Abs(obstacle.TrackDistance - candidateDistance) <= clearance)
                     return true;

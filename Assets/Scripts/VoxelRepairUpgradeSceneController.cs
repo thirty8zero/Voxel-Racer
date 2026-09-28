@@ -408,14 +408,14 @@ namespace VoxelRacer
             {
                 wheelSpikeUpgradeButton.interactable = false;
                 wheelSpikeUpgradeButtonLabel.text = tuning.displayName.ToUpperInvariant() + "\nINSTALLED (+" +
-                    tuning.sideRamDamageBonus + " SIDE RAM DAMAGE)";
+                    tuning.sideRamDamageBonusPercent + "% SIDE RAM DAMAGE)";
                 return;
             }
 
             bool affordable = VoxelCurrencyState.Balance >= tuning.purchasePrice;
             wheelSpikeUpgradeButton.interactable = affordable;
             wheelSpikeUpgradeButtonLabel.text = tuning.displayName.ToUpperInvariant() + " (SET OF 4)\n+" +
-                tuning.sideRamDamageBonus + " SIDE RAM DAMAGE\nCOST <color=#FFD12A>" + tuning.purchasePrice + "</color>";
+                tuning.sideRamDamageBonusPercent + "% SIDE RAM DAMAGE\nCOST <color=#FFD12A>" + tuning.purchasePrice + "</color>";
         }
 
         private void BuildUpgradeScroll(Transform panel)

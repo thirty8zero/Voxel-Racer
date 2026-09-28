@@ -10,27 +10,27 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a3dbe1fada4e6aa429739c1160971f5a, type: 3}
-  m_Name: FuelDrums
+  m_Name: OilSlick
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelStaticObstacleDefinition
-  displayName: FUEL DRUMS
-  obstacleType: 2
+  displayName: Oil Slick
+  obstacleType: 3
   modelPrefab: {fileID: 0}
   oilSpinDuration: 1.1
   oilTireMarkLifetime: 8
-  playerDamageVoxelsMin: 80
-  playerDamageVoxelsMax: 120
-  hitPoints: 50
+  playerDamageVoxelsMin: 8
+  playerDamageVoxelsMax: 12
+  hitPoints: 3
   rearSurfaceHitRandomness: 0.8
   weaponDebrisScale: 0.65
   weaponDebrisLifetime: 1.1
   weaponDebrisForwardForce: 6
-  weaponDebrisUpwardForce: 3
-  weaponDebrisSpreadForce: 2
-  explosionEffectScale: 1.5
-  explosionDebrisCount: 120
-  explosionDebrisScale: 1
-  explosionDebrisLifetime: 4
+  weaponDebrisUpwardForce: 2.2
+  weaponDebrisSpreadForce: 1.2
+  explosionEffectScale: 1
+  explosionDebrisCount: 18
+  explosionDebrisScale: 0.7
+  explosionDebrisLifetime: 1.5
   explosionForwardForce: 8
-  explosionUpwardForce: 20
-  explosionSpreadForce: 15
-  destroyedLifetime: 4
+  explosionUpwardForce: 4
+  explosionSpreadForce: 3
+  destroyedLifetime: 1.8

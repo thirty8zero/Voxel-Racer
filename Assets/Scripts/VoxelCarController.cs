@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace VoxelRacer
 {
     /// <summary>Simple arcade lane driving. Tune the public values directly in the Inspector.</summary>
-    public sealed class VoxelCarController : MonoBehaviour
+    public sealed partial class VoxelCarController : MonoBehaviour
     {
         [Header("Persistent Tuning")]
         [Tooltip("This car reads from the shared asset. Edit the asset itself to make persistent changes.")]
@@ -247,19 +247,22 @@ namespace VoxelRacer
             }
 
             float targetLaneOffset = TargetLaneOffset;
-            CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, targetLaneOffset, EffectiveLaneChangeSpeed * Time.deltaTime);
+            if (IsOilSpinning) AdvanceOilSpin(Time.deltaTime);
+            else CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, targetLaneOffset, EffectiveLaneChangeSpeed * Time.deltaTime);
             float laneOffset = targetLaneOffset - CurrentLaneOffset;
             float steeringTarget = Mathf.Abs(laneOffset) > 0.01f
                 ? Mathf.Sign(laneOffset) * frontWheelTurnDegrees
                 : 0f;
 
             float laneDirection = Mathf.Abs(laneOffset) > 0.01f ? Mathf.Sign(laneOffset) : 0f;
-            float targetYaw = laneDirection * laneChangeYawDegrees;
-            float targetRoll = -laneDirection * laneChangeBodyRollDegrees;
+            float targetYaw = IsOilSpinning ? 0f : laneDirection * laneChangeYawDegrees;
+            float targetRoll = IsOilSpinning ? 0f : -laneDirection * laneChangeBodyRollDegrees;
             float visualStep = laneChangeVisualRotationSpeed * Time.deltaTime;
             visualYaw = Mathf.MoveTowardsAngle(visualYaw, targetYaw, visualStep);
             visualRoll = Mathf.MoveTowardsAngle(visualRoll, targetRoll, visualStep);
             ApplyTrackPose();
+
+            UpdateOilTireMarks();
 
             foreach (Transform child in GetComponentsInChildren<Transform>())
             {
@@ -293,7 +296,7 @@ namespace VoxelRacer
             VoxelTrackPose pose = TrackPath.Evaluate(TrackDistance);
             transform.position = pose.position + pose.forward * (ramForwardOffset + boostForwardOffset) +
                 pose.right * (CurrentLaneOffset + ramLateralOffset);
-            transform.rotation = pose.rotation * Quaternion.Euler(0f, visualYaw, visualRoll);
+            transform.rotation = pose.rotation * Quaternion.Euler(0f, visualYaw + oilSpinYaw, visualRoll);
         }
 
         /// <summary>Applies the player-side recoil after a surviving enemy ram.</summary>
@@ -353,6 +356,7 @@ namespace VoxelRacer
 
         private void RequestLaneChange(int requestedLane)
         {
+            if (IsOilSpinning) return;
             requestedLane = Mathf.Clamp(requestedLane, 0, laneCount - 1);
             if (requestedLane == currentLane)
                 return;
@@ -372,6 +376,7 @@ namespace VoxelRacer
 
         private void ReturnToPreviousLane()
         {
+            if (IsOilSpinning) return;
             if (previousLane == currentLane)
                 return;
 

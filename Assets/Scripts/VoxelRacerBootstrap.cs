@@ -837,8 +837,7 @@ namespace VoxelRacer
 
         private static void CreateMaterials(VoxelTrackDefinition track = null)
         {
-            roadMaterial = ResolveTrackMaterial(track != null ? track.roadMaterial : null,
-                "Road", track != null ? track.roadColour : new Color(0.10f, 0.12f, 0.16f));
+            roadMaterial = CreateRoadMaterial(track);
             paintMaterial = LoadCarMaterial("CarMaterials/CarPaint", "Car Paint", new Color(0.08f, 0.55f, 0.95f));
             glassMaterial = LoadCarMaterial("CarMaterials/CarGlass", "Windows", new Color(0.04f, 0.15f, 0.25f));
             tyreMaterial = LoadCarMaterial("CarMaterials/CarTyres", "Tyres", new Color(0.025f, 0.03f, 0.045f));
@@ -875,6 +874,23 @@ namespace VoxelRacer
         private static Material ResolveTrackMaterial(Material materialOverride, string materialName, Color colour)
         {
             return materialOverride != null ? materialOverride : MakeMaterial(materialName, colour);
+        }
+
+        private static Material CreateRoadMaterial(VoxelTrackDefinition track)
+        {
+            if (track != null && track.roadMaterial != null) return track.roadMaterial;
+            Color colour = track != null ? track.roadColour : new Color(.29f, .29f, .32f);
+            if (track != null && !track.roadTextureEnabled) return MakeMaterial("Road", colour);
+            // A Resources template retains the shader in player builds.
+            var template = Resources.Load<Material>("Road/AsphaltTemplate");
+            var shader = template != null ? template.shader : Shader.Find("Voxel Racer/Road Asphalt");
+            if (shader == null) return MakeMaterial("Road", colour);
+            var material = new Material(shader) { name = "Road Asphalt" };
+            material.SetColor("_BaseColor", colour);
+            material.SetFloat("_Variation", track != null ? track.roadTextureVariation : .14f);
+            material.SetVector("_PatchSize", new Vector4(track != null ? track.roadTexturePatchWidth : .65f,
+                track != null ? track.roadTexturePatchLength : 7f, 0f, 0f));
+            return material;
         }
 
         private static Material CreateGroundMaterial(VoxelTrackDefinition track)

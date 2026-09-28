@@ -15,6 +15,8 @@ MonoBehaviour:
   displayName: POTHOLE
   obstacleType: 1
   modelPrefab: {fileID: 0}
+  oilSpinDuration: 1.1
+  oilTireMarkLifetime: 8
   playerDamageVoxelsMin: 50
   playerDamageVoxelsMax: 500
   hitPoints: 1

@@ -6,7 +6,8 @@ namespace VoxelRacer
     {
         VoxelBox,
         Pothole,
-        FuelDrums
+        FuelDrums,
+        OilSlick
     }
 
     /// <summary>Reusable behaviour tuning for one selectable static road obstacle type.</summary>
@@ -17,6 +18,12 @@ namespace VoxelRacer
         public VoxelStaticObstacleType obstacleType;
         [Tooltip("Optional authored voxel model for box obstacles. Other obstacle types use their own builders.")]
         public GameObject modelPrefab;
+
+        [Header("Oil Slick")]
+        [Tooltip("Seconds to complete one full spin and slide into an adjacent lane. Oil causes no direct damage.")]
+        [Min(0.2f)] public float oilSpinDuration = 1.1f;
+        [Tooltip("Seconds the black tire marks remain on the road, including their final fade.")]
+        [Range(1f, 20f)] public float oilTireMarkLifetime = 8f;
 
         [Header("Player Impact")]
         [Min(1)] public int playerDamageVoxelsMin = 8;

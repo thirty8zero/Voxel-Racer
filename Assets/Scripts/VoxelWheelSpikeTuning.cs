@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace VoxelRacer
 {
@@ -10,8 +11,9 @@ namespace VoxelRacer
         [Tooltip("The single visual model instantiated once on each of the car's four wheels.")]
         public GameObject spikePrefab;
         [Min(0)] public int purchasePrice = 125;
-        [Tooltip("Extra enemy damage dealt only when the player rams from the side.")]
-        [Min(0f)] public float sideRamDamageBonus = 12f;
+        [FormerlySerializedAs("sideRamDamageBonus")]
+        [Tooltip("Percentage added to the struck enemy's player ram damage for side impacts. 15 means +15% (20 becomes 23). Rear impacts are unchanged.")]
+        [Min(0f)] public float sideRamDamageBonusPercent = 15f;
 
         public static VoxelWheelSpikeTuning Load() =>
             Resources.Load<VoxelWheelSpikeTuning>("Upgrades/WheelSpikeTuning");

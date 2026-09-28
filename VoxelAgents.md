@@ -89,6 +89,8 @@ A car definition connects display name, selection availability/order, visual pre
 9. Provide meaningful per-side/per-slot entries. Check isolated/combined upgrades, both sides, incompatible cars, body-hidden and upgrades-only views.
 10. Run the relevant family validation and inspect the actual model from multiple angles.
 
+Wheel spike side-ram damage is a percentage bonus (`sideRamDamageBonusPercent`, currently +15%). `VoxelWheelSpikeUpgradeState.CalculateRamDamage` multiplies each enemy/boss tuning's `playerRamDamage` by `1 + bonus / 100` only for purchased side impacts; rear impacts stay unchanged. The legacy serialized field name migrates via `FormerlySerializedAs`. Radar traffic retains its existing instant-destruction collision behavior. Validate with Tools > Voxel Racer > Validate Wheel Spike Damage.
+
 Engine exhausts belong to the engine. Each tip carries `VoxelEngineExhaustOutlet`; its local **+Z points out of the pipe**. Boost effects must use these outlets, including multiple outlets after an engine upgrade. Do not hard-code a single world-space flame position.
 
 ## Tracks, traffic and enemy variants
@@ -118,6 +120,14 @@ Road positions use lane offsets and distance along `EndlessVoxelRoad`/`VoxelTrac
 - Use existing builders as examples: `Editor/VoxelEnemySedanBuilder.cs`, `VoxelMineLayerBuilder.cs`, `VoxelCivilianHatchbackBuilder.cs`, `VoxelCivilianVanBuilder.cs`.
 - Preserve damage smoke/fire via `VoxelVehicleDamageEffects`. Enemy/civilian defaults start smoke after 25% damage and fire after 50%; player thresholds are 50% health for smoke and 25% health for fire. Inspect live settings before changing them.
 
+## Road texture and oil slicks
+
+- Generated asphalt uses `Shaders/VoxelRoadAsphalt.shader`, with a Resources shader-retention template at `Resources/Road/AsphaltTemplate.mat`. Track > Environment > Road Texture controls contrast and patch width/length in metres; `roadColour` controls brightness. Road blocks supply their width, length and track distance through `_RoadCoordinates`, so longitudinal patches follow turns. Explicit road material overrides still take precedence.
+- `Resources/StaticObstacles/OilSlick.asset` is a `VoxelStaticObstacleDefinition` with type `OilSlick` (appended to preserve existing enum values). Each track's embedded traffic tuning selects it through `staticObstacleSpawns`; its initial relative weight is 0.7. The boss approach still uses its existing vehicles-only rules.
+- `VoxelOilSlickObstacle` builds a collider-free black blob with muted sheen. Only the player is queried, using swept `CollisionTrackPosition`; enemies, civilians and projectiles pass through unaffected. A slick triggers once, causes no direct damage, and despawns behind the player.
+- `VoxelCarOilSpin` owns the 360-degree rotation and eased slide within the existing player controller. It picks a random valid adjacent lane from the nearest lane, turns inward at road edges, and stays in lane on a single-lane road. Steering and repeated oil triggers cannot interrupt a spin. `VoxelCameraFollow` keeps the chase heading aligned with the road during the spin.
+- `VoxelOilTireMarks` samples up to four actual wheel transforms into one bounded mesh per spin. Marks fade and expire according to the oil asset (default spin 1.1 seconds, tire marks 8 seconds). They have no colliders or damage behavior.
+- Editor tools: Create Oil Slick and Road Texture (idempotent asset registration; preserves existing tuning), Validate Oil Slick (Edit Mode), Validate Oil Slick in Play Mode (temporary runtime test, returns to Edit Mode), and Render Road and Oil Slick. Previews and Play Mode results are written under `Temp/OilSlick/`.
 ## Red Van Boss
 
 Primary assets: `Resources/Bosses/RedTransitBoss.prefab`, `Resources/Tracks/TrackBoss01.asset`, `Resources/Bosses/VanditoBossMineTuning.asset` and `VanditoBossMine.prefab`.
@@ -128,7 +138,7 @@ The Vandito definition is `Resources/Bosses/RedVanBoss.asset`. Its spike and min
 - `VoxelBossEncounter` stages: traffic approach, natural traffic clearance, boss, completion/failure. Traffic is allowed to leave naturally; do not restore the old accelerated cleanup or forced removal.
 - Traffic approach ends only when the Radar Interceptor is destroyed. `radarInterceptorSpawnChance` is a 1–100% slider under Boss / Traffic Approach (default 10%). One target is active at a time; a missed/despawned target can reappear. Destruction stops queued/new spawns; surviving traffic clears naturally before boss entry.
 - Radar assets: `Prefabs/Cars/RadarInterceptor.prefab`, `Resources/EnemyVehicles/RadarInterceptorTuning.asset`. The model copies Black Interceptor with a roof dish animated by `VoxelRadarDish`. `Editor/VoxelRadarInterceptorBuilder` builds/renders it. It has 5 health and uses `VoxelObstacleCar` with an enemy tuning override for civilian driving and enemy destruction rewards, without civilian damage penalties. Only `VoxelBossEncounter.Configure` enables its spawner path; normal missions never select it.
-- Approach HUD says Destroy the Radar Interceptor; boss phase shows configured name and health. Score does not complete a boss mission: defeating the boss does.
+- Approach HUD says "Find and destroy a radar car to locate the Boss", with a radar-car silhouette below. `VoxelRadarObjectiveHud` shares artwork/layout with Tools > Voxel Racer > Radar Objective Preview. `RadarDefeated` calls `VoxelMissionProgress.ShowRadarDestroyed` to show an orange/yellow explosion during road clearing. `ShowBoss` fades the objective into boss name/health over 0.8 seconds. Score does not complete a boss mission: defeating the boss does.
 - Spawn distance is `Clamp(Max(minimumDistanceAhead, maximumDistanceAhead), 1, WarningDistance * .8)`, added to player collision-track distance. It is not a separate spawn-distance field. With warning 150m the cap is 120m.
 - Visual scaling spans roughly two lanes. Lane moves use valid two-lane pairs. Warning/failure distances and catch-up behaviour are configurable. Do not reintroduce ordinary enemy distance culling for the boss.
 - Mine tuning supplies model/collision/damage/explosion; Track boss settings override drop timing/chance, arming and lifetime. Without a mine tuning reference, legacy fallback damage settings are used.
