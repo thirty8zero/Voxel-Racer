@@ -30,7 +30,7 @@ namespace VoxelRacer.Editor
             if (focus is VoxelArmorTuning armor)
                 window.definition = VoxelUpgradeFitCatalog.Assets<VoxelCarDefinition>()
                     .FirstOrDefault(c => c.visualPrefab == armor.compatibleCarPrefab);
-            foreach (var entry in window.entries) entry.Selected = focus == null || entry.Asset == focus;
+            foreach (var entry in window.entries) entry.Selected = focus == null || entry.Asset == focus || (entry.Asset is VoxelMissileLauncherTuning missile && missile.weapon == focus);
             window.Rebuild();
             window.Show();
         }

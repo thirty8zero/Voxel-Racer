@@ -66,15 +66,23 @@ namespace VoxelRacer
             return true;
         }
 
-        private static bool IsFireHeld()
+        private bool IsFireHeld()
         {
             var keyboard = Keyboard.current;
+            if (tuning != null && tuning.projectileKind == VoxelProjectileKind.Missile)
+                return (keyboard != null && keyboard.xKey.isPressed) || VoxelMobileControls.IsMissileHeld;
             return (keyboard != null && (keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed)) ||
                 VoxelMobileControls.IsFireHeld;
         }
 
         private void FireProjectile()
         {
+            if (tuning.projectileKind == VoxelProjectileKind.Missile)
+            {
+                float side = Mathf.Sign(owningCar.transform.InverseTransformPoint(MuzzlePosition).x);
+                VoxelMissileProjectile.Create(MuzzlePosition, owningCar, side, tuning);
+                return;
+            }
             Vector3 direction = Quaternion.AngleAxis(Random.Range(-tuning.spreadDegrees, tuning.spreadDegrees), Vector3.up) *
                 FireDirection;
             VoxelFireEffects.PlayMuzzleFire(muzzle != null ? muzzle : transform, direction);

@@ -30,6 +30,7 @@ namespace VoxelRacer.Editor
         }
     }
     [CustomEditor(typeof(VoxelGunTuning)),CanEditMultipleObjects] internal sealed class VoxelGunOdinEditor:VoxelOdinTuningEditor {}
+    [CustomEditor(typeof(VoxelMissileLauncherTuning)),CanEditMultipleObjects] internal sealed class VoxelMissileOdinEditor:VoxelOdinTuningEditor {}
     [CustomEditor(typeof(VoxelPloughTuning)),CanEditMultipleObjects] internal sealed class VoxelPloughOdinEditor:VoxelOdinTuningEditor {}
     [CustomEditor(typeof(VoxelEngineUpgradeTuning)),CanEditMultipleObjects] internal sealed class VoxelEngineOdinEditor:VoxelOdinTuningEditor {}
     [CustomEditor(typeof(VoxelPerformanceWheelTuning)),CanEditMultipleObjects] internal sealed class VoxelWheelOdinEditor:VoxelOdinTuningEditor {}
@@ -41,7 +42,7 @@ namespace VoxelRacer.Editor
     public sealed class VoxelOdinTuningLayout : OdinAttributeProcessor<ScriptableObject>
     {
         public static bool IsUpgrade(Type t) => t==typeof(VoxelGunTuning)||t==typeof(VoxelArmorTuning)||t==typeof(VoxelEngineUpgradeTuning)||
-            t==typeof(VoxelPloughTuning)||t==typeof(VoxelPerformanceWheelTuning)||t==typeof(VoxelWheelSpikeTuning)||t==typeof(VoxelBoostUpgradeTuning);
+            t==typeof(VoxelMissileLauncherTuning)||t==typeof(VoxelPloughTuning)||t==typeof(VoxelPerformanceWheelTuning)||t==typeof(VoxelWheelSpikeTuning)||t==typeof(VoxelBoostUpgradeTuning);
         public static bool Supports(Type t) => VoxelContentOdinLayout.Supports(t)||IsUpgrade(t)||typeof(VoxelBoostTuning).IsAssignableFrom(t)||t==typeof(VoxelCarTuning)||
             t==typeof(VoxelEnemyVehicleTuning)||t==typeof(VoxelObstacleCarTuning)||t==typeof(VoxelMissionTuning)||t==typeof(VoxelMineLayerTuning)||t==typeof(VoxelDestructionRewards);
         public override void ProcessChildMemberAttributes(InspectorProperty parent,MemberInfo member,List<Attribute> attributes)
@@ -59,6 +60,10 @@ namespace VoxelRacer.Editor
                 else if(name.IndexOf("mount",StringComparison.OrdinalIgnoreCase)>=0)group="Fit & Mounting";
                 else if(name.Contains("Bonus")||name.Contains("Reduction")||name=="voxelHitPoints")group="Performance & Damage";
             }
+            if (type == typeof(VoxelMissileLauncherTuning) && name == "weapon")
+            { group = "Weapon Settings"; attributes.Add(new InlineEditorAttribute()); }
+            if (type == typeof(VoxelGunTuning) && name.StartsWith("missile"))
+            { group = "Missile Flight"; attributes.Add(new ShowIfAttribute("@projectileKind == VoxelRacer.VoxelProjectileKind.Missile")); }
             if(type==typeof(VoxelBoostTuning) && group=="Settings")group="Boost Performance & Effects";
             if(type==typeof(VoxelObstacleCarTuning))
             {

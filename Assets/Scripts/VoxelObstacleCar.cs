@@ -4,7 +4,7 @@ using UnityEngine;
 namespace VoxelRacer
 {
     /// <summary>A destructible traffic car that can drive with or against the player.</summary>
-    public sealed class VoxelObstacleCar : MonoBehaviour
+    public sealed partial class VoxelObstacleCar : MonoBehaviour
     {
         public event System.Action<VoxelObstacleCar> Defeated;
         public bool IsEnemyTraffic { get; private set; }
@@ -54,6 +54,7 @@ namespace VoxelRacer
             EndlessVoxelRoad road, float distance, float offset, float matchingTravelSpeed = -1f, VoxelEnemyVehicleTuning vehicleOverride = null)
         {
             target = player;
+            VoxelMissileTarget.Register(gameObject);
             tuning = value;
             travelsWithPlayer = sameDirection;
             path = road;

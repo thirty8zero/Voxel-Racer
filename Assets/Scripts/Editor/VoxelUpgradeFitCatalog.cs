@@ -58,7 +58,7 @@ namespace VoxelRacer.Editor
     {
         public IEnumerable<VoxelUpgradeFitEntry> Discover()
         {
-            foreach (var tuning in VoxelUpgradeFitCatalog.Assets<VoxelGunTuning>().Where(t => t.visualPrefab != null))
+            foreach (var tuning in VoxelUpgradeFitCatalog.Assets<VoxelGunTuning>().Where(t => t.visualPrefab != null && t.projectileKind != VoxelProjectileKind.Missile))
                 for (int i = 0; i < Mathf.Max(1, tuning.maximumPurchases); i++)
                 {
                     int slot = i;

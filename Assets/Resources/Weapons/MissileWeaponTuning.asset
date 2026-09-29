@@ -10,22 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9a788dbf777c0be41bf14bd88fe6fb4b, type: 3}
-  m_Name: BasicHoodGunTuning
+  m_Name: MissileWeaponTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
-  displayName: Basic Hood Gun
-  visualPrefab: {fileID: 0}
+  displayName: MISSILE LAUNCHER
+  visualPrefab: {fileID: 7140078567076894838, guid: 48a4c50d2d0a9bd4eba47c31e794f165, type: 3}
   purchasePrice: 50
   maximumPurchases: 2
-  shotsPerSecond: 20
-  bulletsPerShot: 2
+  shotsPerSecond: 0.65
+  bulletsPerShot: 1
   ammunitionPerStage: 0
-  spreadDegrees: 1
-  projectileSpeed: 150
-  maximumRange: 100
-  damagePerBullet: 1
-  areaOfEffectRadius: 0
-  projectileKind: 0
-  missilePrefab: {fileID: 0}
+  spreadDegrees: 0
+  projectileSpeed: 75
+  maximumRange: 160
+  damagePerBullet: 35
+  areaOfEffectRadius: 1.8
+  projectileKind: 1
+  missilePrefab: {fileID: 3147464013120486384, guid: ff3fd5f37648db348af0efc0668ebd0c, type: 3}
   missileDescentDistance: 14
   missileCruiseHeight: 0.65
   missileLaneSideOffset: 0.45

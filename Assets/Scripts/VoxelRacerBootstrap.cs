@@ -165,6 +165,7 @@ namespace VoxelRacer
             VoxelBoostUpgradeState.ApplyTo(car, selectedCar);
             VoxelEngineUpgradeState.ApplyTo(car, selectedCar);
             VoxelPloughUpgradeState.ApplyTo(car, selectedCar);
+            VoxelMissileUpgradeState.ApplyTo(car, selectedCar);
             car.GetComponent<VoxelCarController>().ResetIntegrityBaseline();
             VoxelCarRunState.Apply(car.GetComponent<VoxelCarController>(), selectedCar);
             var damageEffects=car.GetComponent<VoxelVehicleDamageEffects>() ?? car.gameObject.AddComponent<VoxelVehicleDamageEffects>();

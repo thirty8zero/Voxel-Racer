@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace VoxelRacer
 {
+    public enum VoxelProjectileKind { Bullet, Missile }
     /// <summary>Persistent firing and damage settings shared by every instance of one gun type.</summary>
     [CreateAssetMenu(menuName = "Voxel Racer/Weapons/Gun Tuning", fileName = "VoxelGunTuning")]
     public sealed class VoxelGunTuning : ScriptableObject
@@ -30,6 +31,13 @@ namespace VoxelRacer
         [Min(0.1f)] public float maximumRange = 100f;
         [Min(0f)] public float damagePerBullet = 1f;
         [Min(0f)] public float areaOfEffectRadius;
+
+        [Header("Missile Flight")]
+        public VoxelProjectileKind projectileKind;
+        public GameObject missilePrefab;
+        [Min(.1f)] public float missileDescentDistance = 14f;
+        [Min(.1f)] public float missileCruiseHeight = .65f;
+        [Min(0f)] public float missileLaneSideOffset = .45f;
 
         public float SecondsPerShot => 1f / Mathf.Max(0.01f, shotsPerSecond);
 

@@ -89,6 +89,7 @@ namespace VoxelRacer
             EndlessVoxelRoad road, float distance, float offset)
         {
             target = player;
+            VoxelMissileTarget.Register(gameObject);
             trafficTuning = traffic;
             Tuning = enemy;
             path = road;

@@ -110,6 +110,7 @@ namespace VoxelRacer
             VoxelBoostUpgradeState.ApplyTo(car, definition);
             VoxelEngineUpgradeState.ApplyTo(car, definition);
             VoxelPloughUpgradeState.ApplyTo(car, definition);
+            VoxelMissileUpgradeState.ApplyTo(car, definition);
             DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(DisplayedCar, definition);
             var damageEffects=car.GetComponent<VoxelVehicleDamageEffects>() ?? car.gameObject.AddComponent<VoxelVehicleDamageEffects>();
@@ -251,6 +252,7 @@ namespace VoxelRacer
             ploughUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Plough Purchase Button", string.Empty, 30,
                 new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), TryPurchasePlough);
             ploughUpgradeLabel = ploughUpgradeButton.GetComponentInChildren<Text>();
+            BuildMissileShop(weaponUpgradePanel.transform);
             BuildUpgradeScroll(weaponUpgradePanel.transform);
 
             feedbackText = VoxelMenuUi.CreateText(canvas, "Repair Feedback", string.Empty, 68,
@@ -384,6 +386,7 @@ namespace VoxelRacer
             RefreshPerformanceWheelShop();
             RefreshEngineShop();
             RefreshPloughShop();
+            RefreshMissileShop();
             RefreshBoostShop();
             VoxelGunTuning gunTuning = VoxelGunUpgradeState.LongGunTuning;
             if (gunUpgradeButton == null || gunUpgradeButtonLabel == null || gunTuning == null)
@@ -439,7 +442,7 @@ namespace VoxelRacer
             var cr = (RectTransform)content.transform;
             cr.anchorMin = cr.anchorMax = new Vector2(.5f, 1); cr.pivot = new Vector2(.5f, 1);
             var buttons = new[] { gunUpgradeButton, rightArmorUpgradeButton, leftArmorUpgradeButton,
-                wheelSpikeUpgradeButton, performanceWheelButton, boostUpgradeButton, engineUpgradeButton, ploughUpgradeButton };
+                wheelSpikeUpgradeButton, performanceWheelButton, boostUpgradeButton, engineUpgradeButton, ploughUpgradeButton, leftMissileButton, rightMissileButton };
             cr.sizeDelta = new Vector2(560, buttons.Length * 115 - 15);
             for (int i = 0; i < buttons.Length; i++)
             {

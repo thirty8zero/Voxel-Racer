@@ -10,16 +10,19 @@ namespace VoxelRacer
         private VoxelCarController target;
         private CanvasGroup canvasGroup;
         private Texture2D fireButtonTexture;
-        private static bool fireHeld;
+        private Sprite fireButtonSprite;
+        private static bool fireHeld, missileHeld;
 
         /// <summary>Read by all mounted guns in addition to the keyboard Ctrl binding.</summary>
         public static bool IsFireHeld => fireHeld;
+        public static bool IsMissileHeld => missileHeld;
 
         public void Configure(VoxelCarController controller) => target = controller;
 
         private void Awake() => BuildHud();
 
-        private void OnDisable() => fireHeld = false;
+        private void OnDisable() { fireHeld = missileHeld = false; }
+        private void OnApplicationFocus(bool focused) { if (!focused) fireHeld = missileHeld = false; }
 
         private void Update()
         {
@@ -31,7 +34,7 @@ namespace VoxelRacer
             canvasGroup.alpha = hidden ? 0f : VoxelStartCountdown.CurrentGameplayHudAlpha;
             canvasGroup.blocksRaycasts = canvasGroup.alpha > 0.01f;
             if (hidden)
-                fireHeld = false;
+                fireHeld = missileHeld = false;
         }
 
         internal void ChangeLane(int direction)
@@ -42,6 +45,12 @@ namespace VoxelRacer
         internal void SetFireHeld(bool value)
         {
             fireHeld = value && target != null && !target.IsDestroyed &&
+                VoxelMissionProgress.Active?.IsComplete != true;
+        }
+
+        internal void SetMissileHeld(bool value)
+        {
+            missileHeld = value && target != null && !target.IsDestroyed &&
                 VoxelMissionProgress.Active?.IsComplete != true;
         }
 
@@ -63,6 +72,9 @@ namespace VoxelRacer
             CreateControl(canvas, "Fire Button", "FIRE", new Vector2(1f, 0f),
                 new Vector2(-150f, 390f), new Vector2(200f, 200f), MobileControlAction.Fire,
                 new Color(0.60f, 0.13f, 0.05f, 0.78f), 52, CreateFireButtonSprite());
+            CreateControl(canvas, "Missile Button", "MISSILE", new Vector2(0f, 0f),
+                new Vector2(150f, 390f), new Vector2(200f, 200f), MobileControlAction.Missile,
+                new Color(0.12f, 0.32f, 0.58f, 0.85f), 44, CreateFireButtonSprite());
         }
 
         private void CreateControl(Transform parent, string name, string label, Vector2 anchor,
@@ -94,6 +106,7 @@ namespace VoxelRacer
 
         private Sprite CreateFireButtonSprite()
         {
+            if (fireButtonSprite != null) return fireButtonSprite;
             const int textureSize = 128;
             fireButtonTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGBA32, false)
             {
@@ -110,18 +123,26 @@ namespace VoxelRacer
                 fireButtonTexture.SetPixel(x, y, new Color(1f, 1f, 1f, distance <= 1f ? 1f : 0f));
             }
             fireButtonTexture.Apply();
-            return Sprite.Create(fireButtonTexture, new Rect(0f, 0f, textureSize, textureSize),
+            return fireButtonSprite = Sprite.Create(fireButtonTexture, new Rect(0f, 0f, textureSize, textureSize),
                 new Vector2(0.5f, 0.5f), textureSize);
         }
 
         private void OnDestroy()
         {
+            if (fireButtonSprite != null)
+            {
+                if (Application.isPlaying) Destroy(fireButtonSprite);
+                else DestroyImmediate(fireButtonSprite);
+            }
             if (fireButtonTexture != null)
-                Destroy(fireButtonTexture);
+            {
+                if (Application.isPlaying) Destroy(fireButtonTexture);
+                else DestroyImmediate(fireButtonTexture);
+            }
         }
     }
 
-    internal enum MobileControlAction { Left, Right, Fire }
+    internal enum MobileControlAction { Left, Right, Fire, Missile }
 
     /// <summary>Pointer-down handling lets FIRE remain active for the duration of a touch.</summary>
     internal sealed class VoxelMobileControlButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
@@ -139,6 +160,8 @@ namespace VoxelRacer
         {
             if (action == MobileControlAction.Fire)
                 owner?.SetFireHeld(true);
+            else if (action == MobileControlAction.Missile)
+                owner?.SetMissileHeld(true);
             else
                 owner?.ChangeLane(action == MobileControlAction.Left ? -1 : 1);
         }
@@ -147,12 +170,16 @@ namespace VoxelRacer
         {
             if (action == MobileControlAction.Fire)
                 owner?.SetFireHeld(false);
+            else if (action == MobileControlAction.Missile)
+                owner?.SetMissileHeld(false);
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
             if (action == MobileControlAction.Fire)
                 owner?.SetFireHeld(false);
+            else if (action == MobileControlAction.Missile)
+                owner?.SetMissileHeld(false);
         }
     }
 }
