@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace VoxelRacer
 {
-    public sealed class VoxelCameraFollow : MonoBehaviour
+    public sealed partial class VoxelCameraFollow : MonoBehaviour
     {
         [Header("Camera Tuning")]
         public VoxelCameraTuning tuning;
@@ -74,6 +74,7 @@ namespace VoxelRacer
                 Quaternion.Euler(0f, target.eulerAngles.y, 0f);
             Vector3 cameraTargetPosition = GetSmoothedLaneTargetPosition(roadHeading);
             Vector3 chaseOffset = Tuning != null ? Tuning.chaseOffset : offset;
+            chaseOffset = GetBossAttackCameraOffset(player, cameraTargetPosition, roadHeading, chaseOffset, Time.deltaTime);
             float chaseLookAhead = Tuning != null ? Tuning.chaseLookAhead : lookAhead;
             transform.position = cameraTargetPosition + roadHeading * chaseOffset;
             Vector3 lookForward = oilSpin ? roadHeading * Vector3.forward : target.forward;

@@ -11,6 +11,8 @@ namespace VoxelRacer
         [Tooltip("Doors open, then spikes extend, before braking begins.")]
         [Min(.5f)] public float warningDuration = 2;
         [Min(.1f)] public float holdDuration = 2;
+        [Tooltip("Delay after a player side ram before the current spike attack enters its retreat phase.")]
+        [Min(0f)] public float sideRamRetreatDelay = .1f;
         [Min(1)] public float braking = 180;
         [Tooltip("How quickly the attack closes its remaining gap.")]
         [Min(.1f)] public float closingResponse = 6;

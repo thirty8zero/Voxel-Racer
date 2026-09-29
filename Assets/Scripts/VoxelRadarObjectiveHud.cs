@@ -10,8 +10,9 @@ namespace VoxelRacer
 
         public static Rect Area(float screenWidth)
         {
-            float width = Mathf.Min(620f, screenWidth - 24f);
-            return new Rect((screenWidth - width) * .5f, 18f, width, 142f);
+            // Match the boss bar width; allow just 12 extra pixels for the objective icon.
+            float width = Mathf.Min(540f, screenWidth - 24f);
+            return new Rect((screenWidth - width) * .5f, 18f, width, 72f);
         }
 
         public static void Draw(Rect area, float alpha, bool destroyed, float secondsSinceDestruction)
@@ -28,16 +29,16 @@ namespace VoxelRacer
             };
             style.fontSize = Mathf.Max(12, Mathf.FloorToInt(28f * Mathf.Min(1f,
                 (area.width - 28f) / style.CalcSize(new GUIContent(Instruction)).x)));
-            GUI.Label(new Rect(area.x + 12f, area.y + 7f, area.width - 24f, 38f), Instruction, style);
+            GUI.Label(new Rect(area.x + 12f, area.y, area.width - 24f, 30f), Instruction, style);
             GUI.color = new Color(.86f, .90f, .94f, alpha);
-            GUI.DrawTexture(new Rect(area.center.x - 90f, area.y + 47f, 180f, 84f), silhouette);
+            GUI.DrawTexture(new Rect(area.center.x - 40f, area.y + 31f, 80f, 37.5f), silhouette);
             if (destroyed)
             {
                 float pop = 1f + .25f * Mathf.Sin(Mathf.Clamp01(secondsSinceDestruction / .35f) * Mathf.PI);
-                float size = 78f * pop;
+                float size = 34f * pop;
                 GUI.color = new Color(1f, 1f, 1f, alpha);
-                GUI.DrawTexture(new Rect(area.center.x - size * .5f + 9f,
-                    area.y + 87f - size * .5f, size, size), explosion);
+                GUI.DrawTexture(new Rect(area.center.x - size * .5f + 4f,
+                    area.y + 49f - size * .5f, size, size), explosion);
             }
             GUI.color = previous;
         }

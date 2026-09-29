@@ -53,6 +53,12 @@ namespace VoxelRacer
         private int bossLaneCount, bossLanePair;
         private bool bossMovingAway;
         private bool bossCatchingUp;
+        private bool bossEntranceActive;
+        private float bossEntranceElapsed;
+        private float bossEntranceDuration;
+        private float bossEntranceStartGap;
+        private float bossEntranceEndGap;
+        public bool IsBossEntering => bossEntranceActive;
         public void ConfigureBoss(VoxelBossDefinition settings,float laneWidth,int laneCount)
         {
             bossSettings=settings;bossLaneWidth=laneWidth;bossLaneCount=Mathf.Max(2,laneCount);
@@ -63,6 +69,17 @@ namespace VoxelRacer
             spikeCheckTime=spikeAttackTuning!=null
                 ? Mathf.Max(1,spikeAttackTuning.checkInterval)+Mathf.Max(0,settings.entranceDuration)
                 : float.PositiveInfinity;
+        }
+        public void BeginBossEntrance(float destinationGap)
+        {
+            if (!IsBoss || target == null || bossSettings.entranceDuration <= 0f || bossSettings.entranceApproachDistance <= 0f)
+                return;
+
+            bossEntranceStartGap = TrackDistance - target.CollisionTrackPosition.y;
+            bossEntranceEndGap = Mathf.Max(0f, destinationGap);
+            bossEntranceDuration = bossSettings.entranceDuration;
+            bossEntranceElapsed = 0f;
+            bossEntranceActive = bossEntranceStartGap > bossEntranceEndGap;
         }
         private Vector2 previousCollisionRelative;
         private float nextMineTime;
@@ -152,6 +169,15 @@ namespace VoxelRacer
                 return;
             }
 
+            if(IsBoss && bossEntranceActive)
+            {
+                AdvanceBossEntrance(Time.deltaTime);
+                ApplyTrackPose();
+                RotateWheels();
+                previousCollisionRelative = target.CollisionTrackPosition - new Vector2(LaneOffset, TrackDistance);
+                return;
+            }
+
             if(IsBoss) UpdateSpikeAttack(Time.deltaTime);
             UpdateRamResponse();
             currentSpeed = IsBoss ? AdvanceBossSpeed(Time.deltaTime) : GetCurrentDriveSpeed();
@@ -204,6 +230,16 @@ namespace VoxelRacer
             if(gap>=maximum-1f) bossMovingAway=false;
             float desired=bossMovingAway?maximum:minimum;
             return Mathf.Clamp(topSpeed+Mathf.Clamp((desired-gap)*2f,-bossSettings.distanceAdjustmentSpeed,bossSettings.distanceAdjustmentSpeed),cruise,topSpeed+bossSettings.distanceAdjustmentSpeed);
+        }
+        private void AdvanceBossEntrance(float deltaTime)
+        {
+            bossEntranceElapsed += Mathf.Max(0f, deltaTime);
+            float progress = Mathf.Clamp01(bossEntranceElapsed / Mathf.Max(.01f, bossEntranceDuration));
+            float easedProgress = Mathf.SmoothStep(0f, 1f, progress);
+            float gap = Mathf.Lerp(bossEntranceStartGap, bossEntranceEndGap, easedProgress);
+            trackDistance = target.CollisionTrackPosition.y + gap;
+            if (progress >= 1f)
+                bossEntranceActive = false;
         }
         private float AdvanceBossSpeed(float deltaTime)
         {
@@ -448,14 +484,15 @@ namespace VoxelRacer
             target.damageVoxelsPerHit = Random.Range(
                 Mathf.Min(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax),
                 Mathf.Max(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax) + 1);
-            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, "Enemy collision");
+            target.ApplyCollisionDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, "Enemy collision");
             target.damageVoxelsPerHit = originalPlayerDamage;
 
             int removedVoxels = ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,
-                -hitDirection, Random.Range(
+                -hitDirection, Mathf.RoundToInt(VoxelPloughUpgradeState.ImpactDamage(Random.Range(
                     Mathf.Min(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax),
-                    Mathf.Max(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax) + 1));
-            float ramDamage = VoxelWheelSpikeUpgradeState.CalculateRamDamage(Tuning.playerRamDamage, rearImpact);
+                    Mathf.Max(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax) + 1), target.transform, hitDirection)));
+            float ramDamage = VoxelPloughUpgradeState.ImpactDamage(
+                VoxelWheelSpikeUpgradeState.CalculateRamDamage(Tuning.playerRamDamage, rearImpact), target.transform, hitDirection);
             VoxelMissionProgress.ReportEnemyVoxelDestroyed(removedVoxels, transform.position);
             CurrentHealth = Mathf.Max(0f, CurrentHealth - ramDamage);
             CheckBossBodyDestroyed();
@@ -467,6 +504,8 @@ namespace VoxelRacer
             else
             {
                 BeginRamResponse(rearImpact, hitDirection);
+                if (IsBoss && SpikeAttackActive && IsSideImpact(hitDirection))
+                    ScheduleSpikeRetreatAfterSideRam();
                 target.ApplyRamResponse(rearImpact, hitDirection, Tuning);
             }
             VoxelMissionProgress.ReportEnemyRamDamage(ramDamage);
@@ -567,6 +606,13 @@ namespace VoxelRacer
             float forward = Vector3.Dot(playerToEnemyDirection, transform.forward);
             float lateral = Mathf.Abs(Vector3.Dot(playerToEnemyDirection, transform.right));
             return forward > lateral;
+        }
+
+        private bool IsSideImpact(Vector3 playerToEnemyDirection)
+        {
+            float forward = Mathf.Abs(Vector3.Dot(playerToEnemyDirection, transform.forward));
+            float lateral = Mathf.Abs(Vector3.Dot(playerToEnemyDirection, transform.right));
+            return lateral > forward;
         }
 
         private void BeginRamResponse(bool rearImpact, Vector3 playerToEnemyDirection)

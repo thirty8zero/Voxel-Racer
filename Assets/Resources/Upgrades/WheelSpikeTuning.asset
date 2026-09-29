@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelWheelSpikeTuning
   displayName: WHEEL SPIKES
   spikePrefab: {fileID: 1000, guid: 02de77a9cabd44f1ac800a3f4a123456, type: 3}
-  purchasePrice: 150
-  sideRamDamageBonusPercent: 15
+  purchasePrice: 200
+  sideRamDamageBonusPercent: 30

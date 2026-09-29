@@ -31,6 +31,7 @@ MonoBehaviour:
   minimumStraightSegmentsBetweenTurns: 2
   maximumTrackHeading: 65
   curveDegreesPerSlice: 5
+  randomizeTurnSeedEachRun: 0
   turnSeed: 173
 --- !u!114 &11400000
 MonoBehaviour:
@@ -139,8 +140,8 @@ MonoBehaviour:
   enemyCarSpawnChance: 0.6
   minimumWaveInterval: 2.5
   maximumWaveInterval: 4.5
-  minimumObjectsPerWave: 3
-  maximumObjectsPerWave: 5
+  minimumObjectsPerWave: 2
+  maximumObjectsPerWave: 3
   sameLaneCivilianSpeedTolerance: 1
   minimumWaveObjectDistanceOffset: 2
   maximumWaveObjectDistanceOffset: 10

@@ -15,6 +15,7 @@ namespace VoxelRacer
         private static ParticleSystem voxelMissCloudPrefab;
         private static ParticleSystem voxelGroundDustPrefab;
         private static EndlessVoxelRoad cachedRoad;
+        private static readonly RaycastHit[] missSurfaceHits = new RaycastHit[32];
 
         public static VoxelProjectile Create(Vector3 position, Vector3 direction, VoxelGunTuning tuning)
         {
@@ -257,10 +258,25 @@ namespace VoxelRacer
             if (road == null)
                 return true;
 
-            float closestDistance = road.FindClosestDistance(worldPosition);
-            VoxelTrackPose closestPose = road.Evaluate(closestDistance);
-            float lateralOffset = Vector3.Dot(worldPosition - closestPose.position, closestPose.right);
-            return Mathf.Abs(lateralOffset) <= road.roadWidth * 0.5f;
+            // Use the live road colliders as the source of truth. Projecting onto
+            // FindClosestDistance can select an old path segment after the endless
+            // road has advanced, making an on-road miss look like a dirt impact.
+            Vector3 rayOrigin = worldPosition + Vector3.up * 2f;
+            int hitCount = Physics.RaycastNonAlloc(rayOrigin, Vector3.down, missSurfaceHits,
+                16f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < hitCount; i++)
+            {
+                Collider hitCollider = missSurfaceHits[i].collider;
+                if (hitCollider == null || !hitCollider.transform.IsChildOf(road.transform))
+                    continue;
+
+                string surfaceName = hitCollider.gameObject.name;
+                if (surfaceName == "Road" || surfaceName == "Lane Dash" ||
+                    surfaceName == "Left Road Marker" || surfaceName == "Right Road Marker")
+                    return true;
+            }
+
+            return false;
         }
     }
 }

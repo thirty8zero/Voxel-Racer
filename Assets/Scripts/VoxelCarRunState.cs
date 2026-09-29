@@ -24,6 +24,7 @@ namespace VoxelRacer
             VoxelPerformanceWheelUpgradeState.BeginNewRun();
             VoxelBoostUpgradeState.BeginNewRun();
             VoxelEngineUpgradeState.BeginNewRun();
+            VoxelPloughUpgradeState.BeginNewRun();
         }
 
         public static void Capture(VoxelCarController controller, VoxelCarDefinition definition = null)

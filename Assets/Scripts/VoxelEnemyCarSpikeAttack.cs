@@ -12,6 +12,7 @@ namespace VoxelRacer
         private float spikePhaseTime, spikeCheckTime;
         private bool spikeRamApplied;
         private bool spikeAttackDodged;
+        private float sideRamRetreatAt = -1f;
         private VoxelBossSpikeRig spikeRig;
         private float spikePlayerFront = 2.5f, spikePlayerHalfWidth = 1.3f;
         private float CollisionHalfWidth => IsSpikeDodgeCornerContact
@@ -59,9 +60,16 @@ namespace VoxelRacer
             {
                 SpikePhase = SpikeAttackPhase.Normal;
                 spikeAttackDodged = false;
+                sideRamRetreatAt = -1f;
                 if (spikeRig != null) spikeRig.SetPose(0, 0);
                 spikeCheckTime = spikeAttackTuning != null ? spikeAttackTuning.checkInterval : float.PositiveInfinity;
                 return;
+            }
+            if (sideRamRetreatAt >= 0f && Time.time >= sideRamRetreatAt)
+            {
+                sideRamRetreatAt = -1f;
+                if (SpikeAttackActive && SpikePhase != SpikeAttackPhase.Retreating)
+                    SetSpikePhase(SpikeAttackPhase.Retreating);
             }
             if (spikeRig == null) spikeRig = GetComponentInChildren<VoxelBossSpikeRig>();
             if ((SpikePhase == SpikeAttackPhase.Warning || SpikePhase == SpikeAttackPhase.Braking) &&
@@ -108,6 +116,7 @@ namespace VoxelRacer
                         spikeRig.SetPose(0, 0);
                         SetSpikePhase(SpikeAttackPhase.Normal);
                         spikeAttackDodged = false;
+                        sideRamRetreatAt = -1f;
                         bossCatchingUp = false; bossMovingAway = false;
                         if(Tuning.mineLayer!=null) nextMineTime = Time.time + Mathf.Max(.1f, Tuning.mineLayer.dropInterval);
                         nextBossLaneChange = Time.time + Mathf.Max(.1f, bossSettings.minimumLaneChangeInterval);
@@ -120,6 +129,12 @@ namespace VoxelRacer
         private float SpikeHitDistance => Mathf.Max(Tuning.collisionHalfLength + 1.7f * bossVisualScale, SpikeBodyClearance + .7f * bossVisualScale);
         private float SpikeRetreatGap => Mathf.Clamp(spikeAttackTuning.retreatDistance, 20, bossSettings.WarningDistance - 5);
         private void SetSpikePhase(SpikeAttackPhase phase) { SpikePhase = phase; spikePhaseTime = 0; }
+        private void ScheduleSpikeRetreatAfterSideRam()
+        {
+            if (!SpikeAttackActive || SpikePhase == SpikeAttackPhase.Retreating)
+                return;
+            sideRamRetreatAt = Time.time + Mathf.Max(0f, spikeAttackTuning.sideRamRetreatDelay);
+        }
         private void BeginSpikeAttack()
         {
             // Capture intact dimensions before damage removes parts of the player's body.
@@ -136,6 +151,7 @@ namespace VoxelRacer
                 }
             }
             spikeRamApplied = false;
+            sideRamRetreatAt = -1f;
             rearRamPushStartedAt = sideRamStartedAt = -1;
             rearRamForwardOffset = sideRamOffset = 0;
             targetLaneOffset = laneOffset;
@@ -176,7 +192,7 @@ namespace VoxelRacer
                 int min = Mathf.Max(0, spikeAttackTuning.damageMin);
                 target.damageVoxelsPerHit = Random.Range(min, Mathf.Max(min, spikeAttackTuning.damageMax) + 1);
                 if (target.damageVoxelsPerHit > 0)
-                    target.ApplyDamage(hitPoint, -target.transform.forward, "Boss spike ram");
+                    target.ApplyCollisionDamage(hitPoint, -target.transform.forward, "Boss spike ram", transform.position - target.transform.position);
             }
             finally { target.damageVoxelsPerHit = previousDamage; }
         }

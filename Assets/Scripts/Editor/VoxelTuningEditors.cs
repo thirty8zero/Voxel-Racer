@@ -88,7 +88,9 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("minimumStraightSegmentsBetweenTurns"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("maximumTrackHeading"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("curveDegreesPerSlice"));
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("turnSeed"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("randomizeTurnSeedEachRun"));
+            using (new EditorGUI.DisabledScope(serializedObject.FindProperty("randomizeTurnSeedEachRun").boolValue))
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("turnSeed"));
             serializedObject.ApplyModifiedProperties();
         }
     }

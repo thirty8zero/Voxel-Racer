@@ -44,6 +44,17 @@ namespace VoxelRacer
         [Min(0.01f)] public float laneChangeCameraDuration = 0.32f;
         public VoxelEasingType laneChangeCameraEasing = VoxelEasingType.EaseInOutCubic;
 
+        [Header("Boss Attack Camera")]
+        public bool bossAttackCameraEnabled = true;
+        [Tooltip("The camera may swing only while the boss is this close to the player, in metres.")]
+        [Min(0f)] public float bossAttackCameraTriggerDistance = 20f;
+        [Tooltip("Right-side chase offset while the attacking boss blocks the normal view.")]
+        public Vector3 bossAttackCameraOffset = new(8.5f, 11f, -11f);
+        [Min(.01f)] public float bossAttackCameraSwingDuration = .45f;
+        [Min(.01f)] public float bossAttackCameraReturnDuration = .8f;
+        [Tooltip("Extra clearance around the boss when checking whether it hides the player.")]
+        [Min(0f)] public float bossAttackCameraClearance = .6f;
+
         [Header("Player Damage Shake")]
         [Min(0f)] public float playerVehicleImpactShakeDuration = 0.24f;
         [Min(0f)] public float playerVehicleImpactShakePositionStrength = 0.32f;

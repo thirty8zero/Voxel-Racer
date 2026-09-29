@@ -117,13 +117,14 @@ namespace VoxelRacer
                 RotateWheels(direction * travelSpeed);
 
                 var relative=target.CollisionTrackPosition-new Vector2(laneOffset,trackDistance);
-                bool contactFound=VoxelVehicleCollision.Sweep(previousCollisionRelative,relative,
+                Vector2 previousRelative = previousCollisionRelative;
+                bool contactFound=VoxelVehicleCollision.Sweep(previousRelative,relative,
                     new Vector2(collisionHalfWidth,collisionHalfLength),out var contact);
                 previousCollisionRelative=relative;
                 if (contactFound && Time.time >= nextCollisionTime)
                     HitCar(VoxelVehicleCollision.ImpactDirection(contact,target.transform));
                 else
-                    UpdateNearMiss();
+                    UpdateNearMiss(previousRelative, relative);
 
                 if (trackDistance < target.TrackDistance - 30f ||
                          trackDistance > target.TrackDistance + GetMaximumDistanceAhead())
@@ -162,7 +163,7 @@ namespace VoxelRacer
             int integrityBeforeHit = target.RemainingIntegrityVoxels;
 #endif
             target.damageVoxelsPerHit = selectedPlayerDamage;
-            target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, IsEnemyTraffic ? EnemyTuning.displayName + " collision" : (isSemiTrailer ? "Civilian van collision" : "Civilian car collision"));
+            target.ApplyCollisionDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, IsEnemyTraffic ? EnemyTuning.displayName + " collision" : (isSemiTrailer ? "Civilian van collision" : "Civilian car collision"));
             target.damageVoxelsPerHit = originalPlayerDamage;
 #if UNITY_EDITOR
             int integrityAfterHit = target.RemainingIntegrityVoxels;
@@ -180,6 +181,7 @@ namespace VoxelRacer
             int obstacleDamageCount = Random.Range(
                 Mathf.Min(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax),
                 Mathf.Max(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax) + 1);
+            obstacleDamageCount = Mathf.RoundToInt(VoxelPloughUpgradeState.ImpactDamage(obstacleDamageCount, target.transform, hitDirection));
             int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount, DebrisStyle.Ram);
             ReportVoxelDamage(damagedVoxelCount);
             ReportVoxelDestroyed(damagedVoxelCount, transform.position);
@@ -366,17 +368,16 @@ namespace VoxelRacer
         private float GetMaximumDistanceAhead() => Mathf.Max(110f,
             (tuning != null ? tuning.spawnDistanceAhead : 110f) + 30f);
 
-        private void UpdateNearMiss()
+        private void UpdateNearMiss(Vector2 previousRelative, Vector2 currentRelative)
         {
             VoxelMissionTuning mission = VoxelMissionProgress.Active?.Tuning;
             if (mission == null || nearMissAwarded)
                 return;
 
-            float lateralGap = Mathf.Max(0f, Mathf.Abs(target.CollisionTrackPosition.x - laneOffset) -
-                (collisionHalfWidth + mission.civilianNearMissPlayerHalfWidth));
-            float longitudinalGap = Mathf.Max(0f, Mathf.Abs(target.CollisionTrackPosition.y - trackDistance) -
-                (collisionHalfLength + mission.civilianNearMissPlayerHalfLength));
-            float clearDistance = Mathf.Sqrt(lateralGap * lateralGap + longitudinalGap * longitudinalGap);
+            float combinedHalfWidth = collisionHalfWidth + mission.civilianNearMissPlayerHalfWidth;
+            float combinedHalfLength = collisionHalfLength + mission.civilianNearMissPlayerHalfLength;
+            float clearDistance = GetSweptClearDistance(previousRelative, currentRelative,
+                combinedHalfWidth, combinedHalfLength);
             if (clearDistance <= mission.civilianNearMissDistance)
             {
                 nearMissCandidate = true;
@@ -388,9 +389,8 @@ namespace VoxelRacer
             // direction: the player can overtake a slow semi, or a faster/oncoming
             // vehicle can pass the player. The previous behind-player-only test
             // silently rejected the latter case.
-            float safePassDistance = collisionHalfLength + mission.civilianNearMissPlayerHalfLength +
-                mission.civilianNearMissPassClearance;
-            bool safelyPassed = Mathf.Abs(target.CollisionTrackPosition.y - trackDistance) > safePassDistance;
+            float safePassDistance = combinedHalfLength + mission.civilianNearMissPassClearance;
+            bool safelyPassed = Mathf.Abs(currentRelative.y) > safePassDistance;
             if (!nearMissCandidate || !safelyPassed)
                 return;
 
@@ -403,6 +403,50 @@ namespace VoxelRacer
             VoxelMissionProgress.ReportCivilianNearMiss(points, transform.position);
             VoxelScorePopup.ShowNearMiss(transform.position + Vector3.up * 2.8f, points,
                 mission.civilianNearMissPopupDuration);
+        }
+
+        private static float GetSweptClearDistance(Vector2 previous, Vector2 current,
+            float combinedHalfWidth, float combinedHalfLength)
+        {
+            // Find the closest point on this frame's relative-motion segment to
+            // the combined vehicle bounds. Endpoint-only sampling can miss a
+            // fast pass's actual closest approach and award too few points.
+            Vector2 movement = current - previous;
+            float low = 0f;
+            float high = 1f;
+            for (int iteration = 0; iteration < 16; iteration++)
+            {
+                float middle = (low + high) * 0.5f;
+                Vector2 relative = previous + movement * middle;
+                float derivative = GetClearanceDerivative(relative, movement,
+                    combinedHalfWidth, combinedHalfLength);
+                if (derivative < 0f)
+                    low = middle;
+                else
+                    high = middle;
+            }
+
+            float closestTime = (low + high) * 0.5f;
+            Vector2 closest = previous + movement * closestTime;
+            float lateralGap = Mathf.Max(0f, Mathf.Abs(closest.x) - combinedHalfWidth);
+            float longitudinalGap = Mathf.Max(0f, Mathf.Abs(closest.y) - combinedHalfLength);
+            return Mathf.Sqrt(lateralGap * lateralGap + longitudinalGap * longitudinalGap);
+        }
+
+        private static float GetClearanceDerivative(Vector2 relative, Vector2 movement,
+            float combinedHalfWidth, float combinedHalfLength)
+        {
+            float derivative = 0f;
+            if (relative.x > combinedHalfWidth)
+                derivative += movement.x * (relative.x - combinedHalfWidth);
+            else if (relative.x < -combinedHalfWidth)
+                derivative += movement.x * (relative.x + combinedHalfWidth);
+
+            if (relative.y > combinedHalfLength)
+                derivative += movement.y * (relative.y - combinedHalfLength);
+            else if (relative.y < -combinedHalfLength)
+                derivative += movement.y * (relative.y + combinedHalfLength);
+            return derivative;
         }
 
         private int ApplyVoxelDamage(Vector3 hitPoint, Vector3 impactDirection, int voxelCount, DebrisStyle style)

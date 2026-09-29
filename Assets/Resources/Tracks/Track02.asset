@@ -112,6 +112,7 @@ MonoBehaviour:
   minimumStraightSegmentsBetweenTurns: 2
   maximumTrackHeading: 65
   curveDegreesPerSlice: 5
+  randomizeTurnSeedEachRun: 0
   turnSeed: 271
 --- !u!114 &11400000
 MonoBehaviour:

@@ -21,6 +21,12 @@ MonoBehaviour:
   finishSequenceDuration: 2.5
   laneChangeCameraDuration: 1
   laneChangeCameraEasing: 6
+  bossAttackCameraEnabled: 1
+  bossAttackCameraTriggerDistance: 20
+  bossAttackCameraOffset: {x: 8.5, y: 11, z: -11}
+  bossAttackCameraSwingDuration: 0.45
+  bossAttackCameraReturnDuration: 0.8
+  bossAttackCameraClearance: 0.6
   playerVehicleImpactShakeDuration: 0.24
   playerVehicleImpactShakePositionStrength: 0.32
   playerVehicleImpactShakeRotationDegrees: 2.4

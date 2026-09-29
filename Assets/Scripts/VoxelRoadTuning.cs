@@ -27,6 +27,8 @@ namespace VoxelRacer
         [Min(0)] public int minimumStraightSegmentsBetweenTurns = 1;
         [Min(1f)] public float maximumTrackHeading = 65f;
         [Range(1f, 15f)] public float curveDegreesPerSlice = 5f;
+        [Tooltip("Choose a fresh turn seed when a race starts. The chosen seed stays fixed for the entire run, including road rebuilds.")]
+        public bool randomizeTurnSeedEachRun;
         public int turnSeed = 173;
 
 #if UNITY_EDITOR
@@ -56,6 +58,7 @@ namespace VoxelRacer
             road.minimumStraightSegmentsBetweenTurns = minimumStraightSegmentsBetweenTurns;
             road.maximumTrackHeading = maximumTrackHeading;
             road.curveDegreesPerSlice = curveDegreesPerSlice;
+            road.randomizeTurnSeedEachRun = randomizeTurnSeedEachRun;
             road.turnSeed = turnSeed;
         }
 
@@ -80,6 +83,7 @@ namespace VoxelRacer
             minimumStraightSegmentsBetweenTurns = road.minimumStraightSegmentsBetweenTurns;
             maximumTrackHeading = road.maximumTrackHeading;
             curveDegreesPerSlice = road.curveDegreesPerSlice;
+            randomizeTurnSeedEachRun = road.randomizeTurnSeedEachRun;
             turnSeed = road.turnSeed;
         }
 

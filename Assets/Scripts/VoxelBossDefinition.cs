@@ -11,6 +11,8 @@ namespace VoxelRacer
         public GameObject bossPrefab;
         [Tooltip("Seconds for the boss model to grow from zero to full size. Zero disables the entrance animation.")]
         [Min(0)] public float entranceDuration = .75f;
+        [Tooltip("Extra track distance beyond the normal spawn gap where the boss begins its entrance. It moves toward the normal gap while scaling up.")]
+        [Min(0f)] public float entranceApproachDistance = 100f;
         [Min(1)] public float health = 2000;
         [Min(.01f)] public float voxelHealth = 8;
         [Min(0)] public int playerCollisionDamageMin = 35;

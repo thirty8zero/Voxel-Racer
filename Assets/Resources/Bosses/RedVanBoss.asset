@@ -15,12 +15,13 @@ MonoBehaviour:
   bossName: The Vandito
   bossPrefab: {fileID: 8721871037261989453, guid: 93ff97f93c087374e958c785242c963d, type: 3}
   entranceDuration: 2
+  entranceApproachDistance: 100
   health: 1000
   voxelHealth: 8
   playerCollisionDamageMin: 30
   playerCollisionDamageMax: 50
   playerRamDamage: 100
-  maximumVoxelsRemovedPerRam: 80
+  maximumVoxelsRemovedPerRam: 30
   minimumDistanceAhead: 30
   maximumDistanceAhead: 210
   escapeWarningDistance: 150
@@ -38,5 +39,6 @@ MonoBehaviour:
   attacks:
   - {fileID: 11400000, guid: 0d586648a5c04a79bb6345793d30c8c3, type: 2}
   - {fileID: 11400000, guid: c727315e6a58488f87eef2ef869d17b7, type: 2}
+  - {fileID: 11400000, guid: 5f3b6ce090b6464db1f455db2e0b7fc8, type: 2}
   smokeDamageThreshold: 0.25
   fireDamageThreshold: 0.5

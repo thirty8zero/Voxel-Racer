@@ -16,6 +16,7 @@ MonoBehaviour:
   checkInterval: 5
   warningDuration: 1
   holdDuration: 1
+  sideRamRetreatDelay: 0.1
   braking: 360
   closingResponse: 12
   closingSpeed: 1000

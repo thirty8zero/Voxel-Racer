@@ -30,6 +30,8 @@ namespace VoxelRacer
         private Text performanceWheelLabel;
         private Button boostUpgradeButton;
         private Text boostUpgradeLabel;
+        private Button ploughUpgradeButton;
+        private Text ploughUpgradeLabel;
         private Button engineUpgradeButton;
         private Text engineUpgradeLabel;
         private Text repair10ButtonLabel;
@@ -107,6 +109,7 @@ namespace VoxelRacer
             VoxelPerformanceWheelUpgradeState.ApplyTo(car, definition);
             VoxelBoostUpgradeState.ApplyTo(car, definition);
             VoxelEngineUpgradeState.ApplyTo(car, definition);
+            VoxelPloughUpgradeState.ApplyTo(car, definition);
             DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(DisplayedCar, definition);
             var damageEffects=car.GetComponent<VoxelVehicleDamageEffects>() ?? car.gameObject.AddComponent<VoxelVehicleDamageEffects>();
@@ -245,6 +248,9 @@ namespace VoxelRacer
             engineUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "V6 Engine Purchase Button", string.Empty, 30,
                 new Vector2(.5f,.5f), Vector2.zero, new Vector2(560,100), TryPurchaseEngine);
             engineUpgradeLabel = engineUpgradeButton.GetComponentInChildren<Text>();
+            ploughUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Plough Purchase Button", string.Empty, 30,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), TryPurchasePlough);
+            ploughUpgradeLabel = ploughUpgradeButton.GetComponentInChildren<Text>();
             BuildUpgradeScroll(weaponUpgradePanel.transform);
 
             feedbackText = VoxelMenuUi.CreateText(canvas, "Repair Feedback", string.Empty, 68,
@@ -377,6 +383,7 @@ namespace VoxelRacer
             RefreshWheelSpikeShop();
             RefreshPerformanceWheelShop();
             RefreshEngineShop();
+            RefreshPloughShop();
             RefreshBoostShop();
             VoxelGunTuning gunTuning = VoxelGunUpgradeState.LongGunTuning;
             if (gunUpgradeButton == null || gunUpgradeButtonLabel == null || gunTuning == null)
@@ -432,7 +439,7 @@ namespace VoxelRacer
             var cr = (RectTransform)content.transform;
             cr.anchorMin = cr.anchorMax = new Vector2(.5f, 1); cr.pivot = new Vector2(.5f, 1);
             var buttons = new[] { gunUpgradeButton, rightArmorUpgradeButton, leftArmorUpgradeButton,
-                wheelSpikeUpgradeButton, performanceWheelButton, boostUpgradeButton, engineUpgradeButton };
+                wheelSpikeUpgradeButton, performanceWheelButton, boostUpgradeButton, engineUpgradeButton, ploughUpgradeButton };
             cr.sizeDelta = new Vector2(560, buttons.Length * 115 - 15);
             for (int i = 0; i < buttons.Length; i++)
             {

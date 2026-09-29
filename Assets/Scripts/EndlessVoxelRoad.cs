@@ -37,6 +37,8 @@ namespace VoxelRacer
         [Min(0)] public int minimumStraightSegmentsBetweenTurns = 1;
         [Min(1f)] public float maximumTrackHeading = 65f;
         [Range(1f, 15f)] public float curveDegreesPerSlice = 5f;
+        [Tooltip("Choose a fresh turn seed when a race starts. The chosen seed stays fixed for the entire run, including road rebuilds.")]
+        public bool randomizeTurnSeedEachRun;
         public int turnSeed = 173;
 
         private sealed class RoadSegment
@@ -62,6 +64,8 @@ namespace VoxelRacer
         private bool rebuildQueued;
         private bool editorRebuildQueued;
         private bool recyclingSuspended;
+        private bool hasRandomizedTurnSeedForRun;
+        private int randomizedTurnSeedForRun;
 
         private float appliedGroundWidth;
         private int appliedLaneCount;
@@ -80,6 +84,7 @@ namespace VoxelRacer
         private int appliedStraightSegmentsBetweenTurns;
         private float appliedMaximumTrackHeading;
         private float appliedCurveDegreesPerSlice;
+        private bool appliedRandomizeTurnSeedEachRun;
         private int appliedTurnSeed;
 
         private static readonly Color[] CactusShades =
@@ -122,7 +127,15 @@ namespace VoxelRacer
             if (pathSegments.Count > 0)
                 return;
             EnsureContinuousGround();
-            turnRandom = new System.Random(turnSeed);
+            if (Application.isPlaying && randomizeTurnSeedEachRun && !hasRandomizedTurnSeedForRun)
+            {
+                randomizedTurnSeedForRun = System.Guid.NewGuid().GetHashCode();
+                hasRandomizedTurnSeedForRun = true;
+            }
+            int seedForThisBuild = Application.isPlaying && randomizeTurnSeedEachRun
+                ? randomizedTurnSeedForRun
+                : turnSeed;
+            turnRandom = new System.Random(seedForThisBuild);
             straightSegmentsSinceTurn = minimumStraightSegmentsBetweenTurns;
             for (int index = 0; index < Mathf.Max(3, segmentCount); index++)
                 AppendSegment(true);
@@ -622,7 +635,8 @@ namespace VoxelRacer
                 !Mathf.Approximately(appliedMaximumCactusWidthScale, maximumCactusWidthScale) || !Mathf.Approximately(appliedTurnChance, turnChancePerSegment) ||
                 !Mathf.Approximately(appliedMinimumTurnAngle, minimumTurnAngle) || !Mathf.Approximately(appliedMaximumTurnAngle, maximumTurnAngle) ||
                 appliedStraightSegmentsBetweenTurns != minimumStraightSegmentsBetweenTurns || !Mathf.Approximately(appliedMaximumTrackHeading, maximumTrackHeading) ||
-                !Mathf.Approximately(appliedCurveDegreesPerSlice, curveDegreesPerSlice) || appliedTurnSeed != turnSeed;
+                !Mathf.Approximately(appliedCurveDegreesPerSlice, curveDegreesPerSlice) ||
+                appliedRandomizeTurnSeedEachRun != randomizeTurnSeedEachRun || appliedTurnSeed != turnSeed;
         }
 
         private void CaptureAppliedValues()
@@ -634,7 +648,9 @@ namespace VoxelRacer
             appliedMaximumCactusWidthScale = maximumCactusWidthScale; appliedTurnChance = turnChancePerSegment;
             appliedMinimumTurnAngle = minimumTurnAngle; appliedMaximumTurnAngle = maximumTurnAngle;
             appliedStraightSegmentsBetweenTurns = minimumStraightSegmentsBetweenTurns; appliedMaximumTrackHeading = maximumTrackHeading;
-            appliedCurveDegreesPerSlice = curveDegreesPerSlice; appliedTurnSeed = turnSeed;
+            appliedCurveDegreesPerSlice = curveDegreesPerSlice;
+            appliedRandomizeTurnSeedEachRun = randomizeTurnSeedEachRun;
+            appliedTurnSeed = turnSeed;
         }
     }
 }

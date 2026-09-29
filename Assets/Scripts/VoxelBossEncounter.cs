@@ -8,7 +8,8 @@ namespace VoxelRacer
         public VoxelEnemyCar Boss { get; private set; }
         public float BossDistance => Boss != null && player != null
             ? Mathf.Max(0, Boss.TrackDistance - player.CollisionTrackPosition.y) : 0;
-        public bool BossGettingAway => CurrentStage == Stage.Boss && BossDistance >= boss.WarningDistance;
+        public bool BossGettingAway => CurrentStage == Stage.Boss && Boss != null && !Boss.IsBossEntering &&
+            BossDistance >= boss.WarningDistance;
 
         private VoxelBossDefinition boss;
         private VoxelBossEncounterSettings encounterSettings;
@@ -20,6 +21,7 @@ namespace VoxelRacer
         private VoxelObstacleCarTuning traffic;
         private VoxelEnemyVehicleTuning enemy;
         private VoxelMineLayerTuning mines;
+        private VoxelBossRoadHazardSpawner roadHazardSpawner;
         private float elapsed;
 
         public void Configure(VoxelBossDefinition bossDefinition, VoxelBossEncounterSettings trackEncounterSettings,
@@ -33,6 +35,11 @@ namespace VoxelRacer
             spawner = trafficSpawner;
             mission = progress;
             countdown = start;
+            roadHazardSpawner = GetComponent<VoxelBossRoadHazardSpawner>();
+            if (roadHazardSpawner == null)
+                roadHazardSpawner = gameObject.AddComponent<VoxelBossRoadHazardSpawner>();
+            roadHazardSpawner.Configure(player, road, spawner, this,
+                boss != null ? boss.GetAttack<VoxelBossRoadHazardAttackTuning>() : null);
             CurrentStage = Stage.Traffic;
             elapsed = 0;
             mission.SetBossEncounter(true);
@@ -61,7 +68,7 @@ namespace VoxelRacer
 
         internal void CheckEscape()
         {
-            if (CurrentStage != Stage.Boss || Boss == null || Boss.CurrentHealth <= 0 || mission.IsComplete || mission.IsFailed) return;
+            if (CurrentStage != Stage.Boss || Boss == null || Boss.IsBossEntering || Boss.CurrentHealth <= 0 || mission.IsComplete || mission.IsFailed) return;
             if (BossDistance < boss.FailureDistance) return;
             CurrentStage = Stage.Failed;
             mission.FailBossEncounter();
@@ -136,14 +143,18 @@ namespace VoxelRacer
             }
             else enemy.mineLayer = null;
 
-            float distance = player.CollisionTrackPosition.y + Mathf.Clamp(
+            float destinationGap = Mathf.Clamp(
                 Mathf.Max(boss.minimumDistanceAhead, boss.maximumDistanceAhead), 1, boss.WarningDistance * .8f);
+            float approachDistance = boss.entranceDuration > 0f ? Mathf.Max(0f, boss.entranceApproachDistance) : 0f;
+            float distance = player.CollisionTrackPosition.y + destinationGap + approachDistance;
             road.EnsurePathCovers(distance + 30);
             var go = new GameObject(boss.bossName);
             go.transform.SetParent(spawner.transform, false);
             Boss = go.AddComponent<VoxelEnemyCar>();
             Boss.ConfigureBoss(boss, width, spawner.laneCount);
             Boss.Configure(player, traffic, enemy, road, distance, 0);
+            Boss.BeginBossEntrance(destinationGap);
+            Camera.main?.GetComponent<VoxelCameraFollow>()?.SetBossCameraTarget(Boss);
             Boss.Defeated += BossDefeated;
             mission.ShowBoss(Boss, boss.bossName);
             CurrentStage = Stage.Boss;
