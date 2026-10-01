@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 namespace VoxelRacer
 {
-    /// <summary>Collider-free, nearest-surface missile queries for all traffic and boss models.</summary>
+    /// <summary>Collider-free, solid-envelope missile queries for all traffic and boss models.</summary>
     public sealed class VoxelMissileTarget : MonoBehaviour
     {
         private static readonly List<VoxelMissileTarget> Active = new();
@@ -41,20 +41,25 @@ namespace VoxelRacer
             ready = !first && localBounds.size.sqrMagnitude > 1f && GetComponentInChildren<VoxelBossEntrance>()?.enabled != true;
         }
         public static bool Trace(Vector3 start, Vector3 direction, float length, out VoxelMissileTarget target,
-            out Transform voxel, out Vector3 point, out float distance)
+            out Transform voxel, out Vector3 point, out float distance, float laneHalfWidth = 0f)
         {
             target = null; voxel = null; point = default; distance = length;
             foreach (var t in Active)
             {
                 if (t == null || !t.isActiveAndEnabled) continue;
                 t.Prepare();
-                if (!t.Alive || !Intersect(t.transform, t.localBounds, start, direction, length, out _)) continue;
-                foreach (var r in t.pieces)
-                {
-                    if (r == null || !r.enabled || !r.gameObject.activeInHierarchy || r.GetComponentInParent<VoxelEnemyHealthBar>() != null) continue;
-                    if (!Intersect(r.transform, r.localBounds, start, direction, distance, out float d)) continue;
-                    distance = d; point = start + direction * d; target = t; voxel = r.transform;
-                }
+                if (!t.Alive) continue;
+                // Solid vehicle envelope: damage holes, wheel gaps and hollow interiors cannot leak missiles.
+                // Widen only sideways to cover edge-running missiles in the vehicle's lane.
+                Bounds hitBounds = t.localBounds;
+                Vector3 extents = hitBounds.extents;
+                extents.x = Mathf.Max(extents.x, laneHalfWidth / Mathf.Max(.001f, t.transform.lossyScale.x));
+                hitBounds.extents = extents;
+                if (!Intersect(t.transform, hitBounds, start, direction, distance, out float d)) continue;
+                distance = d; target = t; voxel = null;
+                Vector3 localHit = t.transform.InverseTransformPoint(start + direction * d);
+                point = t.transform.TransformPoint(t.localBounds.ClosestPoint(localHit));
+
             }
             return target != null;
         }
@@ -83,8 +88,8 @@ namespace VoxelRacer
             {
                 var t = Active[i]; if (t == null || !t.isActiveAndEnabled) continue;
                 t.Prepare(); if (!t.Alive) continue;
-                if (t.enemy != null) t.enemy.TakeMissileBlast(point, radius, damage, direction, t.pieces);
-                else t.traffic.TakeMissileBlast(point, radius, damage, direction, t.pieces);
+                if (t.enemy != null) t.enemy.TakeMissileBlast(point, radius, damage, direction, t.pieces, t == directTarget);
+                else t.traffic.TakeMissileBlast(point, radius, damage, direction, t.pieces, t == directTarget);
             }
         }
     }

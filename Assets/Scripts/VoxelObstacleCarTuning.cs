@@ -39,6 +39,25 @@ namespace VoxelRacer
             new Color(0.55f, 0.18f, 0.82f)
         };
 
+        [Tooltip("Civilian models, each with an equal chance. Empty uses the legacy car/van settings.")]
+        public VoxelEnemyVehicleTuning[] civilianVehiclePool;
+
+        public VoxelEnemyVehicleTuning ChooseCivilianVehicle(out bool van)
+        {
+            int count = 0;
+            if (civilianVehiclePool != null)
+                foreach (var entry in civilianVehiclePool) if (entry != null && entry.modelPrefab != null) count++;
+            if (count > 0)
+            {
+                int pick = Random.Range(0, count);
+                foreach (var entry in civilianVehiclePool)
+                    if (entry != null && entry.modelPrefab != null && pick-- == 0)
+                    { van = entry == semiTrailerEnemyTuning; return entry; }
+            }
+            van = Random.value < semiTrailerSpawnChance;
+            return van ? semiTrailerEnemyTuning : trafficCarEnemyTuning;
+        }
+
         // Retain serialized names to migrate existing tracks without losing their settings.
         [InspectorName("Van Spawn Chance")]
         [Range(0f, 1f)] public float semiTrailerSpawnChance = 0.35f;

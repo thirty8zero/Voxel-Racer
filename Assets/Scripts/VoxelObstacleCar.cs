@@ -80,9 +80,9 @@ namespace VoxelRacer
             }
             travelSpeed = spawnSpeed;
             IsEnemyTraffic = vehicleOverride != null;
-            isSemiTrailer = !IsEnemyTraffic && Random.value < tuning.semiTrailerSpawnChance;
-            EnemyTuning = vehicleOverride != null ? vehicleOverride : (isSemiTrailer ? tuning.semiTrailerEnemyTuning : tuning.trafficCarEnemyTuning);
-            if (IsEnemyTraffic)
+            isSemiTrailer = false;
+            EnemyTuning = vehicleOverride != null ? vehicleOverride : tuning.ChooseCivilianVehicle(out isSemiTrailer);
+            if (EnemyTuning != null && (IsEnemyTraffic || EnemyTuning != tuning.trafficCarEnemyTuning))
             {
                 collisionHalfWidth = EnemyTuning.collisionHalfWidth;
                 collisionHalfLength = EnemyTuning.collisionHalfLength;
@@ -241,7 +241,8 @@ namespace VoxelRacer
         private void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
             bool awardMissionPoints)
         {
-            if (hasBeenHit || EnemyTuning == null || damage <= 0f || (hitVoxel != null && !hitVoxel.gameObject.activeInHierarchy))
+            if (hasBeenHit || EnemyTuning == null || damage <= 0f || (hitVoxel != null &&
+                (!hitVoxel.gameObject.activeInHierarchy || hitVoxel.GetComponentInParent<VoxelIndestructiblePart>() != null)))
                 return;
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
@@ -454,7 +455,8 @@ namespace VoxelRacer
         {
             var candidates = new List<Transform>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
-                if (renderer.transform != transform)
+                if (renderer.transform != transform && renderer.enabled && renderer.gameObject.activeInHierarchy &&
+                    renderer.GetComponentInParent<VoxelIndestructiblePart>() == null)
                     candidates.Add(renderer.transform);
 
             candidates.Sort((a, b) => (a.position - hitPoint).sqrMagnitude.CompareTo((b.position - hitPoint).sqrMagnitude));

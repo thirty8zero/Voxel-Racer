@@ -8,16 +8,24 @@ namespace VoxelRacer
     {
         public VoxelGunTuning tuning;
         public Transform muzzle;
+        [Tooltip("One-shot flame from a missile launcher's rear opening.")]
+        public ParticleSystem missileLaunchBurst;
 
         public Vector3 MuzzlePosition => muzzle != null ? muzzle.position : transform.position;
         public Vector3 FireDirection => muzzle != null ? muzzle.forward : transform.forward;
+        public bool HasAmmunition => tuning != null && (tuning.ammunitionPerStage == 0 ||
+            remainingAmmunition >= Mathf.Max(1, tuning.bulletsPerShot));
+        /// <summary>Uses the same scaled game clock and reserved interval as firing.</summary>
+        public float CooldownProgress => shotInterval <= 0f ? 1f :
+            Mathf.Clamp01(1f - (nextFireTime - Time.time) / shotInterval);
         public bool IsReady => isActiveAndEnabled && tuning != null && DriverAllowsFire &&
             (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete) &&
             (VoxelMissionProgress.Active == null || !VoxelMissionProgress.Active.IsComplete) &&
             Time.time >= nextFireTime &&
-            (tuning.ammunitionPerStage == 0 || remainingAmmunition >= Mathf.Max(1, tuning.bulletsPerShot));
+            HasAmmunition;
 
         private float nextFireTime;
+        private float shotInterval;
         private int remainingAmmunition;
         private VoxelCarController owningCar;
 
@@ -59,7 +67,8 @@ namespace VoxelRacer
             if (!IsReady)
                 return false;
 
-            nextFireTime = Time.time + tuning.SecondsPerShot;
+            shotInterval = tuning.SecondsPerShot;
+            nextFireTime = Time.time + shotInterval;
             bulletCount = Mathf.Max(1, tuning.bulletsPerShot);
             if (tuning.ammunitionPerStage > 0)
                 remainingAmmunition -= bulletCount;
@@ -81,6 +90,11 @@ namespace VoxelRacer
             {
                 float side = Mathf.Sign(owningCar.transform.InverseTransformPoint(MuzzlePosition).x);
                 VoxelMissileProjectile.Create(MuzzlePosition, owningCar, side, tuning);
+                if (missileLaunchBurst != null)
+                {
+                    missileLaunchBurst.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                    missileLaunchBurst.Play(true);
+                }
                 return;
             }
             Vector3 direction = Quaternion.AngleAxis(Random.Range(-tuning.spreadDegrees, tuning.spreadDegrees), Vector3.up) *

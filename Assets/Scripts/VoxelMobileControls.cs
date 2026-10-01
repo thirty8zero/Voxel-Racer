@@ -11,13 +11,21 @@ namespace VoxelRacer
         private CanvasGroup canvasGroup;
         private Texture2D fireButtonTexture;
         private Sprite fireButtonSprite;
+        private VoxelMissileButtonDisplay missileDisplay;
         private static bool fireHeld, missileHeld;
+        private static bool HasMissileUpgrade => VoxelMissileUpgradeState.IsPurchased(false) ||
+            VoxelMissileUpgradeState.IsPurchased(true);
 
         /// <summary>Read by all mounted guns in addition to the keyboard Ctrl binding.</summary>
         public static bool IsFireHeld => fireHeld;
         public static bool IsMissileHeld => missileHeld;
 
-        public void Configure(VoxelCarController controller) => target = controller;
+        public void Configure(VoxelCarController controller)
+        {
+            target = controller;
+            missileDisplay?.Configure(controller);
+            UpdateMissileVisibility();
+        }
 
         private void Awake() => BuildHud();
 
@@ -29,6 +37,7 @@ namespace VoxelRacer
             if (canvasGroup == null)
                 return;
 
+            UpdateMissileVisibility();
             bool hidden = !Application.isPlaying || target == null || target.IsDestroyed ||
                 VoxelPlayerDeathScreen.IsShowing || VoxelMissionProgress.Active?.IsComplete == true;
             canvasGroup.alpha = hidden ? 0f : VoxelStartCountdown.CurrentGameplayHudAlpha;
@@ -50,8 +59,17 @@ namespace VoxelRacer
 
         internal void SetMissileHeld(bool value)
         {
-            missileHeld = value && target != null && !target.IsDestroyed &&
+            missileHeld = value && HasMissileUpgrade && target != null && !target.IsDestroyed &&
                 VoxelMissionProgress.Active?.IsComplete != true;
+        }
+
+        private void UpdateMissileVisibility()
+        {
+            if (missileDisplay == null) return;
+            bool visible = target != null && HasMissileUpgrade;
+            if (missileDisplay.gameObject.activeSelf != visible)
+                missileDisplay.gameObject.SetActive(visible);
+            if (!visible) missileHeld = false;
         }
 
         private void BuildHud()
@@ -72,12 +90,17 @@ namespace VoxelRacer
             CreateControl(canvas, "Fire Button", "FIRE", new Vector2(1f, 0f),
                 new Vector2(-150f, 390f), new Vector2(200f, 200f), MobileControlAction.Fire,
                 new Color(0.60f, 0.13f, 0.05f, 0.78f), 52, CreateFireButtonSprite());
-            CreateControl(canvas, "Missile Button", "MISSILE", new Vector2(0f, 0f),
+            Image missileButton = CreateControl(canvas, "Missile Button", "FIRE\nMISSILE", new Vector2(0f, 0f),
                 new Vector2(150f, 390f), new Vector2(200f, 200f), MobileControlAction.Missile,
-                new Color(0.12f, 0.32f, 0.58f, 0.85f), 44, CreateFireButtonSprite());
+                Color.white, 33);
+            missileDisplay = missileButton.gameObject.AddComponent<VoxelMissileButtonDisplay>();
+            missileDisplay.Build();
+            missileButton.rectTransform.localScale = Vector3.one * 1.15f;
+            missileDisplay.Configure(target);
+            UpdateMissileVisibility();
         }
 
-        private void CreateControl(Transform parent, string name, string label, Vector2 anchor,
+        private Image CreateControl(Transform parent, string name, string label, Vector2 anchor,
             Vector2 position, Vector2 size, MobileControlAction action, Color colour, int fontSize,
             Sprite backgroundSprite = null)
         {
@@ -102,6 +125,7 @@ namespace VoxelRacer
             text.fontStyle = FontStyle.Normal;
             text.color = Color.white;
             text.raycastTarget = false;
+            return image;
         }
 
         private Sprite CreateFireButtonSprite()

@@ -16,11 +16,7 @@ namespace VoxelRacer.Editor
             var missile = new GameObject("Missile");
             try
             {
-                Block(missile.transform, "Rocket body", Vector3.zero, new Vector3(.14f, .14f, .65f), silver);
-                Block(missile.transform, "Warhead", new Vector3(0, 0, .36f), new Vector3(.11f, .11f, .17f), red);
-                Block(missile.transform, "Nose tip", new Vector3(0, 0, .47f), new Vector3(.055f, .055f, .08f), red);
-                Block(missile.transform, "Horizontal fins", new Vector3(0, 0, -.22f), new Vector3(.32f, .035f, .18f), metal);
-                Block(missile.transform, "Vertical fins", new Vector3(0, 0, -.22f), new Vector3(.035f, .32f, .18f), metal);
+                VoxelMissileModelBuilder.BuildMissile(missile, metal, dark, silver, red);
                 Particles(missile.transform, "Rocket exhaust", fire, false);
                 Particles(missile.transform, "Smoke trail", smoke, true);
                 PrefabUtility.SaveAsPrefabAsset(missile, "Assets/Prefabs/Weapons/Missile.prefab");
@@ -40,18 +36,10 @@ namespace VoxelRacer.Editor
             var launcher = new GameObject("Roof Missile Launcher"); launcher.AddComponent<VoxelIndestructiblePart>();
             try
             {
-                Block(launcher.transform, "Roof rail", new Vector3(0, .025f, 0), new Vector3(.25f, .07f, .94f), dark);
-                Block(launcher.transform, "Rear mount", new Vector3(0, .10f, -.28f), new Vector3(.19f, .15f, .14f), metal);
-                Block(launcher.transform, "Front mount", new Vector3(0, .10f, .28f), new Vector3(.19f, .15f, .14f), metal);
-                Block(launcher.transform, "Upper casing", new Vector3(0, .34f, 0), new Vector3(.36f, .07f, 1.12f), metal);
-                Block(launcher.transform, "Lower casing", new Vector3(0, .14f, 0), new Vector3(.36f, .07f, 1.12f), metal);
-                foreach (int sign in new[] { -1, 1 })
-                    Block(launcher.transform, "Side casing", new Vector3(sign * .16f, .24f, 0), new Vector3(.06f, .16f, 1.12f), metal);
-                Block(launcher.transform, "Tube interior", new Vector3(0, .24f, -.35f), new Vector3(.27f, .14f, .32f), dark);
-                Block(launcher.transform, "Loaded missile", new Vector3(0, .24f, .30f), new Vector3(.12f, .12f, .46f), silver);
-                Block(launcher.transform, "Loaded nose", new Vector3(0, .24f, .55f), new Vector3(.085f, .085f, .12f), red);
-                var muzzle = new GameObject("Missile Muzzle").transform; muzzle.SetParent(launcher.transform, false); muzzle.localPosition = new Vector3(0, .24f, .72f);
+                VoxelMissileModelBuilder.BuildLauncher(launcher, metal, dark, silver, red);
+                var muzzle = new GameObject("Missile Muzzle").transform; muzzle.SetParent(launcher.transform, false); muzzle.localPosition = new Vector3(0, .17f, 1f);
                 var mount = launcher.AddComponent<VoxelGunMount>(); mount.tuning = weapon; mount.muzzle = muzzle;
+                EnsureLauncherLaunchBurst(launcher);
                 weapon.visualPrefab = PrefabUtility.SaveAsPrefabAsset(launcher, "Assets/Prefabs/Weapons/MissileLauncher.prefab");
             }
             finally { Object.DestroyImmediate(launcher); }
@@ -73,6 +61,66 @@ namespace VoxelRacer.Editor
             m = new Material(Shader.Find("Universal Render Pipeline/Lit")); m.SetColor("_BaseColor", colour);
             m.SetFloat("_Metallic", .35f); m.SetFloat("_Smoothness", .3f); AssetDatabase.CreateAsset(m, path); return m;
         }
+
+        [MenuItem("Tools/Voxel Racer/Update Missile Launcher Flame Burst")]
+        public static void UpdateLauncherFlameBurst()
+        {
+            const string path = "Assets/Prefabs/Weapons/MissileLauncher.prefab";
+            var launcher = PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                EnsureLauncherLaunchBurst(launcher);
+                PrefabUtility.SaveAsPrefabAsset(launcher, path);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(launcher); }
+        }
+
+        public static void EnsureLauncherLaunchBurst(GameObject launcher)
+        {
+            const string effectName = "Launcher rear flame burst";
+            var outlet = launcher.transform.Find(effectName);
+            ParticleSystem ps;
+            if (outlet != null)
+                ps = outlet.GetComponent<ParticleSystem>();
+            else
+            {
+                var go = new GameObject(effectName); go.transform.SetParent(launcher.transform, false);
+                go.transform.localPosition = new Vector3(0, .17f, -.595f);
+                go.transform.localRotation = Quaternion.LookRotation(Vector3.back);
+                ps = go.AddComponent<ParticleSystem>();
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                var main = ps.main; main.loop = false; main.playOnAwake = false; main.duration = .12f;
+                main.startLifetime = new ParticleSystem.MinMaxCurve(.14f, .24f);
+                main.startSpeed = new ParticleSystem.MinMaxCurve(5f, 8f);
+                main.startSize3D = true;
+                main.startSizeX = main.startSizeY = new ParticleSystem.MinMaxCurve(.14f, .22f);
+                main.startSizeZ = new ParticleSystem.MinMaxCurve(.26f, .40f);
+                main.startColor = Color.white; main.maxParticles = 32;
+                main.simulationSpace = ParticleSystemSimulationSpace.Local;
+                main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
+                var emission = ps.emission; emission.rateOverTime = 100; emission.rateOverDistance = 0;
+                emission.SetBursts(new[] { new ParticleSystem.Burst(0, 12) });
+                var shape = ps.shape; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 6; shape.radius = .045f;
+                var size = ps.sizeOverLifetime; size.enabled = true;
+                size.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, .45f), new Keyframe(.15f, 1), new Keyframe(1, 0)));
+                var colour = ps.colorOverLifetime; colour.enabled = true;
+                var gradient = new Gradient();
+                gradient.SetKeys(new[] {
+                    new GradientColorKey(new Color(1, .96f, .65f), 0),
+                    new GradientColorKey(new Color(1, .45f, .045f), .45f),
+                    new GradientColorKey(new Color(.95f, .09f, .01f), 1)
+                }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(.9f, .5f), new GradientAlphaKey(0, 1) });
+                colour.color = gradient;
+                var renderer = ps.GetComponent<ParticleSystemRenderer>();
+                renderer.sharedMaterial = ParticleMat("MissileFlame", true); renderer.renderMode = ParticleSystemRenderMode.Mesh;
+                renderer.alignment = ParticleSystemRenderSpace.Local;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; renderer.receiveShadows = false;
+                var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                renderer.mesh = cube.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(cube);
+            }
+            // Existing prefab edits survive incremental model/bracket rebuilds.
+            launcher.GetComponent<VoxelGunMount>().missileLaunchBurst = ps;
+        }
         private static Material ParticleMat(string name, bool glow)
         {
             string path = "Assets/Resources/CarMaterials/" + name + ".mat";
@@ -87,7 +135,7 @@ namespace VoxelRacer.Editor
         private static void Particles(Transform parent, string name, Material material, bool smoke)
         {
             var go = new GameObject(name); go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(0, 0, -.36f); go.transform.localRotation = Quaternion.LookRotation(Vector3.back);
+            go.transform.localPosition = new Vector3(0, 0, -.425f); go.transform.localRotation = Quaternion.LookRotation(Vector3.back);
             var ps = go.AddComponent<ParticleSystem>(); ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main; main.loop = true; main.playOnAwake = true; main.maxParticles = smoke ? 64 : 24;
             main.startLifetime = smoke ? 1.2f : .16f; main.startSpeed = smoke ? .4f : 3f;
@@ -103,7 +151,13 @@ namespace VoxelRacer.Editor
             var renderer = ps.GetComponent<ParticleSystemRenderer>(); renderer.sharedMaterial = material;
             renderer.renderMode = ParticleSystemRenderMode.Mesh;
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube); renderer.mesh = cube.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(cube);
-            if (smoke) ConfigureSmoke(ps);
+            if (smoke) ConfigureSmoke(ps); else ConfigureFlame(ps);
+        }
+        public static void ConfigureFlame(ParticleSystem ps)
+        {
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = ps.main; main.startSize = .45f; main.startLifetime = .30f; main.startSpeed = 6f;
+            var shape = ps.shape; shape.radius = .05f;
         }
         // Distance emission keeps the plume continuous even at high vehicle/projectile speeds.
         public static void ConfigureSmoke(ParticleSystem ps)
@@ -111,15 +165,16 @@ namespace VoxelRacer.Editor
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main;
             main.maxParticles = 1024;
-            main.startLifetime = 1.8f;
-            main.startSize = new ParticleSystem.MinMaxCurve(.65f, .95f);
+            main.startLifetime = 1.4f;
+            main.startSize = new ParticleSystem.MinMaxCurve(.60f, .90f);
             main.startSpeed = .7f;
-            main.startColor = new Color(.65f, .67f, .69f, .85f);
+            // Fewer, slightly narrower puffs with more opaque white cores.
+            main.startColor = new Color(1f, 1f, 1f, .80f);
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
-            var emission = ps.emission; emission.rateOverTime = 30; emission.rateOverDistance = 4;
+            var emission = ps.emission; emission.rateOverTime = 16; emission.rateOverDistance = 2f;
             var size = ps.sizeOverLifetime; size.enabled = true;
-            size.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, 1, 1, 2.8f));
+            size.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, 1, 1, 2.6f));
             var velocity = ps.velocityOverLifetime; velocity.enabled = true;
             velocity.space = ParticleSystemSimulationSpace.World; velocity.y = .65f;
             var colour = ps.colorOverLifetime; colour.enabled = true;
@@ -136,15 +191,10 @@ namespace VoxelRacer.Editor
             try
             {
                 ConfigureSmoke(prefab.transform.Find("Smoke trail").GetComponent<ParticleSystem>());
+                ConfigureFlame(prefab.transform.Find("Rocket exhaust").GetComponent<ParticleSystem>());
                 PrefabUtility.SaveAsPrefabAsset(prefab, path);
             }
             finally { PrefabUtility.UnloadPrefabContents(prefab); }
-        }
-        private static void Block(Transform parent, string name, Vector3 position, Vector3 scale, Material material)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube); go.name = name; Object.DestroyImmediate(go.GetComponent<Collider>());
-            go.transform.SetParent(parent, false); go.transform.localPosition = position; go.transform.localScale = scale;
-            go.GetComponent<MeshRenderer>().sharedMaterial = material;
         }
     }
 }

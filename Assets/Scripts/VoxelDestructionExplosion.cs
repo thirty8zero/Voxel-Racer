@@ -9,7 +9,7 @@ namespace VoxelRacer
         private const float MinimumScale = 0.1f;
         private static GameObject prefab;
 
-        public static void Play(Vector3 position, float scale = 1f)
+        public static void Play(Vector3 position, float scale = 1f, bool shakeCamera = true)
         {
             if (prefab == null)
                 prefab = Resources.Load<GameObject>(ResourcePath);
@@ -23,7 +23,8 @@ namespace VoxelRacer
             effect.transform.localScale *= Mathf.Max(MinimumScale, scale);
             foreach (ParticleSystem particles in effect.GetComponentsInChildren<ParticleSystem>(true))
                 particles.Play(true);
-            Camera.main?.GetComponent<VoxelCameraFollow>()?.ShakeFromObjectExplosion();
+            if (shakeCamera)
+                Camera.main?.GetComponent<VoxelCameraFollow>()?.ShakeFromObjectExplosion();
             Object.Destroy(effect, 2.25f);
         }
     }

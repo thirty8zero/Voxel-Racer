@@ -32,6 +32,10 @@ MonoBehaviour:
   - {r: 0.98, g: 0.55, b: 0.06, a: 1}
   - {r: 0.12, g: 0.7, b: 0.32, a: 1}
   - {r: 0.55, g: 0.18, b: 0.82, a: 1}
+  civilianVehiclePool:
+  - {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
+  - {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}
+  - {fileID: 11400000, guid: b56eba2a0575bdd4388fc938427a7989, type: 2}
   semiTrailerSpawnChance: 0.35
   trafficCarEnemyTuning: {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
   semiTrailerEnemyTuning: {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}

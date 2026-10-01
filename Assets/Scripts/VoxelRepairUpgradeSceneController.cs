@@ -294,6 +294,9 @@ namespace VoxelRacer
             VoxelCarRunState.Capture(DisplayedCar, definition);
             feedbackText.text = restored > 0 ? "REPAIRED " + restored + " VOXELS" : "NO REPAIRS NEEDED";
             RefreshUi();
+            if (restored > 0 && DisplayedCar.RepairableIntegrityVoxels == 0 &&
+                garageRepairPanel != null && garageRepairPanel.activeSelf)
+                ShowGaragePanel(null);
         }
 
         private void TryPurchaseLongGun()

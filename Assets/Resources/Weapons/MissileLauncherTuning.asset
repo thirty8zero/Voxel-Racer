@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissileLauncherTuning
   weapon: {fileID: 11400000, guid: b7bbee80801736546b9516b940e7332d, type: 2}
   compatibleCarPrefab: {fileID: 7422917196529361028, guid: c4b2b884ffbd2ca4884642c912e47ce8, type: 3}
-  mountPosition: {x: 0.77, y: 1.48, z: -0.22}
-  mountRotation: {x: 0, y: 0, z: 0}
+  mountPosition: {x: 0.77, y: 1.48, z: -0.56}
+  mountRotation: {x: 0, y: 0, z: -45}

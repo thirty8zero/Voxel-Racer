@@ -250,6 +250,9 @@ namespace VoxelRacer
             if(obstacleCarTuning.trafficCarEnemyTuning!=null) spawnHalfLength=Mathf.Max(spawnHalfLength,obstacleCarTuning.trafficCarEnemyTuning.collisionHalfLength);
             if(obstacleCarTuning.semiTrailerSpawnChance>0)
                 spawnHalfLength=Mathf.Max(spawnHalfLength,obstacleCarTuning.semiTrailerEnemyTuning!=null?obstacleCarTuning.semiTrailerEnemyTuning.collisionHalfLength:2.65f);
+            if (obstacleCarTuning.civilianVehiclePool != null)
+                foreach (var vehicle in obstacleCarTuning.civilianVehiclePool)
+                    if (vehicle != null && vehicle.modelPrefab != null) spawnHalfLength = Mathf.Max(spawnHalfLength, vehicle.collisionHalfLength);
             if (radarTuning != null) spawnHalfLength = Mathf.Max(spawnHalfLength, radarTuning.collisionHalfLength);
             var availableLanes = new List<(float offset, float speed)>();
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)

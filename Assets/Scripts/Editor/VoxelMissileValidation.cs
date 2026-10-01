@@ -16,8 +16,85 @@ namespace VoxelRacer.Editor
         private static void Check(bool value, string message) { if (!value) throw new Exception(message); }
         public static void Set(object target, string field, object value) => target.GetType().GetField(field, Private).SetValue(target, value);
         public static object Call(object target, string method, params object[] args) => target.GetType().GetMethod(method, Private).Invoke(target, args);
+        public static void ValidateRoadExit()
+        {
+            var root = new GameObject("Temporary missile bend validation");
+            var weapon = Object.Instantiate(VoxelMissileLauncherTuning.Load().weapon);
+            try
+            {
+                var road = root.AddComponent<EndlessVoxelRoad>(); road.enabled = false;
+                road.turnChancePerSegment = 1; road.minimumStraightSegmentsBetweenTurns = 0;
+                road.minimumTurnAngle = road.maximumTurnAngle = 30;
+                Set(road, "turnRandom", new System.Random(123));
+                road.segmentLength=30;
+                var segments=(System.Collections.IList)typeof(EndlessVoxelRoad).GetField("pathSegments",Private).GetValue(road);
+                segments.Clear();
+                for(int i=0;i<12;i++)
+                {
+                    Call(road,"AppendSegment",false);
+                    var segment=segments[i];
+                    segment.GetType().GetField("turnAngle").SetValue(segment,i<3?0f:30f);
+                }
+                foreach(int side in new[]{-1,1})
+                {
+                    var go = new GameObject("Trajectory test"); go.transform.SetParent(root.transform);
+                    var missile = go.AddComponent<VoxelMissileProjectile>();
+                    Set(missile,"tuning",weapon); Set(missile,"road",road); Set(missile,"startDistance",50f);
+                    Set(missile,"side",(float)side); Set(missile,"edgeOffset",.8f); Set(missile,"launchHeight",1.7f); Set(missile,"launchOffset",side*.8f);
+                    float settle=weapon.missileDescentDistance;
+                    weapon.missileFollowRoad=false;
+                    Vector3 a=(Vector3)Call(missile,"PositionAt",settle);
+                    Vector3 before=(Vector3)Call(missile,"PositionAt",settle-.001f);
+                    Vector3 b=(Vector3)Call(missile,"PositionAt",settle+20);
+                    Vector3 c=(Vector3)Call(missile,"PositionAt",settle+40);
+                    Check(Vector3.Distance(a,before)<.01f,"Discontinuity when missile settles");
+                    Check(Vector3.Distance(b-a,c-b)<.001f,"Straight missile curved after settling");
+                    Check(Vector3.Dot((b-a).normalized,road.Evaluate(50+settle).forward)>.9999f,"Wrong exit heading");
+                    weapon.missileFollowRoad=true;
+                    Vector3 follows=(Vector3)Call(missile,"PositionAt",settle+40);
+                    var pose=road.Evaluate(50+settle+40);
+                    Check(Vector3.Distance(follows,pose.position+pose.right*(side*.8f)+Vector3.up*weapon.missileCruiseHeight)<.001f,"Follow toggle did not track curved road");
+                    Check(Vector3.Distance(follows,c)>1,"Bend test did not distinguish flight modes");
+                }
+                Debug.Log("PASS both missile sides: smooth settlement, straight tangent through bends, optional road following.");
+            }
+            finally {Object.DestroyImmediate(root);Object.DestroyImmediate(weapon);}
+        }
+        public static void ValidateSolidHits()
+        {
+            var root = new GameObject("Temporary missile envelope validation");
+            var tuning = ScriptableObject.CreateInstance<VoxelEnemyVehicleTuning>(); tuning.vehicleHealth = 1000;
+            try
+            {
+                var near = MakeTarget(root.transform, tuning, new Vector3(500, 20, 20));
+                var far = MakeTarget(root.transform, tuning, new Vector3(500, 20, 30));
+                foreach(var r in near.GetComponentsInChildren<MeshRenderer>())
+                    if(Mathf.Abs(r.transform.localPosition.x) < 1.9f) r.gameObject.SetActive(false);
+                Check(VoxelMissileTarget.Trace(new Vector3(500,20,10), Vector3.forward, 40, out var target, out var voxel, out var point, out var distance, 1.5f) && target.gameObject == near.gameObject, "Gap path must hit nearest vehicle envelope");
+                Check(distance > 0 && distance < 10, "Wrong envelope contact distance");
+                VoxelMissileTarget.Blast(point, .01f, 35, Vector3.forward, target, voxel);
+                Check(near.CurrentHealth == 965 && far.CurrentHealth == 1000, "Empty direct impact must damage once, without damaging far target");
+                Check(!VoxelMissileTarget.Trace(new Vector3(510,20,10), Vector3.forward, 40, out _, out _, out _, out _, 1.5f), "Unrelated lane must not be hit");
+                Check(!VoxelMissileTarget.Trace(new Vector3(500,20,35), Vector3.forward, 10, out _, out _, out _, out _, 1.5f), "Vehicle behind must not be hit");
+                Check(VoxelMissileTarget.Trace(new Vector3(500,20,20), Vector3.forward, .1f, out _, out _, out _, out float inside, 1.5f) && inside == 0, "Starting inside vehicle must hit immediately");
+                var civilianObject = Object.Instantiate(near.gameObject, root.transform);
+                civilianObject.transform.position = new Vector3(520,20,20);
+                Object.DestroyImmediate(civilianObject.GetComponent<VoxelEnemyCar>());
+                Object.DestroyImmediate(civilianObject.GetComponent<VoxelMissileTarget>());
+                var civilian = civilianObject.AddComponent<VoxelObstacleCar>(); civilian.enabled = false;
+                typeof(VoxelObstacleCar).GetProperty("EnemyTuning").SetValue(civilian, tuning);
+                typeof(VoxelObstacleCar).GetProperty("CurrentHealth").SetValue(civilian, 1000f);
+                VoxelMissileTarget.Register(civilianObject);
+                Check(VoxelMissileTarget.Trace(new Vector3(520,20,10), Vector3.forward, 20, out target, out voxel, out point, out _, 1.5f), "Civilian gap hit missed");
+                VoxelMissileTarget.Blast(point, .01f, 35, Vector3.forward, target, voxel);
+                Check(civilian.CurrentHealth == 965, "Civilian direct hit through a missing voxel must deal damage");
+                Debug.Log("PASS solid missile envelopes: hollow path, nearest vehicle, direct damage through missing voxels, adjacent-lane exclusion, behind exclusion and inside contact.");
+            }
+            finally { Object.DestroyImmediate(root); Object.DestroyImmediate(tuning); }
+        }
         public static void ValidateFireControls()
         {
+            bool savedLeft = VoxelMissileUpgradeState.IsPurchased(false), savedRight = VoxelMissileUpgradeState.IsPurchased(true);
             var oldEvent = Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
             var root = new GameObject("Temporary fire controls validation");
             var bullet = ScriptableObject.CreateInstance<VoxelGunTuning>();
@@ -25,6 +102,7 @@ namespace VoxelRacer.Editor
             missile.projectileKind = VoxelProjectileKind.Missile;
             try
             {
+                typeof(VoxelMissileUpgradeState).GetField("leftPurchased", Static).SetValue(null, true);
                 var car = root.AddComponent<VoxelCarController>(); car.enabled = false;
                 var controls = root.AddComponent<VoxelMobileControls>(); controls.Configure(car);
                 if (root.transform.childCount == 0) Call(controls, "BuildHud");
@@ -54,6 +132,8 @@ namespace VoxelRacer.Editor
             }
             finally
             {
+                typeof(VoxelMissileUpgradeState).GetField("leftPurchased", Static).SetValue(null, savedLeft);
+                typeof(VoxelMissileUpgradeState).GetField("rightPurchased", Static).SetValue(null, savedRight);
                 Object.DestroyImmediate(root); Object.DestroyImmediate(bullet); Object.DestroyImmediate(missile);
                 if (oldEvent == null) { var e = Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>(); if (e != null) Object.DestroyImmediate(e.gameObject); }
             }
@@ -100,13 +180,56 @@ namespace VoxelRacer.Editor
                 foreach (bool side in new[] { false, true })
                 {
                     var mount = next.transform.Find(VoxelMissileUpgradeState.MountName(side)).GetComponent<VoxelGunMount>();
+                    Check(Mathf.Abs(mount.transform.localPosition.z + .56f) < .001f &&
+                        Mathf.Abs(Mathf.Abs(mount.transform.localPosition.x) - .77f) < .001f, "Launcher must sit centrally on its roof edge");
+                    var bracket = mount.transform.Find(VoxelMissileUpgradeState.RoofBracketName);
+                    Check(bracket != null && bracket.GetComponentsInChildren<MeshRenderer>().Length == 3,
+                        "Braced roof bracket should use three combined material meshes");
+                    var casing = mount.GetComponentsInChildren<MeshRenderer>().Where(r => !r.transform.IsChildOf(bracket)).ToArray();
+                    Check(casing.Length == 4, "Launcher casing should use four combined material meshes");
+                    Check(mount.GetComponentsInChildren<Collider>().Length == 0, "Launcher contains colliders");
+                    var burst = mount.missileLaunchBurst;
+                    Check(burst != null && !burst.main.loop && !burst.main.playOnAwake &&
+                        burst.main.simulationSpace == ParticleSystemSimulationSpace.Local &&
+                        Vector3.Dot(burst.transform.forward, -mount.FireDirection) > .999f &&
+                        burst.transform.localPosition.z < -.5825f && Mathf.Abs(burst.transform.localPosition.y - .17f) < .001f,
+                        "Rear flame burst must sit outside the rear opening, follow the tube and stay idle in previews");
+                    Check(Vector3.Dot(bracket.up, next.transform.up) > .9999f &&
+                        Vector3.Dot(bracket.right, next.transform.right) * (side ? 1 : -1) > .9999f,
+                        "Right-angle bracket must stay upright with its foot inboard on both sides");
+                    foreach (int end in new[] { -1, 1 })
+                    {
+                        var foot = bracket.TransformPoint(new Vector3(-.11f, -.018f, end * .34f));
+                        Check(next.GetComponentsInChildren<MeshRenderer>().Where(r => r.GetComponentInParent<VoxelIndestructiblePart>() == null)
+                            .Any(r => r.GetComponent<MeshFilter>().sharedMesh.bounds.Contains(r.transform.InverseTransformPoint(foot))),
+                            "Bracket foot must contact the actual roof at both anchor points");
+                    }
+                    var launcherBounds = new Bounds(); bool firstBounds = true;
+                    foreach (var r in mount.GetComponentsInChildren<MeshRenderer>())
+                    {
+                        Check(r.GetComponentInParent<VoxelIndestructiblePart>() != null, "Launcher detail changed car integrity");
+                        if (r.transform.IsChildOf(bracket)) continue;
+                        var bounds = r.GetComponent<MeshFilter>().sharedMesh.bounds;
+                        if (firstBounds) { launcherBounds = bounds; firstBounds = false; } else launcherBounds.Encapsulate(bounds);
+                    }
+                    Check(launcherBounds.size.x < .27f && launcherBounds.size.y < .32f, "Launcher casing is not thinner");
+                    var projectileBounds = new Bounds(); firstBounds = true;
+                    foreach (var r in gun.missilePrefab.GetComponentsInChildren<MeshRenderer>())
+                    {
+                        var mesh = r.GetComponent<MeshFilter>().sharedMesh;
+                        Check(AssetDatabase.Contains(mesh) && mesh.triangles.Length > 24, "Missile detail mesh is not saved");
+                        if (firstBounds) { projectileBounds = mesh.bounds; firstBounds = false; } else projectileBounds.Encapsulate(mesh.bounds);
+                    }
+                    Check(mount.muzzle.localPosition.z + projectileBounds.min.z >= launcherBounds.max.z - .001f, "Missile tail starts inside the launcher");
                     Check(Vector3.Dot(mount.FireDirection, next.transform.forward) > .999f, "Launcher points backwards");
+                    Vector3 up = next.transform.InverseTransformDirection(mount.transform.up);
+                    Check(Mathf.Abs(up.x - (side ? 1 : -1) * .7071068f) < .001f && Mathf.Abs(up.y - .7071068f) < .001f, "Launcher outward tilt must be mirrored 45 degrees");
                     var projectile = VoxelMissileProjectile.Create(mount.MuzzlePosition, next, side ? 1 : -1, gun);
                     projectile.transform.SetParent(root.transform);
                     Vector3 atStart = (Vector3)Call(projectile, "PositionAt", 0f);
                     Vector3 atEnd = (Vector3)Call(projectile, "PositionAt", gun.missileDescentDistance);
                     Check(Vector3.Distance(atStart, mount.MuzzlePosition) < .001f, "Missile teleports at launch");
-                    Check(Mathf.Abs(atEnd.y - gun.missileCruiseHeight) < .001f && Mathf.Abs(atEnd.x - (side ? 1 : -1) * gun.missileLaneSideOffset) < .001f, "Missile descent or lane offset wrong");
+                    Check(Mathf.Abs(atEnd.y - gun.missileCruiseHeight) < .001f && Mathf.Abs(atEnd.x - (side ? 1 : -1) * Mathf.Max(0, next.laneWidth * .5f - gun.missileLaneEdgeInset)) < .001f, "Missile descent or lane offset wrong");
                     var ps = projectile.GetComponentsInChildren<ParticleSystem>();
                     Check(ps.Length == 2 && ps.Any(p => p.main.simulationSpace == ParticleSystemSimulationSpace.World), "Rocket/smoke effects missing");
                     Object.DestroyImmediate(projectile.gameObject);
@@ -138,6 +261,7 @@ namespace VoxelRacer.Editor
                 var leftMount = preview.transform.Find(VoxelMissileUpgradeState.MountName(false));
                 leftMount.gameObject.SetActive(false); mounts[1].Build(preview.transform); Render(preview, "RightOnly", true); leftMount.gameObject.SetActive(true);
                 mounts[1].Build(preview.transform); Render(preview, "Both", true);
+                Render(preview, "RightBracket", true, true); Render(preview, "LeftBracket", false, true);
                 foreach (var entry in entries.Where(e => e.Asset != fit && e.Fits(definition))) entry.Build(preview.transform);
                 Render(preview, "Combined", false);
                 foreach (var r in body) if (r.GetComponentInParent<VoxelIndestructiblePart>() == null) r.enabled = false;
@@ -178,13 +302,19 @@ namespace VoxelRacer.Editor
             var go = new GameObject("Missile test car"); go.transform.SetParent(parent, false); Object.Instantiate(definition.visualPrefab, go.transform);
             var car = go.AddComponent<VoxelCarController>(); car.enabled = false; car.SetTuning(definition.tuning); car.ResetIntegrityBaseline(); return car;
         }
-        private static void Render(GameObject source, string name, bool right)
+        private static void Render(GameObject source, string name, bool right, bool bracketDetail = false)
         {
             var p = new PreviewRenderUtility();
             try
             {
                 p.AddSingleGO(Object.Instantiate(source)); p.camera.transform.position = new Vector3(right ? 5 : -5, 3.5f, 7);
                 p.camera.transform.LookAt(new Vector3(0, .75f, 0)); p.camera.fieldOfView = 38; p.camera.nearClipPlane = .1f; p.camera.farClipPlane = 50;
+                if (bracketDetail)
+                {
+                    var target = new Vector3(right ? .82f : -.82f, 1.51f, -.45f);
+                    p.camera.transform.position = target + new Vector3(right ? -.70f : .70f, .46f, 1.90f);
+                    p.camera.transform.LookAt(target); p.camera.orthographic = true; p.camera.orthographicSize = .4f;
+                }
                 p.camera.clearFlags = CameraClearFlags.SolidColor; p.camera.backgroundColor = new Color(.17f, .2f, .24f);
                 p.ambientColor = Color.gray; p.lights[0].intensity = 1.5f; p.lights[0].transform.rotation = Quaternion.Euler(40, 150, 0);
                 p.lights[1].intensity = 1; p.lights[1].transform.rotation = Quaternion.Euler(30, 210, 0);

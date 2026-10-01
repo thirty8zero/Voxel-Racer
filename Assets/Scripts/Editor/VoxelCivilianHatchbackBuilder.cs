@@ -85,6 +85,7 @@ namespace VoxelRacer.Editor
                 B(root.transform,"Lower intake",new Vector3(0,.47f,2.23f),new Vector3(.82f,.14f,.045f),rubber);
                 foreach(int end in new[]{-1,1})
                     B(root.transform,"Number plate",new Vector3(0,end==1?.48f:.75f,end*2.259f),new Vector3(.40f,.14f,.025f),lamp);
+                VoxelCivilianDrivelineBuilder.AddStructure(root);
                 PrefabUtility.SaveAsPrefabAsset(root,PrefabPath);
                 var tuning=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>("Assets/Resources/EnemyVehicles/TrafficCarTuning.asset");
                 Undo.RecordObject(tuning,"Assign civilian hatchback");

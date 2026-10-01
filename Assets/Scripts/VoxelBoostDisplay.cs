@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace VoxelRacer
 {
-    /// <summary>Bottom-right round boost control with a draining/recharging red radial dial.</summary>
+    /// <summary>Round boost control with a draining/recharging blue radial dial.</summary>
     public sealed class VoxelBoostDisplay : MonoBehaviour
     {
         private VoxelBoostController boost;
@@ -29,7 +29,7 @@ namespace VoxelRacer
                 return;
 
             boostRing.fillAmount = boost.ChargePercent;
-            boostText.color = new Color(0.93f, 0.08f, 0.07f, boost.IsReady || boost.IsBoosting ? 1f : 0.3f);
+            boostText.color = new Color(0.12f, 0.65f, 1f, boost.IsReady || boost.IsBoosting ? 1f : 0.3f);
         }
 
         private void BuildHud()
@@ -51,14 +51,14 @@ namespace VoxelRacer
             buttonRect.sizeDelta = new Vector2(198f, 198f);
             Image buttonImage = buttonObject.GetComponent<Image>();
             buttonImage.sprite = discSprite;
-            buttonImage.color = new Color(0.02f, 0.02f, 0.03f, 0.35f);
+            buttonImage.color = new Color(0.02f, 0.07f, 0.16f, 0.65f);
             Button button = buttonObject.GetComponent<Button>();
             button.transition = Selectable.Transition.None;
             button.onClick.AddListener(() => boost?.TryActivateBoost());
 
             boostRing = CreateRingImage(canvas, CreateRingSprite());
             boostRing.name = "Boost Charge Ring";
-            boostRing.color = new Color(0.93f, 0.08f, 0.07f, 1f);
+            boostRing.color = new Color(0.12f, 0.65f, 1f, 1f);
 
             // The 220px ring has a 78% inner radius. This 158px-wide safe area
             // maximises the label without letting IMPACTED touch the radial bar.
@@ -68,7 +68,7 @@ namespace VoxelRacer
             boostText.resizeTextForBestFit = true;
             boostText.resizeTextMinSize = 12;
             boostText.resizeTextMaxSize = 52;
-            boostText.color = new Color(0.93f, 0.08f, 0.07f, 1f);
+            boostText.color = new Color(0.12f, 0.65f, 1f, 1f);
             boostText.raycastTarget = false;
         }
 

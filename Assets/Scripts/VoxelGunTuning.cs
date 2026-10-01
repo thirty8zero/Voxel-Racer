@@ -37,9 +37,19 @@ namespace VoxelRacer
         public GameObject missilePrefab;
         [Min(.1f)] public float missileDescentDistance = 14f;
         [Min(.1f)] public float missileCruiseHeight = .65f;
-        [Min(0f)] public float missileLaneSideOffset = .45f;
+        [Tooltip("Distance inside the launch-side lane boundary, in metres.")]
+        [Min(0f)] public float missileLaneEdgeInset = .70f;
+        [Tooltip("Follow road bends after settling. Disabled: continue straight along the heading at the end of the descent.")]
+        public bool missileFollowRoad;
 
-        public float SecondsPerShot => 1f / Mathf.Max(0.01f, shotsPerSecond);
+        [Header("Missile Cooldown")]
+        [Tooltip("Use a cooldown in seconds for missiles instead of Shots Per Second.")]
+        public bool useMissileCooldown;
+        [Tooltip("Time to recharge after each missile firing event. Zero allows firing every frame while held.")]
+        [Min(0f)] public float missileCooldownSeconds = 5f;
+
+        public float SecondsPerShot => projectileKind == VoxelProjectileKind.Missile && useMissileCooldown
+            ? Mathf.Max(0f, missileCooldownSeconds) : 1f / Mathf.Max(0.01f, shotsPerSecond);
 
 #if UNITY_EDITOR
         private void OnValidate()

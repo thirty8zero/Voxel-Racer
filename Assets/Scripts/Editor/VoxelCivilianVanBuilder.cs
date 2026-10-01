@@ -82,6 +82,7 @@ namespace VoxelRacer.Editor
                     for(int row=-1;row<=1;row++) B(root.transform,"Stepped round headlamp",new Vector3(side*.8f,.96f+row*.09f,2.38f),new Vector3(row==0?.27f:.19f,.09f,.035f),lamp);
                     B(root.transform,"Front indicator",new Vector3(side*1.015f,.96f,2.36f),new Vector3(.12f,.33f,.06f),amber);
                 }
+                VoxelCivilianDrivelineBuilder.AddStructure(root);
                 PrefabUtility.SaveAsPrefabAsset(root,PrefabPath);
                 Debug.Log("Transit van saved: "+root.GetComponentsInChildren<MeshRenderer>().Length+" destructible pieces; no per-piece colliders.");
             }

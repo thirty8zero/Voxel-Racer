@@ -28,4 +28,7 @@ MonoBehaviour:
   missilePrefab: {fileID: 0}
   missileDescentDistance: 14
   missileCruiseHeight: 0.65
-  missileLaneSideOffset: 0.45
+  missileLaneEdgeInset: 0.15
+  missileFollowRoad: 0
+  useMissileCooldown: 0
+  missileCooldownSeconds: 5

@@ -15,6 +15,7 @@ namespace VoxelRacer.Editor
             var tuning=UnityEngine.Object.Instantiate(VoxelObstacleCarTuning.Load());
             try
             {
+                tuning.civilianVehiclePool=null;
                 tuning.semiTrailerSpawnChance=1;
                 tuning.semiTrailerEnemyTuning=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>(VoxelCivilianVanBuilder.TuningPath);
                 tuning.paintColours=new[]{Color.magenta};

@@ -62,8 +62,16 @@ namespace VoxelRacer.Editor
             }
             if (type == typeof(VoxelMissileLauncherTuning) && name == "weapon")
             { group = "Weapon Settings"; attributes.Add(new InlineEditorAttribute()); }
-            if (type == typeof(VoxelGunTuning) && name.StartsWith("missile"))
+            if (type == typeof(VoxelGunTuning) && name.StartsWith("missile") && name != "missileCooldownSeconds")
             { group = "Missile Flight"; attributes.Add(new ShowIfAttribute("@projectileKind == VoxelRacer.VoxelProjectileKind.Missile")); }
+            if (type == typeof(VoxelGunTuning) && (name == "useMissileCooldown" || name == "missileCooldownSeconds"))
+            {
+                group = "Missile Cooldown";
+                if (name == "useMissileCooldown") attributes.Add(new ShowIfAttribute("@projectileKind == VoxelRacer.VoxelProjectileKind.Missile"));
+                else attributes.Add(new ShowIfAttribute("@projectileKind == VoxelRacer.VoxelProjectileKind.Missile && useMissileCooldown"));
+            }
+            if (type == typeof(VoxelGunTuning) && name == "shotsPerSecond")
+                attributes.Add(new HideIfAttribute("@projectileKind == VoxelRacer.VoxelProjectileKind.Missile && useMissileCooldown"));
             if(type==typeof(VoxelBoostTuning) && group=="Settings")group="Boost Performance & Effects";
             if(type==typeof(VoxelObstacleCarTuning))
             {
@@ -71,7 +79,7 @@ namespace VoxelRacer.Editor
                 if(name.StartsWith("sameDirection"))group="Movement/Same Direction";
                 else if(name.StartsWith("oncoming"))group="Movement/Oncoming";
                 else if(name.Contains("SpeedDistance")||name=="wheelSpinDegreesPerUnit")group="Movement/Phase Boundaries";
-                else if(name=="paintColours"||name.Contains("EnemyTuning")||name=="semiTrailerSpawnChance")group="Civilian Models & Colours";
+                else if(name=="civilianVehiclePool"||name=="paintColours"||name.Contains("EnemyTuning")||name=="semiTrailerSpawnChance")group="Civilian Models & Colours";
                 else if(name=="staticObstacleSpawns")group="Static Obstacles";
                 else if(name.Contains("Damage")||name.Contains("collision")||name.Contains("launch")||name=="destroyedLifetime")group="Collisions & Damage";
             }

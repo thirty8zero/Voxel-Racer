@@ -9,7 +9,7 @@ namespace VoxelRacer
     }
     public sealed partial class VoxelEnemyCar
     {
-        public void TakeMissileBlast(Vector3 centre, float radius, float damage, Vector3 direction, MeshRenderer[] pieces)
+        public void TakeMissileBlast(Vector3 centre, float radius, float damage, Vector3 direction, MeshRenderer[] pieces, bool directImpact = false)
         {
             if (hasBeenRammed || Tuning == null || damage <= 0) return;
             int removed = 0; bool touched = false;
@@ -22,7 +22,7 @@ namespace VoxelRacer
                 if (Application.isPlaying && removed < 24) SpawnDebris(r.transform, (r.bounds.center - centre).normalized, DebrisStyle.Weapon);
                 r.gameObject.SetActive(false); removed++;
             }
-            if (!touched) return;
+            if (!touched && !directImpact) return;
             CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
             VoxelMissionProgress.ReportEnemyVoxelDestroyed(removed, centre);
             VoxelMissionProgress.ReportEnemyVoxelDamage(removed);
@@ -33,7 +33,7 @@ namespace VoxelRacer
     }
     public sealed partial class VoxelObstacleCar
     {
-        public void TakeMissileBlast(Vector3 centre, float radius, float damage, Vector3 direction, MeshRenderer[] pieces)
+        public void TakeMissileBlast(Vector3 centre, float radius, float damage, Vector3 direction, MeshRenderer[] pieces, bool directImpact = false)
         {
             if (hasBeenHit || EnemyTuning == null || damage <= 0) return;
             int removed = 0;
@@ -44,7 +44,7 @@ namespace VoxelRacer
                 if (Application.isPlaying && removed < 24) SpawnDebris(r.transform, (r.bounds.center - centre).normalized, DebrisStyle.Weapon);
                 r.gameObject.SetActive(false); removed++;
             }
-            if (removed == 0) return;
+            if (removed == 0 && !directImpact) return;
             CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
             ReportVoxelDamage(removed); ReportVoxelDestroyed(removed, centre);
             if (CurrentHealth <= 0) DestroyFromWeaponHit(centre, direction);

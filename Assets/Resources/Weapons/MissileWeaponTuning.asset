@@ -16,7 +16,7 @@ MonoBehaviour:
   visualPrefab: {fileID: 7140078567076894838, guid: 48a4c50d2d0a9bd4eba47c31e794f165, type: 3}
   purchasePrice: 50
   maximumPurchases: 2
-  shotsPerSecond: 0.65
+  shotsPerSecond: 0.2
   bulletsPerShot: 1
   ammunitionPerStage: 0
   spreadDegrees: 0
@@ -28,4 +28,7 @@ MonoBehaviour:
   missilePrefab: {fileID: 3147464013120486384, guid: ff3fd5f37648db348af0efc0668ebd0c, type: 3}
   missileDescentDistance: 14
   missileCruiseHeight: 0.65
-  missileLaneSideOffset: 0.45
+  missileLaneEdgeInset: 1.5
+  missileFollowRoad: 0
+  useMissileCooldown: 1
+  missileCooldownSeconds: 5

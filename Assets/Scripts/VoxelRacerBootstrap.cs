@@ -961,6 +961,7 @@ namespace VoxelRacer
             CreateObstacleWheel(car, 1.17f, 1.18f);
             CreateObstacleWheel(car, -1.17f, -1.22f);
             CreateObstacleWheel(car, 1.17f, -1.22f);
+            CreateDrivetrain(car);
         }
 
         /// <summary>Builds a long-haul semi with a separate cab and box trailer, using detachable voxels.</summary>

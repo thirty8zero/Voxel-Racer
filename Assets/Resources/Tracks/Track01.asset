@@ -138,10 +138,10 @@ MonoBehaviour:
   obstacleCarSpawnChance: 0.5
   oppositeDirectionChance: 0.9
   enemyCarSpawnChance: 0.6
-  minimumWaveInterval: 2.5
-  maximumWaveInterval: 4.5
-  minimumObjectsPerWave: 3
-  maximumObjectsPerWave: 5
+  minimumWaveInterval: 2
+  maximumWaveInterval: 3
+  minimumObjectsPerWave: 2
+  maximumObjectsPerWave: 4
   sameLaneCivilianSpeedTolerance: 1
   minimumWaveObjectDistanceOffset: 2
   maximumWaveObjectDistanceOffset: 10
@@ -164,6 +164,10 @@ MonoBehaviour:
   - {r: 0.55, g: 0.18, b: 0.82, a: 1}
   - {r: 0.735849, g: 0.18396226, b: 0.46626332, a: 1}
   - {r: 0, g: 0.41960785, b: 1, a: 1}
+  civilianVehiclePool:
+  - {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
+  - {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}
+  - {fileID: 11400000, guid: b56eba2a0575bdd4388fc938427a7989, type: 2}
   semiTrailerSpawnChance: 0.5
   trafficCarEnemyTuning: {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
   semiTrailerEnemyTuning: {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}
