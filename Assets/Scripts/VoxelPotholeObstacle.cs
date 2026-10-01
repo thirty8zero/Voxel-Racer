@@ -32,6 +32,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (target == null)
             {
                 Destroy(gameObject);

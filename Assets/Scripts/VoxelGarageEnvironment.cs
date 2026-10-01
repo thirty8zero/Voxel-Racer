@@ -23,13 +23,6 @@ namespace VoxelRacer
             go.transform.localPosition=position;go.transform.localScale=scale;go.GetComponent<Renderer>().sharedMaterial=mat;
             var collider=go.GetComponent<Collider>();if(Application.isPlaying)Destroy(collider);else DestroyImmediate(collider);return go;
         }
-        private void Sign(string text,Vector3 position,float size,Color color)
-        {
-            var go=new GameObject("Workshop Sign");go.transform.SetParent(transform,false);go.transform.localPosition=position;
-            go.transform.localRotation=Quaternion.Euler(0,180,0);
-            var tm=go.AddComponent<TextMesh>();tm.text=text;tm.characterSize=size*.23f;tm.fontSize=60;tm.anchor=TextAnchor.MiddleCenter;tm.alignment=TextAlignment.Center;tm.color=color;
-            var font=Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");if(font!=null){tm.font=font;go.GetComponent<MeshRenderer>().sharedMaterial=font.material;}
-        }
         private void CreateSet()
         {
             var wall=Material("Garage Charcoal",new(.035f,.044f,.057f));
@@ -68,9 +61,6 @@ namespace VoxelRacer
             Box("Diagnostic Monitor",new(2.1f,1.65f,-4.7f),new(1.35f,.78f,.12f),black);
             var screen=Material("Diagnostic Cyan",new(.015f,.11f,.19f));screen.EnableKeyword("_EMISSION");screen.SetColor("_EmissionColor",new Color(.02f,.25f,.40f));
             Box("Diagnostic Display",new(2.1f,1.65f,-4.62f),new(1.22f,.64f,.015f),screen);
-            Sign("VEHICLE SYSTEMS\n///// ONLINE /////",new(2.1f,1.65f,-4.60f),.045f,new(.1f,.8f,1));
-            Sign("SMALL CAR.\nBIG ADVANTAGE.",new(4.7f,2.9f,-5.05f),.14f,new(.65f,.63f,.54f));
-            Sign("CARS\nWEAPONS\nFREEDOM",new(-1.5f,2.8f,-5.05f),.14f,new(.55f,.53f,.46f));
             for(int i=0;i<8;i++) Box("Storage Crate",new(-5.4f+(i%3)*.65f,.3f+(i/3)*.57f,-3.8f),new(.58f,.55f,.65f),crate);
             for(int i=0;i<4;i++)
             {var tyre=GameObject.CreatePrimitive(PrimitiveType.Cylinder);tyre.name="Stacked Spare Tyre";tyre.transform.SetParent(transform,false);tyre.transform.localPosition=new(-3.4f,.16f+i*.28f,-3.9f);tyre.transform.localScale=new(.8f,.13f,.8f);tyre.GetComponent<Renderer>().sharedMaterial=black;

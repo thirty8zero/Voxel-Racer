@@ -35,6 +35,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (target == null)
             {
                 Destroy(gameObject);
@@ -194,7 +195,7 @@ namespace VoxelRacer
             hasBeenHit = true;
             VoxelDestructionRewards.ReportDestroyed(definition, transform.position);
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.6f,
-                definition != null ? definition.explosionEffectScale : 0.75f);
+                definition != null ? definition.explosionEffectScale : 0.75f, shakeCamera: false);
             var voxels = new List<Transform>();
             foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
                 if (renderer.gameObject.activeInHierarchy)

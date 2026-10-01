@@ -9,8 +9,22 @@ namespace VoxelRacer
         [Min(1f)] public float spawnDistanceAhead = 65f;
         [Range(0f, 1f)] public float obstacleCarSpawnChance = 0.5f;
         [Range(0f, 1f)] public float oppositeDirectionChance = 0.5f;
-        [Tooltip("Chance that a spawned traffic vehicle becomes the black enemy interceptor.")]
+        [Tooltip("Chance that a spawned traffic vehicle is an enemy selected from this track's Enemy Vehicle Pool.")]
         [Range(0f, 1f)] public float enemyCarSpawnChance = 0.25f;
+        [Tooltip("Only enemies in this list can spawn on this track. Each entry with a model has an equal chance. Empty disables ordinary enemies; boss/radar objectives use their own settings.")]
+        public VoxelEnemyVehicleTuning[] enemyVehiclePool;
+
+        public VoxelEnemyVehicleTuning ChooseEnemyVehicle()
+        {
+            int count = 0;
+            if (enemyVehiclePool != null)
+                foreach (var entry in enemyVehiclePool) if (entry != null && entry.modelPrefab != null) count++;
+            if (count == 0) return null;
+            int pick = Random.Range(0, count);
+            foreach (var entry in enemyVehiclePool)
+                if (entry != null && entry.modelPrefab != null && pick-- == 0) return entry;
+            return null;
+        }
         [Tooltip("Seconds between traffic/obstacle spawn waves. Each wave picks a random value within this range.")]
         [Min(0.1f)] public float minimumWaveInterval = 2.5f;
         [Min(0.1f)] public float maximumWaveInterval = 4.5f;

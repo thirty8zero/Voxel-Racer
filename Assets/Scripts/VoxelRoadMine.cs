@@ -23,6 +23,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (target == null || target.IsDestroyed || VoxelMissionProgress.Active?.IsComplete == true ||
                 Time.time - born > tuning.lifetime || distance < target.TrackDistance - 30f)
             { Destroy(gameObject); return; }

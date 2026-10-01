@@ -59,7 +59,7 @@ namespace VoxelRacer
 
         private void LateUpdate()
         {
-            if (!Application.isPlaying || target == null)
+            if (!Application.isPlaying || VoxelPauseMenu.IsPaused || target == null)
                 return;
 
             if (finishSequenceActive)

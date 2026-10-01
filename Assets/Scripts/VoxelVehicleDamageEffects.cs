@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace VoxelRacer
 {
-    /// <summary>Health-driven, world-space smoke and fire for player and traffic vehicles.</summary>
+    /// <summary>Health-driven, world-space smoke and fire for vehicles and damaged obstacles.</summary>
     public sealed class VoxelVehicleDamageEffects : MonoBehaviour
     {
         [Range(0,1)] public float smokeDamageThreshold=.25f;
@@ -12,6 +12,7 @@ namespace VoxelRacer
         private VoxelObstacleCar civilian;
         private VoxelCarController player;
         private ParticleSystem smoke,fire;
+        private bool externalHealth;
         private Vector3 previousPosition;
         private static Material particleMaterial;
         public bool SmokeActive {get;private set;}
@@ -19,6 +20,7 @@ namespace VoxelRacer
 
         public void Configure(bool truck=false)
         {
+            externalHealth=false;
             enemy=GetComponent<VoxelEnemyCar>();civilian=GetComponent<VoxelObstacleCar>();
             player=GetComponent<VoxelCarController>();
             if(player!=null)
@@ -26,9 +28,28 @@ namespace VoxelRacer
                 smokeDamageThreshold=.5f;
                 fireDamageThreshold=.75f;
             }
+            var origin=new Vector3(0,truck?1.05f:.95f,truck?3.35f:1.15f);
+            ConfigureParticles(origin);
+        }
+        /// <summary>The owner supplies damage via SetDamageFraction instead of polling vehicle health.</summary>
+        public void ConfigureExternalHealth(Vector3 origin,float smokeHealthThreshold,float fireHealthThreshold,Color? smokeColour=null)
+        {
+            externalHealth=true;
+            smokeDamageThreshold=1-Mathf.Clamp01(smokeHealthThreshold);
+            fireDamageThreshold=1-Mathf.Clamp01(fireHealthThreshold);
+            ConfigureParticles(origin);
+            if(smokeColour.HasValue)
+            {
+                var colour=smoke.colorOverLifetime;
+                var gradient=colour.color.gradient;
+                gradient.colorKeys=new[]{new GradientColorKey(smokeColour.Value,0),new GradientColorKey(smokeColour.Value,1)};
+                colour.color=gradient;
+            }
+        }
+        private void ConfigureParticles(Vector3 origin)
+        {
             previousPosition=transform.position;
             if(smoke!=null) return;
-            var origin=new Vector3(0,truck?1.05f:.95f,truck?3.35f:1.15f);
             smoke=Create("Damage Smoke",origin,false);
             fire=Create("Damage Fire",origin+Vector3.up*.15f,true);
         }
@@ -61,9 +82,12 @@ namespace VoxelRacer
         private void LateUpdate()
         {
             if(smoke==null) return;
-            float health=player!=null?Mathf.Clamp01(player.IntegrityPercent*.01f):enemy!=null?enemy.HealthPercent:civilian!=null && civilian.EnemyTuning!=null?
-                Mathf.Clamp01(civilian.CurrentHealth/Mathf.Max(.001f,civilian.EnemyTuning.vehicleHealth)):1;
-            SetDamageFraction(1-health);
+            if(!externalHealth)
+            {
+                float health=player!=null?Mathf.Clamp01(player.IntegrityPercent*.01f):enemy!=null?enemy.HealthPercent:civilian!=null && civilian.EnemyTuning!=null?
+                    Mathf.Clamp01(civilian.CurrentHealth/Mathf.Max(.001f,civilian.EnemyTuning.vehicleHealth)):1;
+                SetDamageFraction(1-health);
+            }
             var velocity=Time.deltaTime>0?(transform.position-previousPosition)/Time.deltaTime:Vector3.zero;
             previousPosition=transform.position;
             velocity=Vector3.ClampMagnitude(velocity,70);

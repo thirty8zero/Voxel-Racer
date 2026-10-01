@@ -28,6 +28,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (player == null || road == null || obstacleSpawner == null || encounter == null || tuning == null ||
                 player.IsDestroyed || encounter.CurrentStage != VoxelBossEncounter.Stage.Boss ||
                 VoxelMissionProgress.Active?.IsComplete == true || VoxelMissionProgress.Active?.IsFailed == true)

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace VoxelRacer
 {
@@ -15,6 +16,7 @@ namespace VoxelRacer
         private float criticalPulseScale;
         private float healthPercent = 1f;
         private float fillHeight;
+        private readonly List<Material> ownedMaterials = new();
 
         public static VoxelEnemyHealthBar Create(Transform owner, VoxelEnemyVehicleTuning tuning)
         {
@@ -59,8 +61,10 @@ namespace VoxelRacer
             fill.localScale = new Vector3(width * normalized, fillHeight, fill.localScale.z);
             fill.localPosition = new Vector3(-(width - width * normalized) * 0.5f, 0f, -0.011f);
             Color colour = Color.Lerp(emptyColour, fullColour, normalized);
-            fillRenderer.material.color = colour;
-            fillRenderer.material.SetColor("_BaseColor", colour);
+            // CreateBlock supplies a dedicated material for this bar. Reuse it
+            // directly instead of asking Unity for another renderer.material clone.
+            fillRenderer.sharedMaterial.color = colour;
+            fillRenderer.sharedMaterial.SetColor("_BaseColor", colour);
         }
 
         private void CreateVisual(float height)
@@ -71,19 +75,31 @@ namespace VoxelRacer
             fillRenderer = fill.GetComponent<Renderer>();
         }
 
-        private static GameObject CreateBlock(string blockName, Transform parent, Vector3 position, Vector3 scale, Color colour)
+        private GameObject CreateBlock(string blockName, Transform parent, Vector3 position, Vector3 scale, Color colour)
         {
             var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
             block.name = blockName;
             block.transform.SetParent(parent, false);
             block.transform.localPosition = position;
             block.transform.localScale = scale;
-            Destroy(block.GetComponent<BoxCollider>());
+            if (Application.isPlaying) Destroy(block.GetComponent<BoxCollider>());
+            else DestroyImmediate(block.GetComponent<BoxCollider>());
             var material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
             material.color = colour;
             material.SetColor("_BaseColor", colour);
-            block.GetComponent<Renderer>().material = material;
+            ownedMaterials.Add(material);
+            block.GetComponent<Renderer>().sharedMaterial = material;
             return block;
+        }
+        private void OnDestroy()
+        {
+            foreach (var material in ownedMaterials)
+                if (material != null)
+                {
+                    if (Application.isPlaying) Destroy(material);
+                    else DestroyImmediate(material);
+                }
+            ownedMaterials.Clear();
         }
     }
 }

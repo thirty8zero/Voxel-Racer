@@ -19,6 +19,7 @@ namespace VoxelRacer
         public void ShowBossEscaped()
         {
             if(isShown) return;
+            VoxelPauseMenu.ResumeActivePause();
             previousTimeScale=Time.timeScale;pausedForEscape=true;Time.timeScale=0;
             Show();
             var canvas=transform.Find("Mission Failed UI");
@@ -43,6 +44,7 @@ namespace VoxelRacer
 
         private void Show()
         {
+            VoxelPauseMenu.ResumeActivePause();
             isShown = true;
             IsShowing = true;
             VoxelStartCountdown.Active?.HideForPlayerDeath();

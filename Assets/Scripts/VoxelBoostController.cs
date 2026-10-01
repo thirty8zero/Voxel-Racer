@@ -44,7 +44,7 @@ namespace VoxelRacer
 
         private void Update()
         {
-            if (!Application.isPlaying || Target == null || Tuning == null)
+            if (!Application.isPlaying || VoxelPauseMenu.IsPaused || Target == null || Tuning == null)
                 return;
 
             if (Keyboard.current != null && Keyboard.current.altKey.wasPressedThisFrame)
@@ -69,7 +69,7 @@ namespace VoxelRacer
 
         private bool CanUseBoost()
         {
-            return Target != null && Tuning != null && !Target.IsDestroyed && IsReady &&
+            return !VoxelPauseMenu.IsPaused && Target != null && Tuning != null && !Target.IsDestroyed && IsReady &&
                 (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete) &&
                 (VoxelMissionProgress.Active == null || !VoxelMissionProgress.Active.IsComplete);
         }

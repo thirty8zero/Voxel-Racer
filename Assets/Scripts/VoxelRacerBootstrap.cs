@@ -52,6 +52,7 @@ namespace VoxelRacer
 
         private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            VoxelFpsCounter.EnsureExists();
             CreatePrototype();
         }
 
@@ -626,8 +627,6 @@ namespace VoxelRacer
                 spawner.minimumSpawnInterval = spawner.obstacleCarTuning.minimumWaveInterval;
                 spawner.maximumSpawnInterval = spawner.obstacleCarTuning.maximumWaveInterval;
             }
-            spawner.enemyCarTuning = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning");
-            spawner.mineLayerEnemyTuning = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BI_MineLayerTuning");
             spawner.SetStaticObstacleSpawns(spawner.obstacleCarTuning != null
                 ? spawner.obstacleCarTuning.staticObstacleSpawns
                 : null);
@@ -694,6 +693,11 @@ namespace VoxelRacer
             if (deathScreen == null)
                 deathScreen = environment.gameObject.AddComponent<VoxelPlayerDeathScreen>();
             deathScreen.Configure(car.GetComponent<VoxelCarController>());
+
+            var pauseMenu = environment.GetComponent<VoxelPauseMenu>();
+            if (pauseMenu == null)
+                pauseMenu = environment.gameObject.AddComponent<VoxelPauseMenu>();
+            pauseMenu.Configure(car.GetComponent<VoxelCarController>());
 
             var countdown = environment.GetComponent<VoxelStartCountdown>();
             if (countdown == null)

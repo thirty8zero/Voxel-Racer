@@ -17,8 +17,9 @@ namespace VoxelRacer
             VoxelMissileUpgradeState.IsPurchased(true);
 
         /// <summary>Read by all mounted guns in addition to the keyboard Ctrl binding.</summary>
-        public static bool IsFireHeld => fireHeld;
-        public static bool IsMissileHeld => missileHeld;
+        public static bool IsFireHeld => fireHeld && !VoxelPauseMenu.IsPaused;
+        public static bool IsMissileHeld => missileHeld && !VoxelPauseMenu.IsPaused;
+        public static void ClearHeldInput() { fireHeld = missileHeld = false; }
 
         public void Configure(VoxelCarController controller)
         {
@@ -39,7 +40,7 @@ namespace VoxelRacer
 
             UpdateMissileVisibility();
             bool hidden = !Application.isPlaying || target == null || target.IsDestroyed ||
-                VoxelPlayerDeathScreen.IsShowing || VoxelMissionProgress.Active?.IsComplete == true;
+                VoxelPauseMenu.IsPaused || VoxelPlayerDeathScreen.IsShowing || VoxelMissionProgress.Active?.IsComplete == true;
             canvasGroup.alpha = hidden ? 0f : VoxelStartCountdown.CurrentGameplayHudAlpha;
             canvasGroup.blocksRaycasts = canvasGroup.alpha > 0.01f;
             if (hidden)
@@ -53,13 +54,13 @@ namespace VoxelRacer
 
         internal void SetFireHeld(bool value)
         {
-            fireHeld = value && target != null && !target.IsDestroyed &&
+            fireHeld = value && !VoxelPauseMenu.IsPaused && target != null && !target.IsDestroyed &&
                 VoxelMissionProgress.Active?.IsComplete != true;
         }
 
         internal void SetMissileHeld(bool value)
         {
-            missileHeld = value && HasMissileUpgrade && target != null && !target.IsDestroyed &&
+            missileHeld = value && !VoxelPauseMenu.IsPaused && HasMissileUpgrade && target != null && !target.IsDestroyed &&
                 VoxelMissionProgress.Active?.IsComplete != true;
         }
 

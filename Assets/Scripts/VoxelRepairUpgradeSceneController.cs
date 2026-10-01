@@ -62,12 +62,14 @@ namespace VoxelRacer
 
         private void Update()
         {
+            LayoutGarageDock();
             UpdateCarRotationInput();
             if (cameraTuning != null &&
                 (cameraTuning.cameraPosition != appliedCameraPosition ||
                  cameraTuning.cameraLookAt != appliedCameraLookAt ||
                  !Mathf.Approximately(cameraTuning.cameraFieldOfView, appliedCameraFieldOfView)))
                 ApplyCameraTuning();
+            ApplyGaragePreviewViewport();
         }
 
         private void BuildWorkshop()
@@ -194,6 +196,7 @@ namespace VoxelRacer
                 workshopCamera.transform.rotation = Quaternion.LookRotation(lookDirection);
             workshopCamera.fieldOfView = Mathf.Clamp(cameraTuning.cameraFieldOfView, 10f, 90f);
             garageZoomAmount = 0f;
+            garageUpgradeFramingValid = false;
             appliedCameraPosition = cameraTuning.cameraPosition;
             appliedCameraLookAt = cameraTuning.cameraLookAt;
             appliedCameraFieldOfView = cameraTuning.cameraFieldOfView;
@@ -391,6 +394,8 @@ namespace VoxelRacer
             RefreshPloughShop();
             RefreshMissileShop();
             RefreshBoostShop();
+            RefreshUpgradeCards();
+            RefreshNextMission();
             VoxelGunTuning gunTuning = VoxelGunUpgradeState.LongGunTuning;
             if (gunUpgradeButton == null || gunUpgradeButtonLabel == null || gunTuning == null)
                 return;
@@ -398,7 +403,7 @@ namespace VoxelRacer
             int owned = VoxelGunUpgradeState.PurchasedLongGunCount;
             int maximum = Mathf.Max(1, gunTuning.maximumPurchases);
             bool canPurchase = VoxelGunUpgradeState.CanPurchase(gunTuning);
-            gunUpgradeButton.interactable = canPurchase;
+            gunUpgradeButton.interactable = canPurchase && VoxelCurrencyState.Balance >= gunTuning.purchasePrice;
             gunUpgradeButtonLabel.text = canPurchase
                 ? gunTuning.displayName.ToUpperInvariant() + "\nCOST <color=#FFD12A>" + gunTuning.purchasePrice + "</color>   " + owned + "/" + maximum
                 : "GUN SLOTS FULL\n" + owned + "/" + maximum;
@@ -431,34 +436,7 @@ namespace VoxelRacer
                 tuning.sideRamDamageBonusPercent + "% SIDE RAM DAMAGE\nCOST <color=#FFD12A>" + tuning.purchasePrice + "</color>";
         }
 
-        private void BuildUpgradeScroll(Transform panel)
-        {
-            // Keep cards readable as the upgrade catalogue grows; supports mouse wheel and touch drag.
-            var viewport = new GameObject("Upgrade Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image));
-            viewport.transform.SetParent(panel, false);
-            var rect = (RectTransform)viewport.transform;
-            rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
-            rect.anchoredPosition = new Vector2(0, -52.5f); rect.sizeDelta = new Vector2(580, 565);
-            viewport.GetComponent<Image>().color = new Color(0, 0, 0, .01f);
-            var content = new GameObject("Upgrade Cards", typeof(RectTransform));
-            content.transform.SetParent(viewport.transform, false);
-            var cr = (RectTransform)content.transform;
-            cr.anchorMin = cr.anchorMax = new Vector2(.5f, 1); cr.pivot = new Vector2(.5f, 1);
-            var buttons = new[] { gunUpgradeButton, rightArmorUpgradeButton, leftArmorUpgradeButton,
-                wheelSpikeUpgradeButton, performanceWheelButton, boostUpgradeButton, engineUpgradeButton, ploughUpgradeButton, leftMissileButton, rightMissileButton };
-            cr.sizeDelta = new Vector2(560, buttons.Length * 115 - 15);
-            for (int i = 0; i < buttons.Length; i++)
-            {
-                var br = (RectTransform)buttons[i].transform; br.SetParent(content.transform, false);
-                br.anchorMin = br.anchorMax = new Vector2(.5f, 1);
-                br.anchoredPosition = new Vector2(0, -50 - i * 115);
-            }
-            var scroll = viewport.AddComponent<ScrollRect>();
-            scroll.viewport = rect; scroll.content = cr; scroll.horizontal = false;
-            scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 35;
-            VoxelMenuUi.CreateText(panel, "Upgrade Scroll Hint", "DRAG OR SCROLL FOR MORE", 22,
-                TextAnchor.MiddleCenter, new Vector2(.5f, .5f), new Vector2(0, 238), new Vector2(560, 26));
-        }
+        private void BuildUpgradeScroll(Transform panel) => BuildBottomUpgradeStrip(panel);
 
         private void TryPurchaseEngine()
         {

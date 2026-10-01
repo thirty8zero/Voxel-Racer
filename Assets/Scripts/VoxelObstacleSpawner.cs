@@ -17,8 +17,9 @@ namespace VoxelRacer
         [Header("Obstacle Types")]
         [Tooltip("Controls traffic-car spawn frequency, direction, speed, impacts, and debris.")]
         public VoxelObstacleCarTuning obstacleCarTuning;
-        public VoxelEnemyVehicleTuning enemyCarTuning;
-        public VoxelEnemyVehicleTuning mineLayerEnemyTuning;
+        // Retain old scene references; track traffic pools now own enemy selection.
+        [HideInInspector] public VoxelEnemyVehicleTuning enemyCarTuning;
+        [HideInInspector] public VoxelEnemyVehicleTuning mineLayerEnemyTuning;
         private VoxelStaticObstacleSpawnEntry[] staticObstacleSpawns;
 
         private VoxelBossEncounter radarEncounter;
@@ -68,6 +69,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (!Application.isPlaying || target == null || target.IsDestroyed)
                 return;
 
@@ -138,18 +140,18 @@ namespace VoxelRacer
             bool spawnTrafficCar = obstacleCarTuning != null && Random.value < obstacleCarTuning.obstacleCarSpawnChance;
             if (spawnTrafficCar)
             {
-                if (enemyCarTuning != null && Random.value < obstacleCarTuning.enemyCarSpawnChance)
+                if (Random.value < obstacleCarTuning.enemyCarSpawnChance)
                 {
-                    if (!TryFindEmptyVehicleLane(out float enemyLaneOffset))
+                    var selected = obstacleCarTuning.ChooseEnemyVehicle();
+                    if (selected != null)
+                    {
+                        if (!TryFindEmptyVehicleLane(out float enemyLaneOffset)) return;
+                        var enemy = new GameObject(selected.displayName).AddComponent<VoxelEnemyCar>();
+                        enemy.transform.SetParent(transform);
+                        enemy.Configure(target, obstacleCarTuning, selected, path, distance, enemyLaneOffset);
+                        enemy.gameObject.AddComponent<VoxelFadeIn>();
                         return;
-
-                    var selected = mineLayerEnemyTuning != null && mineLayerEnemyTuning.mineLayer != null &&
-                        Random.value < mineLayerEnemyTuning.mineLayer.enemySelectionChance ? mineLayerEnemyTuning : enemyCarTuning;
-                    var enemy = new GameObject(selected.displayName).AddComponent<VoxelEnemyCar>();
-                    enemy.transform.SetParent(transform);
-                    enemy.Configure(target, obstacleCarTuning, selected, path, distance, enemyLaneOffset);
-                    enemy.gameObject.AddComponent<VoxelFadeIn>();
-                    return;
+                    }
                 }
 
                 bool spawnRadar = radarEncounter != null && radarEncounter.CurrentStage == VoxelBossEncounter.Stage.Traffic &&

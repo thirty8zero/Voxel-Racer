@@ -30,6 +30,7 @@ namespace VoxelRacer
 
         private void LateUpdate()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (target == null) { Destroy(gameObject); return; }
             CheckPlayerContact();
             if (TrackDistance < target.CollisionTrackPosition.y - 30f) Destroy(gameObject);

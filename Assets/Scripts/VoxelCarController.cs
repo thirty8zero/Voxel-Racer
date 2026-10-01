@@ -217,7 +217,7 @@ namespace VoxelRacer
 
         private void Update()
         {
-            if (!Application.isPlaying)
+            if (!Application.isPlaying || VoxelPauseMenu.IsPaused)
                 return;
 
             if (IsDestroyed)
@@ -356,6 +356,7 @@ namespace VoxelRacer
 
         private void RequestLaneChange(int requestedLane)
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (IsOilSpinning) return;
             requestedLane = Mathf.Clamp(requestedLane, 0, laneCount - 1);
             if (requestedLane == currentLane)

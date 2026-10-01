@@ -60,6 +60,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (player == null || player.IsDestroyed || mission.IsComplete || mission.IsFailed ||
                 (countdown != null && !countdown.IsComplete)) return;
             AdvanceEncounter(Time.deltaTime);

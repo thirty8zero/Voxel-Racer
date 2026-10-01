@@ -76,7 +76,8 @@ namespace VoxelRacer.Editor
             if(type==typeof(VoxelObstacleCarTuning))
             {
                 group="Spawning & Density";
-                if(name.StartsWith("sameDirection"))group="Movement/Same Direction";
+                if(name=="enemyVehiclePool"||name=="enemyCarSpawnChance")group="Enemy Vehicles";
+                else if(name.StartsWith("sameDirection"))group="Movement/Same Direction";
                 else if(name.StartsWith("oncoming"))group="Movement/Oncoming";
                 else if(name.Contains("SpeedDistance")||name=="wheelSpinDegreesPerUnit")group="Movement/Phase Boundaries";
                 else if(name=="civilianVehiclePool"||name=="paintColours"||name.Contains("EnemyTuning")||name=="semiTrailerSpawnChance")group="Civilian Models & Colours";

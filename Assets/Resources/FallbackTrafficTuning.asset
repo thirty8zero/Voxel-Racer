@@ -16,6 +16,9 @@ MonoBehaviour:
   obstacleCarSpawnChance: 0.5
   oppositeDirectionChance: 0.5
   enemyCarSpawnChance: 0.8
+  enemyVehiclePool:
+  - {fileID: 11400000, guid: 1087bbf5e34c42dfad117821fdcd87a6, type: 2}
+  - {fileID: 11400000, guid: b799f945fae40c141bbfd08a7f1f51a4, type: 2}
   minimumWaveInterval: 2.5
   maximumWaveInterval: 4.5
   minimumObjectsPerWave: 2

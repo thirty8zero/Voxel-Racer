@@ -18,7 +18,7 @@ namespace VoxelRacer
         /// <summary>Uses the same scaled game clock and reserved interval as firing.</summary>
         public float CooldownProgress => shotInterval <= 0f ? 1f :
             Mathf.Clamp01(1f - (nextFireTime - Time.time) / shotInterval);
-        public bool IsReady => isActiveAndEnabled && tuning != null && DriverAllowsFire &&
+        public bool IsReady => !VoxelPauseMenu.IsPaused && isActiveAndEnabled && tuning != null && DriverAllowsFire &&
             (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete) &&
             (VoxelMissionProgress.Active == null || !VoxelMissionProgress.Active.IsComplete) &&
             Time.time >= nextFireTime &&

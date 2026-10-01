@@ -63,7 +63,7 @@ namespace VoxelRacer
         private void Update() => Advance(Time.deltaTime);
         private void Advance(float dt)
         {
-            if (finished || dt <= 0) return;
+            if (VoxelPauseMenu.IsPaused || finished || dt <= 0) return;
             float end = Mathf.Min(travelled + speed * dt, tuning.maximumRange);
             // Short swept segments follow the descent and road curves even at low frame rates.
             while (travelled < end)

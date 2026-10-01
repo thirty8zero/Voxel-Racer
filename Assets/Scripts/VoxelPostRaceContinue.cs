@@ -113,9 +113,10 @@ namespace VoxelRacer
                 baseRewardText.gameObject.SetActive(true);
 
             bool hasTimeBonus = missionProgress != null;
-            const float bonusRevealTime = 1f;
-            float cashRevealTime = hasTimeBonus ? 2f : 1f;
-            float totalRevealTime = cashRevealTime + 1f;
+            const float revealInterval = .5f;
+            const float bonusRevealTime = revealInterval;
+            float cashRevealTime = (hasTimeBonus ? 2f : 1f) * revealInterval;
+            float totalRevealTime = cashRevealTime + revealInterval;
             if (elapsed >= cashRevealTime && bonusCashPanel != null) bonusCashPanel.SetActive(true);
             if (hasTimeBonus && elapsed >= bonusRevealTime && timeBonusText != null)
                 timeBonusText.gameObject.SetActive(true);

@@ -12,6 +12,7 @@ namespace VoxelRacer
         private static Material drumMaterial;
         private static Material stripeMaterial;
         private readonly Dictionary<Transform, int> drumHealth = new();
+        private readonly Dictionary<Transform, VoxelVehicleDamageEffects> drumEffects = new();
         private VoxelCarController target;
         private VoxelStaticObstacleDefinition definition;
         private EndlessVoxelRoad path;
@@ -42,6 +43,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (target == null)
             {
                 Destroy(gameObject);
@@ -90,9 +92,27 @@ namespace VoxelRacer
             if (health > 0)
             {
                 drumHealth[drum] = health;
+                UpdateDamageEffects(drum, health);
                 return;
             }
             Explode(false, impactDirection);
+        }
+
+        private void UpdateDamageEffects(Transform drum, int health)
+        {
+            int maximumHealth = Mathf.Max(1, definition != null ? definition.hitPoints : 3);
+            float healthFraction = health / (float)maximumHealth;
+            if (!drumEffects.TryGetValue(drum, out var effects))
+            {
+                if (healthFraction > .75f)
+                    return;
+                // Emit from the barrel's top, independent of which body voxels remain.
+                // Allocate particles only once this individual barrel needs smoke.
+                effects = drum.gameObject.AddComponent<VoxelVehicleDamageEffects>();
+                effects.ConfigureExternalHealth(new Vector3(0f, .8f, 0f), .75f, .5f, Color.black);
+                drumEffects.Add(drum, effects);
+            }
+            effects.SetDamageFraction(1f - healthFraction);
         }
 
         /// <summary>Continues selecting intact rear-surface drum voxels after the directly hit row has been removed.</summary>
@@ -153,6 +173,11 @@ namespace VoxelRacer
             if (hasExploded)
                 return;
             hasExploded = true;
+            foreach (var effects in drumEffects.Values)
+            {
+                effects.SetDamageFraction(0f);
+                effects.enabled = false;
+            }
             if (healthBar != null)
                 healthBar.gameObject.SetActive(false);
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 1.1f,

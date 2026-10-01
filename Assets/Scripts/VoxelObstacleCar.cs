@@ -103,6 +103,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (target == null || tuning == null)
             {
                 Destroy(gameObject);

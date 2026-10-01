@@ -29,6 +29,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             if (target == null || path == null || tuning == null || tuning.roadsideTurretTuning == null || target.IsDestroyed)
                 return;
             // SetupGameplay configures this spawner before it creates the countdown,

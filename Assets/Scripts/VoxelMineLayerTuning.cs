@@ -5,7 +5,9 @@ namespace VoxelRacer
     [CreateAssetMenu(menuName = "Voxel Racer/Enemies/Mine Layer", fileName = "MineLayerAttackTuning")]
     public sealed class VoxelMineLayerTuning : ScriptableObject
     {
-        [Tooltip("Fraction of enemy spawns replaced by mine layers.")]
+        // Legacy selection value is retained for existing assets. Tracks now choose
+        // mine layers through their Enemy Vehicle Pool, alongside other enemy types.
+        [HideInInspector]
         [Range(0, 1)] public float enemySelectionChance = .25f;
         [Range(0, 1)] public float dropChance = .5f;
         [Min(.1f)] public float dropInterval = 3f;

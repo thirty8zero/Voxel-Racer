@@ -36,6 +36,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             // A completed mission shuts down turret hazards immediately, including
             // projectiles that were fired just before the completion frame.
             if (tuning == null || VoxelMissionProgress.Active?.IsComplete == true)

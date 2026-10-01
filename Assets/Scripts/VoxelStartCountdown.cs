@@ -19,15 +19,15 @@ namespace VoxelRacer
         private bool prepared;
         private CanvasGroup openingFade;
 
-        public bool IsComplete => started && Time.unscaledTime - countdownStartedAt >= 3f;
+        public bool IsComplete => started && Time.time - countdownStartedAt >= 3f;
 
         /// <summary>Traffic may enter during the final displayed "1" second so it is present when driving begins.</summary>
-        public bool IsTrafficSpawnWindowOpen => started && Time.unscaledTime - countdownStartedAt >= 2f;
+        public bool IsTrafficSpawnWindowOpen => started && Time.time - countdownStartedAt >= 2f;
 
         /// <summary>Gameplay HUD fades in during the one-second "GO!" phase.</summary>
         public float GameplayHudAlpha => !started
             ? 0f
-            : Mathf.Clamp01(Time.unscaledTime - countdownStartedAt - 3f);
+            : Mathf.Clamp01(Time.time - countdownStartedAt - 3f);
 
         public static float CurrentGameplayHudAlpha => Active == null ? 1f : Active.GameplayHudAlpha;
 
@@ -56,7 +56,7 @@ namespace VoxelRacer
             EnsureOpeningFade();
             openingFade.gameObject.SetActive(true);
             openingFade.alpha = 1f;
-            openingStartedAt = Time.unscaledTime;
+            openingStartedAt = Time.time;
             countdownStartedAt = openingStartedAt + blackScreenDuration + fadeInDuration;
             started = true;
         }
@@ -121,7 +121,7 @@ namespace VoxelRacer
             if (openingFade == null || !openingFade.gameObject.activeSelf)
                 return;
 
-            float elapsed = Time.unscaledTime - openingStartedAt;
+            float elapsed = Time.time - openingStartedAt;
             if (elapsed <= blackScreenDuration)
             {
                 openingFade.alpha = 1f;
@@ -145,10 +145,10 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
-            if (!Application.isPlaying || target == null || !started || VoxelPlayerDeathScreen.IsShowing)
+            if (!Application.isPlaying || target == null || !started || VoxelPauseMenu.IsPaused || VoxelPlayerDeathScreen.IsShowing)
                 return;
 
-            float elapsed = Time.unscaledTime - countdownStartedAt;
+            float elapsed = Time.time - countdownStartedAt;
             if (elapsed < 0f)
                 return;
             if (elapsed >= 4f)

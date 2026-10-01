@@ -20,14 +20,17 @@ namespace VoxelRacer
     public sealed class VoxelGaragePanel : MaskableGraphic
     {
         public Color edgeColor = Color.gray;
+        public bool useGradient;
+        public Color topColor = Color.white;
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear(); Rect r = rectTransform.rect;
             float c = Mathf.Min(18, r.height * .13f), b = 3;
             Vector2[] p = { new(r.xMin+c,r.yMin), new(r.xMax-c,r.yMin), new(r.xMax,r.yMin+c),
                 new(r.xMax,r.yMax-c), new(r.xMax-c,r.yMax), new(r.xMin+c,r.yMax), new(r.xMin,r.yMax-c), new(r.xMin,r.yMin+c) };
-            vh.AddVert(r.center, color, Vector2.zero);
-            for (int i=0;i<8;i++) vh.AddVert(p[i], color, Vector2.zero);
+            vh.AddVert(r.center, useGradient ? Color.Lerp(color, topColor, .5f) : color, Vector2.zero);
+            for (int i=0;i<8;i++) vh.AddVert(p[i], useGradient ? Color.Lerp(color, topColor,
+                Mathf.InverseLerp(r.yMin, r.yMax, p[i].y)) : color, Vector2.zero);
             for (int i=0;i<8;i++) vh.AddTriangle(0,i+1,(i+1)%8+1);
             for (int i=0;i<8;i++)
             {

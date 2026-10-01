@@ -16,6 +16,9 @@ namespace VoxelRacer
         private static ParticleSystem voxelGroundDustPrefab;
         private static EndlessVoxelRoad cachedRoad;
         private static readonly RaycastHit[] missSurfaceHits = new RaycastHit[32];
+        // Bullets update sequentially on the main thread. Share one buffer across
+        // shots and retain any growth needed by unusually dense voxel colliders.
+        private static RaycastHit[] projectileHits = new RaycastHit[64];
 
         public static VoxelProjectile Create(Vector3 position, Vector3 direction, VoxelGunTuning tuning)
         {
@@ -46,8 +49,9 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelPauseMenu.IsPaused) return;
             float distance = Mathf.Min(speed * Time.deltaTime, remainingRange);
-            RaycastHit[] hits = Physics.RaycastAll(transform.position, direction, distance);
+            int hitCount = RaycastProjectileSegment(transform.position, direction, distance);
             RaycastHit closestVehicleHit = default;
             RaycastHit closestObstacleHit = default;
             RaycastHit closestFuelDrumHit = default;
@@ -56,8 +60,9 @@ namespace VoxelRacer
             bool hitDestructibleObstacle = false;
             bool hitFuelDrums = false;
             bool hitSomething = false;
-            foreach (var hit in hits)
+            for (int i = 0; i < hitCount; i++)
             {
+                var hit = projectileHits[i];
                 if (!hitSomething || hit.distance < closestHit.distance)
                 {
                     closestHit = hit;
@@ -203,6 +208,18 @@ namespace VoxelRacer
                 CreateMissCloud(transform.position, IsOverRoad(transform.position));
                 Object.Destroy(gameObject);
             }
+        }
+
+        private static int RaycastProjectileSegment(Vector3 origin, Vector3 direction, float distance)
+        {
+            int count;
+            while ((count = Physics.RaycastNonAlloc(origin, direction, projectileHits, distance)) == projectileHits.Length)
+            {
+                // A full NonAlloc result may omit the nearest collider. Re-query
+                // with more room until every hit fits, preserving RaycastAll behavior.
+                projectileHits = new RaycastHit[projectileHits.Length * 2];
+            }
+            return count;
         }
 
         /// <summary>Creates a brief, low-count burst of glowing cube sparks at a shot impact.</summary>

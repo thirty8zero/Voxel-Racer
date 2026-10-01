@@ -7,6 +7,25 @@ namespace VoxelRacer
         private static int currentTrackIndex;
 
         public static int CurrentTrackIndex => currentTrackIndex;
+        public static int NextTrackIndex
+        {
+            get
+            {
+                EnsureSequence();
+                if (sequence == null || sequence.tracks == null || sequence.tracks.Length == 0) return 0;
+                int current = System.Math.Max(0, System.Math.Min(currentTrackIndex, sequence.tracks.Length - 1));
+                return current + 1 < sequence.tracks.Length ? current + 1 : sequence.loopSequence ? 0 : current;
+            }
+        }
+        public static VoxelTrackDefinition NextTrack
+        {
+            get
+            {
+                EnsureSequence();
+                return sequence == null || sequence.tracks == null || sequence.tracks.Length == 0
+                    ? null : sequence.tracks[NextTrackIndex];
+            }
+        }
         public static VoxelTrackDefinition CurrentTrack
         {
             get
@@ -32,10 +51,7 @@ namespace VoxelRacer
             if (sequence == null || sequence.tracks == null || sequence.tracks.Length == 0)
                 return null;
 
-            if (currentTrackIndex + 1 < sequence.tracks.Length)
-                currentTrackIndex++;
-            else if (sequence.loopSequence)
-                currentTrackIndex = 0;
+            currentTrackIndex = NextTrackIndex;
             return CurrentTrack;
         }
 

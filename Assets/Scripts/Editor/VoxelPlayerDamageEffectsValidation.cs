@@ -21,6 +21,8 @@ namespace VoxelRacer.Editor
                 }
                 car.ResetIntegrityBaseline();
                 var effects=root.AddComponent<VoxelVehicleDamageEffects>();effects.Configure();
+                var smoke=root.transform.Find("Damage Smoke").GetComponent<ParticleSystem>();
+                if(smoke.colorOverLifetime.color.gradient.Evaluate(.5f).r<.5f)throw new Exception("Barrel smoke colour changed player smoke");
                 var update=typeof(VoxelVehicleDamageEffects).GetMethod("LateUpdate",BindingFlags.Instance|BindingFlags.NonPublic);
                 void Verify(bool smoke,bool fire)
                 {
