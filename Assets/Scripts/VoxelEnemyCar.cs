@@ -14,6 +14,15 @@ namespace VoxelRacer
         public float TrackDistance => trackDistance + rearRamForwardOffset;
 
         private readonly Dictionary<Transform, float> voxelHealth = new();
+        internal static readonly List<VoxelEnemyCar> ActiveProjectileTargets = new();
+        private VoxelProjectileVoxelCache projectileVoxels;
+        private void OnEnable() { if (!ActiveProjectileTargets.Contains(this)) ActiveProjectileTargets.Add(this); }
+        private void OnDisable() => ActiveProjectileTargets.Remove(this);
+
+        private void CacheProjectileVoxels() => projectileVoxels = new VoxelProjectileVoxelCache(transform,
+            renderer => renderer.transform != transform &&
+                renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null &&
+                renderer.GetComponentInParent<VoxelIndestructiblePart>() == null);
         private VoxelCarController target;
         private VoxelObstacleCarTuning trafficTuning;
         private EndlessVoxelRoad path;
@@ -127,6 +136,7 @@ namespace VoxelRacer
                     ps.transform.localPosition=new Vector3(0,ps.name=="Damage Fire"?1.4f:1.25f,1.5f)*bossVisualScale;
             }
             nextMineTime = Time.time + (enemy.mineLayer != null ? Mathf.Max(.1f, enemy.mineLayer.dropInterval) : 0f);
+            CacheProjectileVoxels();
         }
 
         private void CreateModel(VoxelEnemyVehicleTuning enemy)
@@ -367,13 +377,15 @@ namespace VoxelRacer
             if (hasBeenRammed || segmentLength <= 0f)
                 return false;
 
+            if (projectileVoxels == null) CacheProjectileVoxels();
+            if (!projectileVoxels.MayReachSurface(segmentStart, direction, segmentLength, 1.45f)) return false;
+
             Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
             float rearSurfaceDistance = float.PositiveInfinity;
-            foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
+            foreach (var piece in projectileVoxels.Pieces)
             {
-                Transform voxel = renderer.transform;
-                if (voxel == transform || voxel.GetComponentInParent<VoxelEnemyHealthBar>() != null || voxel.GetComponentInParent<VoxelIndestructiblePart>() != null)
-                    continue;
+                if (!piece.Active) continue;
+                Transform voxel = piece.Transform;
 
                 Vector3 offset = voxel.position - segmentStart;
                 float forwardDistance = Vector3.Dot(offset, direction);
@@ -392,11 +404,10 @@ namespace VoxelRacer
 
             const float RearSurfaceDepth = 0.4f;
             float bestScore = float.PositiveInfinity;
-            foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
+            foreach (var piece in projectileVoxels.Pieces)
             {
-                Transform voxel = renderer.transform;
-                if (voxel == transform || voxel.GetComponentInParent<VoxelEnemyHealthBar>() != null || voxel.GetComponentInParent<VoxelIndestructiblePart>() != null)
-                    continue;
+                if (!piece.Active) continue;
+                Transform voxel = piece.Transform;
 
                 Vector3 offset = voxel.position - segmentStart;
                 float forwardDistance = Vector3.Dot(offset, direction);

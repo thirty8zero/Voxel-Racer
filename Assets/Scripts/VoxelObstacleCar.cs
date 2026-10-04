@@ -46,7 +46,9 @@ namespace VoxelRacer
         private readonly Dictionary<Transform, float> projectileVoxelHealth = new();
         private bool nearMissCandidate;
         private Transform[] modelWheels = System.Array.Empty<Transform>();
-        private MeshRenderer[] projectileRenderers;
+        private VoxelProjectileVoxelCache projectileVoxels;
+        private void CacheProjectileVoxels() => projectileVoxels = new VoxelProjectileVoxelCache(transform,
+            renderer => renderer.GetComponentInParent<VoxelIndestructiblePart>() == null, true);
         private bool nearMissAwarded;
         private float closestNearMissDistance = float.PositiveInfinity;
 
@@ -205,23 +207,21 @@ namespace VoxelRacer
             foreach (var car in ActiveTraffic)
             {
                 if (car == null || car.hasBeenHit || !car.gameObject.activeInHierarchy) continue;
-                car.projectileRenderers ??= car.GetComponentsInChildren<MeshRenderer>(true);
-                foreach (var renderer in car.projectileRenderers)
+                if (car.projectileVoxels == null) car.CacheProjectileVoxels();
+                if (!car.projectileVoxels.MayIntersect(start, direction, Mathf.Min(distance, hitDistance))) continue;
+                foreach (var piece in car.projectileVoxels.Pieces)
                 {
-                    if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy ||
-                        renderer.GetComponentInParent<VoxelIndestructiblePart>() != null) continue;
-                    var filter = renderer.GetComponent<MeshFilter>();
-                    if (filter == null || filter.sharedMesh == null) continue;
+                    if (!piece.Active || piece.Renderer == null || !piece.Renderer.enabled) continue;
                     // Test in the voxel's own space, so rotated cars and the spinning dish remain hittable.
-                    var localStart = renderer.transform.InverseTransformPoint(start);
-                    var localDirection = renderer.transform.InverseTransformVector(direction).normalized;
-                    var bounds = filter.sharedMesh.bounds;
+                    var localStart = piece.Transform.InverseTransformPoint(start);
+                    var localDirection = piece.Transform.InverseTransformVector(direction).normalized;
+                    var bounds = piece.Bounds;
                     float entry = 0;
                     if (!bounds.Contains(localStart) && !bounds.IntersectRay(new Ray(localStart, localDirection), out entry)) continue;
-                    var worldPoint = renderer.transform.TransformPoint(localStart + localDirection * entry);
+                    var worldPoint = piece.Transform.TransformPoint(localStart + localDirection * entry);
                     float along = Vector3.Dot(worldPoint - start, direction);
                     if (along < 0 || along > distance || along >= hitDistance) continue;
-                    vehicle = car; voxel = renderer.transform; point = worldPoint; hitDistance = along;
+                    vehicle = car; voxel = piece.Transform; point = worldPoint; hitDistance = along;
                 }
             }
             return vehicle != null;
@@ -533,7 +533,7 @@ namespace VoxelRacer
                 Instantiate(EnemyTuning.modelPrefab, transform, false);
             else
                 VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);
-            projectileRenderers = GetComponentsInChildren<MeshRenderer>(true);
+            CacheProjectileVoxels();
             var wheels = new List<Transform>();
             foreach (var child in GetComponentsInChildren<Transform>())
                 if (child.name == "Obstacle Voxel Wheel") wheels.Add(child);

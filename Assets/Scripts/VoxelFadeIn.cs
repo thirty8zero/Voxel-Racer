@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Profiling;
 
 namespace VoxelRacer
 {
@@ -11,8 +12,16 @@ namespace VoxelRacer
         private readonly List<RendererState> renderers = new();
         private float elapsed;
         private bool isFading;
+        private static readonly Dictionary<Material, SharedFadeMaterial> sharedFadeMaterials = new();
+        private static readonly ProfilerMarker setupMarker = new ProfilerMarker("VoxelFadeIn.Setup");
 
-        private sealed class RendererState
+        private sealed class SharedFadeMaterial
+        {
+            public Material material;
+            public int users;
+        }
+
+        private struct RendererState
         {
             public MeshRenderer renderer;
             public Color baseColor;
@@ -63,6 +72,7 @@ namespace VoxelRacer
 
         private void CacheRenderers()
         {
+            using var profile = setupMarker.Auto();
             renderers.Clear();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
@@ -70,13 +80,7 @@ namespace VoxelRacer
                 if (material == null || !material.HasProperty("_BaseColor"))
                     continue;
 
-                Material fadeMaterial = new Material(material) { name = material.name + " (Fade In)" };
-                fadeMaterial.SetFloat("_Surface", 1f);
-                fadeMaterial.SetFloat("_Blend", 0f);
-                fadeMaterial.SetFloat("_ZWrite", 0f);
-                fadeMaterial.SetOverrideTag("RenderType", "Transparent");
-                fadeMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                fadeMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                Material fadeMaterial = AcquireFadeMaterial(material);
                 renderer.sharedMaterial = fadeMaterial;
 
                 var existingProperties = new MaterialPropertyBlock();
@@ -94,6 +98,35 @@ namespace VoxelRacer
                     opaqueMaterial = material,
                     fadeMaterial = fadeMaterial
                 });
+            }
+        }
+
+        private static Material AcquireFadeMaterial(Material source)
+        {
+            if (!sharedFadeMaterials.TryGetValue(source, out var shared))
+            {
+                var material = new Material(source) { name = source.name + " (Fade In)" };
+                material.SetFloat("_Surface", 1f);
+                material.SetFloat("_Blend", 0f);
+                material.SetFloat("_ZWrite", 0f);
+                material.SetOverrideTag("RenderType", "Transparent");
+                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                shared = new SharedFadeMaterial { material = material };
+                sharedFadeMaterials.Add(source, shared);
+            }
+            shared.users++;
+            return shared.material;
+        }
+
+        private static void ReleaseFadeMaterial(Material source)
+        {
+            if (!sharedFadeMaterials.TryGetValue(source, out var shared) || --shared.users > 0) return;
+            sharedFadeMaterials.Remove(source);
+            if (shared.material != null)
+            {
+                if (Application.isPlaying) Destroy(shared.material);
+                else DestroyImmediate(shared.material);
             }
         }
 
@@ -121,10 +154,15 @@ namespace VoxelRacer
                     state.renderer.sharedMaterial = state.opaqueMaterial;
                     state.renderer.SetPropertyBlock(state.opaquePropertyBlock);
                 }
-                if (state.fadeMaterial != null)
-                    Destroy(state.fadeMaterial);
+                ReleaseFadeMaterial(state.opaqueMaterial);
             }
             renderers.Clear();
+        }
+
+        private void OnDisable()
+        {
+            RestoreOpaqueMaterials();
+            isFading = false;
         }
 
         private void OnDestroy() => RestoreOpaqueMaterials();

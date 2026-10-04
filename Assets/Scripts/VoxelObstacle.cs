@@ -19,6 +19,10 @@ namespace VoxelRacer
         private float laneOffset;
         private int currentHealth;
         private const float ProjectileDebrisForce = 6f;
+        internal static readonly List<VoxelObstacle> ActiveProjectileTargets = new();
+        private VoxelProjectileVoxelCache projectileVoxels;
+        private void OnEnable() { if (!ActiveProjectileTargets.Contains(this)) ActiveProjectileTargets.Add(this); }
+        private void OnDisable() => ActiveProjectileTargets.Remove(this);
 
         public void Configure(VoxelCarController player, EndlessVoxelRoad road, VoxelStaticObstacleDefinition value,
             float distance, float offset)
@@ -31,6 +35,7 @@ namespace VoxelRacer
             currentHealth = Mathf.Max(1, definition != null ? definition.hitPoints : 5);
             ApplyTrackPose();
             BuildVoxelBox();
+            projectileVoxels = new VoxelProjectileVoxelCache(transform, null);
         }
 
         private void Update()
@@ -105,13 +110,15 @@ namespace VoxelRacer
             if (hasBeenHit || segmentLength <= 0f)
                 return false;
 
+            projectileVoxels ??= new VoxelProjectileVoxelCache(transform, null);
+            if (!projectileVoxels.MayReachSurface(segmentStart, direction, segmentLength, 1.8f)) return false;
+
             Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
             float rearSurfaceDistance = float.PositiveInfinity;
-            foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
+            foreach (var piece in projectileVoxels.Pieces)
             {
-                Transform voxel = renderer.transform;
-                if (!voxel.gameObject.activeInHierarchy)
-                    continue;
+                if (!piece.Active) continue;
+                Transform voxel = piece.Transform;
 
                 Vector3 offset = voxel.position - segmentStart;
                 float forwardDistance = Vector3.Dot(offset, direction);
@@ -127,11 +134,10 @@ namespace VoxelRacer
             const float rearSurfaceDepth = 0.55f;
             float bestScore = float.PositiveInfinity;
             float randomness = definition != null ? definition.rearSurfaceHitRandomness : 0.8f;
-            foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
+            foreach (var piece in projectileVoxels.Pieces)
             {
-                Transform voxel = renderer.transform;
-                if (!voxel.gameObject.activeInHierarchy)
-                    continue;
+                if (!piece.Active) continue;
+                Transform voxel = piece.Transform;
 
                 Vector3 offset = voxel.position - segmentStart;
                 float forwardDistance = Vector3.Dot(offset, direction);

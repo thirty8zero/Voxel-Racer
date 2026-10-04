@@ -67,7 +67,8 @@ namespace VoxelRacer
             frame.edgeColor = accent;
             frame.color = State == VoxelGarageUpgradeState.Equipped ? new Color(.035f, .10f, .095f, .58f) : new Color(.035f, .045f, .065f, .50f);
             frame.SetVerticesDirty();
-            icon.color = compatible ? new Color(.87f, .90f, .98f) : new Color(.39f, .43f, .50f);
+            icon.color = compatible ? new Color(.87f, .90f, .98f,
+                State == VoxelGarageUpgradeState.Unaffordable ? .35f : 1f) : new Color(.39f, .43f, .50f);
             slots.text = compatible ? Mathf.Min(owned, capacity) + " / " + capacity + " FITTED" : "NOT COMPATIBLE";
             slots.color = new Color(.57f, .63f, .72f);
             price.text = State == VoxelGarageUpgradeState.Equipped ? "INSTALLED" : compatible ? "$ " + cost.ToString("N0") : "—";

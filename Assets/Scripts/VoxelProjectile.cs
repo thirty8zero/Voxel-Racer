@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.Profiling;
 
 namespace VoxelRacer
 {
@@ -19,6 +20,7 @@ namespace VoxelRacer
         // Bullets update sequentially on the main thread. Share one buffer across
         // shots and retain any growth needed by unusually dense voxel colliders.
         private static RaycastHit[] projectileHits = new RaycastHit[64];
+        private static readonly ProfilerMarker updateMarker = new ProfilerMarker("VoxelProjectile.Update");
 
         public static VoxelProjectile Create(Vector3 position, Vector3 direction, VoxelGunTuning tuning)
         {
@@ -50,6 +52,7 @@ namespace VoxelRacer
         private void Update()
         {
             if (VoxelPauseMenu.IsPaused) return;
+            using var profile = updateMarker.Auto();
             float distance = Mathf.Min(speed * Time.deltaTime, remainingRange);
             int hitCount = RaycastProjectileSegment(transform.position, direction, distance);
             RaycastHit closestVehicleHit = default;
@@ -168,8 +171,9 @@ namespace VoxelRacer
                 return;
             }
 
-            foreach (var enemy in FindObjectsByType<VoxelEnemyCar>(FindObjectsSortMode.None))
+            foreach (var enemy in VoxelEnemyCar.ActiveProjectileTargets)
             {
+                if (enemy == null || !enemy.gameObject.activeInHierarchy) continue;
                 if (!enemy.TryGetNextProjectileVoxel(transform.position, direction, distance, out Transform fallbackVoxel))
                     continue;
 
@@ -179,8 +183,9 @@ namespace VoxelRacer
                 return;
             }
 
-            foreach (VoxelObstacle obstacle in FindObjectsByType<VoxelObstacle>(FindObjectsSortMode.None))
+            foreach (VoxelObstacle obstacle in VoxelObstacle.ActiveProjectileTargets)
             {
+                if (obstacle == null || !obstacle.gameObject.activeInHierarchy) continue;
                 if (!obstacle.TryGetNextProjectileVoxel(transform.position, direction, distance, out Transform fallbackVoxel))
                     continue;
 
@@ -190,8 +195,9 @@ namespace VoxelRacer
                 return;
             }
 
-            foreach (VoxelFuelDrumObstacle drums in FindObjectsByType<VoxelFuelDrumObstacle>(FindObjectsSortMode.None))
+            foreach (VoxelFuelDrumObstacle drums in VoxelFuelDrumObstacle.ActiveProjectileTargets)
             {
+                if (drums == null || !drums.gameObject.activeInHierarchy) continue;
                 if (!drums.TryGetNextProjectileVoxel(transform.position, direction, distance, out Transform fallbackVoxel))
                     continue;
 

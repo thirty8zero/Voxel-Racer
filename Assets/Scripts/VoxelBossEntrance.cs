@@ -6,6 +6,7 @@ namespace VoxelRacer
     public sealed class VoxelBossEntrance : MonoBehaviour
     {
         private Vector3 fullScale;
+        internal Vector3 FullScale => fullScale;
         private float duration, elapsed;
 
         public void Configure(float seconds)

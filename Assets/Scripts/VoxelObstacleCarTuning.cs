@@ -25,7 +25,7 @@ namespace VoxelRacer
                 if (entry != null && entry.modelPrefab != null && pick-- == 0) return entry;
             return null;
         }
-        [Tooltip("Seconds between traffic/obstacle spawn waves. Each wave picks a random value within this range.")]
+        [Tooltip("Seconds between traffic/obstacle spawn waves at normal speed. Each wave picks a random value within this range. Above the car's engine-adjusted top speed, the countdown advances in proportion to actual speed.")]
         [Min(0.1f)] public float minimumWaveInterval = 2.5f;
         [Min(0.1f)] public float maximumWaveInterval = 4.5f;
         [Tooltip("Number of objects created across different free lanes at each spawn opportunity.")]

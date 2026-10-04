@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Unity.Profiling;
 
 namespace VoxelRacer
 {
@@ -36,9 +37,42 @@ namespace VoxelRacer
         private VoxelCarController target;
         private VoxelStartCountdown countdown;
         private VoxelRunFinish runFinish;
-        private float nextSpawnTime;
+        private float spawnTimeRemaining;
         private bool trafficSpawnWindowOpened;
         private readonly Queue<SpawnRequest> pendingSpawnRequests = new();
+        private readonly List<MonoBehaviour> laneOccupants = new();
+        private readonly List<VoxelObstacleCar> laneTraffic = new();
+        private readonly List<VoxelEnemyCar> laneEnemies = new();
+        private readonly List<VoxelObstacle> laneCrates = new();
+        private readonly List<VoxelPotholeObstacle> lanePotholes = new();
+        private readonly List<VoxelFuelDrumObstacle> laneDrums = new();
+        private readonly List<VoxelOilSlickObstacle> laneOil = new();
+        private readonly List<float> laneChoices = new();
+        private readonly List<(float offset, float speed)> civilianLaneChoices = new();
+        private static readonly ProfilerMarker spawnMarker = new ProfilerMarker("VoxelObstacleSpawner.SpawnObject");
+        private static readonly ProfilerMarker lanesMarker = new ProfilerMarker("VoxelObstacleSpawner.LaneSnapshot");
+
+        // Refresh once per decision, so new spawns, inactive objects, reparenting
+        // and reserved enemy lanes retain their original occupancy semantics.
+        private void RefreshLaneOccupants()
+        {
+            using var profile = lanesMarker.Auto();
+            GetComponentsInChildren(false, laneOccupants);
+            laneTraffic.Clear(); laneEnemies.Clear(); laneCrates.Clear();
+            lanePotholes.Clear(); laneDrums.Clear(); laneOil.Clear();
+            foreach (var occupant in laneOccupants)
+            {
+                switch (occupant)
+                {
+                    case VoxelObstacleCar car: laneTraffic.Add(car); break;
+                    case VoxelEnemyCar enemy: laneEnemies.Add(enemy); break;
+                    case VoxelObstacle crate: laneCrates.Add(crate); break;
+                    case VoxelPotholeObstacle pothole: lanePotholes.Add(pothole); break;
+                    case VoxelFuelDrumObstacle drums: laneDrums.Add(drums); break;
+                    case VoxelOilSlickObstacle oil: laneOil.Add(oil); break;
+                }
+            }
+        }
 
         private struct SpawnRequest
         {
@@ -64,7 +98,7 @@ namespace VoxelRacer
 
         private void Start()
         {
-            nextSpawnTime = Time.time + Random.Range(minimumSpawnInterval, maximumSpawnInterval);
+            ScheduleNextSpawn();
         }
 
         private void Update()
@@ -89,7 +123,7 @@ namespace VoxelRacer
             if (countdown != null && !trafficSpawnWindowOpened)
             {
                 trafficSpawnWindowOpened = true;
-                nextSpawnTime = Time.time;
+                spawnTimeRemaining = 0f;
             }
 
             // Vehicle visual construction creates hundreds of voxel GameObjects.
@@ -101,7 +135,14 @@ namespace VoxelRacer
                 SpawnObject(request.Path, request.Distance);
             }
 
-            if (Time.time < nextSpawnTime)
+            // Actual travel above the engine-adjusted normal maximum brings the
+            // next wave forward. Braking and initial acceleration keep normal pacing.
+            float normalTopSpeed = target.EffectiveTopSpeed;
+            float countdownRate = normalTopSpeed > 0f
+                ? Mathf.Max(1f, target.CurrentSpeed / normalTopSpeed)
+                : 1f;
+            spawnTimeRemaining -= Time.deltaTime * countdownRate;
+            if (spawnTimeRemaining > 0f)
                 return;
 
             float spawnDistanceAhead = obstacleCarTuning != null ? obstacleCarTuning.spawnDistanceAhead : 65f;
@@ -137,6 +178,7 @@ namespace VoxelRacer
 
         private void SpawnObject(EndlessVoxelRoad path, float distance)
         {
+            using var profile = spawnMarker.Auto();
             bool spawnTrafficCar = obstacleCarTuning != null && Random.value < obstacleCarTuning.obstacleCarSpawnChance;
             if (spawnTrafficCar)
             {
@@ -228,7 +270,8 @@ namespace VoxelRacer
 
         private bool TryFindEmptyVehicleLane(out float laneOffset)
         {
-            var availableLanes = new List<float>();
+            RefreshLaneOccupants();
+            var availableLanes = laneChoices; availableLanes.Clear();
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
                 float candidateOffset = GetLaneOffset(laneIndex);
@@ -248,6 +291,7 @@ namespace VoxelRacer
 
         private bool TryFindCivilianLane(bool travelsWithPlayer, float spawnDistance, out float laneOffset, out float matchingSpeed)
         {
+            RefreshLaneOccupants();
             float spawnHalfLength=2.3f;
             if(obstacleCarTuning.trafficCarEnemyTuning!=null) spawnHalfLength=Mathf.Max(spawnHalfLength,obstacleCarTuning.trafficCarEnemyTuning.collisionHalfLength);
             if(obstacleCarTuning.semiTrailerSpawnChance>0)
@@ -256,7 +300,7 @@ namespace VoxelRacer
                 foreach (var vehicle in obstacleCarTuning.civilianVehiclePool)
                     if (vehicle != null && vehicle.modelPrefab != null) spawnHalfLength = Mathf.Max(spawnHalfLength, vehicle.collisionHalfLength);
             if (radarTuning != null) spawnHalfLength = Mathf.Max(spawnHalfLength, radarTuning.collisionHalfLength);
-            var availableLanes = new List<(float offset, float speed)>();
+            var availableLanes = civilianLaneChoices; availableLanes.Clear();
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
                 float candidateOffset = GetLaneOffset(laneIndex);
@@ -266,7 +310,7 @@ namespace VoxelRacer
                 bool hasCivilian = false;
                 bool compatible = true;
                 float laneSpeed = 0f;
-                foreach (var civilian in GetComponentsInChildren<VoxelObstacleCar>())
+                foreach (var civilian in laneTraffic)
                 {
                     if (!IsInLane(civilian.LaneOffset, candidateOffset))
                         continue;
@@ -310,11 +354,11 @@ namespace VoxelRacer
 
         private bool HasAnyVehicleInLane(float candidateOffset)
         {
-            foreach (var civilian in GetComponentsInChildren<VoxelObstacleCar>())
+            foreach (var civilian in laneTraffic)
                 if (IsInLane(civilian.LaneOffset, candidateOffset))
                     return true;
 
-            foreach (var enemy in GetComponentsInChildren<VoxelEnemyCar>())
+            foreach (var enemy in laneEnemies)
                 if (enemy.OccupiesLane(candidateOffset, laneWidth))
                     return true;
 
@@ -323,7 +367,7 @@ namespace VoxelRacer
 
         private bool HasEnemyInLane(float candidateOffset)
         {
-            foreach (var enemy in GetComponentsInChildren<VoxelEnemyCar>())
+            foreach (var enemy in laneEnemies)
                 if (enemy.OccupiesLane(candidateOffset, laneWidth))
                     return true;
             return false;
@@ -332,7 +376,8 @@ namespace VoxelRacer
         /// <summary>Finds a genuinely clear adjacent lane for a damaged interceptor to evade into.</summary>
         public bool TryFindSafeEnemyLane(VoxelEnemyCar requester, out float laneOffset)
         {
-            var safeLanes = new List<float>();
+            RefreshLaneOccupants();
+            var safeLanes = laneChoices; safeLanes.Clear();
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
                 float candidateOffset = GetLaneOffset(laneIndex);
@@ -362,25 +407,25 @@ namespace VoxelRacer
                 target.TrackDistance >= requester.TrackDistance)
                 return false;
 
-            foreach (var civilian in GetComponentsInChildren<VoxelObstacleCar>())
+            foreach (var civilian in laneTraffic)
                 if (IsInLane(civilian.LaneOffset, candidateOffset) &&
                     civilian.TrackDistance >= requester.TrackDistance)
                     return false;
 
-            foreach (var enemy in GetComponentsInChildren<VoxelEnemyCar>())
+            foreach (var enemy in laneEnemies)
                 if (enemy != requester && enemy.OccupiesLane(candidateOffset, laneWidth) &&
                     enemy.TrackDistance >= requester.TrackDistance)
                     return false;
 
-            foreach (var obstacle in GetComponentsInChildren<VoxelObstacle>())
+            foreach (var obstacle in laneCrates)
                 if (IsInLane(obstacle.LaneOffset, candidateOffset) &&
                     obstacle.TrackDistance >= requester.TrackDistance)
                     return false;
-            foreach (var pothole in GetComponentsInChildren<VoxelPotholeObstacle>())
+            foreach (var pothole in lanePotholes)
                 if (IsInLane(pothole.LaneOffset, candidateOffset) &&
                     pothole.TrackDistance >= requester.TrackDistance)
                     return false;
-            foreach (var drums in GetComponentsInChildren<VoxelFuelDrumObstacle>())
+            foreach (var drums in laneDrums)
                 if (IsInLane(drums.LaneOffset, candidateOffset) &&
                     drums.TrackDistance >= requester.TrackDistance)
                     return false;
@@ -390,7 +435,8 @@ namespace VoxelRacer
 
         private bool TryFindCompletelyEmptyLane(out float laneOffset)
         {
-            var availableLanes = new List<float>();
+            RefreshLaneOccupants();
+            var availableLanes = laneChoices; availableLanes.Clear();
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
                 float candidateOffset = GetLaneOffset(laneIndex);
@@ -410,15 +456,15 @@ namespace VoxelRacer
 
         private bool HasStaticObstacleInLane(float candidateOffset)
         {
-            foreach (var oil in GetComponentsInChildren<VoxelOilSlickObstacle>())
+            foreach (var oil in laneOil)
                 if (IsInLane(oil.LaneOffset, candidateOffset)) return true;
-            foreach (var obstacle in GetComponentsInChildren<VoxelObstacle>())
+            foreach (var obstacle in laneCrates)
                 if (IsInLane(obstacle.LaneOffset, candidateOffset))
                     return true;
-            foreach (var pothole in GetComponentsInChildren<VoxelPotholeObstacle>())
+            foreach (var pothole in lanePotholes)
                 if (IsInLane(pothole.LaneOffset, candidateOffset))
                     return true;
-            foreach (var drums in GetComponentsInChildren<VoxelFuelDrumObstacle>())
+            foreach (var drums in laneDrums)
                 if (IsInLane(drums.LaneOffset, candidateOffset))
                     return true;
             return false;
@@ -427,15 +473,16 @@ namespace VoxelRacer
         /// <summary>Used by roadside hazards to avoid creating an unavoidable cross-road wall beside a static obstacle.</summary>
         public bool HasStaticObstacleNearTrackDistance(float candidateDistance, float clearance)
         {
-            foreach (var oil in GetComponentsInChildren<VoxelOilSlickObstacle>())
+            RefreshLaneOccupants();
+            foreach (var oil in laneOil)
                 if (Mathf.Abs(oil.TrackDistance - candidateDistance) <= clearance) return true;
-            foreach (var obstacle in GetComponentsInChildren<VoxelObstacle>())
+            foreach (var obstacle in laneCrates)
                 if (Mathf.Abs(obstacle.TrackDistance - candidateDistance) <= clearance)
                     return true;
-            foreach (var pothole in GetComponentsInChildren<VoxelPotholeObstacle>())
+            foreach (var pothole in lanePotholes)
                 if (Mathf.Abs(pothole.TrackDistance - candidateDistance) <= clearance)
                     return true;
-            foreach (var drums in GetComponentsInChildren<VoxelFuelDrumObstacle>())
+            foreach (var drums in laneDrums)
                 if (Mathf.Abs(drums.TrackDistance - candidateDistance) <= clearance)
                     return true;
             return false;
@@ -470,7 +517,7 @@ namespace VoxelRacer
 
         private void ScheduleNextSpawn()
         {
-            nextSpawnTime = Time.time + Random.Range(minimumSpawnInterval, maximumSpawnInterval);
+            spawnTimeRemaining = Random.Range(minimumSpawnInterval, maximumSpawnInterval);
         }
     }
 }
