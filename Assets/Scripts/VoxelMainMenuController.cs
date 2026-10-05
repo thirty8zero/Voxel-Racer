@@ -55,6 +55,7 @@ namespace VoxelRacer
             surroundingGround.transform.SetAsFirstSibling();
 
             Camera menuCamera = Camera.main;
+            VoxelMobilePostProcessing.Configure(menuCamera);
             if (tuning == null || tuning.showHorizonMountains)
             {
                 var mountains = new GameObject("Main Menu Horizon Mountains")
@@ -119,7 +120,7 @@ namespace VoxelRacer
         private void Update()
         {
             if (featuredDisplayRoot != null)
-                featuredDisplayRoot.Rotate(Vector3.up, 18f * Time.deltaTime, Space.World);
+                featuredDisplayRoot.Rotate(Vector3.up, 18f * Time.unscaledDeltaTime, Space.World);
 
             if (isLoading)
                 return;

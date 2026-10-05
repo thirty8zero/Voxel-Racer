@@ -45,8 +45,17 @@ namespace VoxelRacer.Editor
         {
             Material M(string name) => AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/CarMaterials/" + name + ".mat")
                 ?? throw new InvalidOperationException("Missing missile material: " + name);
-            UpdateLauncherModel(M("MissileLauncherSteel"), M("MissileLauncherDark"), M("MissileBody"), M("MissileNose"));
-            Debug.Log("Updated paired right-angle roof brackets, gussets and fasteners; retained mount, weapon and particle tuning.");
+            const string launcherPath = "Assets/Prefabs/Weapons/MissileLauncher.prefab";
+            var launcher = PrefabUtility.LoadPrefabContents(launcherPath);
+            try
+            {
+                var existing = launcher.transform.Find(VoxelMissileUpgradeState.RoofBracketName);
+                if (existing != null) Object.DestroyImmediate(existing.gameObject);
+                BuildRoofBrackets(launcher, M("MissileLauncherSteel"), M("MissileLauncherDark"), M("MissileBody"));
+                PrefabUtility.SaveAsPrefabAsset(launcher, launcherPath);
+            }
+            finally { PrefabUtility.UnloadPrefabContents(launcher); }
+            Debug.Log("Updated roof brackets and chassis support bars; retained casing, muzzle, weapon and particle tuning.");
         }
 
         private static void UpdateLauncherModel(Material metal, Material dark, Material silver, Material red)
@@ -141,6 +150,15 @@ namespace VoxelRacer.Editor
                 clampWasher.transform.localRotation = Quaternion.Euler(0, 90, 0);
                 var clampBolt = Part(bracket.transform, "Upright securing bolt", bolt, new Vector3(-.008f, .106f, z), new Vector3(.032f, .032f, .014f), silver);
                 clampBolt.transform.localRotation = Quaternion.Euler(0, 90, 0);
+
+                // Bridge the roof skin to the protected roll-cage rail below it.
+                // This bracket group stays upright/inboard on either launcher side.
+                Vector3 upper = new Vector3(-.18f, -.010f, z);
+                Vector3 lower = new Vector3(-.39f, -.29f, z);
+                var support = Box(bracket.transform, "Chassis support bar", (upper + lower) * .5f,
+                    new Vector3(.06f, .06f, Vector3.Distance(upper, lower) + .035f), metal);
+                support.transform.localRotation = Quaternion.LookRotation(upper - lower);
+                Box(bracket.transform, "Chassis rail saddle", lower, new Vector3(.095f, .065f, .12f), metal);
             }
             Combine(bracket, "MissileLauncherBracket");
             // Canonical right-side mounting; CreateVisual levels and mirrors this for either side.
@@ -154,11 +172,12 @@ namespace VoxelRacer.Editor
             go.AddComponent<MeshFilter>().sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterial = material;
             return go;
         }
-        private static void Box(Transform parent, string name, Vector3 position, Vector3 scale, Material material)
+        private static GameObject Box(Transform parent, string name, Vector3 position, Vector3 scale, Material material)
         {
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            Part(parent, name, cube.GetComponent<MeshFilter>().sharedMesh, position, scale, material);
+            var part = Part(parent, name, cube.GetComponent<MeshFilter>().sharedMesh, position, scale, material);
             Object.DestroyImmediate(cube);
+            return part;
         }
 
         private static void Combine(GameObject root, string prefix)

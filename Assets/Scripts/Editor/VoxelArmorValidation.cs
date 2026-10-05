@@ -32,6 +32,7 @@ namespace VoxelRacer.Editor
             var healthField = typeof(VoxelCarRunState).GetField("armorHealth", PrivateStatic);
             var nameField = typeof(VoxelCarRunState).GetField("carDefinitionName", PrivateStatic);
             var gunField = typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount", PrivateStatic);
+            var gunSideField = typeof(VoxelGunUpgradeState).GetField("firstLongGunIsRight", PrivateStatic);
             var rightField = typeof(VoxelArmorUpgradeState).GetField("rightPurchased", PrivateStatic);
             var leftField = typeof(VoxelArmorUpgradeState).GetField("leftPurchased", PrivateStatic);
             Check(missingField != null && healthField != null && nameField != null && gunField != null &&
@@ -43,6 +44,7 @@ namespace VoxelRacer.Editor
             var savedHealth = new Dictionary<string, int>(health);
             object savedName = nameField.GetValue(null);
             object savedGuns = gunField.GetValue(null);
+            object savedGunSide = gunSideField.GetValue(null);
             object savedRight = rightField.GetValue(null);
             object savedLeft = leftField.GetValue(null);
             int savedBalance = VoxelCurrencyState.Balance;
@@ -84,6 +86,11 @@ namespace VoxelRacer.Editor
             }
             finally
             {
+                // A failed assertion can leave a placement open on an unparented QA car.
+                foreach (var root in scene.GetRootGameObjects())
+                    foreach (var shop in root.GetComponentsInChildren<VoxelRepairUpgradeSceneController>(true))
+                        typeof(VoxelRepairUpgradeSceneController).GetMethod("CancelUpgradePlacement",
+                            BindingFlags.Instance | BindingFlags.NonPublic).Invoke(shop, null);
                 EditorSceneManager.ClosePreviewScene(scene);
                 testedTuning.voxelHitPoints = savedHitPoints;
                 testedTuning.panelPurchasePrice = savedPrice;
@@ -94,6 +101,7 @@ namespace VoxelRacer.Editor
                     health.Add(entry.Key, entry.Value);
                 nameField.SetValue(null, savedName);
                 gunField.SetValue(null, savedGuns);
+                gunSideField.SetValue(null, savedGunSide);
                 rightField.SetValue(null, savedRight);
                 leftField.SetValue(null, savedLeft);
                 VoxelCurrencyState.Reset();
@@ -246,14 +254,19 @@ namespace VoxelRacer.Editor
                 .First(button => button.name == "Right Door Armor Purchase Button");
             var leftButton = shopObject.GetComponentsInChildren<Button>(true)
                 .First(button => button.name == "Left Door Armor Purchase Button");
-            Check(rightButton.interactable && leftButton.interactable, "both affordable shop buttons disabled");
-            rightButton.onClick.Invoke();
+            Check(leftButton.interactable && !rightButton.gameObject.activeSelf, "combined armour card unavailable or duplicate side card visible");
+            leftButton.onClick.Invoke();
+            Check(!VoxelArmorUpgradeState.IsPurchased, "placement preview purchased armour immediately");
+            shopType.GetMethod("SelectUpgradePlacement", instance).Invoke(shop, new object[] { 1 });
+            shopType.GetMethod("ConfirmUpgradePurchase", instance).Invoke(shop, null);
             Check(VoxelArmorUpgradeState.IsRightPurchased && !VoxelArmorUpgradeState.IsLeftPurchased &&
                 !rightButton.interactable && leftButton.interactable &&
                 car.TotalIntegrityVoxels == baseCount + 30 && car.MissingIntegrityVoxels == 8 &&
                 rightButton.GetComponentInChildren<Text>().text.Contains("INSTALLED"),
                 "right shop purchase did not install independently");
             leftButton.onClick.Invoke();
+            shopType.GetMethod("SelectUpgradePlacement", instance).Invoke(shop, new object[] { 0 });
+            shopType.GetMethod("ConfirmUpgradePurchase", instance).Invoke(shop, null);
             Check(VoxelArmorUpgradeState.IsLeftPurchased && !leftButton.interactable &&
                 car.TotalIntegrityVoxels == baseCount + 60 && car.MissingIntegrityVoxels == 8 &&
                 leftButton.GetComponentInChildren<Text>().text.Contains("INSTALLED"),

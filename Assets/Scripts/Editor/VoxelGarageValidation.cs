@@ -108,11 +108,59 @@ namespace VoxelRacer.Editor
                             cam.Render();uiCamera.Render();texture.ReadPixels(new Rect(0,0,width,1080),0,0);texture.Apply();
                             File.WriteAllBytes("Temp/Garage_"+width+"_Upgrades_End.png",texture.EncodeToPNG());
                             upgrades.GetComponentInChildren<ScrollRect>().horizontalNormalizedPosition=0;
+                            {
+                                const int previewFunds = 20000;
+                                VoxelCurrencyState.Add(previewFunds);
+                                Invoke(shop,"RefreshUi");
+                                Invoke(shop,"BeginUpgradePlacement",VoxelGarageUpgradeKind.Guns);
+                                var placement=(VoxelGarageUpgradePlacement)typeof(VoxelRepairUpgradeSceneController).GetField("upgradePlacement",Flags).GetValue(shop);
+                                foreach(var t in placement.Car.GetComponentsInChildren<Transform>(true))t.gameObject.layer=30;
+                                Canvas.ForceUpdateCanvases();cam.Render();uiCamera.Render();texture.ReadPixels(new Rect(0,0,width,1080),0,0);texture.Apply();
+                                File.WriteAllBytes(width==1920?"Temp/Garage_Placement.png":"Temp/Garage_"+width+"_Placement.png",texture.EncodeToPNG());
+                                Invoke(shop,"SelectUpgradePlacement",1);
+                                Invoke(shop,"SelectUpgradePlacement",0);
+                                Invoke(shop,"BeginUpgradePlacement",VoxelGarageUpgradeKind.Armour);
+                                Invoke(shop,"SelectUpgradePlacement",1);Invoke(shop,"SelectUpgradePlacement",0);
+                                Invoke(shop,"BeginUpgradePlacement",VoxelGarageUpgradeKind.Wheels);
+                                Invoke(shop,"BeginUpgradePlacement",VoxelGarageUpgradeKind.Spikes);
+                                Invoke(shop,"BeginUpgradePlacement",VoxelGarageUpgradeKind.Boost);
+                                foreach(var t in placement.Car.GetComponentsInChildren<Transform>(true))t.gameObject.layer=30;
+                                foreach(var t in root.GetComponentsInChildren<Transform>(true))if(t.GetComponentInParent<Canvas>()!=null)t.gameObject.layer=31;
+                                Canvas.ForceUpdateCanvases();Invoke(shop,"LayoutPurchaseConfirmation");
+                                VoxelGarageUpgradeDockValidation.CheckPurchaseLayout(shop);
+                                cam.Render();uiCamera.Render();texture.ReadPixels(new Rect(0,0,width,1080),0,0);texture.Apply();
+                                File.WriteAllBytes(width==1920?"Temp/Garage_Confirmation.png":"Temp/Garage_"+width+"_Confirmation.png",texture.EncodeToPNG());
+                                if(width==1920)
+                                {
+                                    Matrix4x4 projection=cam.projectionMatrix;
+                                    int pendingCount=placement.Selections.Count;
+                                    Vector2 scrollPosition=upgrades.GetComponentInChildren<ScrollRect>().content.anchoredPosition;
+                                    root.transform.Find("Repair Upgrade UI/Settings Button").GetComponent<Button>().onClick.Invoke();
+                                    var settingsOverlay=root.transform.Find("Repair Upgrade UI/Garage Settings Overlay");
+                                    Check(settingsOverlay.gameObject.activeSelf && upgrades.gameObject.activeSelf &&
+                                        cam.projectionMatrix==projection && placement.Selections.Count==pendingCount,
+                                        "Settings changed pending upgrades or camera framing");
+                                    Canvas.ForceUpdateCanvases();cam.Render();uiCamera.Render();texture.ReadPixels(new Rect(0,0,width,1080),0,0);texture.Apply();
+                                    File.WriteAllBytes("Temp/Garage_Settings.png",texture.EncodeToPNG());
+                                    settingsOverlay.Find("Garage Settings/Close Panel").GetComponent<Button>().onClick.Invoke();
+                                    Check(!settingsOverlay.gameObject.activeSelf && placement.Selections.Count==pendingCount &&
+                                        cam.projectionMatrix==projection && upgrades.GetComponentInChildren<ScrollRect>().content.anchoredPosition==scrollPosition,
+                                        "Closing settings reset upgrades, framing or scroll");
+                                }
+                                shop.NextRaceButton.onClick.Invoke();
+                                foreach(var t in root.GetComponentsInChildren<Transform>(true))if(t.GetComponentInParent<Canvas>()!=null)t.gameObject.layer=31;
+                                Canvas.ForceUpdateCanvases();cam.Render();uiCamera.Render();texture.ReadPixels(new Rect(0,0,width,1080),0,0);texture.Apply();
+                                File.WriteAllBytes("Temp/Garage_"+width+"_UnfittedParts.png",texture.EncodeToPNG());
+                                root.GetComponentsInChildren<Button>().First(b=>b.name=="Go Back to Upgrades").onClick.Invoke();
+                                Invoke(shop,"CancelUpgradePlacement");
+                                VoxelCurrencyState.TrySpend(previewFunds);
+                                Invoke(shop,"RefreshUi");
+                            }
                         }
                     }
                     finally{cam.targetTexture=uiCamera.targetTexture=null;RenderTexture.active=null;rt.Release();sceneTexture.Release();UnityEngine.Object.DestroyImmediate(rt);UnityEngine.Object.DestroyImmediate(sceneTexture);UnityEngine.Object.DestroyImmediate(texture);}
                 }
-                File.WriteAllText("Temp/GarageValidation.txt","PASS: ten bottom upgrade cards, affordable/unaffordable/equipped states, stable ascending price order with fully purchased cards last, partial gun slots, compatibility, guarded purchase callbacks, actual engine/missile installation and damage preservation, read-only next mission preview with loop/non-loop/empty sequence, navigation/close, horizontal touch/mouse scroll, feedback above cards and dock/mission/UI separation. Static camera position, rotation, FOV and projection through full car rotation in home/repair/upgrades; player zoom-in/out changes and persists; shop refresh/re-open preserves framing; rotation envelope fits above cards with the floor rendered behind translucent cards. Rendered 4:3, 16:9 and 20:9 including end of catalogue. Cash, purchases, run damage and campaign progress restored.");
+                File.WriteAllText("Temp/GarageValidation.txt","PASS: eight bottom upgrade types with combined armour/missile side choices, affordable/unaffordable/equipped states, stable ascending price order with fully purchased cards last, partial gun slots, compatibility, guarded preview/confirmation callbacks, actual confirmed engine/missile installation and damage preservation, read-only next mission preview with loop/non-loop/empty sequence, navigation/close, horizontal touch/mouse scroll, feedback above cards and dock/mission/UI separation. Static camera position, rotation, FOV and projection through full car rotation in home/repair/upgrades; player zoom-in/out changes and persists; shop refresh/re-open preserves framing; rotation envelope fits above cards with the floor rendered behind translucent cards. Rendered 4:3, 16:9 and 20:9 including end of catalogue. Cash, purchases, run damage and campaign progress restored.");
             }
             catch(Exception e){Directory.CreateDirectory("Temp");File.WriteAllText("Temp/GarageValidation.txt","FAIL: "+e);throw;}
             finally

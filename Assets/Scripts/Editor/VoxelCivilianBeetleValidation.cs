@@ -26,9 +26,9 @@ namespace VoxelRacer.Editor
                 Object.DestroyImmediate(shell);
                 foreach(var guid in AssetDatabase.FindAssets("t:VoxelTrackDefinition").Concat(AssetDatabase.FindAssets("t:VoxelObstacleCarTuning")).Distinct())
                     foreach(var t in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)).OfType<VoxelObstacleCarTuning>())
-                        Check(t.civilianVehiclePool!=null&&t.civilianVehiclePool.Length==3&&t.civilianVehiclePool.Contains(beetle)&&t.civilianVehiclePool.Distinct().Count()==3,"Pool registration missing: "+t.name);
-                var counts=new int[3];UnityEngine.Random.InitState(1501);
-                for(int i=0;i<9000;i++)counts[Array.IndexOf(traffic.civilianVehiclePool,traffic.ChooseCivilianVehicle(out _))]++;
+                        Check(t.civilianVehiclePool!=null&&t.civilianVehiclePool.Contains(beetle)&&t.civilianVehiclePool.Count(v=>v==beetle)==1,"Pool registration missing: "+t.name);
+                var counts=new int[traffic.civilianVehiclePool.Length];UnityEngine.Random.InitState(1501);
+                for(int i=0;i<counts.Length*3000;i++)counts[Array.IndexOf(traffic.civilianVehiclePool,traffic.ChooseCivilianVehicle(out _))]++;
                 Check(counts.All(n=>n>2750&&n<3250),"Equal selection distribution failed");
                 traffic.civilianVehiclePool=new[]{beetle};traffic.paintColours=new[]{Color.magenta};
                 var player=root.AddComponent<VoxelCarController>();player.enabled=false;
@@ -58,7 +58,7 @@ namespace VoxelRacer.Editor
                     int removed=(int)method.Invoke(car,new object[]{go.transform.position+Vector3.forward*3,Vector3.back,10,style});
                     Check(removed==10&&go.GetComponentsInChildren<MeshRenderer>().Length==count-10,"Destructible shell failed");
                 }
-                string report="PASS: "+count+" pieces; closed sides/front/rear/windows/roof; hollow interior; same/oncoming civilian setup; four wheels; paint-only tint; collision size; voxel damage; all track pools; 9000 equal-choice samples: "+string.Join(", ",counts);
+                string report="PASS: "+count+" pieces; closed sides/front/rear/windows/roof; hollow interior; same/oncoming civilian setup; four wheels; paint-only tint; collision size; voxel damage; all track pools; "+counts.Length*3000+" equal-choice samples: "+string.Join(", ",counts);
                 Directory.CreateDirectory("Temp/Beetle");File.WriteAllText("Temp/Beetle/Validation.txt",report);Debug.Log(report);
             }
             finally{Object.DestroyImmediate(root);Object.DestroyImmediate(traffic);UnityEngine.Random.state=state;}

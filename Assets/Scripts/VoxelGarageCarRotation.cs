@@ -31,7 +31,7 @@ namespace VoxelRacer
 
         private void UpdateCarRotationInput()
         {
-            if (!Application.isPlaying || DisplayedCar == null || workshopCamera == null || isLoading)
+            if (!Application.isPlaying || DisplayedCar == null || workshopCamera == null || isLoading || MissionStartWarningVisible || GarageSettingsVisible)
             {
                 rotatingCar = false;
                 pinching = false;
@@ -76,7 +76,7 @@ namespace VoxelRacer
             }
 
             var touch = Touchscreen.current?.primaryTouch;
-            if (!rotatingCar && Time.unscaledTime >= resumeAutoRotationAt)
+            if (!rotatingCar && !placementPointerHeld && Time.unscaledTime >= resumeAutoRotationAt)
                 DisplayedCar.transform.Rotate(Vector3.up, garageAutoRotationDegreesPerSecond * Time.unscaledDeltaTime, Space.World);
             if (rotatingCar)
             {
@@ -87,6 +87,11 @@ namespace VoxelRacer
                 if (!held) { rotatingCar = false; return; }
                 Vector2 position = rotationUsesTouch ? touch.position.ReadValue() : Mouse.current.position.ReadValue();
                 if (BlocksCarRotation(position)) { rotatingCar = false; return; }
+                if (upgradePlacement != null && placementPointerHeld && !placementPointerDragged)
+                {
+                    previousRotationPointer = position;
+                    return;
+                }
                 float delta = position.x - previousRotationPointer.x;
                 DisplayedCar.transform.Rotate(Vector3.up, -delta / Mathf.Max(1, Screen.width) * garageRotationDegreesPerScreen, Space.World);
                 previousRotationPointer = position;
@@ -140,13 +145,16 @@ namespace VoxelRacer
         private bool PointerOverCar(Vector2 position)
         {
             Ray ray = workshopCamera.ScreenPointToRay(position);
-            foreach (var renderer in DisplayedCar.GetComponentsInChildren<Renderer>())
+            foreach (var renderer in (upgradePlacement != null ? upgradePlacement.Car : DisplayedCar.gameObject).GetComponentsInChildren<Renderer>())
                 if (renderer.enabled && renderer.gameObject.activeInHierarchy && renderer.bounds.IntersectRay(ray)) return true;
             return false;
         }
 
         private bool BlocksCarRotation(Vector2 position)
         {
+            if (MissionStartWarningVisible) return true;
+            if (purchaseModal != null && purchaseModal.activeInHierarchy &&
+                RectTransformUtility.RectangleContainsScreenPoint((RectTransform)purchaseModal.transform.Find("Purchase Dialog"), position)) return true;
             foreach (var panel in new[] { garageRepairPanel, garageUpgradePanel, garageSettingsPanel })
                 if (panel != null && panel.activeInHierarchy &&
                     RectTransformUtility.RectangleContainsScreenPoint((RectTransform)panel.transform, position)) return true;
@@ -161,7 +169,7 @@ namespace VoxelRacer
 
         private void OnApplicationFocus(bool focused)
         {
-            if (!focused) rotatingCar = false;
+            if (!focused) { rotatingCar = false; placementPointerHeld = false; pinching = false; }
         }
     }
 }

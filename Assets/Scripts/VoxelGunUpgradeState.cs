@@ -8,23 +8,35 @@ namespace VoxelRacer
         private const string UpgradeRootName = "Purchased Gun Upgrades";
         private const string LongGunTuningPath = "Weapons/LongBarrelHoodGunTuning";
         private static int purchasedLongGunCount;
+        private static bool firstLongGunIsRight;
+        public const int SlotCount = 2;
 
         public static int PurchasedLongGunCount => purchasedLongGunCount;
         public static VoxelGunTuning LongGunTuning => Resources.Load<VoxelGunTuning>(LongGunTuningPath);
 
-        public static void BeginNewRun() => purchasedLongGunCount = 0;
+        public static void BeginNewRun() { purchasedLongGunCount = 0; firstLongGunIsRight = false; }
+
+        public static bool IsPurchased(int slot) => slot >= 0 && slot < SlotCount &&
+            (purchasedLongGunCount >= SlotCount || purchasedLongGunCount == 1 && slot == (firstLongGunIsRight ? 1 : 0));
 
         public static bool CanPurchase(VoxelGunTuning tuning)
         {
             return tuning != null && tuning.visualPrefab != null &&
-                purchasedLongGunCount < Mathf.Max(1, tuning.maximumPurchases);
+                purchasedLongGunCount < Mathf.Clamp(tuning.maximumPurchases, 1, SlotCount);
         }
 
+        public static bool CanPurchase(VoxelGunTuning tuning, int slot) =>
+            slot >= 0 && slot < SlotCount && CanPurchase(tuning) && !IsPurchased(slot);
+
         public static bool TryPurchase(VoxelGunTuning tuning)
+            => TryPurchase(tuning, IsPurchased(0) ? 1 : 0);
+
+        public static bool TryPurchase(VoxelGunTuning tuning, int slot)
         {
-            if (!CanPurchase(tuning) || !VoxelCurrencyState.TrySpend(tuning.purchasePrice))
+            if (!CanPurchase(tuning, slot) || !VoxelCurrencyState.TrySpend(tuning.purchasePrice))
                 return false;
 
+            if (purchasedLongGunCount == 0) firstLongGunIsRight = slot == 1;
             purchasedLongGunCount++;
             return true;
         }
@@ -53,9 +65,9 @@ namespace VoxelRacer
             Transform upgrades = new GameObject(UpgradeRootName).transform;
             upgrades.SetParent(carRoot, false);
             upgrades.SetSiblingIndex(1);
-            for (int index = 0; index < purchasedLongGunCount; index++)
+            for (int index = 0; index < SlotCount; index++)
             {
-                CreateVisual(upgrades, tuning, index);
+                if (IsPurchased(index)) CreateVisual(upgrades, tuning, index);
             }
         }
 

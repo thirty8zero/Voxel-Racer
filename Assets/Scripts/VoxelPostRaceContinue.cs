@@ -71,17 +71,17 @@ namespace VoxelRacer
             baseRewardText = VoxelMenuUi.CreateText(panel.transform, "Base Mission Reward", string.Empty, 84,
                 TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 185f), new Vector2(860f, 90f));
             timeBonusText = VoxelMenuUi.CreateText(panel.transform, "Time Bonus Reward", string.Empty, 84,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 85f), new Vector2(860f, 90f));
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 70f), new Vector2(860f, 130f));
             var cashPanel = VoxelMenuUi.CreatePanel(panel.transform, "Bonus Cash Panel", new Vector2(.5f, .5f),
-                new Vector2(0, -15f), new Vector2(860f, 90f));
+                new Vector2(0, -45f), new Vector2(860f, 80f));
             cashPanel.color = new Color(.12f, .20f, .10f, .9f);
             bonusCashPanel = cashPanel.gameObject;
             var cashText = VoxelMenuUi.CreateText(cashPanel.transform, "Bonus Cash Reward",
                 "BONUS CASH  <color=#FFD12A>+" + (missionProgress != null ? missionProgress.BonusCashEarned : 0) + "</color>",
-                72, TextAnchor.MiddleCenter, new Vector2(.5f, .5f), Vector2.zero, new Vector2(840f, 85f));
+                72, TextAnchor.MiddleCenter, new Vector2(.5f, .5f), Vector2.zero, new Vector2(840f, 75f));
             bonusCashPanel.SetActive(false);
             totalRewardText = VoxelMenuUi.CreateText(panel.transform, "Total Mission Reward", string.Empty, 126,
-                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, -160f), new Vector2(860f, 150f));
+                TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, -170f), new Vector2(860f, 140f));
 
             baseRewardText.color = Color.white;
             timeBonusText.color = Color.white;
@@ -93,11 +93,15 @@ namespace VoxelRacer
                 : 1f;
             baseRewardText.text = "MISSION REWARD  <color=#FFD12A>+" + baseAward + "</color>";
             timeBonusText.font = Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
-            timeBonusText.fontSize = 40;
-            timeBonusText.text = missionProgress != null && !missionProgress.TimeBonusAvailable
-                ? "<color=#FF4936>TIME UP - BONUS LOST</color>"
-                : "TIME BONUS " + timeBonusMultiplier.ToString("0.00") + "x  <color=#28A745>+$" +
-                    (missionProgress != null ? missionProgress.TimeBonusCurrencyEarned : 0) + "</color>";
+            float remainingTimeBonus = missionProgress != null ? missionProgress.RemainingTimeMultiplierBonus : 0f;
+            timeBonusText.fontSize = 36;
+            timeBonusText.text = remainingTimeBonus > 0f
+                ? "MISSION MULTIPLIER " + timeBonusMultiplier.ToString("0.00") + "x\n" +
+                  "TIME BONUS <color=#FFD12A>+" + remainingTimeBonus.ToString("0.00") + "x</color>\n" +
+                  "FINAL MULTIPLIER " + missionProgress.FinalRewardMultiplier.ToString("0.00") + "x"
+                : "MULTIPLIER " + timeBonusMultiplier.ToString("0.00") + "x";
+            timeBonusText.text += "  <color=#28A745>+$" +
+                (missionProgress != null ? missionProgress.TimeBonusCurrencyEarned : 0) + "</color>";
             totalRewardText.text = "TOTAL EARNED  <color=#FFD12A>+" + totalAward + "</color>";
             baseRewardText.gameObject.SetActive(false);
             timeBonusText.gameObject.SetActive(false);
@@ -113,11 +117,12 @@ namespace VoxelRacer
                 baseRewardText.gameObject.SetActive(true);
 
             bool hasTimeBonus = missionProgress != null;
+            bool hasBonusCash = missionProgress != null && missionProgress.BonusCashEarned > 0;
             const float revealInterval = .5f;
             const float bonusRevealTime = revealInterval;
             float cashRevealTime = (hasTimeBonus ? 2f : 1f) * revealInterval;
-            float totalRevealTime = cashRevealTime + revealInterval;
-            if (elapsed >= cashRevealTime && bonusCashPanel != null) bonusCashPanel.SetActive(true);
+            float totalRevealTime = cashRevealTime + (hasBonusCash ? revealInterval : 0f);
+            if (bonusCashPanel != null) bonusCashPanel.SetActive(hasBonusCash && elapsed >= cashRevealTime);
             if (hasTimeBonus && elapsed >= bonusRevealTime && timeBonusText != null)
                 timeBonusText.gameObject.SetActive(true);
             if (elapsed >= totalRevealTime && totalRewardText != null)

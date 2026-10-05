@@ -10,6 +10,7 @@ namespace VoxelRacer
         private float remainingLifetime;
         private VoxelRoadsideTurretTuning tuning;
         private VoxelCarController target;
+        private static RaycastHit[] hitBuffer = new RaycastHit[64];
 
         public static VoxelHostileProjectile Create(Vector3 position, Vector3 firingDirection,
             VoxelRoadsideTurretTuning value, VoxelCarController player)
@@ -18,7 +19,9 @@ namespace VoxelRacer
             projectileObject.name = "Turret Projectile";
             projectileObject.transform.SetPositionAndRotation(position, Quaternion.LookRotation(firingDirection));
             projectileObject.transform.localScale = new Vector3(0.13f, 0.13f, 0.38f);
-            Object.Destroy(projectileObject.GetComponent<BoxCollider>());
+            var collider = projectileObject.GetComponent<BoxCollider>();
+            collider.enabled = false;
+            Object.Destroy(collider);
 
             Material material = Resources.Load<Material>("CarMaterials/FormulaWhite");
             if (material == null)
@@ -46,15 +49,28 @@ namespace VoxelRacer
             }
 
             float distance = speed * Time.deltaTime;
-            RaycastHit[] hits = Physics.RaycastAll(transform.position, direction, distance);
+            int hitCount;
+            while ((hitCount = Physics.RaycastNonAlloc(transform.position, direction, hitBuffer, distance)) == hitBuffer.Length)
+                hitBuffer = new RaycastHit[hitBuffer.Length * 2];
             RaycastHit closest = default;
             bool hasHit = false;
-            foreach (RaycastHit hit in hits)
+            for (int i = 0; i < hitCount; i++)
             {
+                var hit = hitBuffer[i];
                 if (hit.collider == null || (hasHit && hit.distance >= closest.distance))
                     continue;
                 closest = hit;
                 hasHit = true;
+            }
+
+            // The primary player prefab has no colliders. Compare its exact mesh
+            // hit with physics obstructions so bullets cannot pass through walls.
+            if (target != null && target.TryFindHostileProjectileHit(transform.position, direction, distance,
+                out Vector3 playerPoint, out float playerDistance) && (!hasHit || playerDistance < closest.distance))
+            {
+                DamagePlayer(target, playerPoint);
+                Destroy(gameObject);
+                return;
             }
 
             if (hasHit)
@@ -75,10 +91,7 @@ namespace VoxelRacer
             VoxelCarController player = hit.collider.GetComponentInParent<VoxelCarController>();
             if (player != null && player == target)
             {
-                int originalDamage = player.damageVoxelsPerHit;
-                player.damageVoxelsPerHit = tuning.playerDamageVoxels;
-                player.ApplyDamage(hit.point, direction, "Roadside turret fire");
-                player.damageVoxelsPerHit = originalDamage;
+                DamagePlayer(player, hit.point);
                 return;
             }
 
@@ -92,6 +105,17 @@ namespace VoxelRacer
             VoxelObstacleCar civilian = hit.collider.GetComponentInParent<VoxelObstacleCar>();
             if (civilian != null)
                 civilian.TakeHostileProjectileHit(hit.collider.transform, tuning.enemyHealthDamage, hit.point, direction);
+        }
+
+        private void DamagePlayer(VoxelCarController player, Vector3 point)
+        {
+            int originalDamage = player.damageVoxelsPerHit;
+            try
+            {
+                player.damageVoxelsPerHit = tuning.playerDamageVoxels;
+                player.ApplyDamage(point, direction, "Roadside turret fire");
+            }
+            finally { player.damageVoxelsPerHit = originalDamage; }
         }
     }
 }

@@ -27,7 +27,7 @@ namespace VoxelRacer
         private static Material obstacleCarPaintMaterial;
         private static Material obstacleCarTrimMaterial;
         private static Material obstacleCarGlassMaterial;
-        private static Material startLineMaterial;
+        private static Material finishWhiteMaterial;
         private static Material carTailLightMaterial;
         private static Material carMetalDetailMaterial;
         private static Material carAccentMaterial;
@@ -78,7 +78,7 @@ namespace VoxelRacer
             if (existing != null)
             {
                 var environmentMarker = existing.GetComponent<VoxelRacerGeneratedEnvironment>();
-                if (environmentMarker != null && environmentMarker.layoutVersion == 24)
+                if (environmentMarker != null && environmentMarker.layoutVersion == 25)
                 {
                     var existingCar = existing.Find("Player Voxel Car");
                     var existingRoad = existing.GetComponent<EndlessVoxelRoad>();
@@ -112,7 +112,6 @@ namespace VoxelRacer
             var road = BuildRoad(generated);
             var car = BuildCar(generated);
             road.SetTarget(car);
-            BuildStartLine(generated, car, road);
             BuildFinishLine(generated, road);
             SetupGameplay(generated, car, road);
             SetupCamera(car);
@@ -602,6 +601,7 @@ namespace VoxelRacer
             camera.transform.position = new Vector3(-10f, 11f, -16f);
             camera.transform.rotation = Quaternion.LookRotation(new Vector3(-1.5f, 0.3f, 10f) - camera.transform.position);
             camera.fieldOfView = 58f;
+            VoxelMobilePostProcessing.Configure(camera);
             camera.backgroundColor = new Color(0.48f, 0.75f, 0.92f);
 
             var follow = camera.GetComponent<VoxelCameraFollow>();
@@ -730,19 +730,6 @@ namespace VoxelRacer
 
         }
 
-        private static void BuildStartLine(Transform parent, Transform car, EndlessVoxelRoad road)
-        {
-            var controller = car.GetComponent<VoxelCarController>();
-            float startLineDistance = controller.TrackDistance + 2f;
-            VoxelTrackPose pose = road.Evaluate(startLineDistance);
-            var startLine = CreateBlock("White Start Line", parent, pose.position + Vector3.up * 0.025f,
-                new Vector3(road.roadWidth - 0.35f, 0.04f, 0.65f), startLineMaterial);
-            startLine.transform.rotation = pose.rotation;
-            var cleanup = startLine.AddComponent<VoxelStartLineCleanup>();
-            cleanup.target = controller;
-            cleanup.trackDistance = startLineDistance;
-        }
-
         private static void BuildFinishLine(Transform parent, EndlessVoxelRoad road)
         {
             var finishRoot = new GameObject("Chequered Finish Line").transform;
@@ -759,7 +746,7 @@ namespace VoxelRacer
             {
                 float x = -road.roadWidth * 0.5f + squareWidth * (column + 0.5f);
                 float z = (row - (rows - 1) * 0.5f) * squareDepth;
-                Material material = (row + column) % 2 == 0 ? startLineMaterial : finishDarkMaterial;
+                Material material = (row + column) % 2 == 0 ? finishWhiteMaterial : finishDarkMaterial;
                 CreateBlock("Finish Checker", finishRoot, new Vector3(x, 0.025f, z),
                     new Vector3(squareWidth - 0.025f, 0.04f, squareDepth - 0.025f), material);
             }
@@ -851,7 +838,7 @@ namespace VoxelRacer
             lineMaterial = ResolveTrackMaterial(track != null ? track.roadLineMaterial : null,
                 "Road Lines", track != null ? track.roadLineColour : new Color(1f, 0.78f, 0.16f));
             shoulderMaterial = ResolveTrackMaterial(track != null ? track.shoulderMaterial : null,
-                "Shoulders", track != null ? track.shoulderColour : new Color(0.72f, 0.38f, 0.15f));
+                "Shoulders", track != null ? track.shoulderColour : Color.white);
             groundMaterial = CreateGroundMaterial(track);
             cactusMaterial = ResolveTrackMaterial(track != null ? track.cactusMaterial : null,
                 "Cactus", track != null ? track.cactusColour : new Color(0.12f, 0.34f, 0.12f));
@@ -860,7 +847,7 @@ namespace VoxelRacer
             obstacleCarPaintMaterial = MakeMaterial("Traffic Car Paint", new Color(0.80f, 0.07f, 0.10f));
             obstacleCarTrimMaterial = MakeMaterial("Traffic Car Trim", new Color(1.0f, 0.62f, 0.08f));
             obstacleCarGlassMaterial = MakeMaterial("Traffic Car Windows", new Color(0.06f, 0.04f, 0.10f));
-            startLineMaterial = MakeMaterial("Start Line", Color.white);
+            finishWhiteMaterial = MakeMaterial("Finish Line White", Color.white);
             carHeadlightMaterial = LoadCarMaterial("CarMaterials/CarHeadlights", "Car Headlights", new Color(1f, 0.78f, 0.16f));
             carTailLightMaterial = LoadCarMaterial("CarMaterials/CarTailLights", "Car Tail Lights", new Color(0.95f, 0.04f, 0.03f));
             carMetalDetailMaterial = LoadCarMaterial("CarMaterials/CarMetalDetails", "Car Metal Details", new Color(0.72f, 0.78f, 0.86f));
@@ -1020,6 +1007,6 @@ namespace VoxelRacer
     public sealed class VoxelRacerPrototypeMarker : MonoBehaviour { }
     public sealed class VoxelRacerGeneratedEnvironment : MonoBehaviour
     {
-        public int layoutVersion = 24;
+        public int layoutVersion = 25;
     }
 }

@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3ac5574a0d1241f7a5f7f94ba58382f9, type: 3}
   m_Name: MissionTuning D4
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionTuning
-  displayName: Mission 4
+  displayName: Tequila Plains 4
   requiredPoints: 1200
-  completionCurrencyAward: 500
+  completionCurrencyAward: 300
   timeLimitSeconds: 100
   timeBonusCurrencyMultiplier: 1
   maximumTimeMultiplier: 5
@@ -22,15 +22,15 @@ MonoBehaviour:
   enemyDestroyedMultiplier: 0.1
   barrelMultiplier: 0.05
   nearMissMultiplier: 0.1
-  civilianVoxelMultiplierPenalty: 0.1
-  civilianDestroyedMultiplierPenalty: 1
+  civilianVoxelMultiplierPenalty: 0.01
+  civilianDestroyedMultiplierPenalty: 0.5
   bonusWarningSeconds: 10
   enemyVoxelDamagePoints: 1
   enemyVehicleDestroyedPoints: 25
   fuelDrumDestroyedPoints: 10
   fuelDrumDestroyedPopupDuration: 2
   roadsideTurretTuning: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
-  roadsideTurretSpawnCheckInterval: 3
+  roadsideTurretSpawnCheckInterval: 4
   roadsideTurretSpawnChance: 0.5
   roadsideTurretSpawnDistanceAhead: 200
   maximumActiveRoadsideTurrets: 1

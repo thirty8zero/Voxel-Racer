@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: Civilian Transit Van
   modelPrefab: {fileID: 1909683467865791251, guid: cb8c1e84913cd0147b29658cc14edc3a, type: 3}
   mineLayer: {fileID: 0}
+  psychoBug: {fileID: 0}
   destructionScore: 25
   voxelHealth: 1
   vehicleHealth: 50

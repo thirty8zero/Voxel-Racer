@@ -8,6 +8,7 @@ namespace VoxelRacer
         public static VoxelMissionProgress Active { get; private set; }
 
         public VoxelMissionTuning Tuning { get; private set; }
+        public string DisplayName => VoxelTrackDefinition.ResolveDisplayName(VoxelRacerBootstrap.ActiveTrack, Tuning);
         public int Points { get; private set; }
         public VoxelMissionBreakdown Breakdown { get; } = new();
         public float Percent
@@ -45,6 +46,8 @@ namespace VoxelRacer
         public Vector2 PercentageScreenPosition { get; private set; }
         public int BaseCurrencyEarned { get; private set; }
         public int TimeBonusCurrencyEarned { get; private set; }
+        public int RemainingTimeBonusSeconds { get; private set; }
+        public float RemainingTimeMultiplierBonus { get; private set; }
         public int TotalCurrencyEarned { get; private set; }
         public int BonusCashEarned { get; private set; }
         public void AddBonusCash(int amount)
@@ -53,6 +56,7 @@ namespace VoxelRacer
         }
         public float DestructionMultiplierBonus { get; private set; }
         public float EffectiveTimeBonusMultiplier { get; private set; } = 1f;
+        public float FinalRewardMultiplier => Mathf.Round((EffectiveTimeBonusMultiplier + RemainingTimeMultiplierBonus) * 1000f) / 1000f;
         private readonly System.Collections.Generic.List<MultiplierFlight> multiplierFlights = new();
         private struct MultiplierFlight { public float amount, startedAt, valueAfter; public string reason; public Vector2 origin; }
         private float displayedMultiplierBonus, multiplierPulseUntil;
@@ -61,6 +65,9 @@ namespace VoxelRacer
         private Vector2 pendingVoxelOrigin;
         private int enemyVoxelsTowardsReward;
         private const int EnemyVoxelsPerReward = 10;
+        private double overtimeSeconds;
+        private const float MultiplierDecayPerSecond = .1f;
+        private const float CompletionMultiplierPerSecond = .01f;
 
         private void FlushVoxelPopup()
         {
@@ -77,13 +84,13 @@ namespace VoxelRacer
 
         public void ChangeMultiplier(float amount, string reason, Vector3? worldPosition = null)
         {
-            if (Tuning == null || IsComplete || IsFailed || !TimeBonusAvailable || amount == 0 ||
+            if (Tuning == null || IsComplete || IsFailed || amount == 0 ||
                 (startCountdown != null && !startCountdown.IsComplete)) return;
             float before = EffectiveTimeBonusMultiplier;
-            EffectiveTimeBonusMultiplier = Mathf.Round(Mathf.Clamp(before + amount, 0f,
+            EffectiveTimeBonusMultiplier = Mathf.Round(Mathf.Clamp(before + amount, 1f,
                 Mathf.Max(1f, Tuning.maximumTimeMultiplier)) * 1000f) / 1000f;
             float delta = EffectiveTimeBonusMultiplier - before;
-            DestructionMultiplierBonus = EffectiveTimeBonusMultiplier - Tuning.timeBonusCurrencyMultiplier;
+            DestructionMultiplierBonus = EffectiveTimeBonusMultiplier - StartingMultiplier;
             if (Mathf.Abs(delta) < .0001f) return;
             Breakdown.Add(delta > 0 ? VoxelMissionBreakdown.Group.MultiplierGained : VoxelMissionBreakdown.Group.MultiplierLost,
                 reason, Mathf.Abs(delta));
@@ -114,7 +121,7 @@ namespace VoxelRacer
         public static void ReportEnemyVoxelDestroyed(int count, Vector3 position)
         {
             var mission = Active;
-            if (count <= 0 || mission?.Tuning == null || mission.IsComplete || !mission.TimeBonusAvailable ||
+            if (count <= 0 || mission?.Tuning == null || mission.IsComplete || mission.IsFailed ||
                 (mission.startCountdown != null && !mission.startCountdown.IsComplete)) return;
             // Carry partial groups across hits and enemies, but never across missions.
             long total = (long)mission.enemyVoxelsTowardsReward + count;
@@ -141,7 +148,7 @@ namespace VoxelRacer
             Points = 0;
             BonusCashEarned = 0;
             DestructionMultiplierBonus = 0;
-            EffectiveTimeBonusMultiplier = tuning != null ? Mathf.Clamp(tuning.timeBonusCurrencyMultiplier, 0, Mathf.Max(1, tuning.maximumTimeMultiplier)) : 1;
+            EffectiveTimeBonusMultiplier = StartingMultiplier;
             displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
             multiplierPulseUntil = 0;
             multiplierFlights.Clear();
@@ -152,6 +159,9 @@ namespace VoxelRacer
             timeExtensionStartedAt = float.NegativeInfinity;
             timeExtensionAmount = 0;
             RemainingTime = tuning != null ? tuning.timeLimitSeconds : 0f;
+            overtimeSeconds = 0;
+            RemainingTimeBonusSeconds = 0;
+            RemainingTimeMultiplierBonus = 0;
             rewardAwarded = false;
             BaseCurrencyEarned = 0;
             TimeBonusCurrencyEarned = 0;
@@ -265,7 +275,7 @@ namespace VoxelRacer
                 multiplierPulseUntil = Time.unscaledTime + .32f;
                 multiplierFlights.RemoveAt(i);
             }
-            if (!Application.isPlaying || Tuning == null || IsComplete || IsFailed || RemainingTime <= 0f ||
+            if (!Application.isPlaying || Tuning == null || IsComplete || IsFailed ||
                 (startCountdown != null && !startCountdown.IsComplete))
                 return;
 
@@ -274,18 +284,32 @@ namespace VoxelRacer
 
         public void AdvanceBonusClock(float seconds)
         {
-            if (Tuning == null || IsComplete || IsFailed || !TimeBonusAvailable || seconds <= 0 ||
+            if (Tuning == null || IsComplete || IsFailed || seconds <= 0 ||
                 (startCountdown != null && !startCountdown.IsComplete)) return;
-            RemainingTime = Mathf.Max(0, RemainingTime - seconds);
-            if (!TimeBonusAvailable)
+            float countdownSeconds = Mathf.Min(RemainingTime, seconds);
+            RemainingTime = Mathf.Max(0, RemainingTime - countdownSeconds);
+            overtimeSeconds += seconds - countdownSeconds;
+            // Start decay one full second after expiry. Keep the fractional second
+            // even at the floor so later gains do not inherit old decay ticks.
+            double ticks = System.Math.Floor(overtimeSeconds + .000001d);
+            if (ticks < 1) return;
+            overtimeSeconds = System.Math.Max(0, overtimeSeconds - ticks);
+            float before = EffectiveTimeBonusMultiplier;
+            EffectiveTimeBonusMultiplier = Mathf.Round(Mathf.Max(1f,
+                before - (float)ticks * MultiplierDecayPerSecond) * 1000f) / 1000f;
+            float lost = before - EffectiveTimeBonusMultiplier;
+            if (lost > .0001f)
             {
-                Breakdown.Add(VoxelMissionBreakdown.Group.MultiplierLost, "Countdown expired", EffectiveTimeBonusMultiplier);
-                EffectiveTimeBonusMultiplier = 0; displayedMultiplierBonus = 0;
-                pendingVoxelChange = 0;
-                multiplierFlights.Clear(); multiplierPulseUntil = Time.unscaledTime + .6f;
+                Breakdown.Add(VoxelMissionBreakdown.Group.MultiplierLost, "Timer decay", lost);
+                DestructionMultiplierBonus = EffectiveTimeBonusMultiplier - StartingMultiplier;
+                displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
+                multiplierPulseUntil = Time.unscaledTime + .32f;
                 lastMultiplierWasNegative = true;
             }
         }
+
+        private float StartingMultiplier => Tuning != null
+            ? Mathf.Clamp(Tuning.timeBonusCurrencyMultiplier, 1f, Mathf.Max(1f, Tuning.maximumTimeMultiplier)) : 1f;
 
         private void CompleteMission()
         {
@@ -293,13 +317,17 @@ namespace VoxelRacer
             if (rewardAwarded || Tuning == null)
                 return;
 
-            BaseCurrencyEarned = Tuning.completionCurrencyAward;
-            TotalCurrencyEarned = BaseCurrencyEarned;
-            if (TimeBonusAvailable)
+            // Match the whole seconds displayed by the countdown. This bonus is
+            // added after the live multiplier cap, so finishing early always counts.
+            RemainingTimeBonusSeconds = TimeBonusAvailable ? Mathf.CeilToInt(RemainingTime) : 0;
+            RemainingTimeMultiplierBonus = RemainingTimeBonusSeconds * CompletionMultiplierPerSecond;
+            if (RemainingTimeMultiplierBonus > 0)
             {
-                TotalCurrencyEarned = Mathf.Max(BaseCurrencyEarned, Mathf.RoundToInt(BaseCurrencyEarned * EffectiveTimeBonusMultiplier));
-                TimeBonusCurrencyEarned = Mathf.Max(0, TotalCurrencyEarned - BaseCurrencyEarned);
+                Breakdown.Add(VoxelMissionBreakdown.Group.MultiplierGained, "Time remaining", RemainingTimeMultiplierBonus);
             }
+            BaseCurrencyEarned = Tuning.completionCurrencyAward;
+            TotalCurrencyEarned = Mathf.Max(BaseCurrencyEarned, Mathf.RoundToInt(BaseCurrencyEarned * FinalRewardMultiplier));
+            TimeBonusCurrencyEarned = Mathf.Max(0, TotalCurrencyEarned - BaseCurrencyEarned);
             TotalCurrencyEarned += BonusCashEarned;
             VoxelCurrencyState.Add(TotalCurrencyEarned);
             rewardAwarded = true;
@@ -339,61 +367,9 @@ namespace VoxelRacer
             if (IsBossEncounter && missionBoss != null && !IsComplete) hudAlpha *= arrivalFade;
             GUI.color = new Color(1f, 1f, 1f, hudAlpha);
 
-            const float width = 540f;
             bool compactBossHud = IsBossEncounter && (missionBoss != null || IsComplete);
-            float height = compactBossHud ? 60f : 70f;
-            var area = new Rect((Screen.width - width) * 0.5f, 18f, width, height);
-            GUI.Box(area, string.Empty, VoxelHudStyles.Box(30));
-
-            int baseFontSize = compactBossHud ? 28 : 40;
-            var labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                font = VoxelHudStyles.HudFont,
-                fontSize = baseFontSize,
-                fontStyle = FontStyle.Normal,
-                alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = Color.white }
-            };
-            labelStyle.normal.textColor = IsComplete ? new Color(0.25f, 1f, 0.38f) : Color.white;
-            var labelRect = new Rect(area.x + 8f, area.y, area.width - 16f, compactBossHud ? 30f : 42f);
-            if (IsComplete)
-                GUI.Label(labelRect, "MISSION COMPLETE", labelStyle);
-            else if(IsBossEncounter)
-            {
-                string title=missionBoss!=null?bossName:VoxelRadarObjectiveHud.Instruction;
-                labelStyle.fontSize=Mathf.Min(baseFontSize,Mathf.FloorToInt(baseFontSize*(labelRect.width/Mathf.Max(labelRect.width,labelStyle.CalcSize(new GUIContent(title)).x))));
-                GUI.Label(labelRect,title,labelStyle);
-                PercentageScreenPosition=labelRect.center;
-            }
-            else
-            {
-                // IMPACTED lacks a visible percent glyph. Keep the heading font and
-                // draw the entire numeric percentage in one font, matching the integrity HUD.
-                percentageSymbolFont ??= Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
-                var symbolStyle = new GUIStyle(labelStyle) { font = percentageSymbolFont };
-                string heading = $"{Tuning.displayName}: ";
-                int wholePercent = Mathf.RoundToInt(Percent * 100f);
-                if (!IsComplete) wholePercent = Mathf.Min(wholePercent, 99);
-                string percentage = $"{wholePercent}%";
-                float headingWidth = labelStyle.CalcSize(new GUIContent(heading)).x;
-                float symbolWidth = symbolStyle.CalcSize(new GUIContent(percentage)).x;
-                float left = labelRect.center.x - (headingWidth + symbolWidth) * 0.5f;
-                PercentageScreenPosition = new Vector2(left + headingWidth + symbolWidth * .5f, labelRect.center.y);
-                GUI.Label(new Rect(left, labelRect.y, headingWidth, labelRect.height), heading, labelStyle);
-                GUI.Label(new Rect(left + headingWidth, labelRect.y, symbolWidth, labelRect.height), percentage, symbolStyle);
-            }
-
-            var barBackground = new Rect(area.x + 24f, area.y + (compactBossHud ? 34f : 48f), area.width - 48f,
-                compactBossHud ? 15f : IsBossEncounter ? 30f : 13f);
-            if(!IsBossEncounter || missionBoss!=null || IsComplete)
-            {
-            GUI.color = new Color(0.08f, 0.09f, 0.12f, hudAlpha);
-            GUI.DrawTexture(barBackground, Texture2D.whiteTexture);
-            GUI.color = IsComplete ? new Color(0.25f, 1f, 0.38f, hudAlpha) : new Color(1f, 0.72f, 0.14f, hudAlpha);
-            GUI.DrawTexture(new Rect(barBackground.x + 2f, barBackground.y + 2f,
-                Mathf.Max(0f, (barBackground.width - 4f) * (IsBossEncounter?(IsComplete?0:missionBoss.HealthPercent):Percent)), barBackground.height - 4f), Texture2D.whiteTexture);
-            }
-            GUI.color = new Color(1f, 1f, 1f, hudAlpha);
+            var area = GetMissionHudArea(compactBossHud);
+            DrawMissionHeader(area, compactBossHud, hudAlpha);
 
             DrawMultiplier(area, hudAlpha);
             GUI.color = previousColor;

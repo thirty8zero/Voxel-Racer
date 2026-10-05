@@ -111,6 +111,18 @@ namespace VoxelRacer.Editor
                 var ring = root.GetComponentsInChildren<Image>().First(i => i.name == "Boost Charge Ring");
                 var text = root.GetComponentsInChildren<Text>().First(t => t.name == "Boost Label");
                 Check(ring.color.b > ring.color.r && text.color.b > text.color.r, "Boost ring and label must be blue");
+                var boostButtonRect = root.GetComponentsInChildren<Button>().First(b => b.name == "Boost Button").GetComponent<RectTransform>();
+                Check(boostButtonRect.anchorMin == new Vector2(1, 0) &&
+                    boostButtonRect.anchoredPosition == new Vector2(-150, 330) &&
+                    ring.rectTransform.anchorMin == boostButtonRect.anchorMin &&
+                    ring.rectTransform.anchoredPosition == boostButtonRect.anchoredPosition &&
+                    text.rectTransform.anchorMin == boostButtonRect.anchorMin &&
+                    text.rectTransform.anchoredPosition == boostButtonRect.anchoredPosition,
+                    "Boost button, dial and label must sit directly above gun fire");
+                Check(ring.fillClockwise && ring.fillOrigin == (int)Image.Origin360.Bottom &&
+                    Mathf.Abs(ring.fillAmount - 300f / 360f) < .001f &&
+                    Mathf.Abs(Mathf.DeltaAngle(ring.rectTransform.localEulerAngles.z, -30f)) < .001f,
+                    "Boost must use a 300-degree clockwise arc with a gap centred at the bottom");
                 Render(root, display, right, ring);
                 Directory.CreateDirectory("Temp/Missile/Hud");
                 File.WriteAllText("Temp/Missile/Hud/Validation.txt", "PASS: 15% larger missile button, hidden without ownership, left/right/both purchased visibility, new-run hide and held-input reset, explicit/legacy cooldown, unchanged bullets, independent sides, ready/empty/quarter/half/full face, finite ammo, disabled car/mount, clock origin/direction, hold/release and existing pointer/focus gates, blue boost, rendered ready and recharge states. Edit Mode simulations.");
@@ -163,6 +175,8 @@ namespace VoxelRacer.Editor
             var boostButton = root.GetComponentsInChildren<Button>().First(b => b.name == "Boost Button");
             Place(boostButton.GetComponent<RectTransform>(), new Vector2(200, 0), new Vector2(198, 198));
             Place(ring.rectTransform, new Vector2(200, 0), new Vector2(220, 220));
+            var track = root.GetComponentsInChildren<Image>().First(i => i.name == "Boost Charge Track");
+            Place(track.rectTransform, new Vector2(200, 0), new Vector2(220, 220));
             var text = root.GetComponentsInChildren<Text>().First(t => t.name == "Boost Label");
             Place(text.rectTransform, new Vector2(200, 0), new Vector2(158, 100));
             foreach (var transform in root.GetComponentsInChildren<Transform>(true)) transform.gameObject.layer = 31;
@@ -175,7 +189,7 @@ namespace VoxelRacer.Editor
                 camera.targetTexture = rt;
                 foreach (float progress in new[] { 1f, 0f, .25f, .5f, .75f })
                 {
-                    SetProgress(mount, progress); Refresh(display); ring.fillAmount = progress;
+                    SetProgress(mount, progress); Refresh(display); ring.fillAmount = progress * (300f / 360f);
                     Canvas.ForceUpdateCanvases(); camera.Render(); camera.Render();
                     RenderTexture.active = rt; texture.ReadPixels(new Rect(0, 0, 800, 300), 0, 0); texture.Apply();
                     File.WriteAllBytes("Temp/Missile/Hud/Charge" + Mathf.RoundToInt(progress * 100) + ".png", texture.EncodeToPNG());

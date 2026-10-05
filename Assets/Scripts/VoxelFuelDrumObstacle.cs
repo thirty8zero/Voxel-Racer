@@ -8,6 +8,7 @@ namespace VoxelRacer
     {
         public float LaneOffset => laneOffset;
         public float TrackDistance => trackDistance;
+        public bool IsRoadHazard => !hasExploded;
 
         private static Material drumMaterial;
         private static Material stripeMaterial;

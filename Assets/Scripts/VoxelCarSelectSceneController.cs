@@ -36,6 +36,7 @@ namespace VoxelRacer
             selectedDefinition = null;
 
             Camera previewCamera = Camera.main;
+            VoxelMobilePostProcessing.Configure(previewCamera);
             if (previewCamera != null)
             {
                 previewCamera.fieldOfView = previewCameraFieldOfView;

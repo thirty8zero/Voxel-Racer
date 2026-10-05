@@ -14,6 +14,23 @@ namespace VoxelRacer.Editor
         private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
         private const BindingFlags Static = BindingFlags.Static | BindingFlags.NonPublic;
         private static void Check(bool value, string message) { if (!value) throw new Exception(message); }
+        private static bool IntersectTriangle(Ray ray, Vector3 a, Vector3 b, Vector3 c, out float distance)
+        {
+            distance = 0;
+            Vector3 edge = b - a, other = c - a;
+            Vector3 cross = Vector3.Cross(ray.direction, other);
+            float determinant = Vector3.Dot(edge, cross);
+            if (Mathf.Abs(determinant) < .000001f) return false;
+            float inverse = 1f / determinant;
+            Vector3 offset = ray.origin - a;
+            float u = Vector3.Dot(offset, cross) * inverse;
+            if (u < 0 || u > 1) return false;
+            Vector3 second = Vector3.Cross(offset, edge);
+            float v = Vector3.Dot(ray.direction, second) * inverse;
+            if (v < 0 || u + v > 1) return false;
+            distance = Vector3.Dot(other, second) * inverse;
+            return distance >= 0;
+        }
         public static void Set(object target, string field, object value) => target.GetType().GetField(field, Private).SetValue(target, value);
         public static object Call(object target, string method, params object[] args) => target.GetType().GetMethod(method, Private).Invoke(target, args);
         public static void ValidateRoadExit()
@@ -109,9 +126,14 @@ namespace VoxelRacer.Editor
                 var buttons = root.GetComponentsInChildren<RectTransform>();
                 var fire = buttons.First(r => r.name == "Fire Button");
                 var launch = buttons.First(r => r.name == "Missile Button");
-                Check(fire.anchorMin.x == 1 && launch.anchorMin.x == 0 &&
-                    fire.anchoredPosition.x == -launch.anchoredPosition.x &&
-                    fire.anchoredPosition.y == launch.anchoredPosition.y, "Buttons must mirror each other");
+                Check(fire.anchorMin == new Vector2(1, 0) && fire.anchorMax == fire.anchorMin &&
+                    fire.anchoredPosition == new Vector2(-150, 150) && fire.sizeDelta == new Vector2(200, 200) &&
+                    fire.GetComponentInChildren<UnityEngine.UI.Text>() == null &&
+                    fire.GetComponent<UnityEngine.UI.Image>().sprite != null,
+                    "Reticule gun button must retain its 200px size in the bottom-right corner without a text label");
+                Check(launch.anchorMin == new Vector2(1, 0) && launch.anchorMax == launch.anchorMin &&
+                    launch.anchoredPosition == new Vector2(-150, 570),
+                    "Missile button must sit directly above BOOST on the right");
                 var gunMount = root.AddComponent<VoxelGunMount>(); gunMount.tuning = bullet;
                 var rocketMount = root.AddComponent<VoxelGunMount>(); rocketMount.tuning = missile;
                 fire.GetComponent<UnityEngine.EventSystems.IPointerDownHandler>().OnPointerDown(null);
@@ -128,7 +150,7 @@ namespace VoxelRacer.Editor
                 launch.GetComponent<UnityEngine.EventSystems.IPointerDownHandler>().OnPointerDown(null);
                 Call(controls, "Update");
                 Check(!VoxelMobileControls.IsMissileHeld, "Hidden HUD must clear input");
-                Debug.Log("PASS: mirrored buttons, independent gun/missile input, simultaneous hold, release, exit, focus loss and hidden HUD.");
+                Debug.Log("PASS: bottom-right gun button, missiles above BOOST, independent gun/missile input, simultaneous hold, release, exit, focus loss and hidden HUD.");
             }
             finally
             {
@@ -142,6 +164,7 @@ namespace VoxelRacer.Editor
         public static void Run()
         {
             if (Application.isPlaying) throw new Exception("Use Edit Mode validation outside Play Mode.");
+            var random = UnityEngine.Random.state;
             int cash = VoxelCurrencyState.Balance;
             bool left = VoxelMissileUpgradeState.IsPurchased(false), right = VoxelMissileUpgradeState.IsPurchased(true);
             var missing = (HashSet<string>)typeof(VoxelCarRunState).GetField("missingVoxelPaths", Static).GetValue(null);
@@ -167,8 +190,17 @@ namespace VoxelRacer.Editor
                 foreach (bool side in new[] { false, true })
                 {
                     var button = root.GetComponentsInChildren<Button>(true).Single(b => b.name == (side ? "Right" : "Left") + " Missile Purchase Button");
-                    Check(button.interactable, "Missile shop button disabled"); button.onClick.Invoke();
-                    Check(!button.interactable && VoxelMissileUpgradeState.IsPurchased(side), "Purchase failed");
+                    Check(button.interactable, "Missile shop button disabled");
+                    int beforePurchase = VoxelCurrencyState.Balance;
+                    button.onClick.Invoke();
+                    Check(!VoxelMissileUpgradeState.IsPurchased(side) && VoxelCurrencyState.Balance == beforePurchase,
+                        "Placement preview purchased a launcher before confirmation");
+                    Call(shop, "SelectUpgradePlacement", side ? 1 : 0);
+                    Call(shop, "ConfirmUpgradePurchase");
+                    // Both legacy buttons now open the shared placement picker, which
+                    // remains available while the other side is still unpurchased.
+                    Check(VoxelMissileUpgradeState.IsPurchased(side) && VoxelCurrencyState.Balance == beforePurchase - gun.purchasePrice,
+                        "Confirmed missile side was not purchased at its quoted price");
                     Check(!VoxelMissileUpgradeState.TryPurchase(fit, definition, side), "Duplicate side purchase allowed");
                 }
                 Check(VoxelCurrencyState.Balance == 20, "Wrong purchase price");
@@ -203,6 +235,26 @@ namespace VoxelRacer.Editor
                         Check(next.GetComponentsInChildren<MeshRenderer>().Where(r => r.GetComponentInParent<VoxelIndestructiblePart>() == null)
                             .Any(r => r.GetComponent<MeshFilter>().sharedMesh.bounds.Contains(r.transform.InverseTransformPoint(foot))),
                             "Bracket foot must contact the actual roof at both anchor points");
+                        Vector3 lower = new Vector3(-.39f, -.29f, end * .34f);
+                        Vector3 upper = new Vector3(-.18f, -.010f, end * .34f);
+                        var anchor = bracket.TransformPoint(lower);
+                        Check(next.GetComponentsInChildren<MeshRenderer>().Where(r => r.GetComponentInParent<VoxelIndestructiblePart>() != null &&
+                                (r.name.EndsWith("Roof Rail") || r.name.EndsWith("Roof Cross Brace")))
+                            .Any(r => r.GetComponent<MeshFilter>().sharedMesh.bounds.Contains(r.transform.InverseTransformPoint(anchor))),
+                            "Launcher support must attach to protected chassis on both sides");
+                        var supportMesh = bracket.GetComponentsInChildren<MeshFilter>().Single(f => f.sharedMesh.name.EndsWith("_MissileLauncherSteel")).sharedMesh;
+                        // Check actual support geometry along the full gap, not just its combined bounds.
+                        var vertices = supportMesh.vertices;
+                        var triangles = supportMesh.triangles;
+                        for (int step = 1; step < 5; step++)
+                        {
+                            var ray = new Ray(Vector3.Lerp(lower, upper, step / 5f) + Vector3.forward * .15f, Vector3.back);
+                            bool supportHit = false;
+                            for (int triangle = 0; triangle < triangles.Length && !supportHit; triangle += 3)
+                                supportHit = IntersectTriangle(ray, vertices[triangles[triangle]],
+                                    vertices[triangles[triangle + 1]], vertices[triangles[triangle + 2]], out float supportDistance) && supportDistance < .25f;
+                            Check(supportHit, "Chassis support has a gap between launcher and frame");
+                        }
                     }
                     var launcherBounds = new Bounds(); bool firstBounds = true;
                     foreach (var r in mount.GetComponentsInChildren<MeshRenderer>())
@@ -262,6 +314,10 @@ namespace VoxelRacer.Editor
                 leftMount.gameObject.SetActive(false); mounts[1].Build(preview.transform); Render(preview, "RightOnly", true); leftMount.gameObject.SetActive(true);
                 mounts[1].Build(preview.transform); Render(preview, "Both", true);
                 Render(preview, "RightBracket", true, true); Render(preview, "LeftBracket", false, true);
+                var bodyVisibility = body.ToDictionary(r => r, r => r.enabled);
+                foreach (var r in body) if (r.GetComponentInParent<VoxelIndestructiblePart>() == null) r.enabled = false;
+                Render(preview, "ChassisSupports", true);
+                foreach (var saved in bodyVisibility) saved.Key.enabled = saved.Value;
                 foreach (var entry in entries.Where(e => e.Asset != fit && e.Fits(definition))) entry.Build(preview.transform);
                 Render(preview, "Combined", false);
                 foreach (var r in body) if (r.GetComponentInParent<VoxelIndestructiblePart>() == null) r.enabled = false;
@@ -270,7 +326,7 @@ namespace VoxelRacer.Editor
                 Render(preview, "UpgradesOnly", false);
                 Check(VoxelCurrencyState.Balance == 20 && VoxelMissileUpgradeState.IsPurchased(false) && VoxelMissileUpgradeState.IsPurchased(true), "Preview changed ownership");
                 VoxelMissileUpgradeState.BeginNewRun(); Check(!VoxelMissileUpgradeState.IsPurchased(false) && !VoxelMissileUpgradeState.IsPurchased(true), "New run did not reset launchers");
-                File.WriteAllText("Temp/Missile/Validation.txt", "PASS: independent shop sides, affordability, duplicate prevention, persistence, integrity, preview fit, mirrored muzzle/flight, bumper descent, smoke/exhaust configuration, swept collider-free contact, spherical voxel carve, once-per-car damage, protected/outside voxels, run reset. Edit Mode.");
+                File.WriteAllText("Temp/Missile/Validation.txt", "PASS: independent shop sides with placement/confirmation, affordability, duplicate prevention, persistence, integrity, automatic left/right fit slots, paired continuous chassis supports contacting protected roof rails/cross brace on both sides, three combined bracket meshes with no added draw calls/colliders, isolated/combined/body-hidden/upgrades-only previews, mirrored muzzle/flight, bumper descent, smoke/exhaust configuration, swept collider-free contact, spherical voxel carve, once-per-car damage, protected/outside voxels, run reset. Edit Mode; cash/ownership/damage/random state restored.");
                 Debug.Log(File.ReadAllText("Temp/Missile/Validation.txt"));
             }
             finally
@@ -281,6 +337,7 @@ namespace VoxelRacer.Editor
                 VoxelCurrencyState.Reset(); VoxelCurrencyState.Add(cash);
                 missing.Clear(); foreach (var p in savedMissing) missing.Add(p);
                 armor.Clear(); foreach (var p in savedArmor) armor.Add(p.Key, p.Value); nameField.SetValue(null, savedName);
+                UnityEngine.Random.state = random;
                 if (oldEvent == null) { var e = Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>(); if (e != null) Object.DestroyImmediate(e.gameObject); }
             }
         }
@@ -314,6 +371,12 @@ namespace VoxelRacer.Editor
                     var target = new Vector3(right ? .82f : -.82f, 1.51f, -.45f);
                     p.camera.transform.position = target + new Vector3(right ? -.70f : .70f, .46f, 1.90f);
                     p.camera.transform.LookAt(target); p.camera.orthographic = true; p.camera.orthographicSize = .4f;
+                }
+                else if (name == "ChassisSupports")
+                {
+                    p.camera.transform.position = new Vector3(4, 1.7f, 6);
+                    p.camera.transform.LookAt(new Vector3(0, .95f, 0));
+                    p.camera.orthographic = true; p.camera.orthographicSize = 1.5f;
                 }
                 p.camera.clearFlags = CameraClearFlags.SolidColor; p.camera.backgroundColor = new Color(.17f, .2f, .24f);
                 p.ambientColor = Color.gray; p.lights[0].intensity = 1.5f; p.lights[0].transform.rotation = Quaternion.Euler(40, 150, 0);

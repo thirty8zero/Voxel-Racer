@@ -227,7 +227,7 @@ namespace VoxelRacer
             }
 
             var keyboard = Keyboard.current;
-            bool braking = keyboard != null && keyboard.spaceKey.isPressed;
+            bool braking = VoxelMobileControls.IsBrakeHeld || (keyboard != null && keyboard.spaceKey.isPressed);
             CurrentSpeed = CalculateNextDriveSpeed(CurrentSpeed, braking, Time.deltaTime);
             UpdateRamResponse();
             UpdateBoostForwardOffset();
@@ -248,7 +248,7 @@ namespace VoxelRacer
 
             float targetLaneOffset = TargetLaneOffset;
             if (IsOilSpinning) AdvanceOilSpin(Time.deltaTime);
-            else CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, targetLaneOffset, EffectiveLaneChangeSpeed * Time.deltaTime);
+            else AdvanceLaneChange(Time.deltaTime);
             float laneOffset = targetLaneOffset - CurrentLaneOffset;
             float steeringTarget = Mathf.Abs(laneOffset) > 0.01f
                 ? Mathf.Sign(laneOffset) * frontWheelTurnDegrees
@@ -354,8 +354,15 @@ namespace VoxelRacer
                 boostForwardOffsetStartedAt = -1f;
         }
 
+        private void AdvanceLaneChange(float seconds)
+        {
+            if (CurrentSpeed <= 0f) return;
+            CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, TargetLaneOffset, EffectiveLaneChangeSpeed * seconds);
+        }
+
         private void RequestLaneChange(int requestedLane)
         {
+            if (CurrentSpeed <= 0f) return;
             if (VoxelPauseMenu.IsPaused) return;
             if (IsOilSpinning) return;
             requestedLane = Mathf.Clamp(requestedLane, 0, laneCount - 1);
@@ -643,6 +650,7 @@ namespace VoxelRacer
         {
             // Purchases can change the baseline while existing body voxels are missing.
             initialIntegrityVoxels = CountDestructibleVoxels(true);
+            hostileProjectileVoxels = null;
         }
 
         public void EnsureIntegrityBaseline()

@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace VoxelRacer
 {
-    /// <summary>Holds the player at the start line, then presents a short race countdown.</summary>
+    /// <summary>Holds the player at the mission start, then presents a short race countdown.</summary>
     public sealed class VoxelStartCountdown : MonoBehaviour
     {
         public static VoxelStartCountdown Active { get; private set; }

@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace VoxelRacer
 {
-    public enum VoxelGarageUpgradeState { Affordable, Unaffordable, Equipped, Incompatible }
+    public enum VoxelGarageUpgradeState { Affordable, Unaffordable, Equipped, Incompatible, Pending }
 
     /// <summary>Presentation only; purchase callbacks and ownership remain with the garage shop.</summary>
     public sealed class VoxelGarageUpgradeCard : MonoBehaviour
@@ -54,15 +54,16 @@ namespace VoxelRacer
                 new Vector2(.5f, .5f), new Vector2(0, y), new Vector2(190, height));
             label.font = font; return label;
         }
-        public void Refresh(int cost, bool compatible, int owned, int capacity = 1)
+        public void Refresh(int cost, bool compatible, int owned, int capacity = 1, int pending = 0, int availableCash = -1)
         {
             capacity = Mathf.Max(1, capacity);
             Cost = cost;
             FullyPurchased = owned >= capacity;
             State = !compatible ? VoxelGarageUpgradeState.Incompatible : owned >= capacity ? VoxelGarageUpgradeState.Equipped :
-                VoxelCurrencyState.Balance >= cost ? VoxelGarageUpgradeState.Affordable : VoxelGarageUpgradeState.Unaffordable;
-            button.interactable = State == VoxelGarageUpgradeState.Affordable;
-            Color accent = State == VoxelGarageUpgradeState.Equipped ? new Color(.24f, .85f, .55f) :
+                owned + pending >= capacity ? VoxelGarageUpgradeState.Pending :
+                (availableCash < 0 ? VoxelCurrencyState.Balance : availableCash) >= cost ? VoxelGarageUpgradeState.Affordable : VoxelGarageUpgradeState.Unaffordable;
+            button.interactable = pending > 0 || State == VoxelGarageUpgradeState.Affordable;
+            Color accent = State == VoxelGarageUpgradeState.Pending ? new Color(1, .81f, .35f) : State == VoxelGarageUpgradeState.Equipped ? new Color(.24f, .85f, .55f) :
                 State == VoxelGarageUpgradeState.Affordable ? new Color(.64f, .74f, .87f) : new Color(.31f, .36f, .44f);
             frame.edgeColor = accent;
             frame.color = State == VoxelGarageUpgradeState.Equipped ? new Color(.035f, .10f, .095f, .58f) : new Color(.035f, .045f, .065f, .50f);
@@ -71,15 +72,17 @@ namespace VoxelRacer
                 State == VoxelGarageUpgradeState.Unaffordable ? .35f : 1f) : new Color(.39f, .43f, .50f);
             slots.text = compatible ? Mathf.Min(owned, capacity) + " / " + capacity + " FITTED" : "NOT COMPATIBLE";
             slots.color = new Color(.57f, .63f, .72f);
-            price.text = State == VoxelGarageUpgradeState.Equipped ? "INSTALLED" : compatible ? "$ " + cost.ToString("N0") : "—";
+            price.text = State == VoxelGarageUpgradeState.Pending ? "IN PREVIEW" : State == VoxelGarageUpgradeState.Equipped ? "INSTALLED" : compatible ? "$ " + cost.ToString("N0") : "—";
             price.color = State == VoxelGarageUpgradeState.Unaffordable ? new Color(.86f, .48f, .48f) : Color.white;
-            status.text = State == VoxelGarageUpgradeState.Equipped ? "EQUIPPED" : State == VoxelGarageUpgradeState.Affordable ? "BUY +" :
+            status.text = pending > 0 ? "REMOVE X" + pending : State == VoxelGarageUpgradeState.Equipped ? "EQUIPPED" : State == VoxelGarageUpgradeState.Affordable ? "PLACE +" :
                 State == VoxelGarageUpgradeState.Unaffordable ? "NO FUNDS" : "UNAVAILABLE";
             status.color = State == VoxelGarageUpgradeState.Affordable || State == VoxelGarageUpgradeState.Equipped
                 ? new Color(.32f, .91f, .52f) : new Color(.58f, .62f, .69f);
             float fraction = compatible ? Mathf.Clamp01((float)owned / capacity) : 0;
+            float previewFraction = compatible ? Mathf.Clamp01((float)(owned + pending) / capacity) : 0;
             for (int i = 0; i < segments.Length; i++) segments[i].color = i < Mathf.RoundToInt(fraction * segments.Length)
-                ? new Color(.24f, .9f, .40f) : new Color(.16f, .20f, .27f);
+                ? new Color(.24f, .9f, .40f) : i < Mathf.RoundToInt(previewFraction * segments.Length)
+                ? new Color(1, .81f, .35f) : new Color(.16f, .20f, .27f);
         }
     }
 }

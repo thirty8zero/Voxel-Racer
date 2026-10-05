@@ -137,6 +137,9 @@ namespace VoxelRacer.Editor
             }
             var set=AssetDatabase.LoadAssetAtPath<VoxelScenerySet>(SetPath);
             if(set==null) { set=ScriptableObject.CreateInstance<VoxelScenerySet>(); AssetDatabase.CreateAsset(set,SetPath); }
+            // Retain additions authored by the ground-cover/tall-cactus builder.
+            if(set.entries!=null)foreach(var entry in set.entries)
+                if(entry!=null && entry.prefab!=null && !entries.Exists(e=>e.prefab==entry.prefab))entries.Add(entry);
             set.entries=entries.ToArray(); EditorUtility.SetDirty(set);
             foreach(string path in new[]{"Assets/Resources/Tracks/Track01.asset","Assets/Resources/Tracks/Track02.asset","Assets/Resources/Tracks/Track03.asset"})
             {

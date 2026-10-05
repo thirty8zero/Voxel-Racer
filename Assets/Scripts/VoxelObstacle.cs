@@ -8,6 +8,7 @@ namespace VoxelRacer
     {
         public float LaneOffset => laneOffset;
         public float TrackDistance => trackDistance;
+        public bool IsRoadHazard => !hasBeenHit;
 
         private VoxelCarController target;
         private VoxelStaticObstacleDefinition definition;

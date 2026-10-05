@@ -98,7 +98,7 @@ namespace VoxelRacer.Editor
                     Debug.Log("PASS civilian driveline: " + path + "; " + originalCount + " total pieces, three protected pieces; aligned wheels, connected shaft, idempotent authoring, both traffic directions, rotated models, player/hostile bullets, ram and explosion selection, missile blast, complete shell removal.");
                 }
                 Directory.CreateDirectory("Temp/CivilianDrivelines");
-                File.WriteAllText("Temp/CivilianDrivelines/Validation.txt", "PASS all three civilians: aligned protected axles and driveline, three pieces each, idempotent update, no colliders, wheels remain destructible; both directions and rotated models; player/hostile bullet immunity; ordinary body damage; ram/weapon/explosion selection and missile blasts preserve structure after complete body removal. Edit Mode.");
+                File.WriteAllText("Temp/CivilianDrivelines/Validation.txt", "PASS all " + VoxelCivilianDrivelineBuilder.PrefabPaths.Length + " civilians: aligned protected axles and driveline, three pieces each, idempotent update, no colliders, wheels remain destructible; both directions and rotated models; player/hostile bullet immunity; ordinary body damage; ram/weapon/explosion selection and missile blasts preserve structure after complete body removal. Edit Mode.");
             }
             finally
             {

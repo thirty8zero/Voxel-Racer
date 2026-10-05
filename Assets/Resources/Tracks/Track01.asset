@@ -31,7 +31,7 @@ MonoBehaviour:
   minimumStraightSegmentsBetweenTurns: 2
   maximumTrackHeading: 65
   curveDegreesPerSlice: 5
-  randomizeTurnSeedEachRun: 0
+  randomizeTurnSeedEachRun: 1
   turnSeed: 173
 --- !u!114 &11400000
 MonoBehaviour:
@@ -45,7 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6997a3a6ac6a8a24da582b5cbc898ccb, type: 3}
   m_Name: Track01
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
-  displayName: DESERT RUN 1
+  displayName: Tequila Plains 1
   raceSceneName: SampleScene
   roadTuning: {fileID: -2389841375544596361}
   obstacleCarTuning: {fileID: 2345100223370931295}
@@ -77,7 +77,7 @@ MonoBehaviour:
   obstacleMaterial: {fileID: 0}
   roadColour: {r: 0.29, g: 0.29, b: 0.32, a: 1}
   groundColour: {r: 0.31, g: 0.18, b: 0.07, a: 1}
-  shoulderColour: {r: 0.72, g: 0.38, b: 0.15, a: 1}
+  shoulderColour: {r: 1, g: 1, b: 1, a: 1}
   roadLineColour: {r: 1, g: 0.78, b: 0.16, a: 1}
   cactusColour: {r: 0.12, g: 0.34, b: 0.12, a: 1}
   obstacleColour: {r: 0.34, g: 0.17, b: 0.07, a: 1}
@@ -140,6 +140,7 @@ MonoBehaviour:
   enemyCarSpawnChance: 0.6
   enemyVehiclePool:
   - {fileID: 11400000, guid: 1087bbf5e34c42dfad117821fdcd87a6, type: 2}
+  - {fileID: 11400000, guid: 7ef7c7942375e48449e654ec812ee807, type: 2}
   minimumWaveInterval: 1
   maximumWaveInterval: 2
   minimumObjectsPerWave: 2
@@ -170,6 +171,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
   - {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}
   - {fileID: 11400000, guid: b56eba2a0575bdd4388fc938427a7989, type: 2}
+  - {fileID: 11400000, guid: d10e6994f682adc47aa52393807270b6, type: 2}
+  - {fileID: 11400000, guid: 7546fab2050013c4a8157b3828ffa0f9, type: 2}
+  - {fileID: 11400000, guid: 194983310eb686a4c82717357a156347, type: 2}
   semiTrailerSpawnChance: 0.5
   trafficCarEnemyTuning: {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
   semiTrailerEnemyTuning: {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}

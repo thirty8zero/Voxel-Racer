@@ -56,7 +56,7 @@ namespace VoxelRacer.Editor
         public static void CheckShop(VoxelRepairUpgradeSceneController shop,VoxelCarController car,VoxelCarDefinition definition)
         {
             var cards=shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
-            Check(cards.Length==10,"Some upgrade cards are missing");
+            Check(cards.Length==8,"Some upgrade types are missing or side cards were not combined");
             ResetPurchases();VoxelCurrencyState.Reset();Refresh(shop);
             Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Unaffordable && !c.GetComponent<Button>().interactable),"Unaffordable cards must be disabled");
             foreach(var card in cards)card.GetComponent<Button>().onClick.Invoke();
@@ -87,7 +87,11 @@ namespace VoxelRacer.Editor
             damaged.gameObject.SetActive(false);int missing=car.RepairableIntegrityVoxels;
             int balance=VoxelCurrencyState.Balance;
             cards.First(c=>c.name=="V6 Engine Purchase Button").GetComponent<Button>().onClick.Invoke();
+            Check(VoxelCurrencyState.Balance==balance && !VoxelEngineUpgradeState.IsPurchased,"Preview purchased the engine before confirmation");
+            typeof(VoxelRepairUpgradeSceneController).GetMethod("ConfirmUpgradePurchase",Instance).Invoke(shop,null);
             cards.First(c=>c.name=="Left Missile Purchase Button").GetComponent<Button>().onClick.Invoke();
+            typeof(VoxelRepairUpgradeSceneController).GetMethod("SelectUpgradePlacement",Instance).Invoke(shop,new object[]{0});
+            typeof(VoxelRepairUpgradeSceneController).GetMethod("ConfirmUpgradePurchase",Instance).Invoke(shop,null);
             Check(VoxelEngineUpgradeState.IsPurchased && VoxelMissileUpgradeState.IsPurchased(false) && !VoxelMissileUpgradeState.IsPurchased(true),"Actual callbacks failed to install independent upgrades");
             CheckCardOrder(cards);
             Check(VoxelCurrencyState.Balance==balance-VoxelEngineUpgradeTuning.Load().purchasePrice-VoxelMissileLauncherTuning.Load().weapon.purchasePrice,"Purchase prices charged incorrectly");
@@ -112,11 +116,13 @@ namespace VoxelRacer.Editor
                     Check(VoxelTrackProgressState.NextTrackIndex==expected && VoxelTrackProgressState.NextTrack==sequence.tracks[expected] &&
                         VoxelTrackProgressState.CurrentTrackIndex==current,"Mission preview must not advance campaign");
                     Refresh(shop);
-                    Check(shop.NextRaceButton.GetComponentInChildren<Text>().text=="NEXT\nMISSION "+(expected+1),"Next mission label does not match next race");
+                    Check(shop.NextRaceButton.GetComponentInChildren<Text>().text==sequence.tracks[expected].displayName.Trim(),"Continue button must show only the next track display name");
                     Check(VoxelTrackProgressState.AdvanceToNextTrack()==sequence.tracks[expected],"Mission preview and next race disagree");
                 }
                 sequence.tracks=Array.Empty<VoxelTrackDefinition>();indexField.SetValue(null,0);
                 Check(VoxelTrackProgressState.NextTrack==null && VoxelTrackProgressState.NextTrackIndex==0,"Empty sequence preview failed");
+                Refresh(shop);
+                Check(shop.NextRaceButton.GetComponentInChildren<Text>().text=="Mission","Empty sequence name fallback failed");
             }
             finally{sequenceField.SetValue(null,oldSequence);indexField.SetValue(null,oldIndex);Object.DestroyImmediate(sequence);Refresh(shop);}
         }
@@ -125,11 +131,17 @@ namespace VoxelRacer.Editor
             var canvas=shop.transform.Find("Repair Upgrade UI").GetComponent<RectTransform>();
             var panel=canvas.Find("Car Upgrade Panel").GetComponent<RectTransform>();
             var next=(RectTransform)shop.NextRaceButton.transform;
+            Bounds cash=RectBounds(canvas,(RectTransform)canvas.Find("Cash Frame"));
+            Bounds settings=RectBounds(canvas,(RectTransform)canvas.Find("Settings Button"));
+            Check(settings.max.x+16<=cash.min.x && Mathf.Abs(settings.center.y-cash.center.y)<.1f,
+                "Settings cog must sit immediately left of cash");
+            Check(cash.max.x<=canvas.rect.xMax && cash.max.y<=canvas.rect.yMax,"Cash tab escapes the screen");
             Bounds a=RectBounds(canvas,panel),b=RectBounds(canvas,next);
             Check(a.max.x+10<b.min.x,"Upgrade strip overlaps next mission button");
             Check(a.min.y>=canvas.rect.yMin && b.min.y>=canvas.rect.yMin && b.max.x<=canvas.rect.xMax+.1f,"Dock escapes screen bounds");
             var scroll=panel.GetComponentInChildren<ScrollRect>(true);
-            Check(scroll.horizontal && !scroll.vertical && scroll.content.rect.width>scroll.viewport.rect.width,"Horizontal catalogue missing");
+            Check(scroll.horizontal && !scroll.vertical && scroll.content.GetComponentsInChildren<VoxelGarageUpgradeCard>().Length==8,
+                "Horizontal catalogue missing");
             Check(camera.rect==new Rect(0,0,1,1),"Garage must render the floor behind the translucent cards");
             if(upgrades)
             {
@@ -156,6 +168,66 @@ namespace VoxelRacer.Editor
                 Check(min.x>=left-.001f && max.x<=right+.001f && min.y>=bottom-.001f && max.y<=top+.001f,"Car is clipped or overlaps the header/feedback/cards");
             }
             else Check(Mathf.Abs(camera.projectionMatrix.m12)<.001f,"Closing upgrades did not restore camera framing");
+        }
+        public static void CheckPurchaseLayout(VoxelRepairUpgradeSceneController shop)
+        {
+            var canvas=(RectTransform)shop.transform.Find("Repair Upgrade UI");
+            var dialog=(RectTransform)canvas.Find("Upgrade Purchase Confirmation/Purchase Dialog");
+            Bounds cash=RectBounds(canvas,(RectTransform)canvas.Find("Cash Frame"));
+            Bounds purchase=RectBounds(canvas,dialog);
+            Check(Mathf.Abs(purchase.min.x-cash.min.x)<.1f && Mathf.Abs(purchase.max.x-cash.max.x)<.1f,
+                "Purchase tab must match the cash tab's width and side alignment");
+            Check(Mathf.Abs(cash.min.y-purchase.max.y-20)<.1f && purchase.size.y>purchase.size.x,
+                "Purchase tab must be vertical and sit below cash");
+            Bounds confirm=RectBounds(canvas,(RectTransform)dialog.Find("Confirm Upgrade Purchase"));
+            Bounds cancel=RectBounds(canvas,(RectTransform)dialog.Find("Cancel Upgrade Purchase"));
+            Check(confirm.min.y>=cancel.max.y+16 && confirm.max.x<purchase.max.x && confirm.min.x>purchase.min.x &&
+                cancel.min.y>purchase.min.y,"Confirmation buttons must be stacked and contained within the tab");
+            Bounds mission=RectBounds(canvas,(RectTransform)shop.NextRaceButton.transform);
+            Check(purchase.min.y>=mission.max.y+19.9f,"Purchase tab overlaps the mission start button");
+            var scroll=dialog.GetComponentInChildren<ScrollRect>();
+            Check(scroll!=null && !scroll.horizontal && scroll.verticalScrollbar!=null,
+                "Pending parts must have a vertical scrollable list");
+            Bounds list=RectBounds(canvas,scroll.viewport);
+            Check(list.min.y>confirm.max.y+16 && list.min.x>purchase.min.x && list.max.x<purchase.max.x,
+                "Pending list overlaps the confirmation buttons or escapes the tab");
+            if(scroll.content.rect.height>scroll.viewport.rect.height+1)
+            {
+                Check(scroll.vertical && Mathf.Abs(purchase.min.y-mission.max.y-20)<.1f,
+                    "Purchase list scrolls before using all room above the mission button");
+                scroll.verticalNormalizedPosition=0;
+                Bounds bottom=RectBounds(canvas,scroll.content);
+                Check(Mathf.Abs(bottom.min.y-list.min.y)<1,"Cannot scroll to the final pending part");
+                Check(dialog.Find("Pending Parts Scroll Hint").gameObject.activeSelf,"Overflow list lacks a scroll hint");
+                scroll.verticalNormalizedPosition=1;
+            }
+            else Check(!scroll.vertical && !dialog.Find("Pending Parts Scroll Hint").gameObject.activeSelf,
+                "Purchase list scrolls when its text fits");
+        }
+
+        public static void CheckPurchaseGrowth(VoxelRepairUpgradeSceneController shop)
+        {
+            var canvas=(RectTransform)shop.transform.Find("Repair Upgrade UI");
+            var dialog=(RectTransform)canvas.Find("Upgrade Purchase Confirmation/Purchase Dialog");
+            var description=dialog.GetComponentInChildren<ScrollRect>().content.GetComponent<Text>();
+            string original=description.text;
+            void Layout(string text)
+            {
+                description.text=text;
+                typeof(VoxelRepairUpgradeSceneController).GetField("purchaseListLayoutDirty",Instance).SetValue(shop,true);
+                typeof(VoxelRepairUpgradeSceneController).GetMethod("LayoutPurchaseConfirmation",Instance).Invoke(shop,null);
+                Canvas.ForceUpdateCanvases(); CheckPurchaseLayout(shop);
+            }
+            try
+            {
+                Layout("ENGINE"); float shortHeight=dialog.rect.height;
+                Layout(string.Join("\n",Enumerable.Repeat("PART TO FIT",14)));
+                Check(dialog.rect.height>shortHeight && !dialog.GetComponentInChildren<ScrollRect>().vertical,
+                    "Confirmation must grow to fit medium text before scrolling: short="+shortHeight+", medium="+dialog.rect.height+", text="+description.preferredHeight);
+                Layout(string.Join("\n",Enumerable.Repeat("PART TO FIT",40)));
+                Check(dialog.GetComponentInChildren<ScrollRect>().vertical,"Long list must scroll after reaching the mission button");
+            }
+            finally { Layout(original); }
         }
         public static void CheckStaticCamera(VoxelRepairUpgradeSceneController shop,Camera camera,bool upgrades)
         {

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3ac5574a0d1241f7a5f7f94ba58382f9, type: 3}
   m_Name: MissionTuning D1
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionTuning
-  displayName: Mission 1
+  displayName: Tequila Plains 1
   requiredPoints: 300
   completionCurrencyAward: 100
   timeLimitSeconds: 80
@@ -22,8 +22,8 @@ MonoBehaviour:
   enemyDestroyedMultiplier: 0.1
   barrelMultiplier: 0.05
   nearMissMultiplier: 0.1
-  civilianVoxelMultiplierPenalty: 0.1
-  civilianDestroyedMultiplierPenalty: 1
+  civilianVoxelMultiplierPenalty: 0.01
+  civilianDestroyedMultiplierPenalty: 0.5
   bonusWarningSeconds: 10
   enemyVoxelDamagePoints: 1
   enemyVehicleDestroyedPoints: 25

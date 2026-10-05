@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: Radar Interceptor
   modelPrefab: {fileID: 8109108225061708894, guid: 1c7a990f086019e47a3a756bb0b51e9a, type: 3}
   mineLayer: {fileID: 0}
+  psychoBug: {fileID: 0}
   destructionScore: 25
   voxelHealth: 0.25
   vehicleHealth: 5

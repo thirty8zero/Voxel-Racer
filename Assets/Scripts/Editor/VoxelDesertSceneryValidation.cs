@@ -11,7 +11,7 @@ namespace VoxelRacer.Editor
         public static void Run()
         {
             var set=AssetDatabase.LoadAssetAtPath<VoxelScenerySet>(VoxelDesertSceneryBuilder.SetPath);
-            Check(set!=null && set.entries.Length==14,"Missing scenery entries");
+            Check(set!=null && set.entries.Length>=14,"Missing scenery entries");
             int maxTriangles=0;
             foreach(var entry in set.entries)
             {
@@ -55,7 +55,7 @@ namespace VoxelRacer.Editor
                 }
                 var invalid=ScriptableObject.CreateInstance<VoxelScenerySet>();
                 try { Check(invalid.Choose()==null,"Empty set should be safe"); } finally { UnityEngine.Object.DestroyImmediate(invalid); }
-                Debug.Log("PASS: 14 single-renderer props, maximum "+maxTriangles+" triangles per model; "+instances.Length+" instances across 4 road sections, road clearance and spacing verified; empty set safe.");
+                Debug.Log("PASS: "+set.entries.Length+" single-renderer props, maximum "+maxTriangles+" triangles per model; "+instances.Length+" instances across 4 road sections, road clearance and spacing verified; empty set safe.");
             }
             finally { UnityEngine.Random.state=random; UnityEngine.Object.DestroyImmediate(root); UnityEngine.Object.DestroyImmediate(track); }
         }

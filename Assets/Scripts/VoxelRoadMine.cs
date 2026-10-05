@@ -4,6 +4,8 @@ namespace VoxelRacer
 {
     public sealed class VoxelRoadMine : MonoBehaviour
     {
+        public float TrackDistance => distance;
+        public float LaneOffset => offset;
         private VoxelCarController target;
         private VoxelMineLayerTuning tuning;
         private float distance, offset, born;

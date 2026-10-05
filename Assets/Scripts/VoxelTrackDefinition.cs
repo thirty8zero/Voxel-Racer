@@ -10,6 +10,13 @@ namespace VoxelRacer
         public string displayName = "Desert Track";
         public string raceSceneName = "SampleScene";
 
+        public static string ResolveDisplayName(VoxelTrackDefinition track, VoxelMissionTuning mission = null)
+        {
+            if (track != null && !string.IsNullOrWhiteSpace(track.displayName)) return track.displayName.Trim();
+            mission ??= track != null ? track.missionTuning : null;
+            return mission != null && !string.IsNullOrWhiteSpace(mission.displayName) ? mission.displayName.Trim() : "Mission";
+        }
+
         [Header("Gameplay")]
         public VoxelRoadTuning roadTuning;
         public VoxelObstacleCarTuning obstacleCarTuning;
@@ -38,7 +45,7 @@ namespace VoxelRacer
         [Header("Generated Material Colours")]
         public Color roadColour = new(0.29f, 0.29f, 0.32f);
         public Color groundColour = new(0.31f, 0.18f, 0.07f);
-        public Color shoulderColour = new(0.72f, 0.38f, 0.15f);
+        public Color shoulderColour = Color.white;
         public Color roadLineColour = new(1f, 0.78f, 0.16f);
         public Color cactusColour = new(0.12f, 0.34f, 0.12f);
         public Color obstacleColour = new(0.34f, 0.17f, 0.07f);

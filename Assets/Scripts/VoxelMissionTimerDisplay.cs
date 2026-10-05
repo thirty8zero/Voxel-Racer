@@ -23,6 +23,10 @@ namespace VoxelRacer
             backgroundRing.rectTransform.GetWorldCorners(corners);
             rect = new Rect(corners[0].x, Screen.height - corners[1].y,
                 corners[2].x - corners[0].x, corners[1].y - corners[0].y);
+            // Header placement uses stable bounds rather than jumping with the urgency/extension pulse.
+            Vector2 centre = rect.center;
+            Vector2 size = rect.size / Mathf.Max(.01f, backgroundRing.transform.localScale.x);
+            rect = new Rect(centre - size * .5f, size);
             return true;
         }
 
@@ -50,14 +54,15 @@ namespace VoxelRacer
             float remainingPercent = Mathf.Clamp01(mission.RemainingTime / mission.Tuning.timeLimitSeconds);
             timerRing.fillAmount = remainingPercent;
             timerRing.color = GetTimerColour(remainingPercent);
-            if (mission.TimeExtensionPulse > 0) timerRing.color = Color.Lerp(timerRing.color, Color.cyan, mission.TimeExtensionPulse);
+            float extensionPulse = mission.IsComplete ? 0 : mission.TimeExtensionPulse;
+            if (extensionPulse > 0) timerRing.color = Color.Lerp(timerRing.color, Color.cyan, extensionPulse);
 
-            float dialScale = mission.RemainingTime > 0f && mission.RemainingTime <= 10f
+            float dialScale = !mission.IsComplete && mission.RemainingTime > 0f && mission.RemainingTime <= 10f
                 ? 1.08f + Mathf.Sin(Time.unscaledTime * 14f) * 0.1f
                 : 1f;
 
             bool timeIsUp = mission.RemainingTime <= 0f;
-            dialScale += .25f * mission.TimeExtensionPulse * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 12f));
+            dialScale += .25f * extensionPulse * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 12f));
             SetDialScale(dialScale, timeIsUp);
             timerText.fontSize = timeIsUp ? 44 : 76;
             timerText.resizeTextMaxSize = timeIsUp ? 44 : 76;

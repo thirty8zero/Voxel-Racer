@@ -11,6 +11,8 @@ namespace VoxelRacer
         [Tooltip("Authored visual model. Individual mesh pieces retain the enemy's existing voxel damage behaviour.")]
         public GameObject modelPrefab;
         public VoxelMineLayerTuning mineLayer;
+        [Tooltip("Optional advanced traffic weaving and telegraphed side-ram behaviour. Empty retains ordinary enemy driving.")]
+        public VoxelPsychoBugTuning psychoBug;
 
         [Header("Mission Score")]
         [Tooltip("Mission progress points awarded when the player destroys this enemy type. Also used by the destruction score popup.")]

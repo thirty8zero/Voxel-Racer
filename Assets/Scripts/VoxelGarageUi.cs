@@ -6,6 +6,9 @@ namespace VoxelRacer
     public sealed partial class VoxelRepairUpgradeSceneController
     {
         private GameObject garageRepairPanel, garageUpgradePanel, garageSettingsPanel, garageHome;
+        private GameObject garageSettingsOverlay;
+        private bool GarageSettingsVisible => garageSettingsOverlay != null && garageSettingsOverlay.activeSelf;
+        private RectTransform garageCashFrame, garageSettingsButton;
         private static readonly Color RepairAccent = new(.95f,.15f,.19f);
         private static readonly Color UpgradeAccent = new(.10f,.60f,1f);
         private static readonly Color GoldAccent = new(1f,.73f,.20f);
@@ -31,14 +34,25 @@ namespace VoxelRacer
         }
         private void ShowGaragePanel(GameObject selected)
         {
+            HideGarageSettings();
+            CancelUpgradePlacement();
             garageRepairPanel.SetActive(selected==garageRepairPanel);
             garageUpgradePanel.SetActive(selected==garageUpgradePanel);
-            garageSettingsPanel.SetActive(selected==garageSettingsPanel);
             garageHome.SetActive(selected==null);
             if (garageDockShade != null) garageDockShade.SetActive(selected==garageUpgradePanel);
             LayoutGarageDock();
             LayoutGarageFeedback();
             ApplyGaragePreviewViewport();
+        }
+        private void ShowGarageSettings()
+        {
+            placementPointerHeld = rotatingCar = pinching = false;
+            garageSettingsOverlay.transform.SetAsLastSibling();
+            garageSettingsOverlay.SetActive(true);
+        }
+        private void HideGarageSettings()
+        {
+            if (garageSettingsOverlay != null) garageSettingsOverlay.SetActive(false);
         }
         private void StyleGarageUi(RectTransform canvas)
         {
@@ -49,7 +63,8 @@ namespace VoxelRacer
             Caption(canvas,"Garage Subtitle","REPAIR  ·  UPGRADE",22,new(.5f,1),new(0,-146),new(720,35));
             for(int side=-1;side<=1;side+=2) for(int i=0;i<2;i++)
             { var line=VoxelMenuUi.CreatePanel(canvas,"Header Wing",new(.5f,1),new(side*285,-74-i*20),new(135-i*25,11));line.color=new Color(.34f,.39f,.45f);line.raycastTarget=false; }
-            var cash=VoxelMenuUi.CreatePanel(canvas,"Cash Frame",new(1,1),new(-290,-80),new(325,80));
+            var cash=VoxelMenuUi.CreatePanel(canvas,"Cash Frame",new(1,1),new(-198.5f,-80),new(325,80));
+            garageCashFrame = cash.rectTransform;
             Frame(cash.gameObject,new Color(.32f,.38f,.45f),new Color(.018f,.029f,.044f,.94f));
             currencyText.transform.SetParent(cash.transform,false);Place(currencyText.rectTransform,new(.5f,.5f),new(22,0),new(260,65));
             currencyText.font=GarageMono;currencyText.fontSize=40;currencyText.alignment=TextAnchor.MiddleCenter;currencyText.color=Color.white;
@@ -69,7 +84,12 @@ namespace VoxelRacer
              Place(repairLabels[i].rectTransform,new(.5f,.5f),Vector2.zero,new(580,105));repairLabels[i].font=GarageMono;repairLabels[i].fontSize=36;
              Frame(button.gameObject,RepairAccent,new Color(.17f,.025f,.035f,.95f));}
             VoxelMenuUi.CreateText(garageRepairPanel.transform,"Repair Heading","REPAIR",54,TextAnchor.MiddleCenter,new(.5f,.5f),new(0,267),new(380,70));
-            garageSettingsPanel=VoxelMenuUi.CreatePanel(canvas,"Garage Settings",new(.5f,.5f),Vector2.zero,new(580,300)).gameObject;
+            var settingsOverlay=VoxelMenuUi.CreatePanel(canvas,"Garage Settings Overlay",new(.5f,.5f),Vector2.zero,Vector2.zero);
+            settingsOverlay.rectTransform.anchorMin=Vector2.zero;settingsOverlay.rectTransform.anchorMax=Vector2.one;
+            settingsOverlay.rectTransform.offsetMin=settingsOverlay.rectTransform.offsetMax=Vector2.zero;
+            settingsOverlay.color=new Color(0,0,0,.65f);settingsOverlay.raycastTarget=true;
+            garageSettingsOverlay=settingsOverlay.gameObject;
+            garageSettingsPanel=VoxelMenuUi.CreatePanel(settingsOverlay.transform,"Garage Settings",new(.5f,.5f),Vector2.zero,new(580,300)).gameObject;
             Frame(garageSettingsPanel,new Color(.4f,.48f,.56f),new Color(.02f,.03f,.045f,.98f));
             VoxelMenuUi.CreateText(garageSettingsPanel.transform,"Settings Title","SETTINGS",55,TextAnchor.MiddleCenter,new(.5f,.5f),new(0,85),new(420,80));
             var sound=VoxelMenuUi.CreateButton(garageSettingsPanel.transform,"Sound Toggle","",35,new(.5f,.5f),new(0,-10),new(460,70),()=>{});
@@ -81,12 +101,13 @@ namespace VoxelRacer
                 var close=VoxelMenuUi.CreateButton(panel.transform,"Close Panel","X",30,
                     isUpgradePanel ? new Vector2(0,1) : new Vector2(1,1),
                     isUpgradePanel ? new Vector2(34,-24) : new Vector2(-34,-33),
-                    new(45,42),()=>ShowGaragePanel(null));
+                    new(45,42),()=>{if(panel==garageSettingsPanel) HideGarageSettings();else ShowGaragePanel(null);});
                 Frame(close.gameObject,new Color(.4f,.45f,.5f),new Color(.02f,.03f,.04f));
             }
             HomeButton("Repair Menu Button","REPAIR","RESTORE YOUR VEHICLE",-530,RepairAccent,()=>ShowGaragePanel(garageRepairPanel),false);
             HomeButton("Upgrade Menu Button","UPGRADES","MAKE IT STRONGER",-735,UpgradeAccent,()=>ShowGaragePanel(garageUpgradePanel),true);
-            var settings=VoxelMenuUi.CreateButton(canvas,"Settings Button","",40,new(1,1),new(-72,-80),new(80,80),()=>ShowGaragePanel(garageSettingsPanel));
+            var settings=VoxelMenuUi.CreateButton(canvas,"Settings Button","",40,new(1,1),new(-419,-80),new(80,80),ShowGarageSettings);
+            garageSettingsButton = (RectTransform)settings.transform;
             Frame(settings.gameObject,new Color(.36f,.43f,.5f),new Color(.025f,.035f,.05f,.95f));
             var cog=new GameObject("Settings Cog",typeof(RectTransform),typeof(VoxelGarageUpgradeIcon));
             cog.transform.SetParent(settings.transform,false);
@@ -100,6 +121,16 @@ namespace VoxelRacer
             garageCanvas = canvas;
             if (workshopCamera != null) garageCameraOriginalRect = workshopCamera.rect;
             ShowGaragePanel(null);
+        }
+
+        private void LayoutGarageHeader(Vector2 size, Rect safe)
+        {
+            if (garageCashFrame == null || garageSettingsButton == null) return;
+            float sx = size.x / Mathf.Max(1, Screen.width), sy = size.y / Mathf.Max(1, Screen.height);
+            float right = Mathf.Max(36, (Screen.width - safe.xMax) * sx + 18);
+            float top = Mathf.Max(40, (Screen.height - safe.yMax) * sy + 18);
+            Place(garageCashFrame, new Vector2(1, 1), new Vector2(-right - 162.5f, -top - 40), new Vector2(325, 80));
+            Place(garageSettingsButton, new Vector2(1, 1), new Vector2(-right - 325 - 18 - 40, -top - 40), new Vector2(80, 80));
         }
         private void HomeButton(string name,string title,string subtitle,float y,Color accent,UnityEngine.Events.UnityAction action,bool bars)
         {

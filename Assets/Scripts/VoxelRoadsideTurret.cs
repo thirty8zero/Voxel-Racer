@@ -16,7 +16,7 @@ namespace VoxelRacer
         private float firingUntil;
         private float nextBurstTime;
         private bool firing;
-        private Transform barrel;
+        private Transform muzzleAnchor;
 
         public float TrackDistance => trackDistance;
 
@@ -102,19 +102,28 @@ namespace VoxelRacer
 
         private void FireVolley()
         {
-            Transform muzzle = barrel != null ? barrel : transform;
+            Transform muzzle = muzzleAnchor != null ? muzzleAnchor : transform;
             int count = Mathf.Max(1, tuning.bulletsPerVolley);
-            VoxelFireEffects.PlayMuzzleFire(muzzle, transform.forward, 0.68f);
+            VoxelFireEffects.PlayMuzzleFire(muzzle, transform.forward, 0.02f);
             for (int index = 0; index < count; index++)
             {
                 float normalizedIndex = count == 1 ? 0f : index / (float)(count - 1) - 0.5f;
                 Vector3 direction = Quaternion.AngleAxis(normalizedIndex * tuning.volleySpreadDegrees, transform.up) * transform.forward;
-                VoxelHostileProjectile.Create(muzzle.position + direction * 0.7f, direction, tuning, target);
+                VoxelHostileProjectile.Create(muzzle.position, direction, tuning, target);
             }
         }
 
         private void BuildVisuals()
         {
+            GameObject prefab = Resources.Load<GameObject>("EnemyTurrets/Model/RoadsideTurretModel");
+            if (prefab != null)
+            {
+                Transform model = Instantiate(prefab, transform, false).transform;
+                muzzleAnchor = model.Find("Turret Muzzle");
+                if (muzzleAnchor != null) return;
+                Destroy(model.gameObject);
+            }
+
             Material body = Resources.Load<Material>("CarMaterials/FormulaBlack");
             Material detail = VoxelRacerBootstrap.ObstacleCarTrimMaterial;
             Material accent = VoxelRacerBootstrap.ObstacleCarPaintMaterial;
@@ -127,10 +136,13 @@ namespace VoxelRacer
                 new Vector3(0f, 0.83f, 0f), new Vector3(0.72f, 0.55f, 0.72f), detail);
             GameObject housing = VoxelRacerBootstrap.CreateBlock("Turret Voxel Housing", transform,
                 new Vector3(0f, 1.12f, 0.18f), new Vector3(0.94f, 0.58f, 1.08f), body);
-            barrel = VoxelRacerBootstrap.CreateBlock("Turret Voxel Barrel", transform,
-                new Vector3(0f, 1.18f, 0.93f), new Vector3(0.35f, 0.30f, 1.00f), accent).transform;
+            VoxelRacerBootstrap.CreateBlock("Turret Voxel Barrel", transform,
+                new Vector3(0f, 1.18f, 0.93f), new Vector3(0.35f, 0.30f, 1.00f), accent);
             GameObject muzzle = VoxelRacerBootstrap.CreateBlock("Turret Voxel Muzzle", transform,
                 new Vector3(0f, 1.18f, 1.43f), new Vector3(0.50f, 0.42f, 0.18f), detail);
+            muzzleAnchor = new GameObject("Turret Muzzle").transform;
+            muzzleAnchor.SetParent(transform, false);
+            muzzleAnchor.localPosition = new Vector3(0f, 1.18f, 1.63f);
 
             // Turrets are hazards, not current weapon targets; disabling their colliders
             // prevents player shots being absorbed by the decorative voxel model.

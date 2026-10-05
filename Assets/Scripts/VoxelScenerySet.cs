@@ -30,7 +30,16 @@ namespace VoxelRacer
         [Tooltip("Average props per 32 x 32 metre tile beyond the roadside band.")]
         [Range(0, 30)] public int distantPropsPerTile = 7;
         public int distantScenerySeed = 7419;
+        [Header("Desert Ground Cover")]
+        public VoxelDesertFoliageTuning groundCover;
+        [Header("Natural Prop Distribution")]
+        [Range(0, 1)] public float clustering;
+        [Min(4)] public float clusterSize = 26;
         public Entry[] entries = Array.Empty<Entry>();
+        public int Revision { get; private set; }
+#if UNITY_EDITOR
+        private void OnValidate() { Revision++; VoxelAssetSaveQueue.Request(this); }
+#endif
 
         public Entry Choose()
         {
@@ -48,6 +57,11 @@ namespace VoxelRacer
                 if (roll <= 0) return entry;
             }
             return last;
+        }
+        public float PlacementDensity(Vector3 position)
+        {
+            float noise = Mathf.PerlinNoise(position.x / Mathf.Max(4, clusterSize) + 13.4f, position.z / Mathf.Max(4, clusterSize) + 28.7f);
+            return Mathf.Lerp(1, Mathf.Lerp(.12f, 1, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.28f, .65f, noise))), clustering);
         }
         public static float ChooseScale(Entry entry) => UnityEngine.Random.Range(
             Mathf.Max(.1f, Mathf.Min(entry.scaleRange.x, entry.scaleRange.y)),

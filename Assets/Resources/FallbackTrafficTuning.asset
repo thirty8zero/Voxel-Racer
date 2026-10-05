@@ -19,6 +19,7 @@ MonoBehaviour:
   enemyVehiclePool:
   - {fileID: 11400000, guid: 1087bbf5e34c42dfad117821fdcd87a6, type: 2}
   - {fileID: 11400000, guid: b799f945fae40c141bbfd08a7f1f51a4, type: 2}
+  - {fileID: 11400000, guid: 7ef7c7942375e48449e654ec812ee807, type: 2}
   minimumWaveInterval: 2.5
   maximumWaveInterval: 4.5
   minimumObjectsPerWave: 2
@@ -39,6 +40,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
   - {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}
   - {fileID: 11400000, guid: b56eba2a0575bdd4388fc938427a7989, type: 2}
+  - {fileID: 11400000, guid: d10e6994f682adc47aa52393807270b6, type: 2}
+  - {fileID: 11400000, guid: 7546fab2050013c4a8157b3828ffa0f9, type: 2}
+  - {fileID: 11400000, guid: 194983310eb686a4c82717357a156347, type: 2}
   semiTrailerSpawnChance: 0.35
   trafficCarEnemyTuning: {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
   semiTrailerEnemyTuning: {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}

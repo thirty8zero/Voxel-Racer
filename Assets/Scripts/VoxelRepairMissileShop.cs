@@ -8,9 +8,9 @@ namespace VoxelRacer
         private void BuildMissileShop(Transform panel)
         {
             leftMissileButton = VoxelMenuUi.CreateButton(panel, "Left Missile Purchase Button", "", 30,
-                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => PurchaseMissile(false));
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Missiles));
             rightMissileButton = VoxelMenuUi.CreateButton(panel, "Right Missile Purchase Button", "", 30,
-                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => PurchaseMissile(true));
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Missiles));
         }
         private void PurchaseMissile(bool right)
         {

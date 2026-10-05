@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a081ce8201015e242a780521b5db76af, type: 3}
+  m_Name: PsychoBugBehaviour
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelPsychoBugTuning
+  decisionInterval: 0.2
+  acceleration: 18
+  braking: 26
+  maximumSpeedMultiplier: 1.35
+  cruiseSpeedMultiplier: 0.95
+  minimumDrivingSpeed: 6
+  positioningSpeed: 28
+  positioningResponse: 1.8
+  positioningDamping: 0.6
+  laneChangeSpeed: 7
+  allowReverse: 0
+  maximumReverseSpeed: 5
+  maximumDistanceBehind: 75
+  maximumDistanceAhead: 200
+  weaveThroughTraffic: 1
+  weaveChance: 0.55
+  trafficClearance: 2
+  trafficPredictionSeconds: 1.2
+  trafficLookAhead: 26
+  trafficScanInterval: 0.15
+  shootingWindows: 1
+  shootingDistanceAhead: 14
+  minimumShootingDuration: 1
+  maximumShootingDuration: 1.5
+  maximumTimeBetweenShootingWindows: 12
+  sideRamEnabled: 1
+  sideRamChance: 1
+  ramOnPassingAlignment: 1
+  minimumRamSpeed: 6
+  alignmentTolerance: 0.8
+  ramSpeedTolerance: 1
+  alignmentHoldDuration: 0.15
+  positioningTimeout: 14
+  warningDuration: 1
+  pullAwayDistance: 0.18
+  slamSpeed: 14
+  slamTimeout: 0.65
+  minimumAttackCooldown: 1
+  maximumAttackCooldown: 2
+  sideRamDamageMin: 6
+  sideRamDamageMax: 10
+  playerCollisionHalfWidth: 1.3
+  playerCollisionHalfLength: 2.5
+  maximumSimultaneousRams: 1
+  recoveryDuration: 0.6
+  recoveryDistanceAhead: 12
+  playerRamInterrupts: 1
+  staggerDuration: 1.25
+  feintChance: 0.05
+  damageEvasion: 1
+  damageEvasionChance: 0.35
+  damageReactionDelay: 0.5
+  damageEvasionCooldown: 4

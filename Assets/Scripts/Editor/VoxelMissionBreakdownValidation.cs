@@ -17,6 +17,7 @@ namespace VoxelRacer.Editor
         {
             if(Application.isPlaying) throw new Exception("Run outside Play Mode");
             var previous=VoxelMissionProgress.Active;
+            int previousCash=VoxelCurrencyState.Balance;
             var oldEvent=UnityEngine.Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
             var root=new GameObject("Temporary Breakdown QA");
             var tuning=ScriptableObject.CreateInstance<VoxelMissionTuning>();
@@ -34,7 +35,7 @@ namespace VoxelRacer.Editor
                 mission.ChangeMultiplier(20,"ENEMY VOXELS");
                 Check(mission.Breakdown.Total(VoxelMissionBreakdown.Group.MultiplierGained)==4,"Multiplier cap overcounted");
                 mission.ChangeMultiplier(-2,"CIVILIAN DAMAGE");mission.AdvanceBonusClock(101);
-                Check(mission.Breakdown.Total(VoxelMissionBreakdown.Group.MultiplierLost)==5,"Expiry not included");
+                Check(Mathf.Approximately(mission.Breakdown.Total(VoxelMissionBreakdown.Group.MultiplierLost),2.1f),"Actual timer decay not included");
                 mission.Configure(tuning);
                 Check(mission.Breakdown.Total(VoxelMissionBreakdown.Group.ProgressGained)==0,"Previous mission totals retained");
                 foreach(VoxelMissionBreakdown.Group group in Enum.GetValues(typeof(VoxelMissionBreakdown.Group)))
@@ -42,8 +43,16 @@ namespace VoxelRacer.Editor
                     if(group==VoxelMissionBreakdown.Group.CrateRewards) continue;
                     for(int i=0;i<5;i++) mission.Breakdown.Add(group,"Example source "+(i+1),group==VoxelMissionBreakdown.Group.MultiplierGained||group==VoxelMissionBreakdown.Group.MultiplierLost?.1f:10);
                 }
+                mission.AdvanceBonusClock(70);
+                mission.AddMultiplierBonus(1);
+                mission.AddBonusCash(40);
+                VoxelMissionProgress.ReportEnemyVoxelDamage(10000);
+                Check(mission.TotalCurrencyEarned==270,"Remaining-time payout missing from rewards");
                 var ui=root.AddComponent<VoxelPostRaceContinue>();ui.missionProgress=mission;
                 typeof(VoxelPostRaceContinue).GetMethod("BuildRewardSequence",Flags).Invoke(ui,null);
+                var bonus=root.GetComponentsInChildren<Text>(true).First(t=>t.name=="Time Bonus Reward");
+                Check(bonus.text.Contains("MISSION MULTIPLIER 2.00x") && bonus.text.Contains("FINAL MULTIPLIER 2.30x") && bonus.text.Contains("+$130") && bonus.text.Contains("+0.30x") && !bonus.text.Contains("SEC LEFT"),"Results must separate original multiplier, time bonus and final multiplier");
+                Check(Mathf.Approximately(mission.EffectiveTimeBonusMultiplier,2),"Results time bonus changed original multiplier");
                 Check(!root.GetComponentsInChildren<Button>(true).Any(b=>b.name=="Group 5"),"Empty crate group visible");
                 mission.Breakdown.Add(VoxelMissionBreakdown.Group.CrateRewards,"$30 cash",1);
                 mission.Breakdown.Add(VoxelMissionBreakdown.Group.CrateRewards,"+15s time (applied 15s)",1);
@@ -77,11 +86,41 @@ namespace VoxelRacer.Editor
                 }
                 root.GetComponentsInChildren<Button>(true).First(b=>b.name=="Return to Rewards").onClick.Invoke();
                 Check(rewards.gameObject.activeSelf && !page.gameObject.activeSelf,"Return arrow failed");
-                Debug.Log("PASS: actual score/multiplier caps and expiry, mission reset, optional crate group, equal page sizes, navigation, expanded scrolling and clipping; rendered 16:9 and 20:9.");
+                typeof(VoxelPostRaceContinue).GetField("rewardSequenceStartedAt",Flags).SetValue(ui,Time.unscaledTime-2);
+                typeof(VoxelPostRaceContinue).GetMethod("UpdateRewardSequence",Flags).Invoke(ui,null);
+                for(int cashState=0;cashState<2;cashState++)
+                {
+                    if(cashState==1)
+                    {
+                        rewards.parent.gameObject.SetActive(false);
+                        mission.Configure(tuning);mission.AdvanceBonusClock(70);mission.AddMultiplierBonus(1);
+                        VoxelMissionProgress.ReportEnemyVoxelDamage(10000);
+                        typeof(VoxelPostRaceContinue).GetMethod("BuildRewardSequence",Flags).Invoke(ui,null);
+                        typeof(VoxelPostRaceContinue).GetField("rewardSequenceStartedAt",Flags).SetValue(ui,Time.unscaledTime-2);
+                        typeof(VoxelPostRaceContinue).GetMethod("UpdateRewardSequence",Flags).Invoke(ui,null);
+                        foreach(var t in root.GetComponentsInChildren<Transform>(true))t.gameObject.layer=31;
+                        foreach(var c in root.GetComponentsInChildren<Canvas>(true)){c.renderMode=RenderMode.ScreenSpaceCamera;c.worldCamera=cam;c.planeDistance=1;}
+                        Check(!((GameObject)typeof(VoxelPostRaceContinue).GetField("bonusCashPanel",Flags).GetValue(ui)).activeSelf,"Zero bonus cash panel is visible");
+                    }
+                    foreach(int width in new[]{1920,2400})
+                    {
+                        var rt=new RenderTexture(width,1080,24);var texture=new Texture2D(width,1080,TextureFormat.RGB24,false);var old=RenderTexture.active;
+                        try {cam.targetTexture=rt;Canvas.ForceUpdateCanvases();cam.Render();cam.Render();RenderTexture.active=rt;texture.ReadPixels(new Rect(0,0,width,1080),0,0);texture.Apply();File.WriteAllBytes("Temp/MissionRewards_"+width+(cashState==1?"_NoCash":"")+".png",texture.EncodeToPNG());}
+                        finally {cam.targetTexture=null;RenderTexture.active=old;rt.Release();UnityEngine.Object.DestroyImmediate(rt);UnityEngine.Object.DestroyImmediate(texture);}
+                    }
+                }
+                rewards.parent.gameObject.SetActive(false);
+                mission.Configure(tuning);mission.AdvanceBonusClock(100);mission.AddMultiplierBonus(1);
+                VoxelMissionProgress.ReportEnemyVoxelDamage(10000);
+                typeof(VoxelPostRaceContinue).GetMethod("BuildRewardSequence",Flags).Invoke(ui,null);
+                var noTimeBonus=(Text)typeof(VoxelPostRaceContinue).GetField("timeBonusText",Flags).GetValue(ui);
+                Check(noTimeBonus.text.Contains("MULTIPLIER 2.00x") && !noTimeBonus.text.Contains("TIME BONUS") && !noTimeBonus.text.Contains("FINAL MULTIPLIER"),"Late finish shows a nonexistent time bonus");
+                Debug.Log("PASS: actual score/multiplier caps and decay, mission reset, separate original/time/final multiplier and payout in rewards panel, late finish omits time bonus, optional crate group, equal page sizes, navigation, expanded scrolling and clipping; rendered rewards/breakdown at 16:9 and 20:9.");
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(root);UnityEngine.Object.DestroyImmediate(tuning);active.SetValue(null,previous);
+                VoxelCurrencyState.Reset();VoxelCurrencyState.Add(previousCash);
                 if(oldEvent==null) {var created=UnityEngine.Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();if(created!=null)UnityEngine.Object.DestroyImmediate(created.gameObject);}
             }
         }

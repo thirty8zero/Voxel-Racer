@@ -455,8 +455,8 @@ namespace VoxelRacer
                 roadProperties.SetVector("_RoadCoordinates", new Vector4(roadWidth, depth,
                     data.startDistance + (slice + .5f) * sliceLength, 0f));
                 asphalt.GetComponent<MeshRenderer>().SetPropertyBlock(roadProperties);
-                CreatePlacedBlock("Left Shoulder", segment, pose, -roadWidth * 0.5f - 0.55f, -0.08f, new Vector3(1.1f, 0.18f, depth), VoxelRacerBootstrap.ShoulderMaterial);
-                CreatePlacedBlock("Right Shoulder", segment, pose, roadWidth * 0.5f + 0.55f, -0.08f, new Vector3(1.1f, 0.18f, depth), VoxelRacerBootstrap.ShoulderMaterial);
+                CreatePlacedBlock("Left Shoulder", segment, pose, -roadWidth * 0.5f - 0.275f, -0.08f, new Vector3(0.55f, 0.18f, depth), VoxelRacerBootstrap.ShoulderMaterial);
+                CreatePlacedBlock("Right Shoulder", segment, pose, roadWidth * 0.5f + 0.275f, -0.08f, new Vector3(0.55f, 0.18f, depth), VoxelRacerBootstrap.ShoulderMaterial);
             }
             float laneWidth = roadWidth / Mathf.Max(1, laneCount);
             for (int line = 1; line < laneCount; line++)
@@ -465,18 +465,25 @@ namespace VoxelRacer
                 for (float distance = 3f; distance < segmentLength; distance += 6f)
                     CreatePlacedBlock("Lane Dash", segment, EvaluateSegment(data, distance), offset, 0.02f, new Vector3(0.16f, 0.035f, 2.8f), VoxelRacerBootstrap.LineMaterial);
             }
-            float edgeOffset = roadWidth * 0.5f - 0.12f;
-            for (float distance = 2.5f; distance < segmentLength; distance += 5f)
+            // White shoulders already define the road edge; coloured shoulders retain dashes.
+            if (VoxelRacerBootstrap.ShoulderMaterial.color != Color.white)
             {
-                VoxelTrackPose pose = EvaluateSegment(data, distance);
-                CreatePlacedBlock("Left Road Marker", segment, pose, -edgeOffset, 0.03f, new Vector3(0.18f, 0.06f, 1.6f), VoxelRacerBootstrap.LineMaterial);
-                CreatePlacedBlock("Right Road Marker", segment, pose, edgeOffset, 0.03f, new Vector3(0.18f, 0.06f, 1.6f), VoxelRacerBootstrap.LineMaterial);
+                float edgeOffset = roadWidth * 0.5f - 0.12f;
+                for (float distance = 2.5f; distance < segmentLength; distance += 5f)
+                {
+                    VoxelTrackPose pose = EvaluateSegment(data, distance);
+                    CreatePlacedBlock("Left Road Marker", segment, pose, -edgeOffset, 0.03f, new Vector3(0.18f, 0.06f, 1.6f), VoxelRacerBootstrap.LineMaterial);
+                    CreatePlacedBlock("Right Road Marker", segment, pose, edgeOffset, 0.03f, new Vector3(0.18f, 0.06f, 1.6f), VoxelRacerBootstrap.LineMaterial);
+                }
             }
             int cactusCount = trackDefinition != null && trackDefinition.scenerySet != null ? 0 : Random.Range(Mathf.Min(minimumCactiPerSegment, maximumCactiPerSegment), Mathf.Max(minimumCactiPerSegment, maximumCactiPerSegment) + 1);
             for (int cactus = 0; cactus < cactusCount; cactus++)
                 CreateCactus(segment, data);
             CreateAdditionalScenery(segment, data);
             CreateScenerySet(segment, data);
+            // Sampling this chunk directly avoids Evaluate's look-ahead appending path-only
+            // chunks during the initial visual build, which would leave gaps in the road.
+            VoxelDesertGroundCover.Build(segment, this, data.startDistance, distance => EvaluateSegment(data, distance));
             segment.gameObject.AddComponent<VoxelFadeIn>();
             return segment;
         }
@@ -590,6 +597,7 @@ namespace VoxelRacer
                 {
                     var pose = EvaluateSegment(data, Random.Range(segmentLength * .05f, segmentLength * .95f));
                     Vector3 position = pose.position + pose.right * (Random.value < .5f ? -1 : 1) * Random.Range(min, max);
+                    if (Random.value > set.PlacementDensity(position)) continue;
                     bool overlaps = false;
                     foreach (var other in occupied)
                     {

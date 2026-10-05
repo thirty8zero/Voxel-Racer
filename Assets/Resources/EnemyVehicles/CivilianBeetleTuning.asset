@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: Civilian Beetle
   modelPrefab: {fileID: 178651222619727011, guid: ef26d3b499e3d21478f827be60e6de52, type: 3}
   mineLayer: {fileID: 0}
+  psychoBug: {fileID: 0}
   destructionScore: 25
   voxelHealth: 1
   vehicleHealth: 50

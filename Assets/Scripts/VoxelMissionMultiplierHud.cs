@@ -14,8 +14,8 @@ namespace VoxelRacer
 
         public bool AddBonusTime(int seconds, Vector3? position = null)
         {
-            // Extensions must be collected before expiry; losing the bonus remains final.
-            if (Tuning == null || IsComplete || !TimeBonusAvailable || seconds <= 0 ||
+            // Extensions must be collected before the countdown expires.
+            if (Tuning == null || IsComplete || IsFailed || !TimeBonusAvailable || seconds <= 0 ||
                 (startCountdown != null && !startCountdown.IsComplete)) return false;
             RemainingTime += seconds;
             timeExtensionAmount = Time.unscaledTime - timeExtensionStartedAt < .2f ? timeExtensionAmount + seconds : seconds;
@@ -42,26 +42,24 @@ namespace VoxelRacer
             bool urgent = !IsComplete && !expired && RemainingTime <= Tuning.bonusWarningSeconds;
             Color tone = expired || urgent ? LossColour : new Color(1f, .8f, .2f);
             Rect timer = GetCountdownRect();
-            var panel = new Rect(missionArea.xMax + 8, missionArea.y,
-                Mathf.Max(1, timer.xMin - missionArea.xMax - 16), missionArea.height);
-            float compactWidth = Mathf.Min(180, panel.width);
-            panel.x += (panel.width - compactWidth) * .5f;
-            panel.width = compactWidth;
+            var panel = GetMultiplierArea(missionArea);
+            float layoutScale = panel.height / 70f;
             Fill(panel, new Color(.025f, .04f, .065f, .94f), alpha);
-            Fill(new Rect(panel.x, panel.y, panel.width, 2), tone, alpha);
-            int numberSize = Mathf.Clamp(Mathf.FloorToInt(panel.width / 4.8f), 12, 30);
-            var target = new Rect(panel.x + 5, panel.y + 3, panel.width - 10, 34);
+            Fill(new Rect(panel.x, panel.y, panel.width, 2 * layoutScale), tone, alpha);
+            int numberSize = Mathf.Max(1, Mathf.FloorToInt(Mathf.Min(panel.width / 4.8f, 30 * layoutScale)));
+            var target = new Rect(panel.x + 5 * layoutScale, panel.y + 3 * layoutScale, panel.width - 10 * layoutScale, 34 * layoutScale);
             float pulse = Mathf.Clamp01((multiplierPulseUntil - Time.unscaledTime) / .32f);
             float scale = 1 + Mathf.Sin(pulse * Mathf.PI) * .12f;
             var oldMatrix = GUI.matrix;
             GUIUtility.ScaleAroundPivot(Vector2.one * scale, target.center);
             GUI.color = new Color(1, 1, 1, alpha);
-            Color multiplierColour = expired ? LossColour : pulse > 0 ? (lastMultiplierWasNegative ? LossColour : GainColour) : Color.white;
+            Color multiplierColour = pulse > 0 ? (lastMultiplierWasNegative ? LossColour : GainColour) : Color.white;
             GUI.Label(target, displayedMultiplierBonus.ToString("0.00") + "x", BonusStyle(numberSize, multiplierColour));
             GUI.matrix = oldMatrix;
-            int extra = expired ? 0 : Mathf.Max(0, Mathf.RoundToInt(Tuning.completionCurrencyAward * EffectiveTimeBonusMultiplier) - Tuning.completionCurrencyAward);
-            GUI.Label(new Rect(panel.x + 4, panel.y + 37, panel.width - 8, 13), expired ? "LOST" : IsComplete ? "BANKED" : "AT RISK", BonusStyle(11, tone));
-            GUI.Label(new Rect(panel.x + 4, panel.y + 49, panel.width - 8, 20), "+$" + extra, BonusStyle(Mathf.Min(numberSize, 19), tone));
+            int extra = Mathf.Max(0, Mathf.RoundToInt(Tuning.completionCurrencyAward * EffectiveTimeBonusMultiplier) - Tuning.completionCurrencyAward);
+            string status = IsComplete ? "BANKED" : expired ? (EffectiveTimeBonusMultiplier > 1f ? "DECAYING" : "MINIMUM") : "AT RISK";
+            GUI.Label(new Rect(panel.x + 4 * layoutScale, panel.y + 37 * layoutScale, panel.width - 8 * layoutScale, 13 * layoutScale), status, BonusStyle(Mathf.Max(1, Mathf.RoundToInt(11 * layoutScale)), tone));
+            GUI.Label(new Rect(panel.x + 4 * layoutScale, panel.y + 49 * layoutScale, panel.width - 8 * layoutScale, 20 * layoutScale), "+$" + extra, BonusStyle(Mathf.Min(numberSize, Mathf.RoundToInt(19 * layoutScale)), tone));
 
             foreach (var flight in multiplierFlights)
             {

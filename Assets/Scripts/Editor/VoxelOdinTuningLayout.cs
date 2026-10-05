@@ -37,6 +37,7 @@ namespace VoxelRacer.Editor
     [CustomEditor(typeof(VoxelWheelSpikeTuning)),CanEditMultipleObjects] internal sealed class VoxelSpikeOdinEditor:VoxelOdinTuningEditor {}
     [CustomEditor(typeof(VoxelBoostTuning),true),CanEditMultipleObjects] internal sealed class VoxelBoostOdinEditor:VoxelOdinTuningEditor {}
     [CustomEditor(typeof(VoxelMineLayerTuning)),CanEditMultipleObjects] internal sealed class VoxelMineOdinEditor:VoxelOdinTuningEditor {}
+    [CustomEditor(typeof(VoxelPsychoBugTuning)),CanEditMultipleObjects] internal sealed class VoxelPsychoBugOdinEditor:VoxelOdinTuningEditor {}
     [CustomEditor(typeof(VoxelDestructionRewards)),CanEditMultipleObjects] internal sealed class VoxelRewardsOdinEditor:VoxelOdinTuningEditor {}
 
     public sealed class VoxelOdinTuningLayout : OdinAttributeProcessor<ScriptableObject>
@@ -44,7 +45,7 @@ namespace VoxelRacer.Editor
         public static bool IsUpgrade(Type t) => t==typeof(VoxelGunTuning)||t==typeof(VoxelArmorTuning)||t==typeof(VoxelEngineUpgradeTuning)||
             t==typeof(VoxelMissileLauncherTuning)||t==typeof(VoxelPloughTuning)||t==typeof(VoxelPerformanceWheelTuning)||t==typeof(VoxelWheelSpikeTuning)||t==typeof(VoxelBoostUpgradeTuning);
         public static bool Supports(Type t) => VoxelContentOdinLayout.Supports(t)||IsUpgrade(t)||typeof(VoxelBoostTuning).IsAssignableFrom(t)||t==typeof(VoxelCarTuning)||
-            t==typeof(VoxelEnemyVehicleTuning)||t==typeof(VoxelObstacleCarTuning)||t==typeof(VoxelMissionTuning)||t==typeof(VoxelMineLayerTuning)||t==typeof(VoxelDestructionRewards);
+            t==typeof(VoxelEnemyVehicleTuning)||t==typeof(VoxelObstacleCarTuning)||t==typeof(VoxelMissionTuning)||t==typeof(VoxelMineLayerTuning)||t==typeof(VoxelPsychoBugTuning)||t==typeof(VoxelDesertFoliageTuning)||t==typeof(VoxelDestructionRewards);
         public override void ProcessChildMemberAttributes(InspectorProperty parent,MemberInfo member,List<Attribute> attributes)
         {
             var type=parent.ValueEntry.TypeOfValue;
@@ -94,6 +95,17 @@ namespace VoxelRacer.Editor
             if(type==typeof(VoxelDestructionRewards))group="Crate Reward Sources";
             if(type==typeof(VoxelEnemyVehicleTuning) && name=="mineLayer")
             {group="Mine Laying";attributes.Add(new InlineEditorAttribute());}
+            if(type==typeof(VoxelEnemyVehicleTuning) && name=="psychoBug")
+            {group="Advanced Driving";attributes.Add(new InlineEditorAttribute());}
+            if(type==typeof(VoxelEnemyVehicleTuning) && (group=="Movement" || group=="Evasive Lane Change"))
+                attributes.Add(new HideIfAttribute("@psychoBug != null"));
+            if(type==typeof(VoxelPsychoBugTuning))
+            {
+                if(group=="Side Ram" && name!="sideRamEnabled") attributes.Add(new ShowIfAttribute("sideRamEnabled"));
+                if(group=="Shooting Windows" && name!="shootingWindows") attributes.Add(new ShowIfAttribute("shootingWindows"));
+                if(group=="Damage Evasion" && name!="damageEvasion") attributes.Add(new ShowIfAttribute("damageEvasion"));
+                if(name=="maximumReverseSpeed") attributes.Add(new ShowIfAttribute("allowReverse"));
+            }
             attributes.RemoveAll(a=>a is HeaderAttribute);
             AddGroups(group,attributes);
             AddRangeAndUnits(type,name,group,attributes);
@@ -132,7 +144,7 @@ namespace VoxelRacer.Editor
             if(n.Contains("multiplier")||n.Contains("fraction"))return " (×)";
             if(n.Contains("duration")||n.Contains("interval")||n.Contains("seconds")||n.Contains("delay")||n.Contains("lifetime")||n.Contains("cooldown")||n=="boostlength")return " (s)";
             if(n=="acceleration"||n=="braking"||n=="brakingforce")return " (m/s²)";
-            if(n=="topspeed"||n=="boostspeed"||n=="projectilespeed"||n=="lanechangespeed"||n=="distanceadjustmentspeed")return " (m/s)";
+            if(n=="topspeed"||n=="boostspeed"||n=="projectilespeed"||n=="lanechangespeed"||n=="distanceadjustmentspeed"||n=="minimumdrivingspeed"||n=="minimumramspeed")return " (m/s)";
             if(n.Contains("distance")||n.Contains("radius")||n=="collisionhalfwidth"||n=="collisionhalflength")return " (m)";
             return "";
         }

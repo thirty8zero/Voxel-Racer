@@ -81,7 +81,8 @@ namespace VoxelRacer.Editor
         {
             if (type == typeof(VoxelScenerySet))
             {
-                group = name == "entries" ? "Scenery Models" : name.StartsWith("distant") ? "Distant Coverage" : "Roadside Density";
+                group = name == "entries" ? "Scenery Models" : name == "groundCover" ? "Ground Cover" : name.StartsWith("distant") ? "Distant Coverage" : "Roadside Density";
+                if (name == "groundCover") attributes.Add(new InlineEditorAttribute());
                 if (name.StartsWith("distant") && name != "distantSceneryEnabled") attributes.Add(new ShowIfAttribute("distantSceneryEnabled"));
             }
             if (type == typeof(VoxelTrackSequence))

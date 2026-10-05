@@ -63,6 +63,28 @@ namespace VoxelRacer
             return (offset - direction * along).sqrMagnitude <= radius * radius;
         }
 
+        /// <summary>Nearest visible mesh surface within a finite world-space shot segment.</summary>
+        public bool TryFindHit(Vector3 start, Vector3 direction, float length, out Vector3 point, out float distance)
+        {
+            point = default; distance = float.PositiveInfinity;
+            if (length <= 0 || direction.sqrMagnitude < .000001f) return false;
+            direction.Normalize();
+            if (!MayIntersect(start, direction, length)) return false;
+            foreach (var piece in Pieces)
+            {
+                if (!piece.Active || !piece.Renderer.enabled) continue;
+                Vector3 localStart = piece.Transform.InverseTransformPoint(start);
+                Vector3 localDirection = piece.Transform.InverseTransformVector(direction).normalized;
+                float entry = 0;
+                if (!piece.Bounds.Contains(localStart) && !piece.Bounds.IntersectRay(new Ray(localStart, localDirection), out entry)) continue;
+                Vector3 hit = piece.Transform.TransformPoint(localStart + localDirection * entry);
+                float along = Vector3.Dot(hit - start, direction);
+                if (along < 0 || along > length || along >= distance) continue;
+                point = hit; distance = along;
+            }
+            return !float.IsPositiveInfinity(distance);
+        }
+
         // Rear-surface selection intentionally allows vertical peeling. Reject
         // only on the same forward/lateral axes used by the original selector.
         public bool MayReachSurface(Vector3 start, Vector3 direction, float length, float halfWidth)

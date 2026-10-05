@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: BI Mine Layer
   modelPrefab: {fileID: 6271244311448806527, guid: 4f28c467e13622645bdde13d3dabf5c2, type: 3}
   mineLayer: {fileID: 11400000, guid: 370aafc339cf9034d9f4a23e162ae5c9, type: 2}
+  psychoBug: {fileID: 0}
   destructionScore: 40
   voxelHealth: 1
   vehicleHealth: 100

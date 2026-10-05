@@ -137,6 +137,7 @@ namespace VoxelRacer
             }
             nextMineTime = Time.time + (enemy.mineLayer != null ? Mathf.Max(.1f, enemy.mineLayer.dropInterval) : 0f);
             CacheProjectileVoxels();
+            ConfigurePsychoBug();
         }
 
         private void CreateModel(VoxelEnemyVehicleTuning enemy)
@@ -190,34 +191,47 @@ namespace VoxelRacer
                 return;
             }
 
+            if (IsPsychoBug && (target.IsDestroyed || VoxelMissionProgress.Active?.IsComplete == true ||
+                VoxelMissionProgress.Active?.IsFailed == true ||
+                (VoxelStartCountdown.Active != null && !VoxelStartCountdown.Active.IsComplete))) return;
+
             if(IsBoss) UpdateSpikeAttack(Time.deltaTime);
             UpdateRamResponse();
-            currentSpeed = IsBoss ? AdvanceBossSpeed(Time.deltaTime) : GetCurrentDriveSpeed();
-            trackDistance += currentSpeed * Time.deltaTime;
-            if(IsBoss) { if(!SpikeAttackActive) UpdateBossLaneChange(); } else UpdateEvasiveLaneChange();
+            if (IsPsychoBug) AdvancePsychoBug(Time.deltaTime);
+            else
+            {
+                currentSpeed = IsBoss ? AdvanceBossSpeed(Time.deltaTime) : GetCurrentDriveSpeed();
+                trackDistance += currentSpeed * Time.deltaTime;
+                if(IsBoss) { if(!SpikeAttackActive) UpdateBossLaneChange(); } else UpdateEvasiveLaneChange();
+            }
             ApplyTrackPose();
             RotateWheels();
             UpdateMineLayer();
 
+            CheckVehicleContact();
+            if (!IsBoss && (TrackDistance < target.TrackDistance - (IsPsychoBug ? Mathf.Max(0, Psycho.maximumDistanceBehind) : 30f) || TrackDistance > target.TrackDistance + GetMaximumDistanceAhead()))
+                Destroy(gameObject);
+        }
+
+        private void CheckVehicleContact()
+        {
             var relative=target.CollisionTrackPosition-new Vector2(LaneOffset,TrackDistance);
             float spikeReach = SpikeAttackDangerous ? SpikeHitDistance - Tuning.collisionHalfLength : 0f;
             Vector2 spikeShift = new Vector2(0, spikeReach * .5f);
             bool contactFound=VoxelVehicleCollision.Sweep(previousCollisionRelative + spikeShift,relative + spikeShift,
-                new Vector2(CollisionHalfWidth,Tuning.collisionHalfLength + spikeReach * .5f),out var contact);
+                IsPsychoBug ? PsychoCollisionSize : new Vector2(CollisionHalfWidth,Tuning.collisionHalfLength + spikeReach * .5f),out var contact);
             previousCollisionRelative=relative;
             if (contactFound)
             {
                 if(!IsSpikeDodgeCornerContact)
                 {
                     // Contact always ends the slam, even while ordinary collision damage is on cooldown.
-                    if(SpikeAttackDangerous) ApplySpikeRam();
+                    if (IsPsychoBug && PsychoPhase == PsychoBugPhase.Slamming) ApplyPsychoRam(contact);
+                    else if(SpikeAttackDangerous) ApplySpikeRam();
                     else if(!(SpikeAttackActive && spikeRamApplied) && Time.time >= nextCollisionTime)
                         RamByPlayer(VoxelVehicleCollision.ImpactDirection(contact,target.transform));
                 }
             }
-
-            if (!IsBoss && (TrackDistance < target.TrackDistance - 30f || TrackDistance > target.TrackDistance + GetMaximumDistanceAhead()))
-                Destroy(gameObject);
         }
 
         private float GetBossDriveSpeed()
@@ -334,6 +348,7 @@ namespace VoxelRacer
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
             TryRequestEvasiveLaneChange();
+            OnPsychoProjectileDamage();
             if(hitAttackRig && awardMissionPoints)
                 VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
                     VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage);
@@ -433,7 +448,7 @@ namespace VoxelRacer
 
         // Match the traffic spawner's configurable lead distance so an enemy created
         // offscreen is not immediately removed by its lifetime culling.
-        private float GetMaximumDistanceAhead() => Mathf.Max(110f,
+        private float GetMaximumDistanceAhead() => Mathf.Max(IsPsychoBug ? Psycho.maximumDistanceAhead : 110f,
             (trafficTuning != null ? trafficTuning.spawnDistanceAhead : 110f) + 30f);
 
         /// <summary>Detonates a previously damaged interceptor when the mission ends, without awarding extra points.</summary>
@@ -492,6 +507,7 @@ namespace VoxelRacer
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = target.transform.forward;
             bool rearImpact = IsRearImpact(hitDirection);
+            OnPsychoPlayerRam();
 
             int originalPlayerDamage = target.damageVoxelsPerHit;
             target.damageVoxelsPerHit = Random.Range(
@@ -558,13 +574,24 @@ namespace VoxelRacer
         public bool OccupiesLane(float candidateOffset, float laneWidth)
         {
             float tolerance = laneWidth * 0.25f;
+            if (IsPsychoBug)
+            {
+                float minimum = Mathf.Min(LaneOffset, targetLaneOffset);
+                float maximum = Mathf.Max(LaneOffset, targetLaneOffset);
+                if (PsychoAttacking)
+                {
+                    minimum = Mathf.Min(minimum, psychoAttackLane);
+                    maximum = Mathf.Max(maximum, psychoAttackLane);
+                }
+                return candidateOffset >= minimum - tolerance && candidateOffset <= maximum + tolerance;
+            }
             return Mathf.Abs(laneOffset - candidateOffset) <= tolerance ||
                 Mathf.Abs(targetLaneOffset - candidateOffset) <= tolerance;
         }
 
         private void TryRequestEvasiveLaneChange()
         {
-            if (evasiveChanceRolled || Tuning == null)
+            if (evasiveChanceRolled || Tuning == null || IsPsychoBug)
                 return;
 
             float damagePercent = 1f - HealthPercent;

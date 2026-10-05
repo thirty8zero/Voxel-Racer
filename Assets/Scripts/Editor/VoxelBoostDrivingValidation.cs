@@ -17,6 +17,23 @@ namespace VoxelRacer.Editor
                 const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
                 var method=typeof(VoxelCarController).GetMethod("CalculateNextDriveSpeed",flags);
                 float Step(float speed,bool brake=false)=>(float)method.Invoke(car,new object[]{speed,brake,.1f});
+                var speedField=typeof(VoxelCarController).GetField("<CurrentSpeed>k__BackingField",flags);
+                var request=typeof(VoxelCarController).GetMethod("RequestLaneChange",flags);
+                var advanceLane=typeof(VoxelCarController).GetMethod("AdvanceLaneChange",flags);
+                car.SetLaneLayout(3,3f);
+                request.Invoke(car,new object[]{0});request.Invoke(car,new object[]{2});
+                Equal(car.TargetLaneOffset,0f,"Stopped left/right input must not change or queue a lane");
+                speedField.SetValue(car,.01f);request.Invoke(car,new object[]{2});
+                Equal(car.TargetLaneOffset,3f,"Steering must work at any positive speed");
+                advanceLane.Invoke(car,new object[]{.1f});
+                float partialOffset=car.CurrentLaneOffset;
+                Check(partialOffset>0f && partialOffset<3f,"Moving car must advance towards its lane");
+                speedField.SetValue(car,0f);request.Invoke(car,new object[]{0});
+                advanceLane.Invoke(car,new object[]{.1f});
+                Equal(car.TargetLaneOffset,3f,"Stopped input must not replace an unfinished lane target");
+                Equal(car.CurrentLaneOffset,partialOffset,"Stopped car must freeze unfinished lateral movement");
+                speedField.SetValue(car,.01f);advanceLane.Invoke(car,new object[]{.1f});
+                Check(car.CurrentLaneOffset>partialOffset,"Lane movement must resume once the car moves");
                 Equal(Step(5),6,"Normal acceleration");
                 car.SetBoostSpeedBonus(20,3);
                 Equal(Step(5),8,"Boost below normal max speed");Equal(Step(30),33,"Boost above normal max speed");
@@ -37,7 +54,7 @@ namespace VoxelRacer.Editor
                 Check(VoxelVehicleCollision.Sweep(new Vector2(0,-6),new Vector2(0,-2),bounds,out hit),"Boost lunge missed");
                 Check(!VoxelVehicleCollision.Sweep(new Vector2(0,-10),new Vector2(0,-8),bounds,out hit),"Distant false collision");
                 Check(VoxelVehicleCollision.Sweep(new Vector2(3,0),Vector2.zero,bounds,out hit),"Lane change collision missed");
-                Debug.Log("PASS boost driving: low/high speed acceleration, cap, braking, upgrades, reset, disabled driving, lunge/recoil collision position, rear/oncoming swept impacts, adjacent lanes and lane changes.");
+                Debug.Log("PASS boost driving: stopped left/right input, unfinished lane freeze/resume, steering at positive speed, low/high speed acceleration, cap, braking, upgrades, reset, disabled driving, lunge/recoil collision position, rear/oncoming swept impacts, adjacent lanes and lane changes.");
             }
             finally{UnityEngine.Object.DestroyImmediate(root);}
         }

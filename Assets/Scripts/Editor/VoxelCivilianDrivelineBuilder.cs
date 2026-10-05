@@ -13,7 +13,10 @@ namespace VoxelRacer.Editor
         {
             VoxelCivilianHatchbackBuilder.PrefabPath,
             VoxelCivilianVanBuilder.PrefabPath,
-            VoxelCivilianBeetleBuilder.PrefabPath
+            VoxelCivilianBeetleBuilder.PrefabPath,
+            VoxelCivilianKombiBuilder.PrefabPath,
+            VoxelCivilianJettaBuilder.PrefabPath,
+            VoxelCivilianMercedesWagonBuilder.PrefabPath
         };
 
         [MenuItem("Tools/Voxel Racer/Update Civilian Axles and Drivelines")]
@@ -25,7 +28,7 @@ namespace VoxelRacer.Editor
                 try { AddStructure(root); PrefabUtility.SaveAsPrefabAsset(root, path); }
                 finally { PrefabUtility.UnloadPrefabContents(root); }
             }
-            Debug.Log("Added protected axles and drivelines to all three civilian prefabs (three pieces each).");
+            Debug.Log("Added protected axles and drivelines to all civilian prefabs (three pieces each).");
         }
 
         public static void AddStructure(GameObject root)

@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd2c4668e3de3334c942d4ea7a8106bb, type: 3}
+  m_Name: DesertGroundCover
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelDesertFoliageTuning
+  enabled: 1
+  material: {fileID: 2100000, guid: 5fe5a605b9ae21a41be08bec1e53bfdd, type: 2}
+  variants:
+  - {fileID: 4300000, guid: 3d1d897737c13fc49b341bccf7ce0956, type: 2}
+  - {fileID: 4300000, guid: a7af902d74392f74880b00a78cada2af, type: 2}
+  - {fileID: 4300000, guid: 68200c1370da88946a8ea1309e006533, type: 2}
+  - {fileID: 4300000, guid: b34181407a6eb49409d486a75e6adaaa, type: 2}
+  - {fileID: 4300000, guid: e064325e82e10b34780df5a3861b7924, type: 2}
+  - {fileID: 4300000, guid: b5bd4fec14051d845af458aed2f8d9f9, type: 2}
+  - {fileID: 4300000, guid: 53727d22586ed1940834c5d3237bf69a, type: 2}
+  - {fileID: 4300000, guid: ae63a019d2bfde341839c31baf42e122, type: 2}
+  - {fileID: 4300000, guid: 86c8154a3cd262b4a96075982fb429bc, type: 2}
+  - {fileID: 4300000, guid: 96a2f2fadb786ed4588f4ba149a4fa8a, type: 2}
+  - {fileID: 4300000, guid: 4962040315e9b2d4a8db94976f0c2254, type: 2}
+  - {fileID: 4300000, guid: 34f1ba034ef2c104c85c8a05684a9b25, type: 2}
+  - {fileID: 4300000, guid: 4cd0015066dacf0478448ab63ed6ffa1, type: 2}
+  - {fileID: 4300000, guid: 0c41a5f9b617d7543a9ac3ca5008cb50, type: 2}
+  - {fileID: 4300000, guid: bfc24aa0c6ab0a044a557c19db774682, type: 2}
+  - {fileID: 4300000, guid: 04cf9884a1fa405499907c3ee57a572e, type: 2}
+  drawDistance: 150
+  fadeStartDistance: 110
+  clumpsPerSegment: 180
+  roadsideDistance: 38
+  roadClearance: 1.2
+  scaleRange: {x: 0.75, y: 1.35}
+  seed: 28571
+  patchSize: 24
+  patchCoverage: 0.55
+  patchContrast: 0.95
+  distantClumpsPerTile: 28
