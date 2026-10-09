@@ -112,6 +112,7 @@ namespace VoxelRacer.Editor
                 if (name == "oilSpinDuration" || name == "oilTireMarkLifetime") attributes.Add(new SuffixLabelAttribute("s"));
             }
             if (type == typeof(VoxelCameraTuning) && group.Contains("Shake")) group = "Screen Shake/" + group;
+            if (type == typeof(VoxelCameraTuning) && name == "deathFollowSmoothTime") attributes.Add(new SuffixLabelAttribute("s"));
             if (name.Contains("Degrees") || name.Contains("Angle") || name.EndsWith("FieldOfView")) attributes.Add(new SuffixLabelAttribute("degrees"));
             if (name.EndsWith("Frequency")) attributes.Add(new SuffixLabelAttribute("Hz"));
             if (name.EndsWith("Offset") || name.EndsWith("LookAhead") || name.EndsWith("LookHeight") || name.EndsWith("PositionStrength") || name == "cameraPosition" || name == "cameraLookAt") attributes.Add(new SuffixLabelAttribute("m"));

@@ -7,6 +7,7 @@ namespace VoxelRacer
     {
         private GameObject garageRepairPanel, garageUpgradePanel, garageSettingsPanel, garageHome;
         private GameObject garageSettingsOverlay;
+        private Text garageWaveDebugLabel;
         private bool GarageSettingsVisible => garageSettingsOverlay != null && garageSettingsOverlay.activeSelf;
         private RectTransform garageCashFrame, garageSettingsButton;
         private static readonly Color RepairAccent = new(.95f,.15f,.19f);
@@ -47,12 +48,19 @@ namespace VoxelRacer
         private void ShowGarageSettings()
         {
             placementPointerHeld = rotatingCar = pinching = false;
+            garageWaveDebugLabel.text = VoxelFpsCounter.ShowWaveDebug ? "WAVE DEBUG ON" : "WAVE DEBUG OFF";
             garageSettingsOverlay.transform.SetAsLastSibling();
             garageSettingsOverlay.SetActive(true);
         }
         private void HideGarageSettings()
         {
             if (garageSettingsOverlay != null) garageSettingsOverlay.SetActive(false);
+        }
+        private void ResetGarageRun()
+        {
+            if (isLoading || !GarageSettingsVisible) return;
+            CancelUpgradePlacement();
+            VoxelCarRunState.ResetAndReturnToMainMenu();
         }
         private void StyleGarageUi(RectTransform canvas)
         {
@@ -89,12 +97,25 @@ namespace VoxelRacer
             settingsOverlay.rectTransform.offsetMin=settingsOverlay.rectTransform.offsetMax=Vector2.zero;
             settingsOverlay.color=new Color(0,0,0,.65f);settingsOverlay.raycastTarget=true;
             garageSettingsOverlay=settingsOverlay.gameObject;
-            garageSettingsPanel=VoxelMenuUi.CreatePanel(settingsOverlay.transform,"Garage Settings",new(.5f,.5f),Vector2.zero,new(580,300)).gameObject;
+            garageSettingsPanel=VoxelMenuUi.CreatePanel(settingsOverlay.transform,"Garage Settings",new(.5f,.5f),Vector2.zero,new(580,540)).gameObject;
             Frame(garageSettingsPanel,new Color(.4f,.48f,.56f),new Color(.02f,.03f,.045f,.98f));
-            VoxelMenuUi.CreateText(garageSettingsPanel.transform,"Settings Title","SETTINGS",55,TextAnchor.MiddleCenter,new(.5f,.5f),new(0,85),new(420,80));
-            var sound=VoxelMenuUi.CreateButton(garageSettingsPanel.transform,"Sound Toggle","",35,new(.5f,.5f),new(0,-10),new(460,70),()=>{});
+            VoxelMenuUi.CreateText(garageSettingsPanel.transform,"Settings Title","SETTINGS",55,TextAnchor.MiddleCenter,new(.5f,.5f),new(0,205),new(420,80));
+            var sound=VoxelMenuUi.CreateButton(garageSettingsPanel.transform,"Sound Toggle","",35,new(.5f,.5f),new(0,105),new(460,70),()=>{});
             var soundLabel=sound.GetComponentInChildren<Text>();soundLabel.text=AudioListener.volume>0?"SOUND ON":"SOUND OFF";
             sound.onClick.AddListener(()=>{AudioListener.volume=AudioListener.volume>0?0:1;soundLabel.text=AudioListener.volume>0?"SOUND ON":"SOUND OFF";});
+            var waveDebug=VoxelMenuUi.CreateButton(garageSettingsPanel.transform,"Wave Debug Toggle","",35,new(.5f,.5f),new(0,10),new(460,70),()=>{});
+            garageWaveDebugLabel=waveDebug.GetComponentInChildren<Text>();
+            garageWaveDebugLabel.text=VoxelFpsCounter.ShowWaveDebug?"WAVE DEBUG ON":"WAVE DEBUG OFF";
+            waveDebug.onClick.AddListener(()=>
+            {
+                VoxelFpsCounter.SetWaveDebugVisible(!VoxelFpsCounter.ShowWaveDebug);
+                garageWaveDebugLabel.text=VoxelFpsCounter.ShowWaveDebug?"WAVE DEBUG ON":"WAVE DEBUG OFF";
+            });
+            var reset=VoxelMenuUi.CreateButton(garageSettingsPanel.transform,"Reset Run Button","RESET RUN",35,
+                new(.5f,.5f),new(0,-95),new(460,70),ResetGarageRun);
+            Frame(reset.gameObject,RepairAccent,new Color(.17f,.025f,.035f,.95f));
+            Caption(garageSettingsPanel.transform,"Reset Run Description","CLEARS CASH, UPGRADES AND PROGRESS\nRETURNS TO MAIN MENU",20,
+                new(.5f,.5f),new(0,-165),new(510,56));
             foreach(var panel in new[]{garageRepairPanel,garageUpgradePanel,garageSettingsPanel})
             {
                 bool isUpgradePanel = panel == garageUpgradePanel;

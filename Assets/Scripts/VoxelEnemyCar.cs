@@ -507,6 +507,7 @@ namespace VoxelRacer
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = target.transform.forward;
             bool rearImpact = IsRearImpact(hitDirection);
+            float boostRamMultiplier = target.BoostRamDamageMultiplier;
             OnPsychoPlayerRam();
 
             int originalPlayerDamage = target.damageVoxelsPerHit;
@@ -517,11 +518,11 @@ namespace VoxelRacer
             target.damageVoxelsPerHit = originalPlayerDamage;
 
             int removedVoxels = ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,
-                -hitDirection, Mathf.RoundToInt(VoxelPloughUpgradeState.ImpactDamage(Random.Range(
+                -hitDirection, Mathf.RoundToInt(boostRamMultiplier * VoxelPloughUpgradeState.ImpactDamage(Random.Range(
                     Mathf.Min(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax),
                     Mathf.Max(trafficTuning.obstacleDamageVoxelsMin, trafficTuning.obstacleDamageVoxelsMax) + 1), target.transform, hitDirection)));
             float ramDamage = VoxelPloughUpgradeState.ImpactDamage(
-                VoxelWheelSpikeUpgradeState.CalculateRamDamage(Tuning.playerRamDamage, rearImpact), target.transform, hitDirection);
+                VoxelWheelSpikeUpgradeState.CalculateRamDamage(Tuning.playerRamDamage, rearImpact), target.transform, hitDirection) * boostRamMultiplier;
             VoxelMissionProgress.ReportEnemyVoxelDestroyed(removedVoxels, transform.position);
             CurrentHealth = Mathf.Max(0f, CurrentHealth - ramDamage);
             CheckBossBodyDestroyed();

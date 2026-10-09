@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelCameraTuning
   chaseOffset: {x: -8.5, y: 11, z: -11}
   chaseLookAhead: 14
+  deathFollowSmoothTime: 0.2
   finishOffset: {x: -4.2, y: 2.5, z: 5.5}
   finishLookHeight: 0.9
   finishLookSideOffset: 3.4

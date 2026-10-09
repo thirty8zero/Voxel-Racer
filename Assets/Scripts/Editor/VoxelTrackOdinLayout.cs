@@ -33,6 +33,10 @@ namespace VoxelRacer.Editor
             if(name.StartsWith("groundNoise")) attributes.Add(new ShowIfAttribute("groundPixelNoiseEnabled"));
             if(name.StartsWith("roadTexture") && name!="roadTextureEnabled") attributes.Add(new ShowIfAttribute("roadTextureEnabled"));
             if(name.StartsWith("sun")) attributes.Add(new ShowIfAttribute("horizonSunEnabled"));
+            if(name=="sunDistanceAhead") attributes.Add(new LabelTextAttribute("Sun Distance (m)"));
+            if(name=="sunHorizontalOffset") attributes.Add(new LabelTextAttribute("Sun Horizontal Offset (m)"));
+            if(name=="sunHorizonHeight") attributes.Add(new LabelTextAttribute("Sun Height (m)"));
+            if(name=="sunDiameter") attributes.Add(new LabelTextAttribute("Sun Diameter (m)"));
             if(name.StartsWith("mountain") || name=="minimumMountainPeakHeight" || name=="maximumMountainPeakHeight")
                 attributes.Add(new ShowIfAttribute("horizonMountainsEnabled"));
         }

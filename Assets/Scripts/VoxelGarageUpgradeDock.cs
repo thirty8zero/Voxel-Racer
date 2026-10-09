@@ -35,12 +35,12 @@ namespace VoxelRacer
             rightArmorUpgradeButton.gameObject.SetActive(false);
             rightMissileButton.gameObject.SetActive(false);
             var buttons = new[] { leftArmorUpgradeButton, engineUpgradeButton, gunUpgradeButton,
-                leftMissileButton, performanceWheelButton, boostUpgradeButton, wheelSpikeUpgradeButton, ploughUpgradeButton };
-            var titles = new[] { "ARMOUR", "ENGINE", "MACHINE\nGUNS", "MISSILES",
-                "TIRES", "BOOST", "WHEEL\nSPIKES", "PLOUGH" };
+                leftMissileButton, performanceWheelButton, boostUpgradeButton, wheelSpikeUpgradeButton, ploughUpgradeButton, starWheelSpikeUpgradeButton };
+            var titles = new[] { "ARMOUR", "ENGINE +\nSPOILER", "MACHINE\nGUNS", "MISSILES",
+                "TIRES", "BOOST", "WHEEL\nSPIKES", "PLOUGH", "STAR WHEEL\nSPIKES" };
             var kinds = new[] { VoxelGarageIconKind.Armour, VoxelGarageIconKind.Engine, VoxelGarageIconKind.Guns,
                 VoxelGarageIconKind.Missile, VoxelGarageIconKind.Wheels, VoxelGarageIconKind.Boost,
-                VoxelGarageIconKind.Spikes, VoxelGarageIconKind.Plough };
+                VoxelGarageIconKind.Spikes, VoxelGarageIconKind.Plough, VoxelGarageIconKind.StarSpikes };
             cr.sizeDelta = new Vector2(buttons.Length*224-14,234);
             sortedUpgradeCards = new VoxelGarageUpgradeCard[buttons.Length];
             for(int i=0;i<buttons.Length;i++)
@@ -228,7 +228,12 @@ namespace VoxelRacer
                 (VoxelMissileUpgradeState.IsPurchased(false)?1:0)+(VoxelMissileUpgradeState.IsPurchased(true)?1:0),2,PendingCount(VoxelGarageUpgradeKind.Missiles),AvailableUpgradeCash);
             var wheels=VoxelPerformanceWheelTuning.Load(); Card(performanceWheelButton,wheels!=null?wheels.purchasePrice:0,wheels!=null && wheels.Fits(definition),VoxelPerformanceWheelUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Wheels);
             var boost=VoxelBoostUpgradeTuning.LoadUpgrade(); Card(boostUpgradeButton,boost!=null?boost.purchasePrice:0,boost!=null && boost.Fits(definition),VoxelBoostUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Boost);
-            var spikes=VoxelWheelSpikeTuning.Load(); Card(wheelSpikeUpgradeButton,spikes!=null?spikes.purchasePrice:0,spikes!=null && spikes.spikePrefab!=null,VoxelWheelSpikeUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Spikes);
+            var spikes=VoxelWheelSpikeTuning.Load(); Card(wheelSpikeUpgradeButton,spikes!=null?spikes.purchasePrice:0,
+                spikes!=null && spikes.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.StarSpikes)==0,
+                VoxelWheelSpikeUpgradeState.IsEquipped(spikes),VoxelGarageUpgradeKind.Spikes);
+            var star=VoxelWheelSpikeTuning.LoadStar(); Card(starWheelSpikeUpgradeButton,star!=null?star.purchasePrice:0,
+                star!=null && star.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.Spikes)==0,
+                VoxelWheelSpikeUpgradeState.IsEquipped(star),VoxelGarageUpgradeKind.StarSpikes);
             var plough=VoxelPloughTuning.Load(); Card(ploughUpgradeButton,plough!=null?plough.purchasePrice:0,plough!=null && plough.Fits(definition),VoxelPloughUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Plough);
             SortUpgradeCards();
             CacheGarageCarBounds();

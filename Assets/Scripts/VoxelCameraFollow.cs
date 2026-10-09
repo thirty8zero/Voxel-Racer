@@ -22,6 +22,7 @@ namespace VoxelRacer
         [Min(0.01f)] public float finishSequenceDuration = 2.5f;
 
         public bool FinishSequenceComplete { get; private set; }
+        public bool DeathSequenceComplete { get; private set; }
 
         private VoxelCarController finishTarget;
         private Vector3 finishStartOffset;
@@ -36,6 +37,14 @@ namespace VoxelRacer
         private float laneChangeStartedAt;
         private CameraShake impactShake;
         private CameraShake explosionShake;
+        private Transform cameraPoseTarget, destroyedFollowTarget;
+        private VoxelCarController destroyedCar;
+        private Vector3 unshakenCameraPosition, lastTargetPosition;
+        private Quaternion unshakenCameraRotation;
+        private Vector3 destroyedCameraOffset, destroyedTargetPosition, destroyedCameraVelocity;
+        private Quaternion destroyedCameraRotation;
+        private Quaternion lastRoadHeading = Quaternion.identity, destroyedRoadHeading;
+        private float deathSequenceElapsed, deathStartFieldOfView;
 
         private VoxelCameraTuning Tuning => tuning != null ? tuning : VoxelCameraTuning.Load();
 
@@ -62,23 +71,89 @@ namespace VoxelRacer
             if (!Application.isPlaying || VoxelPauseMenu.IsPaused || target == null)
                 return;
 
+            UpdateFollow(Time.deltaTime);
+        }
+
+        private void UpdateFollow(float deltaTime)
+        {
+            var player = target.GetComponent<VoxelCarController>();
+            if (player != null && player.IsDestroyed)
+            {
+                BeginDeathSequence(player);
+                UpdateDestroyedFollow(deltaTime);
+                return;
+            }
+            destroyedFollowTarget = null;
+            destroyedCar = null;
+            DeathSequenceComplete = false;
+
             if (finishSequenceActive)
             {
+                lastRoadHeading = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
                 UpdateFinishSequence();
                 return;
             }
 
-            var player = target.GetComponent<VoxelCarController>();
             bool oilSpin = player != null && player.IsOilSpinning && player.TrackPath != null;
             Quaternion roadHeading = oilSpin ? player.TrackPath.Evaluate(player.TrackDistance).rotation :
                 Quaternion.Euler(0f, target.eulerAngles.y, 0f);
+            lastRoadHeading = roadHeading;
             Vector3 cameraTargetPosition = GetSmoothedLaneTargetPosition(roadHeading);
             Vector3 chaseOffset = Tuning != null ? Tuning.chaseOffset : offset;
-            chaseOffset = GetBossAttackCameraOffset(player, cameraTargetPosition, roadHeading, chaseOffset, Time.deltaTime);
+            chaseOffset = GetBossAttackCameraOffset(player, cameraTargetPosition, roadHeading, chaseOffset, deltaTime);
             float chaseLookAhead = Tuning != null ? Tuning.chaseLookAhead : lookAhead;
             transform.position = cameraTargetPosition + roadHeading * chaseOffset;
             Vector3 lookForward = oilSpin ? roadHeading * Vector3.forward : target.forward;
             transform.rotation = Quaternion.LookRotation(cameraTargetPosition + lookForward * chaseLookAhead + Vector3.up * 0.3f - transform.position);
+            ApplyShake();
+        }
+
+        public void BeginDeathSequence(VoxelCarController car)
+        {
+            if (car == null || destroyedFollowTarget == car.transform) return;
+            target = car.transform;
+            // Capture the clean view and a stable road heading before the wreck tumbles.
+            bool hasPreviousPose = cameraPoseTarget == target;
+            Vector3 startPosition = hasPreviousPose ? unshakenCameraPosition : transform.position;
+            destroyedCameraRotation = hasPreviousPose ? unshakenCameraRotation : transform.rotation;
+            destroyedTargetPosition = hasPreviousPose ? lastTargetPosition : target.position;
+            destroyedCameraOffset = startPosition - destroyedTargetPosition;
+            destroyedRoadHeading = hasPreviousPose ? lastRoadHeading : car.TrackPath != null
+                ? car.TrackPath.Evaluate(car.TrackDistance).rotation : Quaternion.Euler(0f, target.eulerAngles.y, 0f);
+            destroyedCameraVelocity = Vector3.zero;
+            destroyedFollowTarget = target;
+            destroyedCar = car;
+            deathSequenceElapsed = 0f;
+            var camera = GetComponent<Camera>();
+            deathStartFieldOfView = camera != null ? camera.fieldOfView : finishFieldOfView;
+            finishSequenceActive = false;
+            FinishSequenceComplete = DeathSequenceComplete = false;
+        }
+
+        private void UpdateDestroyedFollow(float deltaTime)
+        {
+            var settings = Tuning;
+            float smoothTime = settings != null ? settings.deathFollowSmoothTime : .2f;
+            if (deltaTime > 0f)
+                destroyedTargetPosition = Vector3.SmoothDamp(destroyedTargetPosition,
+                    destroyedCar.WreckFocusPosition, ref destroyedCameraVelocity,
+                    Mathf.Max(.01f, smoothTime), Mathf.Infinity, deltaTime);
+            deathSequenceElapsed += Mathf.Max(0f, deltaTime);
+            float duration = settings != null ? settings.finishSequenceDuration : finishSequenceDuration;
+            float progress = duration <= .001f ? 1f : Mathf.Clamp01(deathSequenceElapsed / duration);
+            float eased = progress * progress * (3f - 2f * progress);
+            Vector3 endOffset = destroyedRoadHeading * (settings != null ? settings.finishOffset : finishOffset);
+            Vector3 orbit = InterpolateOrbitOffset(destroyedCameraOffset, endOffset, eased);
+            transform.position = destroyedTargetPosition + orbit;
+            // Death UI sits above/below the wreck, so its visual centre stays at viewport (0.5, 0.5).
+            Vector3 lookPoint = destroyedTargetPosition;
+            transform.rotation = Quaternion.Slerp(destroyedCameraRotation,
+                Quaternion.LookRotation(lookPoint - transform.position), eased);
+            var camera = GetComponent<Camera>();
+            if (camera != null) camera.fieldOfView = Mathf.Lerp(deathStartFieldOfView,
+                settings != null ? settings.finishFieldOfView : finishFieldOfView, eased);
+            DeathSequenceComplete = progress >= 1f &&
+                (destroyedCar.WreckFocusPosition - destroyedTargetPosition).sqrMagnitude < .0004f;
             ApplyShake();
         }
 
@@ -91,14 +166,7 @@ namespace VoxelRacer
 
             Vector3 endOffset = Quaternion.Euler(0f, target.eulerAngles.y, 0f) *
                 (settings != null ? settings.finishOffset : finishOffset);
-            Vector3 startHorizontal = new Vector3(finishStartOffset.x, 0f, finishStartOffset.z);
-            Vector3 endHorizontal = new Vector3(endOffset.x, 0f, endOffset.z);
-            float startAngle = Mathf.Atan2(startHorizontal.x, startHorizontal.z) * Mathf.Rad2Deg;
-            float endAngle = Mathf.Atan2(endHorizontal.x, endHorizontal.z) * Mathf.Rad2Deg;
-            float angle = Mathf.LerpAngle(startAngle, endAngle, easedProgress) * Mathf.Deg2Rad;
-            float radius = Mathf.Lerp(startHorizontal.magnitude, endHorizontal.magnitude, easedProgress);
-            float height = Mathf.Lerp(finishStartOffset.y, endOffset.y, easedProgress);
-            Vector3 orbitOffset = new Vector3(Mathf.Sin(angle) * radius, height, Mathf.Cos(angle) * radius);
+            Vector3 orbitOffset = InterpolateOrbitOffset(finishStartOffset, endOffset, easedProgress);
 
             transform.position = target.position + orbitOffset;
             Vector3 finishLookPoint = target.position + target.right *
@@ -116,6 +184,18 @@ namespace VoxelRacer
 
             if (progress >= 1f)
                 FinishSequenceComplete = true;
+        }
+
+        private static Vector3 InterpolateOrbitOffset(Vector3 startOffset, Vector3 endOffset, float progress)
+        {
+            Vector3 startHorizontal = new Vector3(startOffset.x, 0f, startOffset.z);
+            Vector3 endHorizontal = new Vector3(endOffset.x, 0f, endOffset.z);
+            float startAngle = Mathf.Atan2(startHorizontal.x, startHorizontal.z) * Mathf.Rad2Deg;
+            float endAngle = Mathf.Atan2(endHorizontal.x, endHorizontal.z) * Mathf.Rad2Deg;
+            float angle = Mathf.LerpAngle(startAngle, endAngle, progress) * Mathf.Deg2Rad;
+            float radius = Mathf.Lerp(startHorizontal.magnitude, endHorizontal.magnitude, progress);
+            float height = Mathf.Lerp(startOffset.y, endOffset.y, progress);
+            return new Vector3(Mathf.Sin(angle) * radius, height, Mathf.Cos(angle) * radius);
         }
 
         /// <summary>Shared shake for every successful player-damage event.</summary>
@@ -187,6 +267,11 @@ namespace VoxelRacer
 
         private void ApplyShake()
         {
+            // Shake never feeds back into the next frame's death-follow pose.
+            cameraPoseTarget = target;
+            unshakenCameraPosition = transform.position;
+            unshakenCameraRotation = transform.rotation;
+            lastTargetPosition = target.position;
             ApplyShake(ref impactShake);
             ApplyShake(ref explosionShake);
         }

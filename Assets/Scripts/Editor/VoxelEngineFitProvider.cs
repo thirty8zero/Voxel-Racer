@@ -7,7 +7,7 @@ namespace VoxelRacer.Editor
         {
             foreach(var tuning in VoxelUpgradeFitCatalog.Assets<VoxelEngineUpgradeTuning>())
                 yield return new VoxelUpgradeFitEntry {
-                    Asset=tuning, Label=tuning.displayName+" — Engine bay + left/right exhausts", Fits=tuning.Fits,
+                    Asset=tuning, Label=tuning.displayName+" — Engine bay + left/right exhausts + rear spoiler", Fits=tuning.Fits,
                     Build=car=>VoxelEngineUpgradeState.CreateVisual(car,tuning)
                 };
         }

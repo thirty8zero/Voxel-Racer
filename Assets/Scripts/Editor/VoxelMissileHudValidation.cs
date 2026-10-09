@@ -112,13 +112,14 @@ namespace VoxelRacer.Editor
                 var text = root.GetComponentsInChildren<Text>().First(t => t.name == "Boost Label");
                 Check(ring.color.b > ring.color.r && text.color.b > text.color.r, "Boost ring and label must be blue");
                 var boostButtonRect = root.GetComponentsInChildren<Button>().First(b => b.name == "Boost Button").GetComponent<RectTransform>();
-                Check(boostButtonRect.anchorMin == new Vector2(1, 0) &&
-                    boostButtonRect.anchoredPosition == new Vector2(-150, 330) &&
+                Check(boostButtonRect.anchorMin == Vector2.zero &&
+                    boostButtonRect.anchoredPosition == new Vector2(260, 630) &&
+                    boostButtonRect.sizeDelta == new Vector2(220, 220) &&
                     ring.rectTransform.anchorMin == boostButtonRect.anchorMin &&
                     ring.rectTransform.anchoredPosition == boostButtonRect.anchoredPosition &&
-                    text.rectTransform.anchorMin == boostButtonRect.anchorMin &&
-                    text.rectTransform.anchoredPosition == boostButtonRect.anchoredPosition,
-                    "Boost button, dial and label must sit directly above gun fire");
+                    text.transform.parent.name == "Boost Cap" &&
+                    text.transform.IsChildOf(boostButtonRect),
+                    "Boost must sit above the left brake, with its label on the moving cap");
                 Check(ring.fillClockwise && ring.fillOrigin == (int)Image.Origin360.Bottom &&
                     Mathf.Abs(ring.fillAmount - 300f / 360f) < .001f &&
                     Mathf.Abs(Mathf.DeltaAngle(ring.rectTransform.localEulerAngles.z, -30f)) < .001f,
@@ -173,12 +174,11 @@ namespace VoxelRacer.Editor
             foreach (Transform child in mobileCanvas) if (child != display.transform) child.gameObject.SetActive(false);
             Place(display.GetComponent<RectTransform>(), new Vector2(-200, 0), new Vector2(200, 200));
             var boostButton = root.GetComponentsInChildren<Button>().First(b => b.name == "Boost Button");
-            Place(boostButton.GetComponent<RectTransform>(), new Vector2(200, 0), new Vector2(198, 198));
+            Place(boostButton.GetComponent<RectTransform>(), new Vector2(200, 0), new Vector2(220, 220));
             Place(ring.rectTransform, new Vector2(200, 0), new Vector2(220, 220));
             var track = root.GetComponentsInChildren<Image>().First(i => i.name == "Boost Charge Track");
             Place(track.rectTransform, new Vector2(200, 0), new Vector2(220, 220));
-            var text = root.GetComponentsInChildren<Text>().First(t => t.name == "Boost Label");
-            Place(text.rectTransform, new Vector2(200, 0), new Vector2(158, 100));
+            var boostDisplay = root.GetComponent<VoxelBoostDisplay>();
             foreach (var transform in root.GetComponentsInChildren<Transform>(true)) transform.gameObject.layer = 31;
             Directory.CreateDirectory("Temp/Missile/Hud");
             var rt = new RenderTexture(800, 300, 24);
@@ -190,6 +190,7 @@ namespace VoxelRacer.Editor
                 foreach (float progress in new[] { 1f, 0f, .25f, .5f, .75f })
                 {
                     SetProgress(mount, progress); Refresh(display); ring.fillAmount = progress * (300f / 360f);
+                    VoxelMissileValidation.Call(boostDisplay, "RefreshPresentation", progress, progress, progress >= .999f);
                     Canvas.ForceUpdateCanvases(); camera.Render(); camera.Render();
                     RenderTexture.active = rt; texture.ReadPixels(new Rect(0, 0, 800, 300), 0, 0); texture.Apply();
                     File.WriteAllBytes("Temp/Missile/Hud/Charge" + Mathf.RoundToInt(progress * 100) + ".png", texture.EncodeToPNG());

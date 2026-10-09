@@ -7,6 +7,20 @@ namespace VoxelRacer
     /// <summary>Creates simple lane obstacles ahead of the moving car.</summary>
     public sealed class VoxelObstacleSpawner : MonoBehaviour
     {
+        public static VoxelObstacleSpawner Active { get; private set; }
+        public int WavesSpawned { get; private set; }
+        public int QueuedObjects => pendingSpawnRequests.Count;
+        public bool WaitingForOpening => countdown != null && !countdown.IsTrafficSpawnWindowOpen;
+        public bool SpawningFinished => !isActiveAndEnabled || target == null || target.IsDestroyed ||
+            (runFinish != null && runFinish.HasFinished) || VoxelMissionProgress.Active?.IsComplete == true;
+        /// <summary>Estimated game seconds at the current speed; the same rate drives Update.</summary>
+        public float NextWaveSeconds => Mathf.Max(0f, spawnTimeRemaining) / WaveCountdownRate;
+        private float WaveCountdownRate => target != null && target.EffectiveTopSpeed > 0f
+            ? Mathf.Max(1f, target.CurrentSpeed / target.EffectiveTopSpeed) : 1f;
+
+        private void OnEnable() => Active = this;
+        private void OnDisable() { if (Active == this) Active = null; }
+
         [Header("Spawn Timing")]
         [Min(0.1f)] public float minimumSpawnInterval = 2.5f;
         [Min(0.1f)] public float maximumSpawnInterval = 4.5f;
@@ -137,11 +151,7 @@ namespace VoxelRacer
 
             // Actual travel above the engine-adjusted normal maximum brings the
             // next wave forward. Braking and initial acceleration keep normal pacing.
-            float normalTopSpeed = target.EffectiveTopSpeed;
-            float countdownRate = normalTopSpeed > 0f
-                ? Mathf.Max(1f, target.CurrentSpeed / normalTopSpeed)
-                : 1f;
-            spawnTimeRemaining -= Time.deltaTime * countdownRate;
+            spawnTimeRemaining -= Time.deltaTime * WaveCountdownRate;
             if (spawnTimeRemaining > 0f)
                 return;
 
@@ -173,6 +183,7 @@ namespace VoxelRacer
                 pendingSpawnRequests.Enqueue(new SpawnRequest(path, objectDistance));
             }
 
+            WavesSpawned++;
             ScheduleNextSpawn();
         }
 

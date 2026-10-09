@@ -4,7 +4,8 @@ namespace VoxelRacer
     [CreateAssetMenu(menuName="Voxel Racer/Engine Upgrade",fileName="V6EngineUpgradeTuning")]
     public sealed class VoxelEngineUpgradeTuning : ScriptableObject
     {
-        public string displayName="V6 ENGINE";
+        public string displayName="V6 ENGINE + SPOILER";
+        [Tooltip("Bundled engine, exhausts and rear spoiler; gameplay and fit previews mount this same prefab.")]
         public GameObject enginePrefab;
         public GameObject compatibleCarPrefab;
         [Min(0)] public int purchasePrice=1500;

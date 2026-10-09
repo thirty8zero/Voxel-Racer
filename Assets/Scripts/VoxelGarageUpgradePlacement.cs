@@ -7,7 +7,7 @@ using Object = UnityEngine.Object;
 
 namespace VoxelRacer
 {
-    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough }
+    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough, StarSpikes }
 
     public readonly struct VoxelGarageUpgradeSelection
     {
@@ -166,8 +166,10 @@ namespace VoxelRacer
                 case VoxelGarageUpgradeKind.Wheels:
                     VoxelPerformanceWheelUpgradeState.CreateVisuals(car, VoxelPerformanceWheelTuning.Load()); break;
                 case VoxelGarageUpgradeKind.Spikes:
+                case VoxelGarageUpgradeKind.StarSpikes:
                     foreach (var wheel in car.GetComponentsInChildren<Transform>(true))
-                        if (wheel.name == "Voxel Wheel") VoxelWheelSpikeUpgradeState.CreateVisual(car, wheel, VoxelWheelSpikeTuning.Load());
+                        if (wheel != null && wheel.name == "Voxel Wheel") VoxelWheelSpikeUpgradeState.CreateVisual(car, wheel,
+                            kind == VoxelGarageUpgradeKind.StarSpikes ? VoxelWheelSpikeTuning.LoadStar() : VoxelWheelSpikeTuning.Load());
                     break;
                 case VoxelGarageUpgradeKind.Boost:
                     VoxelBoostUpgradeState.CreateVisual(car, VoxelBoostUpgradeTuning.LoadUpgrade()); break;

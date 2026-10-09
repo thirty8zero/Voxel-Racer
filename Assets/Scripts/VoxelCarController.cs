@@ -69,6 +69,7 @@ namespace VoxelRacer
         public float BoostForwardOffset => boostForwardOffset;
         public float PlannedFinishStopDuration { get; private set; }
         public bool IsDestroyed { get; private set; }
+        public bool IsWreckResting => IsDestroyed && wreckResting;
         /// <summary>Live count of the player's remaining destructible visual voxels.</summary>
         public int RemainingIntegrityVoxels => IsDestroyed ? 0 : CountDestructibleVoxels();
         /// <summary>Total damageable voxels that make up this car at full integrity.</summary>
@@ -100,6 +101,10 @@ namespace VoxelRacer
         private float visualYaw;
         private float visualRoll;
         private float boostSpeedBonus;
+        // Boost lives on the race environment, so bind it explicitly instead of searching per impact.
+        internal VoxelBoostController BoostController { get; set; }
+        internal float BoostRamDamageMultiplier => BoostController != null && BoostController.Target == this
+            ? BoostController.RamDamageMultiplier : 1f;
         private float boostForwardOffset;
         private float targetBoostForwardOffset;
         private float boostForwardOffsetStart;
@@ -114,8 +119,6 @@ namespace VoxelRacer
         private float ramResponseLateralStart;
         private VoxelEasingType ramResponseEasing;
         private int initialIntegrityVoxels;
-        private Vector3 destroyedVelocity;
-        private float wreckGroundHeight;
         private bool wreckResting;
         private const float RepairAttachmentDistance = 0.65f;
         private const float FourSecondStopBrakingReference = 30f;
@@ -522,37 +525,12 @@ namespace VoxelRacer
             finishingRun = false;
             CurrentSpeed = 0f;
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f, explosionEffectScale);
-            wreckGroundHeight = transform.position.y;
             wreckResting = false;
-
-            Vector3 launchDirection = impactDirection.sqrMagnitude > 0.001f
-                ? impactDirection.normalized
-                : transform.forward;
-            destroyedVelocity = launchDirection * Random.Range(explosionForwardForceMin, explosionForwardForceMax)
-                + Vector3.up * Mathf.Max(2f, explosionUpwardForce * 2f);
+            BeginDestroyedWreck(impactDirection);
 
             foreach (var gun in GetComponentsInChildren<VoxelGunMount>())
                 gun.enabled = false;
-        }
-
-        private void UpdateDestroyedWreck()
-        {
-            if (wreckResting)
-                return;
-
-            destroyedVelocity += Physics.gravity * Time.deltaTime;
-            transform.position += destroyedVelocity * Time.deltaTime;
-            if (destroyedVelocity.sqrMagnitude > 0.001f)
-                transform.Rotate(destroyedVelocity.normalized * 220f * Time.deltaTime, Space.World);
-
-            if (transform.position.y > wreckGroundHeight || destroyedVelocity.y > 0f)
-                return;
-
-            Vector3 position = transform.position;
-            position.y = wreckGroundHeight;
-            transform.position = position;
-            destroyedVelocity = Vector3.zero;
-            wreckResting = true;
+            VoxelPlayerDeathScreen.Active?.BeginPlayerDeath(this);
         }
 
         /// <summary>

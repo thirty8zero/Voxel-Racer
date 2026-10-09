@@ -194,10 +194,13 @@ MonoBehaviour:
   fogColour: {r: 0.58, g: 0.2, b: 0.18, a: 1}
   fogStartDistance: 90
   fogEndDistance: 320
-  horizonSunEnabled: 0
+  horizonSunEnabled: 1
   sunDistanceAhead: 220
-  sunHorizontalOffset: 12
-  sunHorizonHeight: -80
+  sunAzimuthDegrees: 45
+  sunHorizontalOffset: 0
+  sunHorizonHeight: 12
+  sunDiameter: 24
+  sunColour: {r: 1, g: 0.84, b: 0.12, a: 1}
   horizonMountainsEnabled: 1
   mountainCardMaterial: {fileID: 2100000, guid: 623b048a329eb854893a0a1016020954, type: 2}
   mountainCardVerticalUV: {x: 0.035, y: 0.325}

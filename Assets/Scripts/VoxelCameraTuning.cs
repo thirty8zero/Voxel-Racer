@@ -33,6 +33,10 @@ namespace VoxelRacer
         public Vector3 chaseOffset = new(-8.5f, 11f, -11f);
         [Min(0f)] public float chaseLookAhead = 14f;
 
+        [Header("Death Camera")]
+        [Tooltip("Position smoothing time in seconds while following the wreck's visual centre. Its swoop uses Finish View offset/FOV/duration with a fixed road heading, and ends centred rather than using Finish Look Side Offset.")]
+        [Min(.01f)] public float deathFollowSmoothTime = .2f;
+
         [Header("Finish View")]
         public Vector3 finishOffset = new(-4.2f, 2.5f, 5.5f);
         [Min(0f)] public float finishLookHeight = 0.9f;

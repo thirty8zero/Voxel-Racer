@@ -86,8 +86,13 @@ namespace VoxelRacer
         [Header("Horizon Sun")]
         public bool horizonSunEnabled = true;
         [Min(1f)] public float sunDistanceAhead = 220f;
-        public float sunHorizontalOffset = 12f;
-        public float sunHorizonHeight = -80f;
+        [Tooltip("World heading in degrees. Fixed relative to the mountain artwork, even as the road or car turns.")]
+        [Range(0f, 360f)] public float sunAzimuthDegrees = 45f;
+        public float sunHorizontalOffset;
+        [Tooltip("Sun centre above the horizon, in metres. Lower this on later missions for a setting sun.")]
+        public float sunHorizonHeight = 14f;
+        [Min(1f)] public float sunDiameter = 24f;
+        public Color sunColour = new(1f, .84f, .12f);
 
         [Header("Horizon Mountains")]
         public bool horizonMountainsEnabled = true;

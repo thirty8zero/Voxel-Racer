@@ -185,7 +185,8 @@ namespace VoxelRacer
             int obstacleDamageCount = Random.Range(
                 Mathf.Min(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax),
                 Mathf.Max(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax) + 1);
-            obstacleDamageCount = Mathf.RoundToInt(VoxelPloughUpgradeState.ImpactDamage(obstacleDamageCount, target.transform, hitDirection));
+            float enemyBoostDamage = obstacleDamageCount * (IsEnemyTraffic ? target.BoostRamDamageMultiplier : 1f);
+            obstacleDamageCount = Mathf.RoundToInt(VoxelPloughUpgradeState.ImpactDamage(enemyBoostDamage, target.transform, hitDirection));
             int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount, DebrisStyle.Ram);
             ReportVoxelDamage(damagedVoxelCount);
             ReportVoxelDestroyed(damagedVoxelCount, transform.position);

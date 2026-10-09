@@ -56,7 +56,7 @@ namespace VoxelRacer.Editor
             if(IsUpgrade(type))
             {
                 if(name=="displayName")group="Identity";
-                else if(name.Contains("Price")||name=="maximumPurchases")group="Purchase";
+                else if(name.Contains("Price")||name=="maximumPurchases"||name=="upgradeLevel")group="Purchase";
                 else if(name.Contains("Prefab"))group="Model & Compatibility";
                 else if(name.IndexOf("mount",StringComparison.OrdinalIgnoreCase)>=0)group="Fit & Mounting";
                 else if(name.Contains("Bonus")||name.Contains("Reduction")||name=="voxelHitPoints")group="Performance & Damage";
@@ -74,6 +74,9 @@ namespace VoxelRacer.Editor
             if (type == typeof(VoxelGunTuning) && name == "shotsPerSecond")
                 attributes.Add(new HideIfAttribute("@projectileKind == VoxelRacer.VoxelProjectileKind.Missile && useMissileCooldown"));
             if(type==typeof(VoxelBoostTuning) && group=="Settings")group="Boost Performance & Effects";
+            if(typeof(VoxelBoostTuning).IsAssignableFrom(type) &&
+                (name=="boostRamDamageBonusPercent" || name=="boostRamDamageWithPloughBonusPercent"))
+                group="Boost Ram Damage";
             if(type==typeof(VoxelObstacleCarTuning))
             {
                 group="Spawning & Density";

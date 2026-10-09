@@ -11,13 +11,26 @@ namespace VoxelRacer
         public float ChargePercent { get; private set; } = 1f;
         public bool IsBoosting { get; private set; }
         public bool IsReady => !IsBoosting && ChargePercent >= 0.999f;
+        public float RamDamageMultiplier
+        {
+            get
+            {
+                if (!isActiveAndEnabled || !IsBoosting || Tuning == null || Target == null ||
+                    Target.IsDestroyed || VoxelPauseMenu.IsPaused) return 1f;
+                float bonus = VoxelPloughUpgradeState.HasMountedPlough(Target.transform)
+                    ? Tuning.boostRamDamageWithPloughBonusPercent : Tuning.boostRamDamageBonusPercent;
+                return 1f + Mathf.Max(0f, bonus) / 100f;
+            }
+        }
 
         private float boostEndsAt;
         private ParticleSystem[] exhaustFireEffects;
 
         public void Configure(VoxelCarController player, VoxelBoostTuning tuning)
         {
+            if (Target != null && Target.BoostController == this) Target.BoostController = null;
             Target = player;
+            if (Target != null) Target.BoostController = this;
             Tuning = tuning;
             ChargePercent = 1f;
             IsBoosting = false;

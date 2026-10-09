@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace VoxelRacer
 {
-    public enum VoxelGarageIconKind { Armour, Engine, Guns, Missile, Wheels, Spikes, Boost, Plough, Next, Settings }
+    public enum VoxelGarageIconKind { Armour, Engine, Guns, Missile, Wheels, Spikes, Boost, Plough, Next, Settings, StarSpikes }
 
     /// <summary>Small native UI meshes, without texture assets or per-icon materials.</summary>
     [RequireComponent(typeof(CanvasRenderer))]
@@ -15,6 +15,16 @@ namespace VoxelRacer
             vh.Clear();
             switch (kind)
             {
+                case VoxelGarageIconKind.StarSpikes:
+                    Ring(vh,.85f,.67f,20);
+                    Ring(vh,.14f,0,5);
+                    for (int i=0;i<5;i++)
+                    {
+                        float a=Mathf.PI*.5f+i*Mathf.PI*2/5;
+                        Vector2 centre=Radial(a,.43f);
+                        Polygon(vh,new[]{centre+Radial(a,.23f),centre+Radial(a+2.1f,.16f),centre+Radial(a-2.1f,.16f)});
+                    }
+                    break;
                 case VoxelGarageIconKind.Armour:
                     Polygon(vh, new[] { new Vector2(-.72f,.68f), new Vector2(0,.91f), new Vector2(.72f,.68f),
                         new Vector2(.57f,-.29f), new Vector2(0,-.9f), new Vector2(-.57f,-.29f) });

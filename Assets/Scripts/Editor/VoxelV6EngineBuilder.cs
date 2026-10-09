@@ -7,6 +7,56 @@ namespace VoxelRacer.Editor
     public static class VoxelV6EngineBuilder
     {
         public const string PrefabPath="Assets/Prefabs/Upgrades/V6Engine.prefab";
+        public const string SpoilerName="V6 Rear Spoiler";
+        private const string SpoilerMeshPath="Assets/Prefabs/Upgrades/V6RearSpoilerMesh.asset";
+
+        [MenuItem("Tools/Voxel Racer/Update V6 Rear Spoiler")]
+        public static void UpdateSpoiler()
+        {
+            // Incremental update: preserve authored engine, exhaust and tuning edits.
+            var engine=PrefabUtility.LoadPrefabContents(PrefabPath);
+            try
+            {
+                AddSpoiler(engine.transform);
+                PrefabUtility.SaveAsPrefabAsset(engine,PrefabPath);
+            }
+            finally {PrefabUtility.UnloadPrefabContents(engine);}
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void AddSpoiler(Transform engine)
+        {
+            var existing=engine.Find(SpoilerName);
+            if(existing!=null) Object.DestroyImmediate(existing.gameObject);
+            var paint=AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/CarMaterials/LongtailPaint.mat");
+            if(paint==null) throw new System.InvalidOperationException("Missing player body paint for V6 spoiler.");
+            var root=new GameObject(SpoilerName).transform;root.SetParent(engine,false);
+            // Half the original height above the 1.05m deck, with two slim supports and gently drooping tips.
+            B(root,"Wing centre",new Vector3(0,1.185f,-2.30f),new Vector3(1.68f,.05f,.26f),paint);
+            foreach(int side in new[]{-1,1})
+            {
+                var shoulder=B(root,"Wing shoulder",new Vector3(side*.91f,1.175f,-2.30f),new Vector3(.14f,.05f,.25f),paint);
+                shoulder.localRotation=Quaternion.Euler(0,0,-side*8f);
+                var tip=B(root,"Drooping wing tip",new Vector3(side*1.05f,1.150f,-2.30f),new Vector3(.14f,.045f,.21f),paint);
+                tip.localRotation=Quaternion.Euler(0,0,-side*12f);
+            }
+            foreach(float x in new[]{-.70f,.70f})
+            {
+                B(root,"Deck mounting foot",new Vector3(x,1.06f,-2.265f),new Vector3(.16f,.022f,.18f),paint);
+                var support=B(root,"Short wing pedestal",new Vector3(x,1.114f,-2.275f),new Vector3(.09f,.098f,.115f),paint);
+                support.localRotation=Quaternion.Euler(-12f,0,0);
+            }
+            // One shared material/mesh keeps the bundled accessory to one additional draw call.
+            var filters=root.GetComponentsInChildren<MeshFilter>();
+            var combined=filters.Select(f=>new CombineInstance {
+                mesh=f.sharedMesh,transform=root.worldToLocalMatrix*f.transform.localToWorldMatrix }).ToArray();
+            var mesh=AssetDatabase.LoadAssetAtPath<Mesh>(SpoilerMeshPath);
+            if(mesh==null) {mesh=new Mesh {name="V6 rear spoiler"};AssetDatabase.CreateAsset(mesh,SpoilerMeshPath);}
+            mesh.Clear();mesh.CombineMeshes(combined,true,true);mesh.RecalculateBounds();EditorUtility.SetDirty(mesh);
+            foreach(Transform piece in root.Cast<Transform>().ToArray()) Object.DestroyImmediate(piece.gameObject);
+            root.gameObject.AddComponent<MeshFilter>().sharedMesh=mesh;
+            root.gameObject.AddComponent<MeshRenderer>().sharedMaterial=paint;
+        }
         [MenuItem("Tools/Voxel Racer/Build V6 Engine Upgrade")]
         public static void Build()
         {
@@ -56,6 +106,7 @@ namespace VoxelRacer.Editor
                 B(engine.transform,"V6 intake plenum",new Vector3(0,.84f,1.12f),new Vector3(.11f,.11f,.59f),silver);
                 B(engine.transform,"Intake front neck",new Vector3(0,.8f,1.51f),new Vector3(.14f,.1f,.2f),dark);
                 B(engine.transform,"Oil filler",new Vector3(.19f,.9f,1.37f),new Vector3(.07f,.04f,.07f),dark);
+                AddSpoiler(engine.transform);
                 PrefabUtility.SaveAsPrefabAsset(engine,PrefabPath);
             }
             finally {Object.DestroyImmediate(engine);}

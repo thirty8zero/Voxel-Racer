@@ -7,13 +7,17 @@ namespace VoxelRacer
     {
         public const string SpikeInstanceName = "Wheel Spike";
         private static bool purchased;
+        private static VoxelWheelSpikeTuning installedTuning;
 
         public static bool IsPurchased => purchased;
+        public static VoxelWheelSpikeTuning InstalledTuning => purchased ? installedTuning != null ? installedTuning : VoxelWheelSpikeTuning.Load() : null;
+        public static bool IsEquipped(VoxelWheelSpikeTuning tuning) => tuning != null && InstalledTuning != null &&
+            InstalledTuning.upgradeLevel >= tuning.upgradeLevel;
         public static float SideRamDamageBonusPercent
         {
             get
             {
-                VoxelWheelSpikeTuning tuning = VoxelWheelSpikeTuning.Load();
+                VoxelWheelSpikeTuning tuning = InstalledTuning;
                 return purchased && tuning != null ? Mathf.Max(0f, tuning.sideRamDamageBonusPercent) : 0f;
             }
         }
@@ -21,10 +25,10 @@ namespace VoxelRacer
         public static float CalculateRamDamage(float baseDamage, bool rearImpact) =>
             baseDamage * (rearImpact ? 1f : 1f + SideRamDamageBonusPercent / 100f);
 
-        public static void BeginNewRun() => purchased = false;
+        public static void BeginNewRun() { purchased = false; installedTuning = null; }
 
         public static bool CanPurchase(VoxelWheelSpikeTuning tuning) =>
-            !purchased && tuning != null && tuning.spikePrefab != null;
+            tuning != null && tuning.spikePrefab != null && !IsEquipped(tuning);
 
         public static bool TryPurchase(VoxelWheelSpikeTuning tuning)
         {
@@ -32,6 +36,7 @@ namespace VoxelRacer
                 return false;
 
             purchased = true;
+            installedTuning = tuning;
             return true;
         }
 
@@ -40,10 +45,10 @@ namespace VoxelRacer
             if (car == null)
                 return;
 
-            tuning ??= VoxelWheelSpikeTuning.Load();
+            tuning = InstalledTuning;
             foreach (Transform wheel in car.GetComponentsInChildren<Transform>(true))
             {
-                if (wheel.name != "Voxel Wheel")
+                if (wheel == null || wheel.name != "Voxel Wheel")
                     continue;
 
                 Transform spike = wheel.Find(SpikeInstanceName);
@@ -54,7 +59,7 @@ namespace VoxelRacer
                     continue;
                 }
 
-                if (spike != null)
+                if (spike != null && spike.GetComponent<VoxelWheelSpikeMount>()?.tuning == tuning)
                     continue;
 
                 CreateVisual(car, wheel, tuning);
@@ -64,8 +69,18 @@ namespace VoxelRacer
         /// <summary>Shared mounting geometry without changing purchases or currency.</summary>
         public static GameObject CreateVisual(Transform car, Transform wheel, VoxelWheelSpikeTuning tuning)
         {
+                if (car == null || wheel == null || tuning == null || tuning.spikePrefab == null) return null;
+                Transform previous = wheel.Find(SpikeInstanceName);
+                if (previous != null)
+                {
+                    if (previous.GetComponent<VoxelWheelSpikeMount>()?.tuning == tuning) return previous.gameObject;
+                    // Detach immediately so deferred Play Mode destruction cannot leave duplicate mounts.
+                    previous.gameObject.SetActive(false); previous.SetParent(null, true);
+                    DestroyObject(previous.gameObject);
+                }
                 GameObject instance = Object.Instantiate(tuning.spikePrefab, wheel);
                 instance.name = SpikeInstanceName;
+                instance.AddComponent<VoxelWheelSpikeMount>().tuning = tuning;
                 var upgradedWheel = wheel.Find(VoxelPerformanceWheelUpgradeState.InstanceName);
                 instance.transform.localPosition = upgradedWheel != null ? upgradedWheel.localPosition : Vector3.zero;
                 // The shared model points along +X. Mirror it on the left side so

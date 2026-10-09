@@ -81,6 +81,7 @@ namespace VoxelRacer.Editor
                 {
                     Speed(speed); Set(spawner, "spawnTimeRemaining", 10f); Step();
                     Equal(Remaining(), 10f - Time.deltaTime * expectedRate, label);
+                    Equal(spawner.NextWaveSeconds, Remaining() / expectedRate, label + " debug countdown");
                 }
 
                 Rate(0f, 1f, "Stopped countdown");
@@ -126,8 +127,10 @@ namespace VoxelRacer.Editor
                 Speed(75f); // Upgraded maximum remains 50m/s; countdown rate is 1.5.
                 Set(spawner, "spawnTimeRemaining", Time.deltaTime * 1.25f);
                 Step(); Check(queue.Count == 3, "Boost did not bring the wave forward.");
+                Check(spawner.WavesSpawned == 1 && spawner.QueuedObjects == 3, "Debug wave/queue count did not reflect the real wave.");
                 Equal(Remaining(), 3f, "Next wave retains authored interval");
                 Step(); Check(queue.Count == 2, "Queued wave must consume only one request per update.");
+                Check(spawner.WavesSpawned == 1 && spawner.QueuedObjects == 2, "Draining a wave must not increment its counter.");
                 Equal(Remaining(), 3f - Time.deltaTime * 1.5f, "New interval continues at boosted rate");
                 typeof(VoxelObstacleSpawner).GetMethod("ScheduleNextSpawn", Private).Invoke(spawner, null);
                 // Clear outstanding requests without changing the spawner's enabled state.
@@ -135,6 +138,7 @@ namespace VoxelRacer.Editor
                 Speed(50f); Set(spawner, "spawnTimeRemaining", Time.deltaTime * 1.25f);
                 Step(); Check(queue.Count == 0, "Normal speed spawned the wave too early.");
                 Step(); Check(queue.Count == 3, "Normal speed failed to spawn when due.");
+                Check(spawner.WavesSpawned == 2, "Second wave debug count.");
 
                 spawner.SetStartCountdown(countdown);
                 Set(countdown, "started", true);
@@ -142,6 +146,7 @@ namespace VoxelRacer.Editor
                 Get(spawner, "pendingSpawnRequests").GetType().GetMethod("Clear").Invoke(queue, null);
                 Set(spawner, "spawnTimeRemaining", 100f);
                 Step(); Check(queue.Count == 3, "Opening '1' did not force the first wave.");
+                Check(spawner.WavesSpawned == 3, "Forced opening wave debug count.");
                 Equal(Remaining(), 3f, "Opening wave schedules normal interval");
                 var finish = root.AddComponent<VoxelRunFinish>();
                 Set(finish, "<HasFinished>k__BackingField", true); spawner.SetRunFinish(finish);

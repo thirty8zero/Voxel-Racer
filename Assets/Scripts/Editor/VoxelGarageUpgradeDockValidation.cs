@@ -56,7 +56,7 @@ namespace VoxelRacer.Editor
         public static void CheckShop(VoxelRepairUpgradeSceneController shop,VoxelCarController car,VoxelCarDefinition definition)
         {
             var cards=shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
-            Check(cards.Length==8,"Some upgrade types are missing or side cards were not combined");
+            Check(cards.Length==9,"Some upgrade types are missing or side cards were not combined");
             ResetPurchases();VoxelCurrencyState.Reset();Refresh(shop);
             Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Unaffordable && !c.GetComponent<Button>().interactable),"Unaffordable cards must be disabled");
             foreach(var card in cards)card.GetComponent<Button>().onClick.Invoke();
@@ -67,6 +67,7 @@ namespace VoxelRacer.Editor
             foreach(var type in States)foreach(var f in type.GetFields(Static))
                 if(!f.IsLiteral && !f.IsInitOnly && f.FieldType==typeof(bool))f.SetValue(null,true);
             typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount",Static).SetValue(null,VoxelGunUpgradeState.LongGunTuning.maximumPurchases);
+            typeof(VoxelWheelSpikeUpgradeState).GetField("installedTuning",Static).SetValue(null,VoxelWheelSpikeTuning.LoadStar());
             VoxelCurrencyState.Reset();Refresh(shop);
             Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Equipped && !c.GetComponent<Button>().interactable),"Equipped state must persist with an empty wallet");
             ResetPurchases();typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount",Static).SetValue(null,1);
@@ -140,7 +141,7 @@ namespace VoxelRacer.Editor
             Check(a.max.x+10<b.min.x,"Upgrade strip overlaps next mission button");
             Check(a.min.y>=canvas.rect.yMin && b.min.y>=canvas.rect.yMin && b.max.x<=canvas.rect.xMax+.1f,"Dock escapes screen bounds");
             var scroll=panel.GetComponentInChildren<ScrollRect>(true);
-            Check(scroll.horizontal && !scroll.vertical && scroll.content.GetComponentsInChildren<VoxelGarageUpgradeCard>().Length==8,
+            Check(scroll.horizontal && !scroll.vertical && scroll.content.GetComponentsInChildren<VoxelGarageUpgradeCard>().Length==9,
                 "Horizontal catalogue missing");
             Check(camera.rect==new Rect(0,0,1,1),"Garage must render the floor behind the translucent cards");
             if(upgrades)

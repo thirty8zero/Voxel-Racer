@@ -89,6 +89,10 @@ namespace VoxelRacer
         {
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Temporary Mobile Controls");
             canvas.GetComponent<Canvas>().sortingOrder = 105;
+            // Match the integrity dial and boost's height-based scale on wide phones.
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            scaler.matchWidthOrHeight = 1f;
+            scaler.enabled = false; scaler.enabled = true;
             canvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
             canvasGroup.alpha = 0f;
 
@@ -102,7 +106,7 @@ namespace VoxelRacer
                 new Vector2(-150f, 150f), new Vector2(200f, 200f), MobileControlAction.Fire,
                 Color.white, 0, CreateFireButtonSprite());
             Image missileButton = CreateControl(canvas, "Missile Button", "FIRE\nMISSILE", new Vector2(1f, 0f),
-                new Vector2(-150f, 570f), new Vector2(200f, 200f), MobileControlAction.Missile,
+                new Vector2(-150f, 390f), new Vector2(200f, 200f), MobileControlAction.Missile,
                 Color.white, 33);
             missileDisplay = missileButton.gameObject.AddComponent<VoxelMissileButtonDisplay>();
             missileDisplay.Build();

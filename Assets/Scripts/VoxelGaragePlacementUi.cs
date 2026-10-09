@@ -62,10 +62,12 @@ namespace VoxelRacer
                     price = wheels.purchasePrice; title = "PERFORMANCE TIRES";
                     return wheels.Fits(definition) && !VoxelPerformanceWheelUpgradeState.IsPurchased;
                 case VoxelGarageUpgradeKind.Spikes:
-                    var spikes = VoxelWheelSpikeTuning.Load();
+                case VoxelGarageUpgradeKind.StarSpikes:
+                    var spikes = kind == VoxelGarageUpgradeKind.StarSpikes ? VoxelWheelSpikeTuning.LoadStar() : VoxelWheelSpikeTuning.Load();
                     if (spikes == null) return false;
                     price = spikes.purchasePrice; title = spikes.displayName.ToUpperInvariant();
-                    return VoxelWheelSpikeUpgradeState.CanPurchase(spikes);
+                    return spikes.Fits(definition) && VoxelWheelSpikeUpgradeState.CanPurchase(spikes) &&
+                        PendingCount(kind == VoxelGarageUpgradeKind.Spikes ? VoxelGarageUpgradeKind.StarSpikes : VoxelGarageUpgradeKind.Spikes) == 0;
                 case VoxelGarageUpgradeKind.Boost:
                     var boost = VoxelBoostUpgradeTuning.LoadUpgrade();
                     if (boost == null) return false;
@@ -296,6 +298,7 @@ namespace VoxelRacer
                 case VoxelGarageUpgradeKind.Missiles: PurchaseMissile(part.Slot == 1); break;
                 case VoxelGarageUpgradeKind.Wheels: TryPurchasePerformanceWheels(); break;
                 case VoxelGarageUpgradeKind.Spikes: TryPurchaseWheelSpikes(); break;
+                case VoxelGarageUpgradeKind.StarSpikes: TryPurchaseStarWheelSpikes(); break;
                 case VoxelGarageUpgradeKind.Boost: TryPurchaseBoostBottle(); break;
                 case VoxelGarageUpgradeKind.Engine: TryPurchaseEngine(); break;
                 case VoxelGarageUpgradeKind.Plough: TryPurchasePlough(); break;

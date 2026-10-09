@@ -7,11 +7,15 @@ namespace VoxelRacer
     public sealed class VoxelFpsCounter : MonoBehaviour
     {
         public const string PreferenceKey = "VoxelRacer.ShowFps";
+        public const string WavePreferenceKey = "VoxelRacer.ShowWaveDebug";
         public static VoxelFpsCounter Active { get; private set; }
         public static bool ShowCounter => PlayerPrefs.GetInt(PreferenceKey, 1) != 0;
+        public static bool ShowWaveDebug => PlayerPrefs.GetInt(WavePreferenceKey, 1) != 0;
         public int FramesPerSecond { get; private set; }
 
         private Text label;
+        private Text waveLabel;
+        private float nextWaveRefresh;
         private Canvas canvas;
         private float sampleDuration;
         private int sampleFrames;
@@ -40,6 +44,12 @@ namespace VoxelRacer
             var shadow = label.gameObject.AddComponent<Shadow>();
             shadow.effectColor = new Color(0f, 0f, 0f, .85f);
             shadow.effectDistance = new Vector2(1f, -1f);
+            waveLabel = VoxelMenuUi.CreateText(root, "Wave Debug", "", 24,
+                TextAnchor.MiddleCenter, new Vector2(.5f, 0f), new Vector2(0f, 56f), new Vector2(900f, 32f));
+            waveLabel.color = new Color(.4f, .85f, 1f);
+            var waveShadow = waveLabel.gameObject.AddComponent<Shadow>();
+            waveShadow.effectColor = shadow.effectColor;
+            waveShadow.effectDistance = shadow.effectDistance;
             RefreshVisibility();
         }
 
@@ -50,10 +60,20 @@ namespace VoxelRacer
             Active?.RefreshVisibility();
         }
 
+        public static void SetWaveDebugVisible(bool visible)
+        {
+            PlayerPrefs.SetInt(WavePreferenceKey, visible ? 1 : 0);
+            PlayerPrefs.Save();
+            Active?.RefreshVisibility();
+        }
+
         private void RefreshVisibility()
         {
             if (canvas == null) return;
-            canvas.enabled = ShowCounter;
+            label.enabled = ShowCounter;
+            waveLabel.enabled = ShowWaveDebug && VoxelObstacleSpawner.Active != null;
+            canvas.enabled = label.enabled || waveLabel.enabled;
+            nextWaveRefresh = 0f;
             sampleDuration = 0f;
             sampleFrames = 0;
             if (label != null) label.text = "FPS: --";
@@ -61,10 +81,25 @@ namespace VoxelRacer
 
         private void Update()
         {
-            if (canvas == null || !canvas.enabled) return;
+            if (canvas == null) return;
+            waveLabel.enabled = ShowWaveDebug && VoxelObstacleSpawner.Active != null;
+            canvas.enabled = ShowCounter || waveLabel.enabled;
+            if (!canvas.enabled) return;
             // Place the baseline just inside the device's bottom safe area.
             float scale = Mathf.Max(.01f, canvas.scaleFactor);
             label.rectTransform.anchoredPosition = new Vector2(0f, Screen.safeArea.yMin / scale + 20f);
+            waveLabel.rectTransform.anchoredPosition = new Vector2(0f, Screen.safeArea.yMin / scale + 56f);
+            var spawner = VoxelObstacleSpawner.Active;
+            waveLabel.enabled = ShowWaveDebug && spawner != null;
+            if (waveLabel.enabled && Time.unscaledTime >= nextWaveRefresh)
+            {
+                nextWaveRefresh = Time.unscaledTime + .1f;
+                string state = spawner.SpawningFinished ? "FINISHED" : spawner.WaitingForOpening ? "WAITING FOR START" :
+                    "IN " + spawner.NextWaveSeconds.ToString("0.0") + "s" + (VoxelPauseMenu.IsPaused ? " (PAUSED)" : "");
+                waveLabel.text = "WAVE " + (spawner.WavesSpawned + 1) + " " + state +
+                    "  |  SPAWNED " + spawner.WavesSpawned + "  |  QUEUED " + spawner.QueuedObjects;
+            }
+            if (!ShowCounter) return;
             sampleDuration += Time.unscaledDeltaTime;
             sampleFrames++;
             if (sampleDuration < .5f) return;

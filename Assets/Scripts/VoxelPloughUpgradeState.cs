@@ -34,11 +34,15 @@ namespace VoxelRacer
             instance.transform.localScale = tuning.mountScale;
             return instance;
         }
-        public static bool IsFrontContact(Transform car, Vector3 playerToContact)
+        public static bool HasMountedPlough(Transform car)
         {
             if (!purchased || car == null) return false;
             var mount = car.Find(InstanceName);
-            if (mount == null || !mount.gameObject.activeInHierarchy) return false;
+            return mount != null && mount.gameObject.activeInHierarchy;
+        }
+        public static bool IsFrontContact(Transform car, Vector3 playerToContact)
+        {
+            if (!HasMountedPlough(car)) return false;
             var local = car.InverseTransformDirection(playerToContact);
             return local.z > .001f && local.z > Mathf.Abs(local.x);
         }

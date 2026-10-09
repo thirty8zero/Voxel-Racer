@@ -446,18 +446,21 @@ namespace VoxelRacer
             segment.SetParent(transform, false);
             int slices = Mathf.Abs(data.turnAngle) < 0.001f ? 1 : Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(data.turnAngle) / curveDegreesPerSlice));
             float sliceLength = segmentLength / slices;
-            for (int slice = 0; slice < slices; slice++)
-            {
-                VoxelTrackPose pose = EvaluateSegment(data, (slice + 0.5f) * sliceLength);
-                float depth = sliceLength + (slices > 1 ? 0.65f : 0f);
-                var asphalt = CreatePlacedBlock("Road", segment, pose, 0f, -0.14f, new Vector3(roadWidth, 0.28f, depth), VoxelRacerBootstrap.RoadMaterial);
-                var roadProperties = new MaterialPropertyBlock();
-                roadProperties.SetVector("_RoadCoordinates", new Vector4(roadWidth, depth,
-                    data.startDistance + (slice + .5f) * sliceLength, 0f));
-                asphalt.GetComponent<MeshRenderer>().SetPropertyBlock(roadProperties);
-                CreatePlacedBlock("Left Shoulder", segment, pose, -roadWidth * 0.5f - 0.275f, -0.08f, new Vector3(0.55f, 0.18f, depth), VoxelRacerBootstrap.ShoulderMaterial);
-                CreatePlacedBlock("Right Shoulder", segment, pose, roadWidth * 0.5f + 0.275f, -0.08f, new Vector3(0.55f, 0.18f, depth), VoxelRacerBootstrap.ShoulderMaterial);
-            }
+            var frames = new VoxelTrackPose[slices + 1];
+            for (int slice = 0; slice <= slices; slice++)
+                frames[slice] = EvaluateSegment(data, slice * sliceLength);
+            // All three strips use identical boundary frames, including the next chunk's start.
+            // Rectangular slices left gaps on the outside of a bend and overlapped on the inside.
+            float halfWidth = roadWidth * .5f;
+            var asphalt = VoxelRoadStripMesh.Create("Road", segment, frames, data.startDistance, sliceLength,
+                -halfWidth, halfWidth, -.28f, 0f, VoxelRacerBootstrap.RoadMaterial);
+            var roadProperties = new MaterialPropertyBlock();
+            roadProperties.SetFloat("_UseRoadUV", 1f);
+            asphalt.GetComponent<MeshRenderer>().SetPropertyBlock(roadProperties);
+            VoxelRoadStripMesh.Create("Left Shoulder", segment, frames, data.startDistance, sliceLength,
+                -halfWidth - .55f, -halfWidth, -.17f, .01f, VoxelRacerBootstrap.ShoulderMaterial);
+            VoxelRoadStripMesh.Create("Right Shoulder", segment, frames, data.startDistance, sliceLength,
+                halfWidth, halfWidth + .55f, -.17f, .01f, VoxelRacerBootstrap.ShoulderMaterial);
             float laneWidth = roadWidth / Mathf.Max(1, laneCount);
             for (int line = 1; line < laneCount; line++)
             {

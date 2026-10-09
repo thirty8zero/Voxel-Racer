@@ -78,7 +78,7 @@ namespace VoxelRacer
             if (existing != null)
             {
                 var environmentMarker = existing.GetComponent<VoxelRacerGeneratedEnvironment>();
-                if (environmentMarker != null && environmentMarker.layoutVersion == 25)
+                if (environmentMarker != null && environmentMarker.layoutVersion == 26)
                 {
                     var existingCar = existing.Find("Player Voxel Car");
                     var existingRoad = existing.GetComponent<EndlessVoxelRoad>();
@@ -792,7 +792,7 @@ namespace VoxelRacer
             RenderSettings.fogStartDistance = track != null ? track.fogStartDistance : 90f;
             RenderSettings.fogEndDistance = track != null ? track.fogEndDistance : 320f;
 
-            var horizonSun = Object.FindFirstObjectByType<VoxelHorizonSun>();
+            var horizonSun = Object.FindFirstObjectByType<VoxelHorizonSun>(FindObjectsInactive.Include);
             bool sunEnabled = track == null || track.horizonSunEnabled;
             if (!sunEnabled)
             {
@@ -804,12 +804,7 @@ namespace VoxelRacer
                 if (horizonSun == null)
                     horizonSun = new GameObject("Horizon Sun").AddComponent<VoxelHorizonSun>();
                 horizonSun.gameObject.SetActive(true);
-                horizonSun.target = target;
-                horizonSun.distanceAhead = track != null ? track.sunDistanceAhead : 220f;
-                horizonSun.horizontalOffset = track != null ? track.sunHorizontalOffset : 12f;
-                horizonSun.horizonHeight = track != null ? track.sunHorizonHeight : -80f;
-                horizonSun.transform.localScale = Vector3.one * 10f;
-                horizonSun.Build();
+                horizonSun.Configure(target, track);
             }
 
             var horizonMountains = Object.FindFirstObjectByType<VoxelHorizonMountains>(FindObjectsInactive.Include);
@@ -1007,6 +1002,6 @@ namespace VoxelRacer
     public sealed class VoxelRacerPrototypeMarker : MonoBehaviour { }
     public sealed class VoxelRacerGeneratedEnvironment : MonoBehaviour
     {
-        public int layoutVersion = 25;
+        public int layoutVersion = 26;
     }
 }

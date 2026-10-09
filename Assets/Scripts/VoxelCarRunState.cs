@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace VoxelRacer
 {
@@ -11,6 +12,22 @@ namespace VoxelRacer
         private static string carDefinitionName = string.Empty;
 
         public static int MissingVoxelCount => missingVoxelPaths.Count;
+
+        public static void ResetAndReturnToMainMenu()
+        {
+            int buildIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/MainMenu.unity");
+            if (buildIndex < 0)
+            {
+                Debug.LogError("Main Menu scene is not enabled in Build Settings: MainMenu");
+                return;
+            }
+
+            VoxelPauseMenu.ResumeActivePause();
+            VoxelMobileControls.ClearHeldInput();
+            BeginNewRun(VoxelCarSelectionState.GetSelectedOrDefault());
+            VoxelTrackProgressState.BeginSequence();
+            SceneManager.LoadScene(buildIndex);
+        }
 
         public static void BeginNewRun(VoxelCarDefinition definition)
         {

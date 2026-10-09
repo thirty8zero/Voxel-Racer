@@ -17,6 +17,8 @@ MonoBehaviour:
   boostAccelerationMultiplier: 3
   boostLength: 1.5
   rechargeCooldownLength: 4
+  boostRamDamageBonusPercent: 10
+  boostRamDamageWithPloughBonusPercent: 15
   boostForwardOffset: 4
   boostForwardMovementDuration: 0.42
   boostForwardMovementEasing: 17

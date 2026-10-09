@@ -15,7 +15,7 @@ namespace VoxelRacer
         private Button button;
         private VoxelGaragePanel frame;
         private VoxelGarageUpgradeIcon icon;
-        private Text price, status, slots;
+        private Text titleLabel, price, status, slots;
         private readonly Image[] segments = new Image[4];
         public void Build(Button purchaseButton, string title, VoxelGarageIconKind kind, Font heading, Font body, int catalogueOrder = 0)
         {
@@ -36,8 +36,8 @@ namespace VoxelRacer
             symbol.transform.SetParent(transform, false);
             var sr = (RectTransform)symbol.transform; sr.sizeDelta = new Vector2(56, 56); sr.anchoredPosition = new Vector2(0, 76);
             icon = symbol.GetComponent<VoxelGarageUpgradeIcon>(); icon.kind = kind; icon.raycastTarget = false;
-            var name = Label("Card Title", title, 27, 25, 56, heading); name.resizeTextForBestFit = true;
-            name.resizeTextMinSize = 21; name.resizeTextMaxSize = 27;
+            titleLabel = Label("Card Title", title, 27, 25, 56, heading); titleLabel.resizeTextForBestFit = true;
+            titleLabel.resizeTextMinSize = 21; titleLabel.resizeTextMaxSize = 27;
             slots = Label("Fitted Slots", "", 18, -17, 24, body);
             for (int i = 0; i < segments.Length; i++)
             {
@@ -63,26 +63,36 @@ namespace VoxelRacer
                 owned + pending >= capacity ? VoxelGarageUpgradeState.Pending :
                 (availableCash < 0 ? VoxelCurrencyState.Balance : availableCash) >= cost ? VoxelGarageUpgradeState.Affordable : VoxelGarageUpgradeState.Unaffordable;
             button.interactable = pending > 0 || State == VoxelGarageUpgradeState.Affordable;
+            bool unaffordable = State == VoxelGarageUpgradeState.Unaffordable;
+            Color mutedText = new Color(.43f, .46f, .50f);
             Color accent = State == VoxelGarageUpgradeState.Pending ? new Color(1, .81f, .35f) : State == VoxelGarageUpgradeState.Equipped ? new Color(.24f, .85f, .55f) :
-                State == VoxelGarageUpgradeState.Affordable ? new Color(.64f, .74f, .87f) : new Color(.31f, .36f, .44f);
+                State == VoxelGarageUpgradeState.Affordable ? new Color(.64f, .74f, .87f) :
+                unaffordable ? new Color(.22f, .25f, .30f) : new Color(.31f, .36f, .44f);
             frame.edgeColor = accent;
-            frame.color = State == VoxelGarageUpgradeState.Equipped ? new Color(.035f, .10f, .095f, .58f) : new Color(.035f, .045f, .065f, .50f);
+            frame.color = State == VoxelGarageUpgradeState.Equipped ? new Color(.035f, .10f, .095f, .58f) :
+                unaffordable ? new Color(.018f, .022f, .032f, .75f) : new Color(.035f, .045f, .065f, .50f);
             frame.SetVerticesDirty();
-            icon.color = compatible ? new Color(.87f, .90f, .98f,
-                State == VoxelGarageUpgradeState.Unaffordable ? .35f : 1f) : new Color(.39f, .43f, .50f);
+            icon.color = unaffordable ? new Color(.38f, .41f, .46f) :
+                compatible ? new Color(.87f, .90f, .98f) : new Color(.39f, .43f, .50f);
+            titleLabel.color = unaffordable ? mutedText : Color.white;
             slots.text = compatible ? Mathf.Min(owned, capacity) + " / " + capacity + " FITTED" : "NOT COMPATIBLE";
-            slots.color = new Color(.57f, .63f, .72f);
+            slots.color = unaffordable ? mutedText : new Color(.57f, .63f, .72f);
             price.text = State == VoxelGarageUpgradeState.Pending ? "IN PREVIEW" : State == VoxelGarageUpgradeState.Equipped ? "INSTALLED" : compatible ? "$ " + cost.ToString("N0") : "—";
-            price.color = State == VoxelGarageUpgradeState.Unaffordable ? new Color(.86f, .48f, .48f) : Color.white;
+            price.color = unaffordable ? mutedText : Color.white;
             status.text = pending > 0 ? "REMOVE X" + pending : State == VoxelGarageUpgradeState.Equipped ? "EQUIPPED" : State == VoxelGarageUpgradeState.Affordable ? "PLACE +" :
                 State == VoxelGarageUpgradeState.Unaffordable ? "NO FUNDS" : "UNAVAILABLE";
-            status.color = State == VoxelGarageUpgradeState.Affordable || State == VoxelGarageUpgradeState.Equipped
+            status.color = unaffordable ? mutedText : State == VoxelGarageUpgradeState.Affordable || State == VoxelGarageUpgradeState.Equipped
                 ? new Color(.32f, .91f, .52f) : new Color(.58f, .62f, .69f);
             float fraction = compatible ? Mathf.Clamp01((float)owned / capacity) : 0;
             float previewFraction = compatible ? Mathf.Clamp01((float)(owned + pending) / capacity) : 0;
-            for (int i = 0; i < segments.Length; i++) segments[i].color = i < Mathf.RoundToInt(fraction * segments.Length)
-                ? new Color(.24f, .9f, .40f) : i < Mathf.RoundToInt(previewFraction * segments.Length)
-                ? new Color(1, .81f, .35f) : new Color(.16f, .20f, .27f);
+            for (int i = 0; i < segments.Length; i++)
+            {
+                Color segmentColor = i < Mathf.RoundToInt(fraction * segments.Length)
+                    ? new Color(.24f, .9f, .40f) : i < Mathf.RoundToInt(previewFraction * segments.Length)
+                    ? new Color(1, .81f, .35f) : new Color(.16f, .20f, .27f);
+                if (unaffordable) segmentColor = new Color(segmentColor.r * .6f, segmentColor.g * .6f, segmentColor.b * .6f);
+                segments[i].color = segmentColor;
+            }
         }
     }
 }

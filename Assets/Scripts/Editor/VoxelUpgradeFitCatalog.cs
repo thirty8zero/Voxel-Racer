@@ -100,15 +100,24 @@ namespace VoxelRacer.Editor
         public IEnumerable<VoxelUpgradeFitEntry> Discover()
         {
             foreach (var tuning in VoxelUpgradeFitCatalog.Assets<VoxelWheelSpikeTuning>())
+                for (int side = -1; side <= 1; side++)
+                {
+                int chosenSide = side;
                 yield return new VoxelUpgradeFitEntry {
-                    Asset = tuning, Label = tuning.displayName + " — All wheels",
-                    Fits = c => tuning.spikePrefab != null && c != null && c.visualPrefab != null &&
-                        c.visualPrefab.GetComponentsInChildren<Transform>(true).Any(t => t.name == "Voxel Wheel"),
+                    Asset = tuning, Label = tuning.displayName + (side < 0 ? " — Left wheels" : side > 0 ? " — Right wheels" : " — All wheels"),
+                    Fits = tuning.Fits,
                     Build = car => {
                         foreach (var wheel in car.GetComponentsInChildren<Transform>(true))
-                            if (wheel.name == "Voxel Wheel") VoxelWheelSpikeUpgradeState.CreateVisual(car, wheel, tuning);
+                            if (wheel != null && wheel.name == "Voxel Wheel" && (chosenSide == 0 ||
+                                (car.InverseTransformPoint(wheel.position).x >= 0 ? 1 : -1) == chosenSide))
+                            {
+                                var mounted = wheel.Find(VoxelWheelSpikeUpgradeState.SpikeInstanceName)?.GetComponent<VoxelWheelSpikeMount>();
+                                if (mounted != null && mounted.tuning != null && mounted.tuning.upgradeLevel > tuning.upgradeLevel) continue;
+                                VoxelWheelSpikeUpgradeState.CreateVisual(car, wheel, tuning);
+                            }
                     }
                 };
+                }
         }
     }
 }

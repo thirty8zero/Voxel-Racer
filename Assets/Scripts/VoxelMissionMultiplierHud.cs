@@ -54,7 +54,7 @@ namespace VoxelRacer
             GUIUtility.ScaleAroundPivot(Vector2.one * scale, target.center);
             GUI.color = new Color(1, 1, 1, alpha);
             Color multiplierColour = pulse > 0 ? (lastMultiplierWasNegative ? LossColour : GainColour) : Color.white;
-            GUI.Label(target, displayedMultiplierBonus.ToString("0.00") + "x", BonusStyle(numberSize, multiplierColour));
+            GUI.Label(target, FormatMultiplier(displayedMultiplierBonus), BonusStyle(numberSize, multiplierColour));
             GUI.matrix = oldMatrix;
             int extra = Mathf.Max(0, Mathf.RoundToInt(Tuning.completionCurrencyAward * EffectiveTimeBonusMultiplier) - Tuning.completionCurrencyAward);
             string status = IsComplete ? "BANKED" : expired ? (EffectiveTimeBonusMultiplier > 1f ? "DECAYING" : "MINIMUM") : "AT RISK";
@@ -68,8 +68,9 @@ namespace VoxelRacer
                 float travel = Mathf.SmoothStep(0, 1, Mathf.Clamp01((t - .2f) / .8f));
                 Vector2 from = new Vector2(flight.origin.x * Screen.width, flight.origin.y * Screen.height);
                 // Start above the vehicle rather than over its body, while keeping clear of the header.
-                from.y = Mathf.Max(missionArea.yMax + 24f,
-                    from.y - Mathf.Max(60f, Screen.height * .12f));
+                if (flight.reason != "KILL CHAIN COMBO")
+                    from.y = Mathf.Max(missionArea.yMax + 24f,
+                        from.y - Mathf.Max(60f, Screen.height * .12f));
                 Vector2 point = Vector2.Lerp(from, target.center, travel);
                 Color colour = flight.amount < 0 ? LossColour : GainColour;
                 for (int dot = 1; dot <= 5; dot++)
@@ -79,12 +80,15 @@ namespace VoxelRacer
                 }
                 float opacity = alpha * (1 - Mathf.Clamp01((t - .9f) / .1f));
                 GUI.color = new Color(1, 1, 1, opacity);
-                OutlinedBonusLabel(new Rect(point.x - 90, point.y - 18, 180, 30),
-                    (flight.amount > 0 ? "+" : "") + flight.amount.ToString("0.00") + "x", BonusStyle(24, colour));
+                float labelScale = flight.reason == "KILL CHAIN COMBO" ? 2f : 1f;
+                OutlinedBonusLabel(new Rect(point.x - 90 * labelScale, point.y - 18 * labelScale, 180 * labelScale, 30 * labelScale),
+                    (flight.amount > 0 ? "+" : "") + flight.amount.ToString("0.00") + "x", BonusStyle(Mathf.RoundToInt(24 * labelScale), colour));
             }
             DrawTimeExtension(timer, alpha);
             GUI.color = new Color(1, 1, 1, alpha);
         }
+
+        internal static string FormatMultiplier(float value) => value <= 1f ? "--" : value.ToString("0.00") + "x";
 
         private void DrawTimeExtension(Rect panel, float alpha)
         {

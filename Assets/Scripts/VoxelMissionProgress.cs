@@ -28,7 +28,7 @@ namespace VoxelRacer
         }
         public bool IsComplete { get; private set; }
         public bool IsFailed {get;private set;}
-        public void FailBossEncounter() { if(IsBossEncounter && !IsComplete) IsFailed=true; }
+        public void FailBossEncounter() { if(IsBossEncounter && !IsComplete) { IsFailed=true; ResetKillChain(); } }
         public bool IsBossEncounter {get;private set;}
         private VoxelEnemyCar missionBoss;
         private string bossName;
@@ -108,7 +108,7 @@ namespace VoxelRacer
                 return;
             }
             int last = multiplierFlights.Count - 1;
-            if (last >= 0 && multiplierFlights[last].reason == reason &&
+            if (reason != "KILL CHAIN COMBO" && last >= 0 && multiplierFlights[last].reason == reason &&
                 Time.unscaledTime - multiplierFlights[last].startedAt < .15f)
             {
                 var grouped = multiplierFlights[last]; grouped.amount += delta;
@@ -152,6 +152,7 @@ namespace VoxelRacer
             displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
             multiplierPulseUntil = 0;
             multiplierFlights.Clear();
+            ResetKillChain();
             enemyVoxelsTowardsReward = 0;
             pendingVoxelChange = 0;
             PercentageScreenPosition = new Vector2(Screen.width * .5f, 39f);
@@ -205,6 +206,7 @@ namespace VoxelRacer
             if (Active?.Tuning != null)
             {
                 Active.ChangeMultiplier(Active.Tuning.enemyDestroyedMultiplier, "ENEMY DESTROYED", position);
+                Active.RegisterKillChainEnemy(position);
                 string source = enemy != null ? enemy.displayName + " destroyed" : "Enemy vehicles destroyed";
                 Active.AddPoints(GetEnemyVehicleDestroyedPoints(enemy), source);
             }
@@ -245,6 +247,7 @@ namespace VoxelRacer
         {
             if (Active?.Tuning != null)
             {
+                Active.CancelKillChain();
                 Active.ChangeMultiplier(-Active.Tuning.civilianDestroyedMultiplierPenalty, "CIVILIAN DESTROYED", position);
                 Active.AddPoints(Active.Tuning.civilianVehicleDestroyedPoints, "Civilian vehicles destroyed");
             }
@@ -285,7 +288,8 @@ namespace VoxelRacer
         public void AdvanceBonusClock(float seconds)
         {
             if (Tuning == null || IsComplete || IsFailed || seconds <= 0 ||
-                (startCountdown != null && !startCountdown.IsComplete)) return;
+                VoxelPauseMenu.IsPaused || (startCountdown != null && !startCountdown.IsComplete)) return;
+            AdvanceKillChainClock(seconds);
             float countdownSeconds = Mathf.Min(RemainingTime, seconds);
             RemainingTime = Mathf.Max(0, RemainingTime - countdownSeconds);
             overtimeSeconds += seconds - countdownSeconds;
@@ -313,6 +317,7 @@ namespace VoxelRacer
 
         private void CompleteMission()
         {
+            BankPendingKillChains();
             IsComplete = true;
             if (rewardAwarded || Tuning == null)
                 return;
@@ -360,6 +365,7 @@ namespace VoxelRacer
                 if (missionBoss == null)
                 {
                     DrawMultiplier(objectiveArea, hudAlpha);
+                    DrawKillChain(objectiveArea, hudAlpha);
                     GUI.color = previousColor;
                     return;
                 }
@@ -372,6 +378,7 @@ namespace VoxelRacer
             DrawMissionHeader(area, compactBossHud, hudAlpha);
 
             DrawMultiplier(area, hudAlpha);
+            DrawKillChain(area, hudAlpha);
             GUI.color = previousColor;
         }
 

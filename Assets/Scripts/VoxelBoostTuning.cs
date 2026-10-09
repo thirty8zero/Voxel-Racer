@@ -17,6 +17,12 @@ namespace VoxelRacer
         [Tooltip("Seconds required to recharge an empty boost back to full.")]
         [Min(0.05f)] public float rechargeCooldownLength = 6f;
 
+        [Header("Boost Ram Damage")]
+        [Tooltip("Additional enemy ram health and voxel damage during active boost, without a fitted plough. Stacks with other ram bonuses. Zero disables it; player damage is unchanged.")]
+        [Min(0f)] public float boostRamDamageBonusPercent = 10f;
+        [Tooltip("Additional enemy ram health and voxel damage during active boost with a fitted plough, on top of its normal front-impact bonus. Applies to all ram directions. Zero disables it; player damage is unchanged.")]
+        [Min(0f)] public float boostRamDamageWithPloughBonusPercent = 15f;
+
         [Header("Forward Movement")]
         [Tooltip("How many metres forward in its lane the car shifts while boost is active. The car smoothly returns to its normal position when boost ends.")]
         [Min(0f)] public float boostForwardOffset = 2f;
@@ -33,6 +39,8 @@ namespace VoxelRacer
             boostSpeed = Mathf.Max(0f, boostSpeed);
             boostLength = Mathf.Max(0.05f, boostLength);
             rechargeCooldownLength = Mathf.Max(0.05f, rechargeCooldownLength);
+            boostRamDamageBonusPercent = Mathf.Max(0f, boostRamDamageBonusPercent);
+            boostRamDamageWithPloughBonusPercent = Mathf.Max(0f, boostRamDamageWithPloughBonusPercent);
             boostForwardOffset = Mathf.Max(0f, boostForwardOffset);
             boostForwardMovementDuration = Mathf.Max(0.01f, boostForwardMovementDuration);
             VoxelAssetSaveQueue.Request(this);

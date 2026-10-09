@@ -132,8 +132,8 @@ namespace VoxelRacer.Editor
                     fire.GetComponent<UnityEngine.UI.Image>().sprite != null,
                     "Reticule gun button must retain its 200px size in the bottom-right corner without a text label");
                 Check(launch.anchorMin == new Vector2(1, 0) && launch.anchorMax == launch.anchorMin &&
-                    launch.anchoredPosition == new Vector2(-150, 570),
-                    "Missile button must sit directly above BOOST on the right");
+                    launch.anchoredPosition == new Vector2(-150, 390),
+                    "Missile button must sit above gun fire with a 25px touch-area gap");
                 var gunMount = root.AddComponent<VoxelGunMount>(); gunMount.tuning = bullet;
                 var rocketMount = root.AddComponent<VoxelGunMount>(); rocketMount.tuning = missile;
                 fire.GetComponent<UnityEngine.EventSystems.IPointerDownHandler>().OnPointerDown(null);
@@ -150,7 +150,7 @@ namespace VoxelRacer.Editor
                 launch.GetComponent<UnityEngine.EventSystems.IPointerDownHandler>().OnPointerDown(null);
                 Call(controls, "Update");
                 Check(!VoxelMobileControls.IsMissileHeld, "Hidden HUD must clear input");
-                Debug.Log("PASS: bottom-right gun button, missiles above BOOST, independent gun/missile input, simultaneous hold, release, exit, focus loss and hidden HUD.");
+                Debug.Log("PASS: bottom-right gun button, missiles above gun fire, independent gun/missile input, simultaneous hold, release, exit, focus loss and hidden HUD.");
             }
             finally
             {

@@ -26,6 +26,7 @@ namespace VoxelRacer
         private Button leftArmorUpgradeButton;
         private Text wheelSpikeUpgradeButtonLabel;
         private Button wheelSpikeUpgradeButton;
+        private Button starWheelSpikeUpgradeButton;
         private Button performanceWheelButton;
         private Text performanceWheelLabel;
         private Button boostUpgradeButton;
@@ -246,6 +247,8 @@ namespace VoxelRacer
             wheelSpikeUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Wheel Spike Purchase Button", string.Empty, 30,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -165f), new Vector2(560f, 100f), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Spikes));
             wheelSpikeUpgradeButtonLabel = wheelSpikeUpgradeButton.GetComponentInChildren<Text>();
+            starWheelSpikeUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Star Wheel Spike Purchase Button", string.Empty, 30,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.StarSpikes));
             performanceWheelButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Performance Wheel Purchase Button", string.Empty, 30,
                 new Vector2(.5f, .5f), new Vector2(0, -280), new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Wheels));
             performanceWheelLabel = performanceWheelButton.GetComponentInChildren<Text>();
@@ -349,8 +352,14 @@ namespace VoxelRacer
 
         private void TryPurchaseWheelSpikes()
         {
-            VoxelWheelSpikeTuning tuning = VoxelWheelSpikeTuning.Load();
-            if (DisplayedCar == null || !VoxelWheelSpikeUpgradeState.TryPurchase(tuning))
+            PurchaseWheelSpikes(VoxelWheelSpikeTuning.Load());
+        }
+
+        private void TryPurchaseStarWheelSpikes() => PurchaseWheelSpikes(VoxelWheelSpikeTuning.LoadStar());
+
+        private void PurchaseWheelSpikes(VoxelWheelSpikeTuning tuning)
+        {
+            if (DisplayedCar == null || tuning == null || !tuning.Fits(definition) || !VoxelWheelSpikeUpgradeState.TryPurchase(tuning))
             {
                 feedbackText.text = "WHEEL SPIKES UNAVAILABLE";
                 RefreshUi();
@@ -428,7 +437,7 @@ namespace VoxelRacer
                 return;
             }
 
-            if (VoxelWheelSpikeUpgradeState.IsPurchased)
+            if (VoxelWheelSpikeUpgradeState.IsEquipped(tuning))
             {
                 wheelSpikeUpgradeButton.interactable = false;
                 wheelSpikeUpgradeButtonLabel.text = tuning.displayName.ToUpperInvariant() + "\nINSTALLED (+" +
@@ -450,7 +459,7 @@ namespace VoxelRacer
             if(DisplayedCar==null || !VoxelEngineUpgradeState.TryPurchase(tuning,definition)) return;
             VoxelEngineUpgradeState.ApplyTo(DisplayedCar.transform,definition);
             VoxelCarRunState.Capture(DisplayedCar,definition);
-            feedbackText.text="V6 INSTALLED"; RefreshUi();
+            feedbackText.text="V6 + SPOILER INSTALLED"; RefreshUi();
         }
         private void RefreshEngineShop()
         {

@@ -3,117 +3,131 @@ using UnityEngine.Rendering;
 
 namespace VoxelRacer
 {
-    /// <summary>Keeps a chunky two-colour sunset disc on the visible horizon.</summary>
+    /// <summary>A flat, stepped yellow disc behind the mountains, independent of vehicle heading.</summary>
     [ExecuteAlways]
     public sealed class VoxelHorizonSun : MonoBehaviour
     {
-        private const string DiscMeshName = "Voxel Horizon Sun Disc";
+        private const string DiscMeshName = "Stepped Horizon Sun Disc";
+        private static readonly int BaseColour = Shader.PropertyToID("_BaseColor");
 
         public Transform target;
+        public VoxelTrackDefinition trackDefinition;
         [Min(10f)] public float distanceAhead = 220f;
-        public float horizontalOffset = 12f;
-        public float horizonHeight = -80f;
+        [Range(0f, 360f)] public float azimuthDegrees = 45f;
+        public float horizontalOffset;
+        public float horizonHeight = 14f;
+        [Min(1f)] public float diameter = 24f;
+        public Color colour = new(1f, .84f, .12f);
+
+        private Mesh generatedMesh;
+        private MeshRenderer discRenderer;
+        private MaterialPropertyBlock properties;
+        private Color appliedColour;
+
+        public void Configure(Transform followTarget, VoxelTrackDefinition track)
+        {
+            target = followTarget;
+            trackDefinition = track;
+            ReadTrackSettings();
+            Build();
+            UpdatePosition();
+        }
 
         public void Build()
         {
-            // Preserve the original large sunset presentation used by the showcase scene.
-            transform.localScale = Vector3.one * 10f;
-
-            if (HasCurrentDiscGeometry())
-                return;
-
-            for (int index = transform.childCount - 1; index >= 0; index--)
+            // Replace the legacy oversized two-disc sun without touching source assets.
+            for (int i = transform.childCount - 1; i >= 0; i--)
             {
-                GameObject oldDisc = transform.GetChild(index).gameObject;
+                var oldDisc = transform.GetChild(i).gameObject;
+                if (oldDisc.name != "Sun Outer Glow" && oldDisc.name != "Sun Core") continue;
                 oldDisc.SetActive(false);
-                if (Application.isPlaying)
-                    Destroy(oldDisc);
-                else
-                    DestroyImmediate(oldDisc);
+                if (Application.isPlaying) Destroy(oldDisc); else DestroyImmediate(oldDisc);
             }
-
-            var rim = CreateDisc("Sun Outer Glow", 28f, new Color(1f, 0.18f, 0.12f));
-            rim.transform.SetParent(transform, false);
-
-            var core = CreateDisc("Sun Core", 21f, new Color(1f, 0.68f, 0.12f));
-            core.transform.SetParent(transform, false);
-            core.transform.localPosition = Vector3.back * 0.4f;
+            var filter = GetComponent<MeshFilter>();
+            if (filter == null) filter = gameObject.AddComponent<MeshFilter>();
+            if (filter.sharedMesh == null || filter.sharedMesh.name != DiscMeshName)
+                filter.sharedMesh = CreateDiscMesh();
+            generatedMesh = filter.sharedMesh;
+            discRenderer = GetComponent<MeshRenderer>();
+            if (discRenderer == null) discRenderer = gameObject.AddComponent<MeshRenderer>();
+            discRenderer.sharedMaterial = Resources.Load<Material>("Scenery/DesertHorizonSun");
+            discRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            discRenderer.receiveShadows = false;
+            discRenderer.lightProbeUsage = LightProbeUsage.Off;
+            discRenderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            properties ??= new MaterialPropertyBlock();
+            ApplyColour();
         }
 
-        private void Update()
+        private void LateUpdate()
         {
-            if (target == null)
-                return;
-
-            Vector3 planarForward = Vector3.ProjectOnPlane(target.forward, Vector3.up).normalized;
-            Vector3 planarRight = Vector3.Cross(Vector3.up, planarForward).normalized;
-            transform.position = target.position + planarForward * distanceAhead + planarRight * horizontalOffset + Vector3.up * horizonHeight;
-            transform.rotation = Quaternion.LookRotation(planarForward, Vector3.up);
+            if (target == null) return;
+            ReadTrackSettings();
+            if (discRenderer == null || generatedMesh == null) Build();
+            if (colour != appliedColour) ApplyColour();
+            UpdatePosition();
         }
 
-        private static GameObject CreateDisc(string objectName, float size, Color colour)
+        private void ReadTrackSettings()
         {
-            var disc = new GameObject(objectName);
-            var meshFilter = disc.AddComponent<MeshFilter>();
-            meshFilter.sharedMesh = CreateDiscMesh();
-            var renderer = disc.AddComponent<MeshRenderer>();
-            disc.transform.localScale = new Vector3(size, size, 0.8f);
-
-            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { color = colour };
-            material.SetColor("_BaseColor", colour);
-            renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            renderer.lightProbeUsage = LightProbeUsage.Off;
-            return disc;
+            if (trackDefinition == null) return;
+            distanceAhead = Mathf.Max(trackDefinition.sunDistanceAhead, trackDefinition.mountainDistance + 5f);
+            azimuthDegrees = trackDefinition.sunAzimuthDegrees;
+            horizontalOffset = trackDefinition.sunHorizontalOffset;
+            horizonHeight = trackDefinition.sunHorizonHeight;
+            diameter = trackDefinition.sunDiameter;
+            colour = trackDefinition.sunColour;
         }
 
-        private bool HasCurrentDiscGeometry()
+        private void ApplyColour()
         {
-            if (transform.childCount != 2)
-                return false;
+            properties.SetColor(BaseColour, colour);
+            discRenderer.SetPropertyBlock(properties);
+            appliedColour = colour;
+        }
 
-            for (int index = 0; index < transform.childCount; index++)
-            {
-                MeshFilter filter = transform.GetChild(index).GetComponent<MeshFilter>();
-                if (filter == null || filter.sharedMesh == null || filter.sharedMesh.name != DiscMeshName)
-                    return false;
-            }
-            return true;
+        private void UpdatePosition()
+        {
+            if (target == null) return;
+            Vector3 direction = Quaternion.Euler(0f, azimuthDegrees, 0f) * Vector3.forward;
+            Vector3 right = Vector3.Cross(Vector3.up, direction);
+            Vector3 origin = target.position;
+            origin.y = 0f; // Match the mountain ring's centre; bumps/tumbling do not move the sun vertically.
+            transform.position = origin + direction * distanceAhead + right * horizontalOffset + Vector3.up * horizonHeight;
+            transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
+            transform.localScale = new Vector3(Mathf.Max(1f, diameter), Mathf.Max(1f, diameter), 1f);
         }
 
         private static Mesh CreateDiscMesh()
         {
-            const int segments = 64;
-            var vertices = new Vector3[segments + 1];
-            var uv = new Vector2[segments + 1];
-            var triangles = new int[segments * 3];
-            vertices[0] = Vector3.zero;
-            uv[0] = new Vector2(0.5f, 0.5f);
-
-            for (int index = 0; index < segments; index++)
+            const int rows = 16;
+            var vertices = new Vector3[rows * 4];
+            var triangles = new int[rows * 6];
+            for (int row = 0; row < rows; row++)
             {
-                float angle = index * Mathf.PI * 2f / segments;
-                float x = Mathf.Cos(angle) * 0.5f;
-                float y = Mathf.Sin(angle) * 0.5f;
-                vertices[index + 1] = new Vector3(x, y, 0f);
-                uv[index + 1] = new Vector2(x + 0.5f, y + 0.5f);
-
-                int next = (index + 1) % segments;
-                int triangle = index * 3;
-                // Reverse winding so the disc faces the race camera on the -Z side.
-                triangles[triangle] = 0;
-                triangles[triangle + 1] = next + 1;
-                triangles[triangle + 2] = index + 1;
+                float y = row + .5f - rows * .5f;
+                // Quantize the outline into a pixel circle, using one quad per horizontal strip.
+                float halfWidth = Mathf.Round(Mathf.Sqrt(rows * rows * .25f - y * y)) / rows;
+                float bottom = row / (float)rows - .5f;
+                float top = (row + 1f) / rows - .5f;
+                int vertex = row * 4, triangle = row * 6;
+                vertices[vertex] = new Vector3(-halfWidth, bottom, 0f);
+                vertices[vertex + 1] = new Vector3(-halfWidth, top, 0f);
+                vertices[vertex + 2] = new Vector3(halfWidth, top, 0f);
+                vertices[vertex + 3] = new Vector3(halfWidth, bottom, 0f);
+                triangles[triangle] = vertex; triangles[triangle + 1] = vertex + 1; triangles[triangle + 2] = vertex + 2;
+                triangles[triangle + 3] = vertex; triangles[triangle + 4] = vertex + 2; triangles[triangle + 5] = vertex + 3;
             }
-
-            var mesh = new Mesh { name = DiscMeshName };
-            mesh.vertices = vertices;
-            mesh.uv = uv;
-            mesh.triangles = triangles;
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
+            var mesh = new Mesh { name = DiscMeshName, hideFlags = HideFlags.DontSave };
+            mesh.vertices = vertices; mesh.triangles = triangles;
+            mesh.RecalculateNormals(); mesh.RecalculateBounds();
             return mesh;
+        }
+
+        private void OnDestroy()
+        {
+            if (generatedMesh == null) return;
+            if (Application.isPlaying) Destroy(generatedMesh); else DestroyImmediate(generatedMesh);
         }
     }
 }
