@@ -6,6 +6,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using System.Collections.Generic;
 using Object = UnityEngine.Object;
 
 namespace VoxelRacer.Editor
@@ -18,6 +20,7 @@ namespace VoxelRacer.Editor
         private static VoxelPauseMenu pause;
         private static VoxelCarController car;
         private static VoxelStartCountdown countdown;
+        private static VoxelCarIntegrityDisplay integrity;
         private static VoxelMissionProgress mission;
         private static VoxelBoostController boost;
         private static VoxelGunMount gun;
@@ -114,6 +117,7 @@ namespace VoxelRacer.Editor
                 mount.SetActive(true);
                 pause = root.AddComponent<VoxelPauseMenu>();
                 pause.Configure(car);
+                integrity = root.AddComponent<VoxelCarIntegrityDisplay>(); integrity.target = car;
                 keyboard = InputSystem.AddDevice<Keyboard>();
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Escape));
                 phase = 0;
@@ -235,14 +239,54 @@ namespace VoxelRacer.Editor
                     Check(!VoxelPauseMenu.IsPaused && Mathf.Approximately(Time.timeScale, .35f) && !AudioListener.pause,
                         "Disabling/unloading a paused menu left game or audio frozen.");
                     pause.enabled = true;
+                    VerifyIntegrityTap();
                     mission.SetBossEncounter(true);
                     mission.FailBossEncounter();
                     pause.SetPaused(true);
                     Check(!VoxelPauseMenu.IsPaused, "Pause opened over mission failure.");
-                    Finish("PASS (Play Mode): Escape pause/resume and Resume button; default-on FPS, persistent checkbox and bottom-centre safe-area placement; FPS samples while paused; opening countdown, driving, mission time and weapon cooldown freeze; keyboard/touch lane and firing/boost requests blocked; overlapping crate cannot collide/destroy paused player; previous non-default time scale/audio restored; gameplay resumes; disabled-menu cleanup; mission-failure gate. Preview: Temp/PauseMenu.png.");
+                    RefreshIntegrityInput();
+                    Check(!IntegrityInputGroup.blocksRaycasts, "Integrity meter captured input over mission failure");
+                    Finish("PASS (Play Mode): Escape pause/resume, circular integrity-meter raycast and tap opens the same menu, Resume button; transparent meter corners and hidden/disabled meter do not capture input; default-on FPS, persistent checkbox and bottom-centre safe-area placement; FPS samples while paused; opening countdown, driving, mission time and weapon cooldown freeze; keyboard/touch lane and firing/boost requests blocked; overlapping crate cannot collide/destroy paused player; previous non-default time scale/audio restored; gameplay resumes; disabled-menu cleanup; mission-failure gate. Preview: Temp/PauseMenu.png.");
                 }
             }
             catch (Exception e) { Finish("FAIL: " + e); }
+        }
+
+        private static void RefreshIntegrityInput() => typeof(VoxelCarIntegrityDisplay)
+            .GetMethod("Update", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(integrity, null);
+
+        private static CanvasGroup IntegrityInputGroup => root.transform.Find("Player Integrity HUD").GetComponent<CanvasGroup>();
+
+        private static void VerifyIntegrityTap()
+        {
+            RefreshIntegrityInput(); Canvas.ForceUpdateCanvases();
+            var button = IntegrityInputGroup.GetComponentInChildren<Button>();
+            Check(button != null && button.navigation.mode == Navigation.Mode.None, "Missing integrity pause button");
+            var rect = button.GetComponent<RectTransform>();
+            var corners = new Vector3[4]; rect.GetWorldCorners(corners);
+            Vector2 center = (corners[0] + corners[2]) * .5f;
+            GameObject Hit(Vector2 point)
+            {
+                var hits = new List<RaycastResult>();
+                EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current) { position = point }, hits);
+                return hits.Count == 0 ? null : hits[0].gameObject;
+            }
+            Check(Hit(center) == button.gameObject, "Visible integrity meter does not receive tap input");
+            Check(Hit((Vector2)corners[0] + Vector2.one) != button.gameObject, "Transparent integrity corner captures input");
+            Snapshot();
+            ExecuteEvents.Execute(button.gameObject, new PointerEventData(EventSystem.current) { position = center }, ExecuteEvents.pointerClickHandler);
+            VerifyFrozen();
+            Check(pause.GetComponentsInChildren<Button>().Any(b => b.name == "Resume Button" && b.gameObject.activeInHierarchy), "Meter tap did not open the existing settings menu");
+            RefreshIntegrityInput();
+            Check(!IntegrityInputGroup.blocksRaycasts, "Paused meter captures input behind the menu");
+            pause.GetComponentsInChildren<Button>().Single(b => b.name == "Resume Button").onClick.Invoke();
+            Check(!VoxelPauseMenu.IsPaused && Mathf.Approximately(Time.timeScale, .35f) && !AudioListener.pause, "Meter pause did not restore gameplay after Resume");
+            integrity.target = null; RefreshIntegrityInput();
+            Check(Hit(center) != button.gameObject, "Hidden integrity meter captures input");
+            integrity.target = car; RefreshIntegrityInput();
+            integrity.enabled = false;
+            Check(Hit(center) != button.gameObject, "Disabled integrity meter captures input");
+            integrity.enabled = true; RefreshIntegrityInput();
         }
 
         private static void Finish(string message)

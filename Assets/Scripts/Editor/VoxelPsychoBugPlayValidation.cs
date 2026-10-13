@@ -19,12 +19,15 @@ namespace VoxelRacer.Editor
         private static VoxelPauseMenu pause,previousPause;
         private static VoxelMissionTuning missionTuning;
         private static VoxelGunTuning gun;
+        private static VoxelObstacleCar oncoming;
+        private static Vector2 previousTrafficRelative;
         private static VoxelGarageUpgradeDockValidation.SavedState saved;
         private static Scene scene,previousScene;
         private static UnityEngine.Random.State random;
         private static float previousScale, lastGameTime, started, phaseStarted, warningStarted, warningLane, frozenDistance, frozenLane, frozenClock;
         private static int phase, integrity, initialIntegrity, lastFrame;
-        private static bool shot, shotHit, sawSlam, ownsState;
+        private static bool shot, shotHit, sawSlam, ownsState, sawShotEscape;
+        private static float shotAt;
         private static readonly HashSet<PsychoBugPhase> seen=new();
         private const BindingFlags Static=BindingFlags.Static|BindingFlags.NonPublic;
         private static void Check(bool value,string message)=>VoxelPsychoBugValidation.Check(value,message);
@@ -71,7 +74,7 @@ namespace VoxelRacer.Editor
                 f.Behaviour.feintChance=0;f.Behaviour.sideRamChance=1;f.Behaviour.weaveChance=0;
                 f.Spawn(0,14);Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.PositioningForShot);f.Enemy.enabled=true;initialIntegrity=f.Player.RemainingIntegrityVoxels;
                 gun=ScriptableObject.CreateInstance<VoxelGunTuning>();gun.damagePerBullet=1;gun.projectileSpeed=100;gun.maximumRange=40;gun.areaOfEffectRadius=0;
-                phase=0;shot=shotHit=sawSlam=false;seen.Clear();started=phaseStarted=Time.realtimeSinceStartup;lastGameTime=Time.time;lastFrame=-1;
+                phase=0;shot=shotHit=sawSlam=sawShotEscape=false;seen.Clear();started=phaseStarted=Time.realtimeSinceStartup;lastGameTime=Time.time;lastFrame=-1;
                 EditorApplication.update+=Tick;
             }
             catch(Exception e){Finish("FAIL: "+e);}
@@ -93,12 +96,17 @@ namespace VoxelRacer.Editor
                         if(f.Enemy.PsychoPhase==PsychoBugPhase.Exposed && !shot)
                         {
                             var bullet=VoxelProjectile.Create(f.Enemy.transform.TransformPoint(new Vector3(0,.85f,-7)),f.Enemy.transform.forward,gun);
-                            bullet.transform.SetParent(f.Root.transform,true);shot=true;
+                            bullet.transform.SetParent(f.Root.transform,true);shot=true;shotAt=Time.time;
                         }
                         shotHit|=f.Enemy.CurrentHealth<f.EnemyTuning.vehicleHealth;
+                        if(shotHit && f.Enemy.PsychoPhase==PsychoBugPhase.Hunting && Mathf.Abs(f.Enemy.LaneOffset)>.1f)
+                        {
+                            Check(Time.time-shotAt<.8f && f.Enemy.DriveSpeed>20,"Live projectile reaction was too slow or failed to accelerate");
+                            sawShotEscape=true;
+                        }
                         if(f.Enemy.PsychoPhase==PsychoBugPhase.Warning)
                         {
-                            Check(shot && shotHit,"Actual gun bullet did not hit during exposure");
+                            Check(shot && shotHit && sawShotEscape,"Actual gun bullet did not trigger an exposure escape");
                             warningStarted=Time.time;warningLane=Mathf.Abs(f.Enemy.LaneOffset);integrity=f.Player.RemainingIntegrityVoxels;Next();
                         }
                         break;
@@ -154,7 +162,7 @@ namespace VoxelRacer.Editor
                         Check(f.Enemy.DriveSpeed>18,"Live Bug mirrored stopped player speed");
                         f.Behaviour.sideRamEnabled=true;f.Behaviour.sideRamChance=0;f.Behaviour.weaveChance=0;
                         f.Behaviour.ramOnPassingAlignment=true;f.Behaviour.minimumAttackCooldown=f.Behaviour.maximumAttackCooldown=0;
-                        Property(f.Player,"CurrentSpeed",20f);f.Spawn(3,-3);Property(f.Player,"CurrentSpeed",8f);f.Enemy.enabled=true;
+                        Property(f.Player,"CurrentSpeed",20f);f.Spawn(3,-3);Property(f.Player,"CurrentSpeed",16f);f.Enemy.enabled=true;
                         integrity=f.Player.RemainingIntegrityVoxels;Next();break;
                     case 8:
                         if(f.Enemy.PsychoPhase==PsychoBugPhase.Warning){warningStarted=Time.time;Next();}
@@ -167,7 +175,7 @@ namespace VoxelRacer.Editor
                         Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);f.Enemy.enabled=true;Next();break;
                     case 10:
                         if(Time.realtimeSinceStartup-phaseStarted<1f)break;
-                        Check(f.Enemy.DriveSpeed>f.Behaviour.minimumDrivingSpeed &&
+                        Check(f.Enemy.DriveSpeed>=f.Behaviour.minimumDrivingSpeed &&
                             f.Enemy.PsychoPhase!=PsychoBugPhase.Aligning && f.Player.RemainingIntegrityVoxels==integrity,
                             "Live alignment parked with the stopped player");
                         Property(f.Player,"CurrentSpeed",20f);f.Spawn(3);Call(f.Enemy,"BeginPsychoRam");
@@ -176,7 +184,28 @@ namespace VoxelRacer.Editor
                         if(Time.realtimeSinceStartup-phaseStarted<.2f)break;
                         Check(f.Enemy.PsychoPhase==PsychoBugPhase.Recovering && f.Enemy.DriveSpeed>5 &&
                             f.Player.RemainingIntegrityVoxels==integrity,"Live low-speed warning failed to cancel and accelerate away");
-                        Finish("PASS (Play Mode): actual frame-driven positioning, exposure, alignment, full one-second pull-away warning and committed slam; real gun projectile removes enemy health during exposure; both side rams damage the real player prefab once, recovery prevents repeated hits, real boost collision offset escapes, player ram cancels attack and damages enemy, actual pause menu freezes motion/timers, mission completion stops attacks. Independent cruise persists when player stops; braking brings the Bug level and triggers a real delayed ram with random attack chance zero. Zero-speed alignment cancels and accelerates away; a low-speed committed warning cancels without damage. Temporary scenes/objects/tuning, clocks, preferences, mission/campaign/currency/purchases and random state restored.");return;
+                        Property(f.Player,"CurrentSpeed",8f);f.Spawn(3,10);
+                        Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);f.Enemy.enabled=true;Next();break;
+                    case 12:
+                        Check(f.Enemy.PsychoPhase!=PsychoBugPhase.Aligning && f.Enemy.PsychoPhase!=PsychoBugPhase.Warning &&
+                            f.Enemy.DriveSpeed>=19.99f,"Live Bug slowed to match a player below its approach-speed guard");
+                        if(Time.realtimeSinceStartup-phaseStarted<.8f)break;
+                        Property(f.Player,"CurrentSpeed",0f);f.Behaviour.sideRamEnabled=false;f.Behaviour.shootingWindows=false;
+                        f.Behaviour.weaveThroughTraffic=false;f.Spawn(3,60);f.Enemy.enabled=true;
+                        var trafficObject=new GameObject("Live head-on traffic QA");trafficObject.transform.SetParent(f.Root.transform,false);
+                        oncoming=trafficObject.AddComponent<VoxelObstacleCar>();
+                        oncoming.Configure(f.Player,f.Traffic,false,f.Road,f.Enemy.TrackDistance+60,3,25f);
+                        previousTrafficRelative=new Vector2(f.Enemy.LaneOffset-oncoming.LaneOffset,f.Enemy.TrackDistance-oncoming.TrackDistance);
+                        Next();break;
+                    case 13:
+                        Vector2 trafficRelative=new(f.Enemy.LaneOffset-oncoming.LaneOffset,f.Enemy.TrackDistance-oncoming.TrackDistance);
+                        Vector2 trafficSize=new(f.EnemyTuning.collisionHalfWidth+oncoming.TrafficHalfWidth,
+                            f.EnemyTuning.collisionHalfLength+oncoming.TrafficHalfLength);
+                        Check(!VoxelVehicleCollision.Sweep(previousTrafficRelative,trafficRelative,trafficSize,out _),
+                            "Actual frame-driven oncoming civilian passed through the Bug");
+                        previousTrafficRelative=trafficRelative;
+                        if(Time.realtimeSinceStartup-phaseStarted<2.5f)break;
+                        Finish("PASS (Play Mode): actual frame-driven positioning, exposure, alignment, full one-second pull-away warning and committed slam; real gun projectile removes enemy health and promptly interrupts exposure with a lane dodge and acceleration; both side rams damage the real player prefab once, recovery prevents repeated hits, real boost collision offset escapes, player ram cancels attack and damages enemy, actual pause menu freezes motion/timers, mission completion stops attacks. Independent cruise persists when player stops; moderate braking still allows a real delayed ram, while a player below the 14m/s approach floor makes the Bug break away without repeated alignment. Zero-speed alignment cancels and accelerates away; a low-speed committed warning cancels without damage. Actual oncoming civilian and Bug remain separated in a deliberately blocked head-on corridor. Temporary scenes/objects/tuning, clocks, preferences, mission/campaign/currency/purchases and random state restored.");return;
                 }
             }
             catch(Exception e){Finish("FAIL: "+e);}

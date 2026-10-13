@@ -158,7 +158,10 @@ namespace VoxelRacer
         {
             drivingEnabled = enabled;
             if (!enabled)
+            {
                 CurrentSpeed = 0f;
+                SetBrakeLights(false);
+            }
         }
 
         /// <summary>Applied by the boost controller and kept separate from the car's tuned normal top speed.</summary>
@@ -221,7 +224,10 @@ namespace VoxelRacer
         private void Update()
         {
             if (!Application.isPlaying || VoxelPauseMenu.IsPaused)
+            {
+                SetBrakeLights(false);
                 return;
+            }
 
             if (IsDestroyed)
             {
@@ -231,6 +237,7 @@ namespace VoxelRacer
 
             var keyboard = Keyboard.current;
             bool braking = VoxelMobileControls.IsBrakeHeld || (keyboard != null && keyboard.spaceKey.isPressed);
+            SetBrakeLights(drivingEnabled && (braking || (finishingRun && CurrentSpeed > 0.05f)));
             CurrentSpeed = CalculateNextDriveSpeed(CurrentSpeed, braking, Time.deltaTime);
             UpdateRamResponse();
             UpdateBoostForwardOffset();
@@ -521,6 +528,7 @@ namespace VoxelRacer
                 return;
 
             IsDestroyed = true;
+            SetBrakeLights(false);
             drivingEnabled = false;
             finishingRun = false;
             CurrentSpeed = 0f;
@@ -629,6 +637,7 @@ namespace VoxelRacer
             // Purchases can change the baseline while existing body voxels are missing.
             initialIntegrityVoxels = CountDestructibleVoxels(true);
             hostileProjectileVoxels = null;
+            RefreshBrakeLights();
         }
 
         public void EnsureIntegrityBaseline()

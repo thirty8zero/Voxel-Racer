@@ -37,6 +37,9 @@ namespace VoxelRacer
         {
             HideGarageSettings();
             CancelUpgradePlacement();
+            if (garageRepairPanel.activeSelf != (selected == garageRepairPanel) ||
+                garageUpgradePanel.activeSelf != (selected == garageUpgradePanel))
+                BeginGarageCameraTransition();
             garageRepairPanel.SetActive(selected==garageRepairPanel);
             garageUpgradePanel.SetActive(selected==garageUpgradePanel);
             garageHome.SetActive(selected==null);
@@ -83,15 +86,15 @@ namespace VoxelRacer
             var hr=(RectTransform)garageHome.transform;hr.anchorMin=Vector2.zero;hr.anchorMax=Vector2.one;hr.offsetMin=hr.offsetMax=Vector2.zero;
             garageRepairPanel=canvas.Find("Repair Panel").gameObject;
             garageUpgradePanel=canvas.Find("Car Upgrade Panel").gameObject;
-            Place((RectTransform)garageRepairPanel.transform,new(0,.5f),new(395,-95),new(680,640));
+            Place((RectTransform)garageRepairPanel.transform,new(0,.5f),new(395,-95),new(680,750));
             Frame(garageRepairPanel,RepairAccent,new Color(.07f,.015f,.023f,.97f));
             var repairLabels=new[]{repair10ButtonLabel,repair25ButtonLabel,repair50ButtonLabel,fullRepairButtonLabel};
             for(int i=0;i<repairLabels.Length;i++)
             {var button=repairLabels[i].GetComponentInParent<Button>();button.transform.SetParent(garageRepairPanel.transform,false);
-             Place((RectTransform)button.transform,new(.5f,.5f),new(0,155-i*125),new(610,110));
+             Place((RectTransform)button.transform,new(.5f,.5f),new(0,205-i*125),new(610,110));
              Place(repairLabels[i].rectTransform,new(.5f,.5f),Vector2.zero,new(580,105));repairLabels[i].font=GarageMono;repairLabels[i].fontSize=36;
              Frame(button.gameObject,RepairAccent,new Color(.17f,.025f,.035f,.95f));}
-            VoxelMenuUi.CreateText(garageRepairPanel.transform,"Repair Heading","REPAIR",54,TextAnchor.MiddleCenter,new(.5f,.5f),new(0,267),new(380,70));
+            VoxelMenuUi.CreateText(garageRepairPanel.transform,"Repair Heading","REPAIR",54,TextAnchor.MiddleCenter,new(.5f,.5f),new(0,312),new(380,70));
             var settingsOverlay=VoxelMenuUi.CreatePanel(canvas,"Garage Settings Overlay",new(.5f,.5f),Vector2.zero,Vector2.zero);
             settingsOverlay.rectTransform.anchorMin=Vector2.zero;settingsOverlay.rectTransform.anchorMax=Vector2.one;
             settingsOverlay.rectTransform.offsetMin=settingsOverlay.rectTransform.offsetMax=Vector2.zero;
@@ -119,11 +122,14 @@ namespace VoxelRacer
             foreach(var panel in new[]{garageRepairPanel,garageUpgradePanel,garageSettingsPanel})
             {
                 bool isUpgradePanel = panel == garageUpgradePanel;
-                var close=VoxelMenuUi.CreateButton(panel.transform,"Close Panel","X",30,
-                    isUpgradePanel ? new Vector2(0,1) : new Vector2(1,1),
-                    isUpgradePanel ? new Vector2(34,-24) : new Vector2(-34,-33),
-                    new(45,42),()=>{if(panel==garageSettingsPanel) HideGarageSettings();else ShowGaragePanel(null);});
+                bool isRepairPanel = panel == garageRepairPanel;
+                var close=VoxelMenuUi.CreateButton(panel.transform,"Close Panel",isUpgradePanel || isRepairPanel ? "BACK" : "X",30,
+                    isUpgradePanel ? new Vector2(0,1) : isRepairPanel ? new Vector2(.5f,.5f) : new Vector2(1,1),
+                    isUpgradePanel ? new Vector2(112,-55) : isRepairPanel ? new Vector2(0,-292) : new Vector2(-34,-33),
+                    isUpgradePanel || isRepairPanel ? new Vector2(200,90) : new Vector2(45,42),
+                    ()=>{if(panel==garageSettingsPanel) HideGarageSettings();else ShowGaragePanel(null);});
                 Frame(close.gameObject,new Color(.4f,.45f,.5f),new Color(.02f,.03f,.04f));
+                close.GetComponentInChildren<Text>().font = GarageMono;
             }
             HomeButton("Repair Menu Button","REPAIR","RESTORE YOUR VEHICLE",-530,RepairAccent,()=>ShowGaragePanel(garageRepairPanel),false);
             HomeButton("Upgrade Menu Button","UPGRADES","MAKE IT STRONGER",-735,UpgradeAccent,()=>ShowGaragePanel(garageUpgradePanel),true);

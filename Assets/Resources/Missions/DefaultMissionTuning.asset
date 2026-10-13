@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: Mission 1
   requiredPoints: 300
   completionCurrencyAward: 100
+  repairCostPerPixel: 2
   timeLimitSeconds: 60
   timeBonusCurrencyMultiplier: 1
   maximumTimeMultiplier: 5

@@ -85,7 +85,7 @@ namespace VoxelRacer.Editor
         private static void Press()
         {
             var data = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
-            foreach (var handler in button.GetComponents<MonoBehaviour>().OfType<IPointerDownHandler>()) handler.OnPointerDown(data);
+            foreach (var handler in VoxelHudStyles.GetTouchArea(button).GetComponents<MonoBehaviour>().OfType<IPointerDownHandler>()) handler.OnPointerDown(data);
         }
         private static void Tick()
         {
@@ -125,7 +125,7 @@ namespace VoxelRacer.Editor
                 else if (phase == 4)
                 {
                     Check(cap.anchoredPosition.y >= lastCap - .001f, "Cap moved down during recharge"); lastCap = cap.anchoredPosition.y;
-                    Check(button.anchoredPosition == new Vector2(260, 630) && button.sizeDelta == new Vector2(220, 220), "Animation changed touch area");
+                    Check(button.anchoredPosition == new Vector2(420, 630) && button.sizeDelta == new Vector2(220, 220), "Animation changed touch area");
                     if (boost.IsReady && Mathf.Abs(cap.anchoredPosition.y - 24) < .001f)
                         Finish("PASS (Play Mode): real pointer-down activates and depresses boost immediately; cap stays down during burst, freezes through pause, then rises monotonically over the live cooldown to ready; fixed touch area; paused input blocked; persistent pause-menu wave toggle and independent FPS/wave visibility. Temporary objects/tuning removed; preferences restored.");
                 }

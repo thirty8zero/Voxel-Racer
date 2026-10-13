@@ -185,6 +185,7 @@ namespace VoxelRacer
             }
 
             BuildCarVisuals(car);
+            car.GetComponent<VoxelCarController>()?.RefreshBrakeLights();
         }
 
         private static void BuildCarVisuals(Transform car)

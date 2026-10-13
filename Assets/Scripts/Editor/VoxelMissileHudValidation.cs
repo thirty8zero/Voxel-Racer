@@ -113,7 +113,7 @@ namespace VoxelRacer.Editor
                 Check(ring.color.b > ring.color.r && text.color.b > text.color.r, "Boost ring and label must be blue");
                 var boostButtonRect = root.GetComponentsInChildren<Button>().First(b => b.name == "Boost Button").GetComponent<RectTransform>();
                 Check(boostButtonRect.anchorMin == Vector2.zero &&
-                    boostButtonRect.anchoredPosition == new Vector2(260, 630) &&
+                    boostButtonRect.anchoredPosition == new Vector2(420, 630) &&
                     boostButtonRect.sizeDelta == new Vector2(220, 220) &&
                     ring.rectTransform.anchorMin == boostButtonRect.anchorMin &&
                     ring.rectTransform.anchoredPosition == boostButtonRect.anchoredPosition &&

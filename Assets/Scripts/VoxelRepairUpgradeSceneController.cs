@@ -66,12 +66,9 @@ namespace VoxelRacer
             LayoutGarageDock();
             UpdateUpgradePlacementInput();
             UpdateCarRotationInput();
-            if (cameraTuning != null &&
-                (cameraTuning.cameraPosition != appliedCameraPosition ||
-                 cameraTuning.cameraLookAt != appliedCameraLookAt ||
-                 !Mathf.Approximately(cameraTuning.cameraFieldOfView, appliedCameraFieldOfView)))
-                ApplyCameraTuning();
+            RefreshCameraTuningIfChanged();
             ApplyGaragePreviewViewport();
+            AdvanceGarageCameraTransition(Time.unscaledDeltaTime);
             upgradePlacement?.SyncTransform();
         }
 
@@ -185,6 +182,15 @@ namespace VoxelRacer
             ApplyCameraTuning();
         }
 
+        internal void RefreshCameraTuningIfChanged()
+        {
+            if (cameraTuning != null &&
+                (cameraTuning.cameraPosition != appliedCameraPosition ||
+                 cameraTuning.cameraLookAt != appliedCameraLookAt ||
+                 !Mathf.Approximately(cameraTuning.cameraFieldOfView, appliedCameraFieldOfView)))
+                ApplyCameraTuning();
+        }
+
         public void ApplyCameraTuning()
         {
             if (cameraTuning == null)
@@ -273,9 +279,15 @@ namespace VoxelRacer
             StyleGarageUi(canvas);
         }
 
-        private int GetRepairCost(float repairPercent) => repairTuning != null
-            ? repairTuning.GetRepairCost(DisplayedCar, repairPercent)
-            : 0;
+        private int GetRepairCost(float repairPercent)
+        {
+            // Campaign progress advances only when leaving this garage, so the
+            // current track still identifies the mission whose damage is repaired.
+            var mission = VoxelTrackProgressState.CurrentTrack?.missionTuning ?? VoxelMissionTuning.Load();
+            return repairTuning != null
+                ? repairTuning.GetRepairCost(DisplayedCar, repairPercent, mission != null ? mission.repairCostPerPixel : 2)
+                : 0;
+        }
 
         private static string RepairLabel(string repairName, int cost) => repairName + "\nCOST <color=#FFD12A>" + Mathf.Max(0, cost) + "</color>";
 

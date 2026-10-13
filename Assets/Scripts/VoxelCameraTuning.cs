@@ -22,7 +22,9 @@ namespace VoxelRacer
         EaseInOutExpo,
         EaseInQuint,
         EaseOutQuint,
-        EaseInOutQuint
+        EaseInOutQuint,
+        // Append new choices to preserve existing serialized easing values.
+        SmoothStep
     }
 
     /// <summary>Editable presentation profile shared by the driving camera.</summary>
@@ -81,6 +83,7 @@ namespace VoxelRacer
             float t = Mathf.Clamp01(value);
             return easing switch
             {
+                VoxelEasingType.SmoothStep => Mathf.SmoothStep(0f, 1f, t),
                 VoxelEasingType.EaseInQuad => t * t,
                 VoxelEasingType.EaseOutQuad => 1f - (1f - t) * (1f - t),
                 VoxelEasingType.EaseInOutQuad => t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) * 0.5f,

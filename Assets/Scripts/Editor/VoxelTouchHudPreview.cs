@@ -53,7 +53,10 @@ namespace VoxelRacer.Editor
                 string[] names = { "Move Left Button", "Move Right Button", "Brake Button", "Boost Button", "Fire Button", "Missile Button" };
                 var buttons = names.Select(n => rects.First(r => r.name == n)).ToArray();
                 var boostRect = buttons[3];
-                Check(boostRect.anchorMin == Vector2.zero && boostRect.anchoredPosition == new Vector2(260, 630), "Boost placement");
+                Check(boostRect.anchorMin == Vector2.zero && boostRect.anchoredPosition == new Vector2(420, 630), "Inset boost placement");
+                Vector2[] expectedPositions = { new(0, 150), new(430, 150), new(420, 390), new(420, 630), new(-310, 150), new(-310, 390) };
+                for (int i = 0; i < buttons.Length; i++)
+                    Check(buttons[i].anchoredPosition == expectedPositions[i], names[i] + " must retain its original height with only a horizontal inset");
                 Check(boostRect.sizeDelta == new Vector2(220, 220), "Boost touch area must remain fixed");
                 var cap = rects.First(r => r.name == "Boost Cap");
                 float lastHeight = -100;
@@ -99,7 +102,26 @@ namespace VoxelRacer.Editor
                 // Camera rendering applies its target dimensions to screen-space canvases.
                 // Resolve those dimensions before measuring the annotation rectangles.
                 camera.Render(); camera.Render(); Canvas.ForceUpdateCanvases();
+                Call(controls, "RefreshSteeringTouchAreas");
+                Call(boost, "RefreshTouchArea");
+                Canvas.ForceUpdateCanvases(); camera.Render();
                 var bounds = buttons.Select(r => Bounds(r, overlay)).ToArray();
+                Check(Mathf.Abs(bounds[0].xMin - overlay.rect.xMin) < .01f && Mathf.Abs(bounds[0].width - 410f) < .01f, "Left steering must extend to the screen edge");
+                Check(Mathf.Abs(bounds[1].width - Mathf.Max(200f, width * .5f - 670f)) < .01f, "Right steering must extend towards the shoulder for this aspect ratio");
+                float leftEdge = VoxelHudStyles.LeftTouchAreaRightEdge(width);
+                Check(Mathf.Abs(bounds[2].width - leftEdge) < .01f && Mathf.Abs(bounds[3].width - leftEdge) < .01f,
+                    "Brake and boost must cover the expanded left-side region");
+                Check(Mathf.Abs(bounds[4].width - 520) < .01f && Mathf.Abs(bounds[5].width - 550) < .01f,
+                    "Gun/missile input must add 160 reference units on each horizontal side");
+                Check(Mathf.Abs(bounds[2].height - 200) < .01f && Mathf.Abs(bounds[3].height - 220) < .01f &&
+                    Mathf.Abs(bounds[4].height - 200) < .01f && Mathf.Abs(bounds[5].height - 230) < .01f,
+                    "Expanding input must preserve button heights");
+                for (int i = 0; i < 2; i++)
+                {
+                    var arrow = buttons[i].Find("Chevron").GetComponent<RectTransform>();
+                    Vector2 visual = overlay.InverseTransformPoint(arrow.position);
+                    Check(Vector2.Distance(visual, new Vector2(overlay.rect.xMin + (i == 0 ? 310 : 530), overlay.rect.yMin + 150)) < .01f, "Steering arrows moved when extending input");
+                }
                 var integrityBackplate = root.GetComponentsInChildren<RectTransform>().First(r => r.name == "Integrity Dial Backplate");
                 Check(!bounds[3].Overlaps(Bounds(integrityBackplate, overlay)), "Boost overlaps the integrity dial");
                 root.transform.Find("Player Integrity HUD").gameObject.SetActive(false);
@@ -108,28 +130,14 @@ namespace VoxelRacer.Editor
                     for (int j = i + 1; j < bounds.Length; j++) Check(!bounds[i].Overlaps(bounds[j]), "Touch targets overlap: " + names[i] + " / " + names[j]);
                     Check(buttons[i].GetComponent<Image>().raycastTarget && buttons[i].GetComponent<Image>().alphaHitTestMinimumThreshold == 0,
                         "Preview must use actual rectangular raycast targets");
-                    Check(bounds[i].xMin >= overlay.rect.xMin && bounds[i].xMax <= overlay.rect.xMax &&
-                        bounds[i].yMin >= overlay.rect.yMin && bounds[i].yMax <= overlay.rect.yMax, "Touch target outside canvas");
+                    // World-to-canvas conversion can round a screen-edge target by a fraction of a pixel.
+                    Check(bounds[i].xMin >= overlay.rect.xMin - .01f && bounds[i].xMax <= overlay.rect.xMax + .01f &&
+                        bounds[i].yMin >= overlay.rect.yMin - .01f && bounds[i].yMax <= overlay.rect.yMax + .01f,
+                        "Touch target outside canvas: " + names[i] + " " + bounds[i] + " / " + overlay.rect);
                 }
                 foreach (Transform item in root.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
                 Save("Controls.png");
-                Color[] colours = { new Color(.3f, 1, .65f), new Color(.9f, .8f, .3f), new Color(1, .45f, .35f), new Color(.2f, .75f, 1), new Color(1, .45f, .8f), new Color(.7f, .55f, 1) };
-                string[] captions = { "STEER LEFT", "STEER RIGHT", "BRAKE", "BOOST", "GUN FIRE", "MISSILE" };
-                var annotations = new GameObject("Touch Outlines", typeof(RectTransform)); annotations.transform.SetParent(overlay, false);
-                var annotationRect = annotations.GetComponent<RectTransform>(); annotationRect.anchorMin = Vector2.zero; annotationRect.anchorMax = Vector2.one;
-                annotationRect.offsetMin = annotationRect.offsetMax = Vector2.zero;
-                for (int i = 0; i < buttons.Length; i++)
-                {
-                    Rect b = bounds[i]; Color colour = colours[i];
-                    Panel(annotationRect, b.center, b.size, new Color(colour.r, colour.g, colour.b, .10f));
-                    Panel(annotationRect, new Vector2(b.center.x, b.yMin), new Vector2(b.width, 3), colour);
-                    Panel(annotationRect, new Vector2(b.center.x, b.yMax), new Vector2(b.width, 3), colour);
-                    Panel(annotationRect, new Vector2(b.xMin, b.center.y), new Vector2(3, b.height), colour);
-                    Panel(annotationRect, new Vector2(b.xMax, b.center.y), new Vector2(3, b.height), colour);
-                    var label = VoxelMenuUi.CreateText(annotationRect, captions[i], captions[i] + "  " + Mathf.RoundToInt(b.width) + " x " + Mathf.RoundToInt(b.height), 20,
-                        TextAnchor.MiddleCenter, new Vector2(.5f, .5f), new Vector2(b.center.x, b.yMax + 15), new Vector2(300, 24));
-                    label.color = colour;
-                }
+                var annotations = DrawTouchAreas(overlay, buttons);
                 foreach (Transform item in annotations.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
                 Save("TouchAreas.png"); annotations.SetActive(false);
                 // Close-up with the same cap and ring at representative cooldown values.
@@ -158,7 +166,7 @@ namespace VoxelRacer.Editor
                 boostRect.gameObject.SetActive(false); ring.gameObject.SetActive(false); track.gameObject.SetActive(false);
                 foreach (Transform item in root.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
                 Save("BoostCooldown.png");
-                File.WriteAllText(Path.Combine(directory, "Validation.txt"), "PASS: actual runtime HUD preview; six input rectangles in bounds and non-overlapping; blue boost above brake; fixed 220x220 boost input while cap rises monotonically through cooldown; 1x displays -- and 1.25x stays numeric. Edit Mode geometry/presentation checks. Missile purchase state restored.");
+                File.WriteAllText(Path.Combine(directory, "Validation.txt"), "PASS: actual runtime HUD preview; six effective input rectangles in bounds and non-overlapping; expanded steering/brake/boost regions and 160 units extra on each horizontal side of gun/missile targets; original heights and artwork preserved; blue boost above brake; fixed boost artwork while cap rises monotonically through cooldown; 1x displays -- and 1.25x stays numeric. Edit Mode geometry/presentation checks. Missile purchase state restored.");
                 Debug.Log("Touch HUD preview and checks saved to " + directory);
 
                 void Save(string name)
@@ -180,8 +188,46 @@ namespace VoxelRacer.Editor
             }
         }
 
+        /// <summary>Editor capture overlay using the live runtime input rectangles.</summary>
+        public static RectTransform CreateTouchAreaOverlay(Transform parent)
+        {
+            var buttons = new[] { "Move Left Button", "Move Right Button", "Brake Button", "Boost Button", "Fire Button", "Missile Button" }
+                .Select(n => parent.GetComponentsInChildren<RectTransform>(true).First(r => r.name == n)).ToArray();
+            var overlay = VoxelMenuUi.CreateCanvas(parent, "Touch Area Capture Overlay");
+            overlay.GetComponent<Canvas>().sortingOrder = 200;
+            var scaler = overlay.GetComponent<CanvasScaler>(); scaler.matchWidthOrHeight = 1;
+            scaler.enabled = false; scaler.enabled = true;
+            overlay.GetComponent<GraphicRaycaster>().enabled = false;
+            Canvas.ForceUpdateCanvases(); DrawTouchAreas(overlay, buttons);
+            return overlay;
+        }
+
+        private static GameObject DrawTouchAreas(RectTransform overlay, RectTransform[] buttons)
+        {
+            Color[] colours = { new Color(.3f, 1, .65f), new Color(.9f, .8f, .3f), new Color(1, .45f, .35f), new Color(.2f, .75f, 1), new Color(1, .45f, .8f), new Color(.7f, .55f, 1) };
+            string[] captions = { "STEER LEFT", "STEER RIGHT", "BRAKE", "BOOST", "GUN FIRE", "MISSILE" };
+            var annotations = new GameObject("Touch Outlines", typeof(RectTransform)); annotations.transform.SetParent(overlay, false);
+            var annotationRect = annotations.GetComponent<RectTransform>(); annotationRect.anchorMin = Vector2.zero; annotationRect.anchorMax = Vector2.one;
+            annotationRect.offsetMin = annotationRect.offsetMax = Vector2.zero;
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                Rect b = Bounds(buttons[i], overlay); Color colour = colours[i];
+                Panel(annotationRect, b.center, b.size, new Color(colour.r, colour.g, colour.b, .10f));
+                Panel(annotationRect, new Vector2(b.center.x, b.yMin), new Vector2(b.width, 3), colour);
+                Panel(annotationRect, new Vector2(b.center.x, b.yMax), new Vector2(b.width, 3), colour);
+                Panel(annotationRect, new Vector2(b.xMin, b.center.y), new Vector2(3, b.height), colour);
+                Panel(annotationRect, new Vector2(b.xMax, b.center.y), new Vector2(3, b.height), colour);
+                var label = VoxelMenuUi.CreateText(annotationRect, captions[i], captions[i] + "  " + Mathf.RoundToInt(b.width) + " x " + Mathf.RoundToInt(b.height), 20,
+                    TextAnchor.MiddleCenter, new Vector2(.5f, .5f), new Vector2(b.center.x, b.yMax + 15), new Vector2(300, 24));
+                label.color = colour; label.fontStyle = FontStyle.Normal;
+                var shadow = label.gameObject.AddComponent<Shadow>(); shadow.effectColor = Color.black; shadow.effectDistance = new Vector2(1, -1);
+            }
+            return annotations;
+        }
+
         private static Rect Bounds(RectTransform rect, RectTransform canvas)
         {
+            rect = VoxelHudStyles.GetTouchArea(rect);
             var corners = new Vector3[4]; rect.GetWorldCorners(corners);
             Vector2 min = canvas.InverseTransformPoint(corners[0]), max = canvas.InverseTransformPoint(corners[2]);
             return Rect.MinMaxRect(min.x, min.y, max.x, max.y);

@@ -15,3 +15,5 @@ MonoBehaviour:
   cameraPosition: {x: 5.8, y: 2.9, z: 5.8}
   cameraLookAt: {x: 1.4, y: 0.6, z: -1.1}
   cameraFieldOfView: 40
+  cameraTransitionSeconds: 0.6
+  cameraTransitionEasing: 6

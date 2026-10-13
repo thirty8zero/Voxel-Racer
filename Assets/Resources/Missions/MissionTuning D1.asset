@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: Tequila Plains 1
   requiredPoints: 300
   completionCurrencyAward: 100
+  repairCostPerPixel: 1
   timeLimitSeconds: 80
   timeBonusCurrencyMultiplier: 1
   maximumTimeMultiplier: 5

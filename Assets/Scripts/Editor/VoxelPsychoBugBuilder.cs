@@ -99,9 +99,9 @@ namespace VoxelRacer.Editor
             foreach(string guid in AssetDatabase.FindAssets("t:VoxelObstacleCarTuning").Concat(AssetDatabase.FindAssets("t:VoxelTrackDefinition")).Distinct())
             foreach(var traffic in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)).OfType<VoxelObstacleCarTuning>())
             {
-                var pool=traffic.enemyVehiclePool??Array.Empty<VoxelEnemyVehicleTuning>();
-                if(pool.Contains(tuning)) continue;
-                traffic.enemyVehiclePool=pool.Concat(new[]{tuning}).ToArray();EditorUtility.SetDirty(traffic);
+                var pool=traffic.enemyVehicleSpawns??Array.Empty<VoxelEnemyVehicleSpawnEntry>();
+                if(pool.Any(e=>e!=null && e.vehicle==tuning)) continue;
+                traffic.enemyVehicleSpawns=pool.Concat(new[]{new VoxelEnemyVehicleSpawnEntry{vehicle=tuning}}).ToArray();EditorUtility.SetDirty(traffic);
             }
             AssetDatabase.SaveAssets(); Debug.Log("Psycho Bug Enemy built and registered; civilian Beetle and existing tuning preserved.");
             Render();

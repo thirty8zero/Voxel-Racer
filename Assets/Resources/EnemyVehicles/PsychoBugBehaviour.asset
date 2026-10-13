@@ -13,15 +13,15 @@ MonoBehaviour:
   m_Name: PsychoBugBehaviour
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelPsychoBugTuning
   decisionInterval: 0.2
-  acceleration: 18
-  braking: 26
+  acceleration: 28
+  braking: 38
   maximumSpeedMultiplier: 1.35
   cruiseSpeedMultiplier: 0.95
   minimumDrivingSpeed: 20
   positioningSpeed: 28
-  positioningResponse: 1.8
+  positioningResponse: 2.6
   positioningDamping: 0.6
-  laneChangeSpeed: 7
+  laneChangeSpeed: 10
   allowReverse: 0
   maximumReverseSpeed: 5
   maximumDistanceBehind: 75
@@ -30,38 +30,45 @@ MonoBehaviour:
   weaveChance: 0.55
   trafficClearance: 2
   trafficPredictionSeconds: 1.2
+  oncomingPredictionSeconds: 3
   trafficLookAhead: 26
   trafficScanInterval: 0.15
   shootingWindows: 1
   shootingDistanceAhead: 14
-  minimumShootingDuration: 1
-  maximumShootingDuration: 1.5
+  minimumShootingDuration: 0.4
+  maximumShootingDuration: 0.65
   maximumTimeBetweenShootingWindows: 12
+  shootingPositioningTimeout: 2
   sideRamEnabled: 1
   sideRamChance: 1
   ramOnPassingAlignment: 1
   minimumRamSpeed: 6
+  minimumAlignmentSpeed: 14
+  ramReturnSpeedFraction: 0.2
+  ramReturnBraking: 90
   alignmentTolerance: 0.8
   ramSpeedTolerance: 1
   alignmentHoldDuration: 0.15
-  positioningTimeout: 14
+  positioningTimeout: 18
   warningDuration: 1
   pullAwayDistance: 0.18
   slamSpeed: 14
   slamTimeout: 0.65
-  minimumAttackCooldown: 1
-  maximumAttackCooldown: 2
-  sideRamDamageMin: 6
-  sideRamDamageMax: 10
+  minimumAttackCooldown: 0.5
+  maximumAttackCooldown: 0.9
+  sideRamDamageMin: 100
+  sideRamDamageMax: 200
   playerCollisionHalfWidth: 1.3
   playerCollisionHalfLength: 2.5
   maximumSimultaneousRams: 1
-  recoveryDuration: 0.6
-  recoveryDistanceAhead: 12
+  recoveryDuration: 0.35
+  recoveryDistanceAhead: 6
   playerRamInterrupts: 1
   staggerDuration: 1.25
   feintChance: 0.05
   damageEvasion: 1
-  damageEvasionChance: 0.35
-  damageReactionDelay: 0.5
-  damageEvasionCooldown: 4
+  damageEvasionChance: 1
+  damageReactionDelay: 0.12
+  damageEvasionCooldown: 0.9
+  damageEscapeDuration: 0.45
+  damageEscapeSpeedMultiplier: 1.25

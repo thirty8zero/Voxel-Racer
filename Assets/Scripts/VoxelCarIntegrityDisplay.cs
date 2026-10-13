@@ -29,6 +29,11 @@ namespace VoxelRacer
         {
             if (Active == this)
                 Active = null;
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 0f;
+                canvasGroup.blocksRaycasts = canvasGroup.interactable = false;
+            }
         }
 
         /// <summary>Brief red radial flash used whenever the player actually loses voxels.</summary>
@@ -44,18 +49,27 @@ namespace VoxelRacer
             if (canvasGroup == null)
                 return;
 
-            if (!Application.isPlaying || target == null || VoxelPlayerDeathScreen.IsShowing)
+            if (!Application.isPlaying || target == null || !target.isActiveAndEnabled || target.IsDestroyed || VoxelPlayerDeathScreen.IsShowing)
             {
                 canvasGroup.alpha = 0f;
+                canvasGroup.blocksRaycasts = canvasGroup.interactable = false;
                 return;
             }
 
             float alpha = VoxelStartCountdown.CurrentGameplayHudAlpha;
             canvasGroup.alpha = alpha;
+            canvasGroup.blocksRaycasts = canvasGroup.interactable = alpha > .01f && !VoxelPauseMenu.IsPaused &&
+                VoxelMissionProgress.Active?.IsComplete != true && VoxelMissionProgress.Active?.IsFailed != true;
             if (alpha <= 0f)
                 return;
 
             RefreshIntegrity();
+        }
+
+        private void OpenPauseMenu()
+        {
+            if (isActiveAndEnabled && canvasGroup != null && canvasGroup.blocksRaycasts && canvasGroup.interactable)
+                VoxelPauseMenu.Active?.SetPaused(true);
         }
 
         private void RefreshIntegrity()
@@ -93,6 +107,7 @@ namespace VoxelRacer
             scaler.matchWidthOrHeight = 1f; scaler.enabled = false; scaler.enabled = true;
             canvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
             canvasGroup.alpha = 0f;
+            canvasGroup.blocksRaycasts = canvasGroup.interactable = false;
 
             var disc = new GameObject("Integrity Dial Backplate", typeof(RectTransform), typeof(Image));
             disc.transform.SetParent(canvas, false);
@@ -109,7 +124,16 @@ namespace VoxelRacer
             }
             dialTexture.Apply(); dialTexture.wrapMode = TextureWrapMode.Clamp;
             dialSprite = Sprite.Create(dialTexture, new Rect(0,0,256,256), new Vector2(.5f,.5f));
-            disc.GetComponent<Image>().sprite = dialSprite; disc.GetComponent<Image>().raycastTarget = false;
+            var dialImage = disc.GetComponent<Image>();
+            dialImage.sprite = dialSprite;
+            dialImage.raycastTarget = true;
+            // Only the visible circular meter opens pause, not its transparent corners.
+            dialImage.alphaHitTestMinimumThreshold = .1f;
+            var pauseButton = disc.AddComponent<Button>();
+            pauseButton.targetGraphic = dialImage;
+            pauseButton.transition = Selectable.Transition.None;
+            pauseButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            pauseButton.onClick.AddListener(OpenPauseMenu);
             ringSprite = CreateRingSprite();
             backgroundRing = CreateRingImage(canvas, ringSprite);
             backgroundRing.name = "Integrity Ring Background";

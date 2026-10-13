@@ -141,10 +141,14 @@ MonoBehaviour:
   obstacleCarSpawnChance: 0.5
   oppositeDirectionChance: 0.9
   enemyCarSpawnChance: 0.6
-  enemyVehiclePool:
-  - {fileID: 11400000, guid: 1087bbf5e34c42dfad117821fdcd87a6, type: 2}
-  - {fileID: 11400000, guid: b799f945fae40c141bbfd08a7f1f51a4, type: 2}
-  - {fileID: 11400000, guid: 7ef7c7942375e48449e654ec812ee807, type: 2}
+  enemyVehicleSpawns:
+  - vehicle: {fileID: 11400000, guid: 1087bbf5e34c42dfad117821fdcd87a6, type: 2}
+    spawnWeight: 1
+  - vehicle: {fileID: 11400000, guid: b799f945fae40c141bbfd08a7f1f51a4, type: 2}
+    spawnWeight: 1
+  - vehicle: {fileID: 11400000, guid: 7ef7c7942375e48449e654ec812ee807, type: 2}
+    spawnWeight: 1
+  legacyEnemyVehiclePool: []
   minimumWaveInterval: 2.5
   maximumWaveInterval: 4.5
   minimumObjectsPerWave: 2
@@ -231,7 +235,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionTuning
   displayName: Red Menace
   requiredPoints: 300
-  completionCurrencyAward: 600
+  completionCurrencyAward: 400
+  repairCostPerPixel: 2
   timeLimitSeconds: 60
   timeBonusCurrencyMultiplier: 1
   maximumTimeMultiplier: 5

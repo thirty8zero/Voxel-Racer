@@ -15,8 +15,10 @@ namespace VoxelRacer
         private float psychoClock, psychoPhaseTime, psychoNextDecision, psychoNextScan, psychoNextAttack;
         private float psychoExposureDeadline, psychoExposureDuration, psychoAlignedTime;
         private float psychoWarningLane, psychoAttackLane, psychoAttackSpeed, psychoRecoveryLane;
-        private float psychoEvasionAt = float.PositiveInfinity, psychoNextEvasion;
+        private float psychoEvasionAt = float.PositiveInfinity, psychoNextEvasion, psychoEscapeUntil;
         private bool psychoRamApplied, psychoFeint;
+        private float psychoLaneOrigin, psychoAlignmentBestGap;
+        private bool psychoClearingLane;
         private readonly List<MonoBehaviour> psychoTraffic = new();
 
         private void ConfigurePsychoBug()
@@ -24,7 +26,8 @@ namespace VoxelRacer
             if (!IsPsychoBug) return;
             psychoClock = psychoNextDecision = psychoNextScan = 0;
             psychoNextAttack = Mathf.Max(0, Psycho.minimumAttackCooldown);
-            psychoEvasionAt = float.PositiveInfinity; psychoNextEvasion = 0;
+            psychoEvasionAt = float.PositiveInfinity; psychoNextEvasion = psychoEscapeUntil = 0;
+            psychoLaneOrigin = NearestPsychoLane(laneOffset); psychoClearingLane = false;
             ResetPsychoExposureDeadline();
             // Reach the player for an attack first; exposure windows are periodic, not a spawn prerequisite.
             SetPsychoPhase(PsychoBugPhase.Hunting);
@@ -34,6 +37,8 @@ namespace VoxelRacer
         private void SetPsychoPhase(PsychoBugPhase phase)
         {
             PsychoPhase = phase; psychoPhaseTime = psychoAlignedTime = 0;
+            if (phase == PsychoBugPhase.Aligning)
+                psychoAlignmentBestGap = Mathf.Abs(TrackDistance - target.CollisionTrackPosition.y);
         }
         private void FinishPsychoAttack(bool staggered = false)
         {
@@ -53,10 +58,14 @@ namespace VoxelRacer
         private bool PsychoAttacking => PsychoPhase == PsychoBugPhase.Warning || PsychoPhase == PsychoBugPhase.Slamming;
         private Vector2 PsychoCollisionSize => new(Tuning.collisionHalfWidth + Psycho.playerCollisionHalfWidth,
             Tuning.collisionHalfLength + Psycho.playerCollisionHalfLength);
+        private float PsychoAlignmentMinimum => Mathf.Max(0, Mathf.Max(Psycho.minimumRamSpeed, Psycho.minimumAlignmentSpeed));
+        internal bool IsPsychoTrafficPeer(EndlessVoxelRoad road, Transform parent) =>
+            IsPsychoBug && IsDrivingEnemy && path == road && transform.parent == parent;
 
         private void AdvancePsychoBug(float seconds)
         {
             if (seconds <= 0 || !IsPsychoBug) return;
+            Vector2 previousPosition = new(LaneOffset, TrackDistance);
             psychoClock += seconds; psychoPhaseTime += seconds;
             if (psychoClock >= psychoNextScan)
             {
@@ -65,16 +74,36 @@ namespace VoxelRacer
                 psychoNextScan = psychoClock + Mathf.Max(.01f, Psycho.trafficScanInterval);
             }
             Vector2 player = target.CollisionTrackPosition;
+            if (Mathf.Abs(laneOffset - NearestPsychoLane(laneOffset)) < .04f && !PsychoAttacking)
+                psychoLaneOrigin = NearestPsychoLane(laneOffset);
+            if (psychoClearingLane && PsychoSettled) psychoClearingLane = false;
             bool trafficDecisionDue = psychoClock >= psychoNextDecision;
+            // Traffic can invalidate a merge after it starts. Reconsider while between
+            // lanes rather than waiting to settle in the lane now being blocked.
+            if (trafficDecisionDue && !psychoClearingLane && (PsychoSettled || PsychoAttacking) &&
+                Psycho.weaveThroughTraffic && !PsychoRouteSafe(targetLaneOffset, false))
+            {
+                if (PsychoAttacking || PsychoPhase == PsychoBugPhase.Aligning) FinishPsychoAttack();
+                if (PsychoPhase == PsychoBugPhase.Exposed || PsychoPhase == PsychoBugPhase.PositioningForShot)
+                { ResetPsychoExposureDeadline(); SetPsychoPhase(PsychoBugPhase.Hunting); }
+                ChoosePsychoLane(targetLaneOffset, true);
+            }
+            if (!PsychoAttacking && !PsychoSettled &&
+                !(psychoClearingLane ? PsychoExitRouteSafe(targetLaneOffset) : PsychoRouteSafe(targetLaneOffset, true)))
+                ResolvePsychoBlockedMerge();
+            // React before choosing an attack/shot position, so those decisions cannot overwrite
+            // the escape lane. Repeated hits do not postpone the already scheduled reaction.
+            if (!PsychoAttacking && psychoClock >= psychoEvasionAt)
+                BeginPsychoDamageEscape();
+            bool escaping = psychoClock < psychoEscapeUntil;
             // Alignment must never park beside a stopped player, or lock a zero launch speed.
             // A committed attack retains its launch speed when the player brakes, unless the
             // Bug itself is slowed below the configured threshold (for example by traffic).
-            if (Psycho.minimumRamSpeed > 0 &&
-                ((PsychoPhase == PsychoBugPhase.Aligning && target.CurrentSpeed < Psycho.minimumRamSpeed) ||
-                 (PsychoAttacking && currentSpeed < Psycho.minimumRamSpeed)))
+            if ((PsychoPhase == PsychoBugPhase.Aligning && target.CurrentSpeed < PsychoAlignmentMinimum) ||
+                (PsychoAttacking && Psycho.minimumRamSpeed > 0 && currentSpeed < Psycho.minimumRamSpeed))
                 FinishPsychoAttack();
-            if (Psycho.ramOnPassingAlignment && Psycho.sideRamEnabled &&
-                (Psycho.minimumRamSpeed <= 0 || target.CurrentSpeed >= Psycho.minimumRamSpeed) &&
+            if (!escaping && Psycho.ramOnPassingAlignment && Psycho.sideRamEnabled &&
+                target.CurrentSpeed >= PsychoAlignmentMinimum &&
                 (PsychoPhase == PsychoBugPhase.Hunting || PsychoPhase == PsychoBugPhase.PositioningForShot) &&
                 psychoClock >= psychoNextAttack && PsychoSettled && IsPsychoSideAligned(player) && CanReservePsychoAttack())
                 SetPsychoPhase(PsychoBugPhase.Aligning);
@@ -92,7 +121,7 @@ namespace VoxelRacer
                             Mathf.Max(Psycho.minimumShootingDuration, Psycho.maximumShootingDuration));
                         SetPsychoPhase(PsychoBugPhase.Exposed);
                     }
-                    else if (psychoPhaseTime >= Mathf.Max(.1f, Psycho.positioningTimeout))
+                    else if (psychoPhaseTime >= Mathf.Max(.1f, Psycho.shootingPositioningTimeout))
                     {
                         // A blocked shooting lane must not suppress attacks indefinitely.
                         ResetPsychoExposureDeadline(); SetPsychoPhase(PsychoBugPhase.Hunting);
@@ -100,7 +129,7 @@ namespace VoxelRacer
                     break;
                 case PsychoBugPhase.Exposed:
                     desiredGap = Mathf.Max(PsychoCollisionSize.y + Psycho.trafficClearance, Psycho.shootingDistanceAhead);
-                    // No reactive dodges or attacks in the promised shooting window.
+                    // Hold the lane briefly unless incoming damage triggers an escape.
                     if (psychoPhaseTime >= psychoExposureDuration)
                     {
                         ResetPsychoExposureDeadline(); SetPsychoPhase(PsychoBugPhase.Hunting);
@@ -108,12 +137,16 @@ namespace VoxelRacer
                     break;
                 case PsychoBugPhase.Hunting:
                     desiredGap = 0;
-                    if (Psycho.shootingWindows && psychoClock >= psychoExposureDeadline)
+                    if (escaping) break;
+                    // Offer an occasional shot when already ahead. Driving away from a
+                    // nearby ram opportunity just to manufacture a shot causes long lapses.
+                    if (Psycho.shootingWindows && psychoClock >= psychoExposureDeadline &&
+                        TrackDistance - player.y >= Mathf.Max(PsychoCollisionSize.y + Psycho.trafficClearance, Psycho.shootingDistanceAhead) - 2f)
                         SetPsychoPhase(PsychoBugPhase.PositioningForShot);
                     else if (psychoClock >= psychoNextDecision && PsychoSettled)
                     {
                         psychoNextDecision = psychoClock + Mathf.Max(.05f, Psycho.decisionInterval);
-                        if (Psycho.sideRamEnabled && (Psycho.minimumRamSpeed <= 0 || target.CurrentSpeed >= Psycho.minimumRamSpeed) &&
+                        if (Psycho.sideRamEnabled && target.CurrentSpeed >= PsychoAlignmentMinimum &&
                             psychoClock >= psychoNextAttack && Random.value < Psycho.sideRamChance &&
                             TryChoosePsychoSide(player.x)) SetPsychoPhase(PsychoBugPhase.Aligning);
                         else if (Psycho.weaveThroughTraffic && Random.value < Psycho.weaveChance)
@@ -124,6 +157,9 @@ namespace VoxelRacer
                     // Clear the player's lateral envelope before braking back to level. Otherwise
                     // a merge from the shooting lane can stop halfway when its predicted path closes.
                     desiredGap = PsychoSettled ? 0 : Mathf.Max(PsychoCollisionSize.y + Psycho.trafficClearance, Psycho.shootingDistanceAhead);
+                    float alignmentGap = Mathf.Abs(TrackDistance - player.y);
+                    if (alignmentGap < psychoAlignmentBestGap - 1f)
+                    { psychoAlignmentBestGap = alignmentGap; psychoPhaseTime = 0; }
                     if (PsychoSettled && IsPsychoSideAligned(player) &&
                         (Psycho.minimumRamSpeed <= 0 || currentSpeed >= Psycho.minimumRamSpeed) &&
                         Mathf.Abs(currentSpeed - target.CurrentSpeed) <= Mathf.Max(.1f, Psycho.ramSpeedTolerance))
@@ -171,14 +207,25 @@ namespace VoxelRacer
             float cruiseSpeed = target.EffectiveTopSpeed * Psycho.cruiseSpeedMultiplier;
             if (PsychoPhase == PsychoBugPhase.Recovering || PsychoPhase == PsychoBugPhase.Staggered)
                 cruiseSpeed += Mathf.Clamp((desiredGap - (TrackDistance - player.y)) * Psycho.positioningResponse, 0, Psycho.positioningSpeed);
-            float desiredSpeed = PsychoAttacking ? psychoAttackSpeed : positioning ? GetPsychoPositioningSpeed(desiredGap) :
+            float desiredSpeed = PsychoAttacking ? psychoAttackSpeed :
+                PsychoPhase == PsychoBugPhase.Aligning && PsychoSettled ? GetPsychoRamApproachSpeed() :
+                positioning ? GetPsychoPositioningSpeed(desiredGap) :
                 Mathf.Clamp(cruiseSpeed, 0, target.EffectiveTopSpeed * Psycho.maximumSpeedMultiplier);
+            if (escaping)
+                desiredSpeed = Mathf.Max(desiredSpeed, target.EffectiveTopSpeed * Mathf.Max(0, Psycho.damageEscapeSpeedMultiplier));
             // Shooting windows hold a steady lane, but do not park just because the player has.
             if (!PsychoAttacking && !(positioning && Psycho.allowReverse))
-                desiredSpeed = Mathf.Max(desiredSpeed, Mathf.Min(Mathf.Max(0, Psycho.minimumDrivingSpeed),
-                    target.EffectiveTopSpeed * Psycho.maximumSpeedMultiplier));
+            {
+                float drivingFloor = Mathf.Min(Mathf.Max(0, Psycho.minimumDrivingSpeed),
+                    target.EffectiveTopSpeed * Psycho.maximumSpeedMultiplier);
+                // Deliberate ram returns may brake below ordinary cruising speed.
+                if (PsychoPhase == PsychoBugPhase.Aligning)
+                    drivingFloor = Mathf.Max(0, Psycho.minimumRamSpeed);
+                desiredSpeed = Mathf.Max(desiredSpeed, drivingFloor);
+            }
             desiredSpeed = LimitPsychoTrafficSpeed(desiredSpeed);
-            float rate = desiredSpeed > currentSpeed ? Psycho.acceleration : Psycho.braking;
+            float rate = desiredSpeed > currentSpeed ? Psycho.acceleration :
+                PsychoPhase == PsychoBugPhase.Aligning ? Mathf.Max(Psycho.braking, Psycho.ramReturnBraking) : Psycho.braking;
             currentSpeed = Mathf.MoveTowards(currentSpeed, desiredSpeed, Mathf.Max(0, rate) * seconds);
             currentSpeed = LimitPsychoStepSpeed(currentSpeed, seconds);
             if (PsychoAttacking && Psycho.minimumRamSpeed > 0 && currentSpeed < Psycho.minimumRamSpeed)
@@ -187,18 +234,20 @@ namespace VoxelRacer
 
             if (!PsychoAttacking)
             {
-                if (PsychoPhase != PsychoBugPhase.Exposed && psychoClock >= psychoEvasionAt && PsychoSettled)
+                bool routeSafe = psychoClearingLane ? PsychoExitRouteSafe(targetLaneOffset) : PsychoRouteSafe(targetLaneOffset, true);
+                if (!routeSafe && !PsychoSettled)
                 {
-                    ChoosePsychoLane(laneOffset + (Random.value < .5f ? -1 : 1) * PsychoLaneWidth, false);
-                    psychoEvasionAt = float.PositiveInfinity;
+                    ResolvePsychoBlockedMerge();
+                    routeSafe = psychoClearingLane && PsychoExitRouteSafe(targetLaneOffset);
                 }
-                if (PsychoRouteSafe(targetLaneOffset, true))
+                if (routeSafe)
                     laneOffset = Mathf.MoveTowards(laneOffset, targetLaneOffset, Mathf.Max(.1f, Psycho.laneChangeSpeed) * seconds);
                 // Hunting can consume the same decision tick even when its random weave
                 // roll does nothing. A blocked route still gets its safety decision.
                 else if (PsychoPhase != PsychoBugPhase.Exposed && PsychoSettled && Psycho.weaveThroughTraffic && trafficDecisionDue)
                     ChoosePsychoLane(targetLaneOffset, true);
             }
+            ResolvePsychoTrafficStep(previousPosition, seconds);
         }
 
         private bool IsPsychoSideAligned(Vector2 player)
@@ -218,6 +267,42 @@ namespace VoxelRacer
             // Chase uses normal engine-adjusted top speed as the ceiling, never the boost bonus.
             float maximum = Mathf.Max(0, target.EffectiveTopSpeed) * Mathf.Max(0, Psycho.maximumSpeedMultiplier);
             return Mathf.Clamp(target.CurrentSpeed + adjustment, minimum, maximum);
+        }
+
+        private float GetPsychoRamApproachSpeed()
+        {
+            if (Psycho.allowReverse) return GetPsychoPositioningSpeed(0);
+            float gap = TrackDistance - target.CollisionTrackPosition.y;
+            float playerSpeed = target.CurrentSpeed;
+            float floor = Mathf.Min(playerSpeed, Mathf.Max(0, Psycho.minimumRamSpeed));
+            float returnSpeed = Mathf.Max(floor, playerSpeed * Mathf.Clamp01(Psycho.ramReturnSpeedFraction));
+            float room = Mathf.Max(0, Mathf.Abs(gap) - Mathf.Max(.1f, Psycho.alignmentTolerance) * .5f);
+            // Accelerate back to matched speed early enough to arrive beside the
+            // player without overshooting; use the opposite envelope from behind.
+            float relativeSpeed = Mathf.Sqrt(2 * Mathf.Max(.1f, gap >= 0 ? Psycho.acceleration : Psycho.ramReturnBraking) * room);
+            float speed = gap >= 0 ? playerSpeed - Mathf.Min(playerSpeed - returnSpeed, relativeSpeed) : playerSpeed + relativeSpeed;
+            return Mathf.Clamp(speed, floor, target.EffectiveTopSpeed * Mathf.Max(0, Psycho.maximumSpeedMultiplier));
+        }
+
+        private void ResolvePsychoBlockedMerge()
+        {
+            float blockedLane = NearestPsychoLane(targetLaneOffset);
+            if (PsychoPhase == PsychoBugPhase.Aligning) FinishPsychoAttack();
+            if (PsychoPhase == PsychoBugPhase.Exposed || PsychoPhase == PsychoBugPhase.PositioningForShot)
+            { ResetPsychoExposureDeadline(); SetPsychoPhase(PsychoBugPhase.Hunting); }
+            float best = float.PositiveInfinity;
+            for (int lane = 0; lane < PsychoLaneCount; lane++)
+            {
+                float candidate = PsychoLane(lane);
+                if (!PsychoExitRouteSafe(candidate)) continue;
+                float score = Mathf.Abs(candidate - laneOffset) + (Mathf.Abs(candidate - blockedLane) < .04f ? PsychoLaneWidth * 2 : 0);
+                if (Mathf.Abs(candidate - psychoLaneOrigin) < .04f) score -= .05f;
+                if (score >= best) continue;
+                best = score; targetLaneOffset = candidate;
+            }
+            // Commit to a clear centre instead of allowing attack/weave decisions
+            // to overwrite the recovery route while the car straddles two lanes.
+            psychoClearingLane = !float.IsPositiveInfinity(best);
         }
 
         private void BeginPsychoRam()
@@ -262,15 +347,29 @@ namespace VoxelRacer
 
         private void OnPsychoProjectileDamage()
         {
-            if (!IsPsychoBug || !Psycho.damageEvasion || PsychoAttacking || PsychoPhase == PsychoBugPhase.Exposed ||
+            if (!IsPsychoBug || !Psycho.damageEvasion || PsychoAttacking || PsychoPhase == PsychoBugPhase.Staggered ||
                 psychoClock < psychoNextEvasion || Random.value >= Psycho.damageEvasionChance) return;
-            psychoEvasionAt = psychoClock + Mathf.Max(0, Psycho.damageReactionDelay);
+            psychoEvasionAt = Mathf.Min(psychoEvasionAt, psychoClock + Mathf.Max(0, Psycho.damageReactionDelay));
             psychoNextEvasion = psychoEvasionAt + Mathf.Max(0, Psycho.damageEvasionCooldown);
+        }
+        private void BeginPsychoDamageEscape()
+        {
+            psychoEvasionAt = float.PositiveInfinity;
+            psychoEscapeUntil = psychoClock + Mathf.Max(0, Psycho.damageEscapeDuration);
+            if (PsychoPhase == PsychoBugPhase.Exposed || PsychoPhase == PsychoBugPhase.PositioningForShot)
+                ResetPsychoExposureDeadline();
+            // Preserve a recovery/counter-ram stun rather than shortening it with a projectile.
+            if (PsychoPhase != PsychoBugPhase.Recovering && PsychoPhase != PsychoBugPhase.Staggered)
+                SetPsychoPhase(PsychoBugPhase.Hunting);
+            // Try both sides; choosing the current lane would silently waste a reaction at
+            // a road edge or when the random side is occupied. No safe lane means accelerate.
+            ChoosePsychoLane(laneOffset + (Random.value < .5f ? -1 : 1) * PsychoLaneWidth, true);
         }
         private void OnPsychoPlayerRam()
         {
             if (!IsPsychoBug || !Psycho.playerRamInterrupts) return;
             psychoEvasionAt = float.PositiveInfinity;
+            psychoEscapeUntil = 0;
             FinishPsychoAttack(true);
         }
         private void ApplyPsychoRam(Vector2 contact)
@@ -295,24 +394,35 @@ namespace VoxelRacer
             laneOffset = psychoRecoveryLane;
         }
 
-        private bool PsychoRouteSafe(float destination, bool includePlayer)
+        private bool PsychoRouteSafe(float destination, bool includePlayer) => PsychoRouteClear(destination, includePlayer, false);
+        private bool PsychoExitRouteSafe(float destination) => PsychoRouteClear(destination, true, true);
+        private bool PsychoRouteClear(float destination, bool includePlayer, bool laneExitOnly)
         {
-            float horizon = Mathf.Max(.1f, Psycho.trafficPredictionSeconds,
-                Mathf.Abs(destination - laneOffset) / Mathf.Max(.1f, Psycho.laneChangeSpeed));
+            float mergeTime = Mathf.Abs(destination - laneOffset) / Mathf.Max(.1f, Psycho.laneChangeSpeed);
+            // An aborted merge must clear the lane boundary first. A possible
+            // hazard after that move can be handled once settled, rather than
+            // reserving two lanes indefinitely because the long forecast is blocked.
+            float horizon = laneExitOnly ? Mathf.Max(.02f, mergeTime) : Mathf.Max(.1f, Psycho.trafficPredictionSeconds, mergeTime);
             if (includePlayer && !PsychoMotionClear(destination, target.CollisionTrackPosition.x, target.CollisionTrackPosition.y,
-                    Psycho.playerCollisionHalfWidth, Psycho.playerCollisionHalfLength, target.CurrentSpeed, horizon, 0)) return false;
+                    Psycho.playerCollisionHalfWidth, Psycho.playerCollisionHalfLength, target.CurrentSpeed, horizon, 0, laneExitOnly)) return false;
             foreach (var occupant in psychoTraffic)
             {
                 if (!TryPsychoOccupant(occupant, out float offset, out float distance, out float width, out float length, out float speed)) continue;
-                if (!PsychoMotionClear(destination, offset, distance, width, length, speed, horizon, Psycho.trafficClearance)) return false;
+                if (!PsychoMotionClear(destination, offset, distance, width, length, speed, horizon, Psycho.trafficClearance, laneExitOnly)) return false;
                 if (occupant is VoxelEnemyCar enemy && Mathf.Abs(enemy.targetLaneOffset - offset) > .1f &&
-                    !PsychoMotionClear(destination, enemy.targetLaneOffset, distance, width, length, speed, horizon, Psycho.trafficClearance)) return false;
+                    !PsychoMotionClear(destination, enemy.targetLaneOffset, distance, width, length, speed, horizon, Psycho.trafficClearance, laneExitOnly)) return false;
             }
             return true;
         }
-        private bool PsychoMotionClear(float destination, float otherLane, float distance, float width, float length, float speed, float horizon, float clearance)
+        private bool PsychoMotionClear(float destination, float otherLane, float distance, float width, float length, float speed, float horizon, float clearance, bool laneExitOnly)
         {
-            if (Mathf.Abs(distance - TrackDistance) > Psycho.trafficLookAhead + Mathf.Abs(speed - currentSpeed) * horizon + length) return true;
+            float predictionSpeed = currentSpeed;
+            if (!laneExitOnly && speed < 0 && distance > TrackDistance)
+            {
+                horizon = Mathf.Max(horizon, Psycho.oncomingPredictionSeconds);
+                predictionSpeed = Mathf.Max(predictionSpeed, target.EffectiveTopSpeed * Psycho.maximumSpeedMultiplier);
+            }
+            if (Mathf.Abs(distance - TrackDistance) > Psycho.trafficLookAhead + Mathf.Abs(speed - predictionSpeed) * horizon + length) return true;
             Vector2 previous = new(laneOffset - otherLane, TrackDistance - distance);
             Vector2 size = new(Tuning.collisionHalfWidth + width, Tuning.collisionHalfLength + length + Mathf.Max(0, clearance));
             float lateralSpeed = PsychoPhase == PsychoBugPhase.Slamming ? Psycho.slamSpeed : Psycho.laneChangeSpeed;
@@ -321,11 +431,47 @@ namespace VoxelRacer
             // Stretching the diagonal across the entire horizon falsely rejected quick escapes
             // around barrels and could leave the Bug braking in an otherwise clear lane.
             Vector2 merge = new(Mathf.MoveTowards(laneOffset, destination, Mathf.Max(.1f, lateralSpeed) * mergeSeconds) - otherLane,
-                previous.y + (currentSpeed - speed) * mergeSeconds);
-            if (mergeSeconds > 0 && VoxelVehicleCollision.Sweep(previous, merge, size, out _)) return false;
-            Vector2 next = new(merge.x, previous.y + (currentSpeed - speed) * horizon);
-            return !VoxelVehicleCollision.Sweep(merge, next, size, out _);
+                previous.y + (predictionSpeed - speed) * mergeSeconds);
+            if (mergeSeconds > 0 && !PsychoSeparating(previous, merge, size) && VoxelVehicleCollision.Sweep(previous, merge, size, out _)) return false;
+            Vector2 next = new(merge.x, previous.y + (predictionSpeed - speed) * horizon);
+            return PsychoSeparating(merge, next, size) || !VoxelVehicleCollision.Sweep(merge, next, size, out _);
         }
+        private void ResolvePsychoTrafficStep(Vector2 previous, float seconds)
+        {
+            Vector2 next = new(LaneOffset, TrackDistance);
+            float allowed = 1f;
+            foreach (var occupant in psychoTraffic)
+            {
+                if (!TryPsychoOccupant(occupant, out float offset, out float distance, out float width, out float length, out float speed)) continue;
+                // Sweep both axes against current positions. Do not spend predicted future
+                // clearance if another car brakes, or its Update has already run this frame.
+                Vector2 start = previous - new Vector2(offset, distance);
+                Vector2 end = next - new Vector2(offset, distance);
+                Vector2 size = new(Tuning.collisionHalfWidth + width + .02f, Tuning.collisionHalfLength + length + .02f);
+                allowed = Mathf.Min(allowed, PsychoStepFraction(start, end, size));
+                if (speed != 0)
+                    allowed = Mathf.Min(allowed, PsychoStepFraction(start, end - new Vector2(0, speed * seconds), size));
+            }
+            if (allowed >= 1) return;
+            Vector2 safe = Vector2.Lerp(previous, next, allowed);
+            laneOffset = safe.x - sideRamOffset;
+            trackDistance = safe.y - rearRamForwardOffset;
+            currentSpeed = (safe.y - previous.y) / seconds;
+            if (PsychoAttacking) FinishPsychoAttack();
+        }
+        private static float PsychoStepFraction(Vector2 start, Vector2 end, Vector2 size)
+        {
+            if (PsychoSeparating(start, end, size)) return 1;
+            if (!VoxelVehicleCollision.Sweep(start, end, size, out var contact)) return 1;
+            Vector2 delta = end - start;
+            float fraction = delta.sqrMagnitude > .000001f ? Mathf.Clamp01(Vector2.Dot(contact - start, delta) / delta.sqrMagnitude) : 0;
+            return Mathf.Max(0, fraction - .001f);
+        }
+        private static bool PsychoSeparating(Vector2 start, Vector2 end, Vector2 size) =>
+            Mathf.Abs(start.x) < size.x && Mathf.Abs(start.y) < size.y &&
+            start.x * end.x >= 0 && start.y * end.y >= 0 &&
+            Mathf.Abs(end.x) >= Mathf.Abs(start.x) && Mathf.Abs(end.y) >= Mathf.Abs(start.y) &&
+            (Mathf.Abs(end.x) > Mathf.Abs(start.x) + .0001f || Mathf.Abs(end.y) > Mathf.Abs(start.y) + .0001f);
         private float LimitPsychoTrafficSpeed(float desired)
         {
             foreach (var occupant in psychoTraffic)
@@ -369,7 +515,7 @@ namespace VoxelRacer
             {
                 case VoxelObstacleCar civilian when civilian.IsDrivingTraffic:
                     offset = civilian.LaneOffset; distance = civilian.TrackDistance; length = civilian.TrafficHalfLength;
-                    width = civilian.EnemyTuning != null ? civilian.EnemyTuning.collisionHalfWidth : 1.35f;
+                    width = civilian.TrafficHalfWidth;
                     speed = civilian.TravelSpeed * (civilian.TravelsWithPlayer ? 1 : -1); return true;
                 case VoxelEnemyCar enemy when enemy.IsDrivingEnemy:
                     offset = enemy.LaneOffset; distance = enemy.TrackDistance; width = enemy.Tuning.collisionHalfWidth;

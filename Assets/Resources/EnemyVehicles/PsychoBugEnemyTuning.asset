@@ -35,8 +35,8 @@ MonoBehaviour:
   laneChangeSpeedBoostDuration: 1
   collisionHalfWidth: 1.5
   collisionHalfLength: 2.3
-  playerDamageVoxelsMin: 4
-  playerDamageVoxelsMax: 6
+  playerDamageVoxelsMin: 55
+  playerDamageVoxelsMax: 110
   playerRamDamage: 20
   playerRamSpeedMatchDuration: 2
   rearRamEnemyForwardPushDistance: 1.25

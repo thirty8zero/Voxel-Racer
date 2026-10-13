@@ -62,6 +62,8 @@ namespace VoxelRacer.Editor
                     Call(shop, "BeginUpgradePlacement", kind);
                     var preview = Placement(shop);
                     Check(preview != null && preview.Car != null, kind + " has no preview");
+                    Check(!shop.NextRaceButton.interactable && shop.NextRaceButton.GetComponent<CanvasGroup>().alpha < .5f,
+                        kind + " preview did not dim and disable Next Mission");
                     Check(preview.Car.scene == scene, kind + " preview escaped its car's scene");
                     Check(car.RemainingIntegrityVoxels == integrity && car.RepairableIntegrityVoxels == missing,
                         kind + " preview changed displayed integrity/damage");
@@ -91,6 +93,8 @@ namespace VoxelRacer.Editor
                     Check(shop.GetComponentsInChildren<Button>().Any(b => b.name == "Confirm Upgrade Purchase"), "Confirmation missing");
                     Call(shop, "CancelUpgradePlacement");
                     Check(Placement(shop) == null && VoxelCurrencyState.Balance == cash, "Cancel charged cash or kept preview");
+                    Check(shop.NextRaceButton.interactable && shop.NextRaceButton.GetComponent<CanvasGroup>().alpha == 1,
+                        "Cancel did not restore Next Mission");
                     Check(rendering.All(p => p.Key.enabled == p.Value) && !damaged.gameObject.activeSelf && car.RemainingIntegrityVoxels == integrity,
                         kind + " cancel did not restore original rendering and damage");
 
@@ -109,6 +113,8 @@ namespace VoxelRacer.Editor
                     var confirm = shop.GetComponentsInChildren<Button>().First(b => b.name == "Confirm Upgrade Purchase");
                     confirm.onClick.Invoke();
                     Check(Placement(shop) == null && VoxelCurrencyState.Balance == cash - price, kind + " confirmation charged incorrectly");
+                    Check(shop.NextRaceButton.interactable && shop.NextRaceButton.GetComponent<CanvasGroup>().alpha == 1,
+                        "Purchase did not restore Next Mission");
                     confirm.onClick.Invoke(); Check(VoxelCurrencyState.Balance == cash - price, "Double confirmation charged twice");
                     Check(!damaged.gameObject.activeSelf, "Purchase repaired body damage");
                     if (kind == VoxelGarageUpgradeKind.Armour)
@@ -247,7 +253,7 @@ namespace VoxelRacer.Editor
             shop.repairTuning = VoxelRepairTuning.Load(); Call(shop, "BuildUi"); Call(shop, "RefreshUi");
             root.GetComponentsInChildren<Button>(true).First(b => b.name == "Upgrade Menu Button").onClick.Invoke();
             int total = 0;
-            foreach (VoxelGarageUpgradeKind kind in Enum.GetValues(typeof(VoxelGarageUpgradeKind)))
+            foreach (VoxelGarageUpgradeKind kind in Enum.GetValues(typeof(VoxelGarageUpgradeKind)).Cast<VoxelGarageUpgradeKind>().Where(k=>k!=VoxelGarageUpgradeKind.StarSpikes))
                 total += Price(kind, shop) * (kind == VoxelGarageUpgradeKind.Armour || kind == VoxelGarageUpgradeKind.Guns || kind == VoxelGarageUpgradeKind.Missiles ? 2 : 1);
 
             AddAll(shop);
@@ -263,7 +269,12 @@ namespace VoxelRacer.Editor
             Check(!warning.activeSelf && Placement(shop).Selections.Count==11 &&
                 root.transform.Find("Repair Upgrade UI/Upgrade Purchase Confirmation").gameObject.activeSelf,"Go Back discarded the cart");
             VoxelGarageUpgradeDockValidation.CheckPurchaseGrowth(shop);
-            Check(root.GetComponentsInChildren<VoxelGarageUpgradeCard>().All(c => c.State == VoxelGarageUpgradeState.Pending), "Pending cards are not marked separately from ownership");
+            var cards=root.GetComponentsInChildren<VoxelGarageUpgradeCard>();
+            // Basic and star spikes are alternatives; this combined cart selects basics.
+            Check(cards.Where(c=>c.name!="Star Wheel Spike Purchase Button").Count()==8 &&
+                cards.Where(c=>c.name!="Star Wheel Spike Purchase Button").All(c=>c.State==VoxelGarageUpgradeState.Pending) &&
+                cards.Single(c=>c.name=="Star Wheel Spike Purchase Button").State==VoxelGarageUpgradeState.Incompatible,
+                "Pending cards or the mutually exclusive star-spike alternative have incorrect states");
             var label = root.GetComponentsInChildren<Text>().First(t => t.name == "Purchase Description");
             Check(label.text.Contains("LEFT + RIGHT") && label.text.Contains("DOOR ARMOUR") && label.text.Contains("MISSILE") && label.text.Contains("ENGINE"), "Cart summary omitted selected parts or sides");
             Check(root.GetComponentsInChildren<Button>().First(b => b.name == "Confirm Upgrade Purchase").GetComponentInChildren<Text>().text.Contains(total.ToString("N0")), "Cart confirmation does not show the combined cost");

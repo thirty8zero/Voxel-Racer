@@ -132,6 +132,21 @@ namespace VoxelRacer.Editor
             var canvas=shop.transform.Find("Repair Upgrade UI").GetComponent<RectTransform>();
             var panel=canvas.Find("Car Upgrade Panel").GetComponent<RectTransform>();
             var next=(RectTransform)shop.NextRaceButton.transform;
+            var back=panel.Find("Close Panel").GetComponent<RectTransform>();
+            Check(back.GetComponentInChildren<Text>().text=="BACK" && back.rect.height>=90 &&
+                Mathf.Abs(back.rect.width*back.rect.height/(next.rect.width*next.rect.height)-.3f)<.01f,
+                "Upgrade Back must be readable and about 30% of the mission button's footprint");
+            Bounds backBounds=RectBounds(canvas,back);
+            Bounds headingBounds=RectBounds(canvas,(RectTransform)panel.Find("Upgrade Title"));
+            Check(backBounds.max.x+10<headingBounds.min.x,"Back overlaps Vehicle Upgrades heading");
+            var repair=(RectTransform)canvas.Find("Repair Panel");
+            var repairBack=(RectTransform)repair.Find("Close Panel");
+            Check(repairBack.sizeDelta==back.sizeDelta && repairBack.GetComponentInChildren<Text>().text=="BACK",
+                "Repair and upgrade menus must share the Back button");
+            Bounds repairBounds=RectBounds(canvas,repair), repairBackBounds=RectBounds(canvas,repairBack);
+            Bounds fullRepair=RectBounds(canvas,(RectTransform)repair.Find("Full Repair Button"));
+            Check(repairBackBounds.max.y+16<=fullRepair.min.y && repairBackBounds.min.y>repairBounds.min.y,
+                "Repair Back must sit below the repair options inside the panel");
             Bounds cash=RectBounds(canvas,(RectTransform)canvas.Find("Cash Frame"));
             Bounds settings=RectBounds(canvas,(RectTransform)canvas.Find("Settings Button"));
             Check(settings.max.x+16<=cash.min.x && Mathf.Abs(settings.center.y-cash.center.y)<.1f,

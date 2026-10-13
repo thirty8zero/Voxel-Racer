@@ -23,11 +23,11 @@ namespace VoxelRacer
             var heading = panel.Find("Upgrade Title").GetComponent<Text>();
             heading.text = "VEHICLE UPGRADES"; heading.font = GarageMono; heading.fontSize = 24;
             heading.alignment = TextAnchor.MiddleLeft; heading.color = new Color(.68f,.73f,.81f);
-            Place(heading.rectTransform, new Vector2(0,1), new Vector2(274,-24), new Vector2(400,32));
+            Place(heading.rectTransform, new Vector2(0,1), new Vector2(430,-55), new Vector2(400,32));
             var viewport = new GameObject("Upgrade Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image));
             viewport.transform.SetParent(panel,false);
             var rect = (RectTransform)viewport.transform; rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
-            rect.offsetMin = new Vector2(12,20); rect.offsetMax = new Vector2(-12,-52);
+            rect.offsetMin = new Vector2(12,20); rect.offsetMax = new Vector2(-12,-116);
             viewport.GetComponent<Image>().color = new Color(0,0,0,.01f);
             var content = new GameObject("Upgrade Cards", typeof(RectTransform)); content.transform.SetParent(viewport.transform,false);
             var cr = (RectTransform)content.transform; cr.anchorMin = new Vector2(0,.5f); cr.anchorMax = new Vector2(0,.5f);
@@ -79,6 +79,11 @@ namespace VoxelRacer
         {
             if(NextRaceButton==null) return;
             NextRaceButton.GetComponentInChildren<Text>().text=VoxelTrackDefinition.ResolveDisplayName(VoxelTrackProgressState.NextTrack);
+            bool available = !isLoading && upgradePlacement == null && pendingUpgrades.Count == 0;
+            NextRaceButton.interactable = available;
+            var group = NextRaceButton.GetComponent<CanvasGroup>();
+            if (group == null) group = NextRaceButton.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = available ? 1f : .45f;
         }
         private void LayoutGarageDock()
         {
@@ -92,12 +97,12 @@ namespace VoxelRacer
             float left=Mathf.Max(36,safe.xMin*sx+18);
             float right=Mathf.Max(36,(Screen.width-safe.xMax)*sx+18);
             float bottom=Mathf.Max(54,safe.yMin*sy+20);
-            const float missionWidth=350, gap=24, height=310;
+            const float missionWidth=350, gap=24, height=374;
             var panel=(RectTransform)garageUpgradePanel.transform;
             panel.anchorMin=new Vector2(0,0); panel.anchorMax=new Vector2(1,0); panel.pivot=new Vector2(.5f,0);
             panel.offsetMin=new Vector2(left,bottom); panel.offsetMax=new Vector2(-right-missionWidth-gap,bottom+height);
-            // The cards are centred inside the viewport's 20px bottom / 52px top insets.
-            float cardCentre=bottom+(height+20-52)*.5f;
+            // Keep the cards and mission button centred below the larger Back/header row.
+            float cardCentre=bottom+(height+20-116)*.5f;
             Place((RectTransform)NextRaceButton.transform,new Vector2(1,0),new Vector2(-right-missionWidth*.5f,cardCentre),new Vector2(missionWidth,172));
             garageDockTop=bottom+height+18;
             var backdrop=(RectTransform)garageDockShade.transform;
@@ -160,8 +165,11 @@ namespace VoxelRacer
             if(workshopCamera==null || garageCanvas==null) return;
             workshopCamera.rect=garageCameraOriginalRect;
             workshopCamera.ResetProjectionMatrix();
-            if(garageUpgradePanel==null || !garageUpgradePanel.activeSelf) return;
-            if (garageCarFitPoints.Length == 0 || DisplayedCar == null) return;
+            if(garageUpgradePanel==null || !garageUpgradePanel.activeSelf || garageCarFitPoints.Length == 0 || DisplayedCar == null)
+            {
+                ApplyGarageCameraProjection(workshopCamera.projectionMatrix);
+                return;
+            }
             float baseFov=Mathf.Clamp(cameraTuning!=null?cameraTuning.cameraFieldOfView:workshopCamera.fieldOfView+garageZoomAmount,10,90);
             var baseProjection=Matrix4x4.Perspective(baseFov,workshopCamera.aspect,workshopCamera.nearClipPlane,workshopCamera.farClipPlane);
             if(!garageUpgradeFramingValid || baseProjection!=garageUpgradeBaseProjection)
@@ -173,7 +181,7 @@ namespace VoxelRacer
             projection.m00*=zoom;projection.m11*=zoom;
             projection.m02=projection.m02*zoom+(zoom-1)*garageUpgradeTargetCentre.x;
             projection.m12=projection.m12*zoom+(zoom-1)*garageUpgradeTargetCentre.y;
-            workshopCamera.projectionMatrix=projection;
+            ApplyGarageCameraProjection(projection);
         }
         private void FitGarageUpgradeView(Matrix4x4 projection)
         {
@@ -237,6 +245,7 @@ namespace VoxelRacer
             var plough=VoxelPloughTuning.Load(); Card(ploughUpgradeButton,plough!=null?plough.purchasePrice:0,plough!=null && plough.Fits(definition),VoxelPloughUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Plough);
             SortUpgradeCards();
             CacheGarageCarBounds();
+            RefreshNextMission();
         }
         private void SortUpgradeCards()
         {

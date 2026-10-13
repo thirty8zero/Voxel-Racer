@@ -16,6 +16,10 @@ namespace VoxelRacer
         [Tooltip("Currency awarded whenever this mission is completed.")]
         [Min(0)] public int completionCurrencyAward = 100;
 
+        [Header("Repairs")]
+        [Tooltip("Currency per repaired pixel in the garage after completing this mission. Zero makes repairs free.")]
+        [Min(0)] public float repairCostPerPixel = 2f;
+
         [Header("Time Bonus")]
         [Tooltip("Finish before this countdown expires for +0.01x per second left on the clock. After expiry, the live multiplier decays by 0.1x each second, down to 1x.")]
         [Min(1f)] public float timeLimitSeconds = 120f;
@@ -86,6 +90,7 @@ namespace VoxelRacer
         {
             requiredPoints = Mathf.Max(1, requiredPoints);
             completionCurrencyAward = Mathf.Max(0, completionCurrencyAward);
+            repairCostPerPixel = Mathf.Max(0, repairCostPerPixel);
             timeLimitSeconds = Mathf.Max(1f, timeLimitSeconds);
             maximumTimeMultiplier = Mathf.Max(1f, maximumTimeMultiplier);
             timeBonusCurrencyMultiplier = Mathf.Clamp(timeBonusCurrencyMultiplier, 1f, maximumTimeMultiplier);

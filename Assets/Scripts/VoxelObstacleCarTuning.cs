@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace VoxelRacer
 {
@@ -11,20 +12,55 @@ namespace VoxelRacer
         [Range(0f, 1f)] public float oppositeDirectionChance = 0.5f;
         [Tooltip("Chance that a spawned traffic vehicle is an enemy selected from this track's Enemy Vehicle Pool.")]
         [Range(0f, 1f)] public float enemyCarSpawnChance = 0.25f;
-        [Tooltip("Only enemies in this list can spawn on this track. Each entry with a model has an equal chance. Empty disables ordinary enemies; boss/radar objectives use their own settings.")]
-        public VoxelEnemyVehicleTuning[] enemyVehiclePool;
+        [InspectorName("Enemy Vehicle Pool")]
+        [Tooltip("Only enemies in this list can spawn on this track. Spawn Weight is relative to the other entries; zero disables an entry. Empty disables ordinary enemies; boss/radar objectives use their own settings.")]
+        public VoxelEnemyVehicleSpawnEntry[] enemyVehicleSpawns;
+
+        [SerializeField, HideInInspector, FormerlySerializedAs("enemyVehiclePool")]
+        private VoxelEnemyVehicleTuning[] legacyEnemyVehiclePool;
+
+        private void OnEnable()
+        {
+            if (MigrateEnemyVehiclePool()) VoxelAssetSaveQueue.Request(this);
+        }
+
+        private bool MigrateEnemyVehiclePool()
+        {
+            if (legacyEnemyVehiclePool == null || legacyEnemyVehiclePool.Length == 0) return false;
+            if (enemyVehicleSpawns == null || enemyVehicleSpawns.Length == 0)
+            {
+                enemyVehicleSpawns = new VoxelEnemyVehicleSpawnEntry[legacyEnemyVehiclePool.Length];
+                for (int i = 0; i < legacyEnemyVehiclePool.Length; i++)
+                    enemyVehicleSpawns[i] = new VoxelEnemyVehicleSpawnEntry { vehicle = legacyEnemyVehiclePool[i] };
+            }
+            legacyEnemyVehiclePool = null;
+            return true;
+        }
 
         public VoxelEnemyVehicleTuning ChooseEnemyVehicle()
         {
-            int count = 0;
-            if (enemyVehiclePool != null)
-                foreach (var entry in enemyVehiclePool) if (entry != null && entry.modelPrefab != null) count++;
-            if (count == 0) return null;
-            int pick = Random.Range(0, count);
-            foreach (var entry in enemyVehiclePool)
-                if (entry != null && entry.modelPrefab != null && pick-- == 0) return entry;
-            return null;
+            MigrateEnemyVehiclePool();
+            if (enemyVehicleSpawns == null) return null;
+            double total = 0;
+            foreach (var entry in enemyVehicleSpawns)
+                if (IsSpawnable(entry)) total += entry.spawnWeight;
+            if (total <= 0) return null;
+            double pick = Random.value * total;
+            VoxelEnemyVehicleTuning last = null;
+            foreach (var entry in enemyVehicleSpawns)
+            {
+                if (!IsSpawnable(entry)) continue;
+                last = entry.vehicle;
+                pick -= entry.spawnWeight;
+                if (pick < 0) return last;
+            }
+            // Random.value can return exactly 1, so retain the last valid entry.
+            return last;
         }
+
+        private static bool IsSpawnable(VoxelEnemyVehicleSpawnEntry entry) =>
+            entry != null && entry.vehicle != null && entry.vehicle.modelPrefab != null &&
+            entry.spawnWeight > 0 && !float.IsInfinity(entry.spawnWeight);
         [Tooltip("Seconds between traffic/obstacle spawn waves at normal speed. Each wave picks a random value within this range. Above the car's engine-adjusted top speed, the countdown advances in proportion to actual speed.")]
         [Min(0.1f)] public float minimumWaveInterval = 2.5f;
         [Min(0.1f)] public float maximumWaveInterval = 4.5f;
@@ -135,6 +171,7 @@ namespace VoxelRacer
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            MigrateEnemyVehiclePool();
             approachSpeedDistance = Mathf.Max(engageSpeedDistance, approachSpeedDistance);
             sameDirectionSpawnSpeedMultiplierMax = Mathf.Max(sameDirectionSpawnSpeedMultiplierMin, sameDirectionSpawnSpeedMultiplierMax);
             sameDirectionApproachSpeedMultiplierMax = Mathf.Max(sameDirectionApproachSpeedMultiplierMin, sameDirectionApproachSpeedMultiplierMax);
@@ -148,5 +185,13 @@ namespace VoxelRacer
             VoxelAssetSaveQueue.Request(this);
         }
 #endif
+    }
+
+    [System.Serializable]
+    public sealed class VoxelEnemyVehicleSpawnEntry
+    {
+        public VoxelEnemyVehicleTuning vehicle;
+        [Tooltip("Relative chance within this track's enemy pool. 3 is three times as likely as 1; zero disables this entry.")]
+        [Min(0f)] public float spawnWeight = 1f;
     }
 }

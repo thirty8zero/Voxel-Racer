@@ -9,6 +9,8 @@ namespace VoxelRacer
     {
         private VoxelBoostController boost;
         private CanvasGroup canvasGroup;
+        private RectTransform controlsCanvas, expandedTouchArea;
+        private float touchCanvasWidth = -1f;
         private Image boostRing;
         private Text boostText;
         private RectTransform cap;
@@ -20,7 +22,7 @@ namespace VoxelRacer
         private Sprite ringSprite;
         private Sprite discSprite;
         private const float ArcFraction = 300f / 360f;
-        private static readonly Vector2 ControlPosition = new Vector2(260f, 630f);
+        private static readonly Vector2 ControlPosition = VoxelHudStyles.InsetControlPosition(new Vector2(260f, 630f));
 
         public void Configure(VoxelBoostController controller) => boost = controller;
 
@@ -30,6 +32,8 @@ namespace VoxelRacer
         {
             if (canvasGroup == null)
                 return;
+
+            RefreshTouchArea();
 
             bool hide = !Application.isPlaying || boost == null || boost.Tuning == null ||
                 boost.Target == null || boost.Target.IsDestroyed || VoxelPlayerDeathScreen.IsShowing ||
@@ -64,6 +68,7 @@ namespace VoxelRacer
         private void BuildHud()
         {
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Boost HUD");
+            controlsCanvas = canvas;
             canvas.GetComponent<Canvas>().sortingOrder = 100;
             var scaler = canvas.GetComponent<CanvasScaler>();
             scaler.matchWidthOrHeight = 1f;
@@ -87,6 +92,9 @@ namespace VoxelRacer
             button.transition = Selectable.Transition.None;
             button.navigation = new Navigation { mode = Navigation.Mode.None };
             buttonObject.GetComponent<VoxelBoostButtonPointer>().Owner = this;
+            expandedTouchArea = VoxelHudStyles.CreateExpandedTouchArea(buttonRect, new Vector2(630f, 220f));
+            expandedTouchArea.gameObject.AddComponent<VoxelBoostButtonPointer>().Owner = this;
+            RefreshTouchArea();
             stemSprite = Bake("Runtime Boost Ribbed Stem", out stemTexture, false, true);
             capSprite = Bake("Runtime Boost Blue Dome", out capTexture, true, false);
             Face(buttonRect, "Boost Socket", discSprite, new Vector2(0f, -36f), new Vector2(150f, 76f));
@@ -113,6 +121,15 @@ namespace VoxelRacer
             shadow.effectDistance = new Vector2(1f, -2f);
             boostText.raycastTarget = false;
             RefreshPresentation(1f, 1f, true);
+        }
+
+        private void RefreshTouchArea()
+        {
+            if (controlsCanvas == null || expandedTouchArea == null) return;
+            float width = controlsCanvas.rect.width;
+            if (Mathf.Approximately(width, touchCanvasWidth)) return;
+            touchCanvasWidth = width;
+            VoxelHudStyles.SetLeftTouchAreaWidth(expandedTouchArea, width, ControlPosition.x);
         }
 
         private static Image CreateRingImage(Transform parent, Sprite sprite)

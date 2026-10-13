@@ -127,12 +127,12 @@ namespace VoxelRacer.Editor
                 var fire = buttons.First(r => r.name == "Fire Button");
                 var launch = buttons.First(r => r.name == "Missile Button");
                 Check(fire.anchorMin == new Vector2(1, 0) && fire.anchorMax == fire.anchorMin &&
-                    fire.anchoredPosition == new Vector2(-150, 150) && fire.sizeDelta == new Vector2(200, 200) &&
+                    fire.anchoredPosition == new Vector2(-310, 150) && fire.sizeDelta == new Vector2(200, 200) &&
                     fire.GetComponentInChildren<UnityEngine.UI.Text>() == null &&
                     fire.GetComponent<UnityEngine.UI.Image>().sprite != null,
                     "Reticule gun button must retain its 200px size in the bottom-right corner without a text label");
                 Check(launch.anchorMin == new Vector2(1, 0) && launch.anchorMax == launch.anchorMin &&
-                    launch.anchoredPosition == new Vector2(-150, 390),
+                    launch.anchoredPosition == new Vector2(-310, 390),
                     "Missile button must sit above gun fire with a 25px touch-area gap");
                 var gunMount = root.AddComponent<VoxelGunMount>(); gunMount.tuning = bullet;
                 var rocketMount = root.AddComponent<VoxelGunMount>(); rocketMount.tuning = missile;

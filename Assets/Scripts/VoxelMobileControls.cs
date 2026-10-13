@@ -9,6 +9,8 @@ namespace VoxelRacer
     {
         private VoxelCarController target;
         private CanvasGroup canvasGroup;
+        private RectTransform controlsCanvas, rightSteeringTouchArea, brakeTouchArea;
+        private float steeringCanvasWidth = -1f;
         private Texture2D fireButtonTexture;
         private Sprite fireButtonSprite;
         private Texture2D brakeButtonTexture;
@@ -41,6 +43,8 @@ namespace VoxelRacer
         {
             if (canvasGroup == null)
                 return;
+
+            RefreshSteeringTouchAreas();
 
             UpdateMissileVisibility();
             bool hidden = !Application.isPlaying || target == null || target.IsDestroyed ||
@@ -88,6 +92,7 @@ namespace VoxelRacer
         private void BuildHud()
         {
             RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Temporary Mobile Controls");
+            controlsCanvas = canvas;
             canvas.GetComponent<Canvas>().sortingOrder = 105;
             // Match the integrity dial and boost's height-based scale on wide phones.
             var scaler = canvas.GetComponent<CanvasScaler>();
@@ -96,39 +101,70 @@ namespace VoxelRacer
             canvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
             canvasGroup.alpha = 0f;
 
-            // Keep generous 200px touch targets, with a 20px gap between them.
+            // Preserve the arrows while extending their invisible outer touch edges.
             CreateSteeringControl(canvas, "Move Left Button", new Vector2(150f, 150f), MobileControlAction.Left);
             CreateSteeringControl(canvas, "Move Right Button", new Vector2(370f, 150f), MobileControlAction.Right);
-            CreateControl(canvas, "Brake Button", null, Vector2.zero,
+            Image brakeButton = CreateControl(canvas, "Brake Button", null, Vector2.zero,
                 new Vector2(260f, 390f), new Vector2(200f, 200f), MobileControlAction.Brake,
                 Color.white, 0, CreateBrakeButtonSprite());
-            CreateControl(canvas, "Fire Button", null, new Vector2(1f, 0f),
+            brakeTouchArea = ExpandControlTouchArea(brakeButton, MobileControlAction.Brake, new Vector2(630f, 200f));
+            Image fireButton = CreateControl(canvas, "Fire Button", null, new Vector2(1f, 0f),
                 new Vector2(-150f, 150f), new Vector2(200f, 200f), MobileControlAction.Fire,
                 Color.white, 0, CreateFireButtonSprite());
+            ExpandControlTouchArea(fireButton, MobileControlAction.Fire, new Vector2(200f + 2 * VoxelHudStyles.ControlEdgeInset, 200f));
             Image missileButton = CreateControl(canvas, "Missile Button", "FIRE\nMISSILE", new Vector2(1f, 0f),
                 new Vector2(-150f, 390f), new Vector2(200f, 200f), MobileControlAction.Missile,
                 Color.white, 33);
             missileDisplay = missileButton.gameObject.AddComponent<VoxelMissileButtonDisplay>();
             missileDisplay.Build();
             missileButton.rectTransform.localScale = Vector3.one * 1.15f;
+            ExpandControlTouchArea(missileButton, MobileControlAction.Missile,
+                new Vector2((230f + 2 * VoxelHudStyles.ControlEdgeInset) / 1.15f, 200f));
             missileDisplay.Configure(target);
             UpdateMissileVisibility();
+            RefreshSteeringTouchAreas();
         }
 
         private void CreateSteeringControl(Transform parent, string name, Vector2 position, MobileControlAction action)
         {
             Image button = CreateControl(parent, name, null, Vector2.zero, position,
                 new Vector2(200f, 200f), action, Color.clear, 0);
+            RectTransform touch = button.rectTransform;
+            touch.pivot = new Vector2(0f, .5f);
+            touch.anchoredPosition = new Vector2(action == MobileControlAction.Left ? 0f : 430f, 150f);
+            touch.sizeDelta = new Vector2(action == MobileControlAction.Left ? 410f : 200f, 200f);
+            if (action == MobileControlAction.Right) rightSteeringTouchArea = touch;
             var chevronObject = new GameObject("Chevron", typeof(RectTransform), typeof(VoxelSteeringChevron));
             chevronObject.transform.SetParent(button.transform, false);
             RectTransform rect = chevronObject.GetComponent<RectTransform>();
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = new Vector2(action == MobileControlAction.Left ? 310f : 100f, 0f);
             rect.sizeDelta = new Vector2(88f, 128f);
             if (action == MobileControlAction.Left)
                 rect.localRotation = Quaternion.Euler(0f, 0f, 180f);
             VoxelSteeringChevron chevron = chevronObject.GetComponent<VoxelSteeringChevron>();
             chevron.color = new Color(1f, 1f, 1f, 0.55f);
             chevron.raycastTarget = false;
+        }
+
+        private void RefreshSteeringTouchAreas()
+        {
+            if (controlsCanvas == null || rightSteeringTouchArea == null) return;
+            float width = controlsCanvas.rect.width;
+            if (Mathf.Approximately(width, steeringCanvasWidth)) return;
+            steeringCanvasWidth = width;
+            // Match the shoulder in the reference shot, with a full original target
+            // retained on narrower displays. Do not follow the moving road/camera.
+            float rightEdge = VoxelHudStyles.LeftTouchAreaRightEdge(width);
+            rightSteeringTouchArea.sizeDelta = new Vector2(rightEdge - 430f, 200f);
+            if (brakeTouchArea != null) VoxelHudStyles.SetLeftTouchAreaWidth(brakeTouchArea, width, 420f);
+        }
+
+        private RectTransform ExpandControlTouchArea(Image button, MobileControlAction action, Vector2 size)
+        {
+            var area = VoxelHudStyles.CreateExpandedTouchArea(button.rectTransform, size);
+            area.gameObject.AddComponent<VoxelMobileControlButton>().Configure(this, action);
+            return area;
         }
 
         private Image CreateControl(Transform parent, string name, string label, Vector2 anchor,
@@ -142,7 +178,7 @@ namespace VoxelRacer
             rect.anchorMin = anchor;
             rect.anchorMax = anchor;
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = position;
+            rect.anchoredPosition = VoxelHudStyles.InsetControlPosition(position, anchor.x > .5f);
             rect.sizeDelta = size;
             Image image = controlObject.GetComponent<Image>();
             image.color = colour;

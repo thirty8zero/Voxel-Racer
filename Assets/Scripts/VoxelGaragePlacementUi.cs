@@ -315,6 +315,7 @@ namespace VoxelRacer
             bool hadPreview = upgradePlacement != null;
             upgradePlacement?.Dispose(); upgradePlacement = null;
             pendingUpgrades.Clear(); quotedUpgradePrice = 0;
+            RefreshNextMission();
             placementPointerHeld = false; rotatingCar = pinching = false;
             if (purchaseModal != null) purchaseModal.SetActive(false);
             if (feedbackText != null) feedbackText.text = string.Empty;

@@ -20,6 +20,7 @@ namespace VoxelRacer
         public bool TravelsWithPlayer => travelsWithPlayer;
         public float TravelSpeed => travelSpeed;
         public float TrafficHalfLength => collisionHalfLength;
+        public float TrafficHalfWidth => collisionHalfWidth;
         public bool IsDrivingTraffic => !hasBeenHit;
         public const float TrafficGap = 1.5f;
         private static readonly List<VoxelObstacleCar> ActiveTraffic = new();
@@ -336,6 +337,17 @@ namespace VoxelRacer
                 float clearance=collisionHalfLength+other.collisionHalfLength+TrafficGap;
                 // Bound this frame's movement against the leader's current position:
                 // safe even if it brakes, or Unity updates the follower first.
+                allowedDistance=Mathf.Min(allowedDistance,Mathf.Max(0,ahead-clearance));
+            }
+            // A braking Bug must also block the oncoming car's movement. Reserving the
+            // current position keeps this independent of which vehicle Update runs first.
+            foreach(var enemy in VoxelEnemyCar.ActiveProjectileTargets)
+            {
+                if(enemy==null || !enemy.IsPsychoTrafficPeer(path,transform.parent) ||
+                    Mathf.Abs(enemy.LaneOffset-laneOffset)>=collisionHalfWidth+enemy.Tuning.collisionHalfWidth) continue;
+                float ahead=(enemy.TrackDistance-trackDistance)*direction;
+                if(ahead<=0) continue;
+                float clearance=collisionHalfLength+enemy.Tuning.collisionHalfLength+TrafficGap;
                 allowedDistance=Mathf.Min(allowedDistance,Mathf.Max(0,ahead-clearance));
             }
             return allowedDistance/deltaTime;
