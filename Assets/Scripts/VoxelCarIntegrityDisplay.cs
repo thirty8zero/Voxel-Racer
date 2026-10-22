@@ -21,7 +21,15 @@ namespace VoxelRacer
         private Texture2D dialTexture;
         private Sprite dialSprite;
         private float damagePulseStartedAt = -1f;
+        private bool garageDisplay;
         private const float DamagePulseDuration = 0.28f;
+
+        /// <summary>Shows the stationary garage car's integrity without race visibility or pause input.</summary>
+        public void ConfigureForGarage(VoxelCarController car)
+        {
+            target = car;
+            garageDisplay = true;
+        }
 
         private void OnEnable() => Active = this;
 
@@ -49,16 +57,17 @@ namespace VoxelRacer
             if (canvasGroup == null)
                 return;
 
-            if (!Application.isPlaying || target == null || !target.isActiveAndEnabled || target.IsDestroyed || VoxelPlayerDeathScreen.IsShowing)
+            if (!Application.isPlaying || target == null || !target.gameObject.activeInHierarchy ||
+                (!garageDisplay && (!target.isActiveAndEnabled || target.IsDestroyed || VoxelPlayerDeathScreen.IsShowing)))
             {
                 canvasGroup.alpha = 0f;
                 canvasGroup.blocksRaycasts = canvasGroup.interactable = false;
                 return;
             }
 
-            float alpha = VoxelStartCountdown.CurrentGameplayHudAlpha;
+            float alpha = garageDisplay ? 1f : VoxelStartCountdown.CurrentGameplayHudAlpha;
             canvasGroup.alpha = alpha;
-            canvasGroup.blocksRaycasts = canvasGroup.interactable = alpha > .01f && !VoxelPauseMenu.IsPaused &&
+            canvasGroup.blocksRaycasts = canvasGroup.interactable = !garageDisplay && alpha > .01f && !VoxelPauseMenu.IsPaused &&
                 VoxelMissionProgress.Active?.IsComplete != true && VoxelMissionProgress.Active?.IsFailed != true;
             if (alpha <= 0f)
                 return;

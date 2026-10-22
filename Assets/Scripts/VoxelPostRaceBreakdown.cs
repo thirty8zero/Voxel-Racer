@@ -31,11 +31,13 @@ namespace VoxelRacer
             cashLabel.resizeTextForBestFit=true;cashLabel.resizeTextMinSize=30;cashLabel.resizeTextMaxSize=72;
             var next=VoxelMenuUi.CreateButton(rewards.transform,"Show Breakdown",">",44,new Vector2(.5f,.5f),new Vector2(400,210),new Vector2(64,64),()=>ShowBreakdown(true));
             next.GetComponentInChildren<Text>().font=Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
+            StyleResultNavigation(next);
             var panel=VoxelMenuUi.CreatePanel(canvas,"Mission Breakdown Panel",new Vector2(0,.5f),PostRacePanelPosition,new Vector2(900,520));
             panel.color=rewards.color;breakdownPage=panel.gameObject;
-            VoxelMenuUi.CreateText(panel.transform,"Breakdown Title","MISSION BREAKDOWN",46,TextAnchor.MiddleCenter,new Vector2(.5f,.5f),new Vector2(30,210),new Vector2(730,64));
+            VoxelMenuUi.CreateText(panel.transform,"Breakdown Title","MISSION BREAKDOWN",46,TextAnchor.MiddleCenter,new Vector2(.5f,.5f),new Vector2(30,210),new Vector2(730,64)).color=ResultSilver;
             var back=VoxelMenuUi.CreateButton(panel.transform,"Return to Rewards","<",44,new Vector2(.5f,.5f),new Vector2(-400,210),new Vector2(64,64),()=>ShowBreakdown(false));
             back.GetComponentInChildren<Text>().font=Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
+            StyleResultNavigation(back);
             var viewport=VoxelMenuUi.CreatePanel(panel.transform,"Breakdown Viewport",new Vector2(.5f,.5f),new Vector2(0,-32),new Vector2(840,390));
             viewport.color=Color.clear;viewport.gameObject.AddComponent<RectMask2D>();
             breakdownScroll=viewport.gameObject.AddComponent<ScrollRect>();
@@ -47,6 +49,7 @@ namespace VoxelRacer
             breakdownContent.pivot=new Vector2(.5f,1);breakdownContent.sizeDelta=Vector2.zero;
             breakdownScroll.content=breakdownContent;
             VoxelMenuUi.CreateText(panel.transform,"Scroll Hint","TAP A ROW TO EXPAND  /  SCROLL FOR DETAILS",20,TextAnchor.MiddleCenter,new Vector2(.5f,.5f),new Vector2(0,-244),new Vector2(820,24));
+            StyleResultPanel(panel, true);
             RefreshBreakdown();breakdownPage.SetActive(false);
         }
         private void ShowBreakdown(bool show)

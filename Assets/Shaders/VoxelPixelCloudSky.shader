@@ -10,6 +10,12 @@ Shader "Voxel Racer/Pixel Cloud Sky"
         _Zenith ("Upper Sky", Color) = (.035,.09,.28,1)
         _Blue ("Blue Sky", Color) = (.025,.26,.50,1)
         _Horizon ("Sunset Horizon", Color) = (1,.55,.22,1)
+        _MidSky ("Lower Sky", Color) = (.58,.24,.43,1)
+        _CloudShadowLow ("Lower Cloud Shadow", Color) = (.57,.23,.40,1)
+        _CloudShadowHigh ("Upper Cloud Shadow", Color) = (.13,.35,.57,1)
+        _CloudLightLow ("Lower Cloud Light", Color) = (1,.69,.32,1)
+        _CloudLightHigh ("Upper Cloud Light", Color) = (.20,.67,.76,1)
+        _BelowHorizon ("Below Horizon", Color) = (.19,.11,.20,1)
     }
     SubShader
     {
@@ -25,6 +31,7 @@ Shader "Voxel Racer/Pixel Cloud Sky"
             struct v2f { float4 pos:SV_POSITION; float3 ray:TEXCOORD0; };
             float _PixelColumns,_CloudCoverage,_CloudDetail,_Rotation,_Exposure;
             float4 _Zenith,_Blue,_Horizon;
+            float4 _MidSky,_CloudShadowLow,_CloudShadowHigh,_CloudLightLow,_CloudLightHigh,_BelowHorizon;
             v2f vert(appdata v) { v2f o; o.pos=UnityObjectToClipPos(v.vertex); o.ray=v.vertex.xyz; return o; }
             float hash(float3 p) { p=frac(p*.1031); p+=dot(p,p.yzx+33.33); return frac((p.x+p.y)*p.z); }
             float noise(float3 p)
@@ -44,7 +51,7 @@ Shader "Voxel Racer/Pixel Cloud Sky"
                 float h=sin(latitude);
                 float3 d=float3(cos(longitude)*cos(latitude),h,sin(longitude)*cos(latitude));
                 float level=floor(saturate(h)*32)/32;
-                float3 sky=lerp(_Horizon.rgb,float3(.58,.24,.43),saturate(level*7));
+                float3 sky=lerp(_Horizon.rgb,_MidSky.rgb,saturate(level*7));
                 sky=lerp(sky,_Blue.rgb,saturate((level-.12)*3.6));
                 sky=lerp(sky,_Zenith.rgb,saturate((level-.42)*1.7));
                 // World-direction noise wraps all the way around without a panorama seam.
@@ -55,14 +62,14 @@ Shader "Voxel Racer/Pixel Cloud Sky"
                 float threshold=lerp(.69,.38,_CloudCoverage)+saturate((h-.7)*2)*.2;
                 float mass=saturate((cloud+banks-threshold)*7);
                 mass=floor(mass*5)/5;
-                float3 shadow=lerp(float3(.57,.23,.40),float3(.13,.35,.57),saturate(h*3));
-                float3 light=lerp(float3(1,.69,.32),float3(.20,.67,.76),saturate((h-.07)*3.5));
+                float3 shadow=lerp(_CloudShadowLow.rgb,_CloudShadowHigh.rgb,saturate(h*3));
+                float3 light=lerp(_CloudLightLow.rgb,_CloudLightHigh.rgb,saturate((h-.07)*3.5));
                 float edge=floor(saturate((cloud-threshold)*3+.22+noise(p+float3(0,1.8,0))*.3)*4)/4;
                 float3 cloudColour=lerp(shadow,light,edge);
                 sky=lerp(sky,cloudColour,mass*.95);
                 float star=step(.9987,hash(float3(floor(uv.x*grid.x)%grid.x,floor(uv.y*grid.y),91)))*step(.38,h)*(1-step(.2,mass));
                 sky=lerp(sky,float3(.70,.88,.91),star*.85);
-                if(h<0) sky=lerp(_Horizon.rgb,float3(.19,.11,.20),saturate(-h*6));
+                if(h<0) sky=lerp(_Horizon.rgb,_BelowHorizon.rgb,saturate(-h*6));
                 return float4(sky*_Exposure,1);
             }
             ENDCG

@@ -29,6 +29,10 @@ namespace VoxelRacer.Editor
                 attributes.Add(new HideLabelAttribute());
             }
             if(name=="missionTuning" || name=="scenerySet") attributes.Add(new InlineEditorAttribute());
+            if(Section(typeof(VoxelTrackDefinition), name)=="Time Of Day" && name!="nightTime")
+                attributes.Add(new ShowIfAttribute("nightTime"));
+            if(name=="horizonSunEnabled") attributes.Add(new LabelTextAttribute("Sun / Moon Enabled"));
+            if(name=="sunColour" || name=="sunHorizonHeight") attributes.Add(new HideIfAttribute("nightTime"));
             if(name.StartsWith("fog") && name!="fogEnabled") attributes.Add(new ShowIfAttribute("fogEnabled"));
             if(name.StartsWith("groundNoise")) attributes.Add(new ShowIfAttribute("groundPixelNoiseEnabled"));
             if(name.StartsWith("roadTexture") && name!="roadTextureEnabled") attributes.Add(new ShowIfAttribute("roadTextureEnabled"));

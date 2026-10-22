@@ -9,6 +9,18 @@ namespace VoxelRacer
         [Tooltip("Drag cars here in the order they should appear. The first two valid entries are displayed; one entry is centred.")]
         public VoxelCarDefinition[] featuredCars;
 
+        [Header("Title Logo")]
+        [Tooltip("Transparent title artwork fitted above the main-menu car and START button.")]
+        public Texture2D titleLogo;
+
+        [Header("Placeholder Artwork")]
+        [Tooltip("Cover the 3D menu with the two artwork layers, below the original title and buttons.")]
+        public bool artworkEnabled = true;
+        [Tooltip("Fills the screen without stretching; excess image area is cropped.")]
+        public Texture2D backgroundArtwork;
+        [Tooltip("Transparent artwork fitted in the lower part of the screen, below the title logo.")]
+        public Texture2D foregroundArtwork;
+
         [Header("Desert Scenery")]
         public bool showHorizonMountains = true;
         [Min(0.1f)] public float mountainScale = 1f;
@@ -47,6 +59,7 @@ namespace VoxelRacer
                 {
                     menu.BuildFeaturedCars();
                     menu.BuildDesertScenery();
+                    menu.BuildArtwork();
                 }
         }
 #endif

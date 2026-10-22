@@ -21,6 +21,11 @@ namespace VoxelRacer
         [Tooltip("Road distance rebuilt and retained behind the stopped player for the mission-complete camera. This is only used after gameplay has finished.")]
         [Min(0f)] public float finishRoadBehindDistance = 150f;
 
+        [Header("Road Horizon")]
+        public bool horizonRoadEnabled = true;
+        [Tooltip("Visual road distance ahead, in metres. Extends only a simple road surface, shoulders and lane markings, without extra traffic, scenery or colliders.")]
+        [Range(100f, 1000f)] public float horizonRoadDistance = 760f;
+
         [Range(0f, 1f)] public float turnChancePerSegment = 0.35f;
         [Min(1f)] public float minimumTurnAngle = 12f;
         [Min(1f)] public float maximumTurnAngle = 32f;
@@ -52,6 +57,8 @@ namespace VoxelRacer
             road.segmentCount = segmentCount;
             road.recycleBehindDistance = recycleBehindDistance;
             road.finishRoadBehindDistance = finishRoadBehindDistance;
+            road.horizonRoadEnabled = horizonRoadEnabled;
+            road.horizonRoadDistance = horizonRoadDistance;
             road.turnChancePerSegment = turnChancePerSegment;
             road.minimumTurnAngle = minimumTurnAngle;
             road.maximumTurnAngle = maximumTurnAngle;
@@ -77,6 +84,8 @@ namespace VoxelRacer
             segmentCount = road.segmentCount;
             recycleBehindDistance = road.recycleBehindDistance;
             finishRoadBehindDistance = road.finishRoadBehindDistance;
+            horizonRoadEnabled = road.horizonRoadEnabled;
+            horizonRoadDistance = road.horizonRoadDistance;
             turnChancePerSegment = road.turnChancePerSegment;
             minimumTurnAngle = road.minimumTurnAngle;
             maximumTurnAngle = road.maximumTurnAngle;
@@ -94,6 +103,7 @@ namespace VoxelRacer
             maximumCactusWidthScale = Mathf.Max(minimumCactusWidthScale, maximumCactusWidthScale);
             maximumTurnAngle = Mathf.Max(minimumTurnAngle, maximumTurnAngle);
             maximumTrackHeading = Mathf.Max(maximumTurnAngle, maximumTrackHeading);
+            horizonRoadDistance = Mathf.Clamp(horizonRoadDistance, 100f, 1000f);
 #if UNITY_EDITOR
             VoxelAssetSaveQueue.Request(this);
             QueueRoadRefresh();

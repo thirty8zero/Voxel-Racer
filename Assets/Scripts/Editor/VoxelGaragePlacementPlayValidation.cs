@@ -32,7 +32,17 @@ namespace VoxelRacer.Editor
         private static float savedTimeScale;
         private static int missionIndex, departureBalance;
         private static string missionScene;
-        private static Button Button(string name) => shop.GetComponentsInChildren<Button>(true).First(b => b.name == name);
+        private static float carriedIntegrity;
+        private static int carriedMissingVoxels;
+        private static float swipeDistance;
+        private static Button Button(string name)
+        {
+            var button=shop.GetComponentsInChildren<Button>(true).First(b=>b.name==name);
+            var card=button.GetComponent<VoxelGarageUpgradeCard>();
+            if(card!=null && !button.gameObject.activeSelf)
+                shop.GetComponentsInChildren<Button>(true).First(b=>b.name=="Category "+card.Category).onClick.Invoke();
+            return button;
+        }
         private static VoxelGarageUpgradePlacement Preview() => (VoxelGarageUpgradePlacement)
             typeof(VoxelRepairUpgradeSceneController).GetField("upgradePlacement", Private).GetValue(shop);
         private static void Call(string method, params object[] args) =>
@@ -88,17 +98,79 @@ namespace VoxelRacer.Editor
                 }
                 menuRotation = menu.transform.Find("Featured Car Displays").rotation;
                 root = new GameObject("Temporary live garage placement QA");
+                SeedIntegrityDamage();
                 shop = root.AddComponent<VoxelRepairUpgradeSceneController>();
                 rotation = shop.DisplayedCar.transform.rotation;
                 Time.timeScale = 0; // Menu and garage display motion must not inherit a paused race clock.
                 mouse = InputSystem.AddDevice<Mouse>();
                 touchscreen = InputSystem.AddDevice<Touchscreen>();
                 Button("Upgrade Menu Button").onClick.Invoke();
-                Canvas.ForceUpdateCanvases(); phase = -1; frame = Time.frameCount;
+                Canvas.ForceUpdateCanvases(); phase = -20; frame = Time.frameCount;
+                swipeDistance = Mathf.Min(80f, Screen.width * .06f);
                 started = Time.realtimeSinceStartup; balance = VoxelCurrencyState.Balance;
                 EditorApplication.update += Tick;
             }
             catch (Exception e) { Finish("FAIL: " + e); }
+        }
+        private static void SeedIntegrityDamage()
+        {
+            var definition = VoxelCarSelectionState.GetSelectedOrDefault();
+            var source = new GameObject("Temporary race damage source");
+            source.transform.SetParent(root.transform, false);
+            Object.Instantiate(definition.visualPrefab, source.transform);
+            var car = source.AddComponent<VoxelCarController>();
+            car.enabled = false;
+            car.ResetIntegrityBaseline();
+            var body = car.GetComponentsInChildren<MeshRenderer>()
+                .Where(r => r.GetComponentInParent<VoxelIndestructiblePart>() == null).ToArray();
+            foreach (var piece in body.Take(body.Length / 3)) piece.gameObject.SetActive(false);
+            VoxelCarRunState.Capture(car, definition);
+            carriedIntegrity = car.IntegrityPercent;
+            carriedMissingVoxels = VoxelCarRunState.MissingVoxelCount;
+            Check(carriedIntegrity < 90 && carriedMissingVoxels > 0, "QA source must have repairable race damage.");
+            source.SetActive(false);
+            Object.Destroy(source);
+        }
+        private static void CheckIntegrityDisplay()
+        {
+            var hud = shop.GetComponent<VoxelCarIntegrityDisplay>();
+            var group = hud.GetComponentInChildren<CanvasGroup>();
+            var ring = hud.GetComponentsInChildren<Image>().First(i => i.name == "Integrity Ring");
+            var label = hud.GetComponentsInChildren<Text>().First(t => t.name == "Integrity Percentage");
+            void Refresh() => typeof(VoxelCarIntegrityDisplay).GetMethod("Update", Private).Invoke(hud, null);
+            void CheckVisible()
+            {
+                Check(!shop.DisplayedCar.enabled && group.alpha == 1 && !group.blocksRaycasts && !group.interactable,
+                    "Garage dial hidden for stationary car or intercepting pause input.");
+                Check(Mathf.Abs(ring.fillAmount - shop.DisplayedCar.IntegrityPercent / 100f) < .001f &&
+                    label.text == Mathf.CeilToInt(shop.DisplayedCar.IntegrityPercent) + "%", "Garage dial did not refresh integrity.");
+            }
+            // First check follows real Update frames, with the gameplay clock paused.
+            CheckVisible();
+            Check(Mathf.Abs(shop.DisplayedCar.IntegrityPercent - carriedIntegrity) < .001f &&
+                VoxelCarRunState.MissingVoxelCount == carriedMissingVoxels, "Race damage did not carry into garage.");
+            Call("ShowGaragePanel", new object[] { null }); Refresh(); CheckVisible();
+            Button("Repair Menu Button").onClick.Invoke(); Refresh(); CheckVisible();
+            int cost = (int)typeof(VoxelRepairUpgradeSceneController).GetMethod("GetRepairCost", Private).Invoke(shop, new object[] { 10f });
+            Call("TryRepair", 10f, cost); Refresh(); CheckVisible();
+            Check(ring.fillAmount > carriedIntegrity / 100f && ring.fillAmount < 1, "Partial repair did not update garage dial.");
+            cost = (int)typeof(VoxelRepairUpgradeSceneController).GetMethod("GetRepairCost", Private).Invoke(shop, new object[] { 100f });
+            Call("TryRepair", 100f, cost); Refresh(); CheckVisible();
+            Check(ring.fillAmount == 1 && label.text == "100%" && VoxelCarRunState.MissingVoxelCount == 0,
+                "Full repair did not restore the dial and persisted integrity.");
+            shop.DisplayedCar.gameObject.SetActive(false); Refresh();
+            Check(group.alpha == 0, "Inactive garage car still shows a dial.");
+            shop.DisplayedCar.gameObject.SetActive(true); Refresh(); CheckVisible();
+            hud.enabled = false; Check(group.alpha == 0, "Disabled garage dial still visible.");
+            hud.enabled = true; Refresh(); CheckVisible();
+            var race = new GameObject("Temporary race integrity visibility QA");
+            race.transform.SetParent(root.transform, false);
+            var raceHud = race.AddComponent<VoxelCarIntegrityDisplay>(); raceHud.target = shop.DisplayedCar;
+            typeof(VoxelCarIntegrityDisplay).GetMethod("Update", Private).Invoke(raceHud, null);
+            Check(raceHud.GetComponentInChildren<CanvasGroup>().alpha == 0, "Race dial lost its disabled-controller gate.");
+            race.SetActive(false); Object.Destroy(race);
+            Button("Upgrade Menu Button").onClick.Invoke(); Refresh(); CheckVisible();
+            balance = VoxelCurrencyState.Balance;
         }
         private static Vector2 Spot(int slot)
         {
@@ -109,6 +181,7 @@ namespace VoxelRacer.Editor
                 Vector3 projected = camera.WorldToScreenPoint(renderer.bounds.center);
                 if (projected.z <= 0 || projected.x < 0 || projected.x > Screen.width || projected.y < 0 || projected.y > Screen.height) continue;
                 Vector2 position = projected;
+                if ((bool)typeof(VoxelRepairUpgradeSceneController).GetMethod("BlocksCarRotation", Private).Invoke(shop, new object[] { position })) continue;
                 if (Preview().TryPick(camera.ScreenPointToRay(position), out int found) && found == slot) return position;
             }
             throw new InvalidOperationException("No visible screen-space spot for slot " + slot);
@@ -129,6 +202,24 @@ namespace VoxelRacer.Editor
         }
         private static void MouseEvent(bool held, Vector2 position) => InputSystem.QueueStateEvent(mouse,
             new MouseState { position = position, buttons = (ushort)(held ? 1 : 0) });
+        private static Vector2 EmptySwipeSpot()
+        {
+            var camera = (Camera)typeof(VoxelRepairUpgradeSceneController).GetField("workshopCamera", Private).GetValue(shop);
+            var renderers = (Preview()?.Car ?? shop.DisplayedCar.gameObject).GetComponentsInChildren<Renderer>();
+            for (float y = .1f; y < .9f; y += .1f)
+            for (float x = .1f; x < .85f; x += .1f)
+            {
+                var start = new Vector2(Screen.width * x, Screen.height * y);
+                var end = start + Vector2.right * swipeDistance;
+                bool Blocked(Vector2 p) => (bool)typeof(VoxelRepairUpgradeSceneController)
+                    .GetMethod("BlocksCarRotation", Private).Invoke(shop, new object[] { p });
+                if (Blocked(start) || Blocked(end)) continue;
+                if (renderers.Any(r => r.enabled && r.gameObject.activeInHierarchy &&
+                    (r.bounds.IntersectRay(camera.ScreenPointToRay(start)) || r.bounds.IntersectRay(camera.ScreenPointToRay(end))))) continue;
+                return start;
+            }
+            throw new InvalidOperationException("No empty background swipe area available.");
+        }
         private static void TouchEvent(UnityEngine.InputSystem.TouchPhase touchPhase) => InputSystem.QueueStateEvent(touchscreen,
             new TouchState { touchId = 1, phase = touchPhase, position = point });
         private static void Tick()
@@ -136,11 +227,15 @@ namespace VoxelRacer.Editor
             if (!Application.isPlaying || EditorApplication.isPaused) return;
             if (Time.realtimeSinceStartup - started > 30) { Finish("FAIL: input validation timed out."); return; }
             if (Time.frameCount < frame + 3) return;
+            // Model taps need settled screen positions after navigating between garage panels.
+            if (phase>=0 && (bool)typeof(VoxelRepairUpgradeSceneController).GetField("garageCameraTransitionActive", Private).GetValue(shop)) return;
             try
             {
                 switch (phase)
                 {
-                    case -1:
+                    case -20:
+                        CheckIntegrityDisplay();
+                        VoxelGarageUpgradeDockValidation.CheckCategories(shop);
                         Check(Quaternion.Angle(rotation, shop.DisplayedCar.transform.rotation) > .01f,
                             "Garage entry still delays spinning in its first frames");
                         Check(Quaternion.Angle(menuRotation, menu.transform.Find("Featured Car Displays").rotation) > .01f,
@@ -149,6 +244,60 @@ namespace VoxelRacer.Editor
                         shop.garageAutoRotationDegreesPerSecond = 0;
                         shop.DisplayedCar.transform.rotation = Quaternion.Euler(0, -15, 0);
                         break;
+                    case -19:
+                        Call("ShowGaragePanel", new object[] { null });
+                        point = EmptySwipeSpot(); rotation = shop.DisplayedCar.transform.rotation;
+                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Began); break;
+                    case -18:
+                        point += Vector2.right * swipeDistance;
+                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Moved); break;
+                    case -17:
+                        Check(Mathf.DeltaAngle(rotation.eulerAngles.y, shop.DisplayedCar.transform.eulerAngles.y) < -1,
+                            "Right swipe on empty garage background did not rotate the car.");
+                        point -= Vector2.right * swipeDistance;
+                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Moved); break;
+                    case -16:
+                        Check(Quaternion.Angle(rotation, shop.DisplayedCar.transform.rotation) < .01f,
+                            "Left background swipe did not reverse the car rotation.");
+                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
+                    case -15:
+                        Button("Repair Menu Button").onClick.Invoke();
+                        point = EmptySwipeSpot(); rotation = shop.DisplayedCar.transform.rotation;
+                        MouseEvent(true, point); break;
+                    case -14: MouseEvent(true, point + Vector2.right * swipeDistance); break;
+                    case -13:
+                        Check(Quaternion.Angle(rotation, shop.DisplayedCar.transform.rotation) > 1,
+                            "Mouse drag on background beside repair panel did not rotate the car.");
+                        MouseEvent(false, point + Vector2.right * swipeDistance); break;
+                    case -12:
+                        var back = shop.transform.Find("Repair Upgrade UI/Repair Panel/Close Panel");
+                        point = RectTransformUtility.WorldToScreenPoint(null, back.position);
+                        rotation = shop.DisplayedCar.transform.rotation;
+                        MouseEvent(true, point); break;
+                    case -11: MouseEvent(true, point + Vector2.right * swipeDistance); break;
+                    case -10: MouseEvent(false, point + Vector2.right * swipeDistance); break;
+                    case -9:
+                        Check(Quaternion.Angle(rotation, shop.DisplayedCar.transform.rotation) < .01f,
+                            "Dragging on repair UI rotated the garage car.");
+                        Call("ShowGaragePanel", new object[] { null });
+                        Button("Upgrade Menu Button").onClick.Invoke();
+                        shop.DisplayedCar.transform.rotation = Quaternion.Euler(0, -15, 0);
+                        break;
+                    case -8:
+                        point=RectTransformUtility.WorldToScreenPoint(null,Button("Category WheelsAndTires").transform.position);
+                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Began);break;
+                    case -7: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended);break;
+                    case -6:
+                        Check(shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().Length==3 &&
+                            shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().All(c=>c.Category==VoxelGarageUpgradeCategory.WheelsAndTires),
+                            "Touch input did not open Wheels & Tires category.");
+                        point=RectTransformUtility.WorldToScreenPoint(null,Button("Category Engines").transform.position);
+                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Began);break;
+                    case -5: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended);break;
+                    case -4:
+                        Check(shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().Single().Category==VoxelGarageUpgradeCategory.Engines,
+                            "Touch input did not open Engines category.");
+                        phase=-1;break;
                     case 0:
                         Button("Long Gun Purchase Button").onClick.Invoke();
                         Call("ApplyGaragePreviewViewport"); point = Spot(1); MouseEvent(true, point); break;
@@ -163,7 +312,7 @@ namespace VoxelRacer.Editor
                     case 3: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
                     case 4:
                         Check(Preview() != null && Preview().SelectedSlot == 1 && VoxelCurrencyState.Balance == balance,
-                            "Touch tap did not select right ghost without spending");
+                            "Touch tap did not select right ghost without spending; selected="+Preview()?.SelectedSlot+", balance="+VoxelCurrencyState.Balance+", expected="+balance);
                         point = Spot(0); MouseEvent(true, point); break;
                     case 5: MouseEvent(false, point); break;
                     case 6:
@@ -173,13 +322,15 @@ namespace VoxelRacer.Editor
                         Button("Performance Wheel Purchase Button").onClick.Invoke();
                         Button("Boost Bottle Purchase Button").onClick.Invoke();
                         Check(Preview().Selections.Count == 5, "Switching cards discarded the pending gun pair");
+                        VoxelGarageUpgradeDockValidation.CheckCategories(shop);
+                        point = EmptySwipeSpot();
                         rotation = shop.DisplayedCar.transform.rotation;
                         MouseEvent(true, point); break;
                     case 7: MouseEvent(true, point + new Vector2(80, 0)); break;
                     case 8: MouseEvent(false, point + new Vector2(80, 0)); break;
                     case 9:
                         Check(Preview().Selections.Count == 5 && Quaternion.Angle(rotation, shop.DisplayedCar.transform.rotation) > 1,
-                            "Manual drag did not rotate the car with the purchase panel open");
+                            "Background drag did not rotate the car with the purchase panel open");
                         Check(Quaternion.Angle(Preview().Car.transform.rotation, shop.DisplayedCar.transform.rotation) < .01f,
                             "Pending parts did not follow manual rotation");
                         shop.garageAutoRotationDegreesPerSecond = 12;
@@ -248,7 +399,7 @@ namespace VoxelRacer.Editor
                         Check(SceneManager.GetActiveScene().name==missionScene && VoxelTrackProgressState.CurrentTrackIndex==missionIndex,"Start Mission did not advance and load the mission");
                         Check(!VoxelPloughUpgradeState.IsPurchased && VoxelCurrencyState.Balance==departureBalance,"Starting without pending parts bought them or spent cash");
                         Check(Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).All(t=>t.name!="Temporary Upgrade Placement"),"Unpurchased preview leaked into the mission");
-                        Finish("PASS (Play Mode): immediate menu/garage spin, real mouse/touch placement and removal, multiple selections, combined purchase, disable/close cleanup; starting with pending parts warns, Go Back retains the cart, Start Mission advances/loads the real race without spending or purchasing pending parts. Temporary input devices and cash/purchase/campaign/clock state restored."); return;
+                        Finish("PASS (Play Mode): six category tabs, correct nine-card grouping, real touch category selection, per-category sorting, pending cart and wallet preserved across tabs; empty-background touch swipes right/left, mouse background drag beside repairs, repair UI drag blocking, background rotation with pending upgrades and confirmation open; garage integrity visible with disabled controller and paused clock, race damage carry-over, partial/full repair refresh and persistence, home/repair/upgrades, no pause input, inactive/disabled visibility and retained race gate; immediate menu/garage spin, real mouse/touch placement and removal, multiple selections, combined purchase, disable/close cleanup; starting with pending parts warns, Go Back retains the cart, Start Mission advances/loads the real race without spending or purchasing pending parts. Temporary input devices and cash/purchase/campaign/clock state restored."); return;
                 }
                 phase++; frame = Time.frameCount;
             }

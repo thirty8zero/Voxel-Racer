@@ -9,6 +9,8 @@ namespace VoxelRacer
         [Header("Shop and Model")]
         public string displayName = "NITRO BOOST BOTTLE";
         [Min(0)] public int purchasePrice = 300;
+        [Tooltip("Two bottles provide independent boost charges; a higher count replaces a lower count.")]
+        [Range(1, 2)] public int bottleCount = 1;
         public GameObject bottlePrefab;
         public GameObject compatibleCarPrefab;
         [Header("Right Rear Window Panel Mount")]
@@ -18,5 +20,7 @@ namespace VoxelRacer
             compatibleCarPrefab != null && car.visualPrefab == compatibleCarPrefab;
         public static VoxelBoostUpgradeTuning LoadUpgrade() =>
             Resources.Load<VoxelBoostUpgradeTuning>("Boost/BoostBottleUpgradeTuning");
+        public static VoxelBoostUpgradeTuning LoadDualUpgrade() =>
+            Resources.Load<VoxelBoostUpgradeTuning>("Boost/DualBoostBottleUpgradeTuning");
     }
 }

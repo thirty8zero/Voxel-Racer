@@ -12,6 +12,7 @@ namespace VoxelRacer
         private readonly List<RendererState> renderers = new();
         private float elapsed;
         private bool isFading;
+        public float Opacity => isFading ? Mathf.Clamp01(elapsed / Mathf.Max(.01f, duration)) : 1f;
         private static readonly Dictionary<Material, SharedFadeMaterial> sharedFadeMaterials = new();
         private static readonly ProfilerMarker setupMarker = new ProfilerMarker("VoxelFadeIn.Setup");
 
@@ -76,6 +77,8 @@ namespace VoxelRacer
             renderers.Clear();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
+                var healthBar = renderer.GetComponentInParent<VoxelEnemyHealthBar>();
+                if (healthBar != null && healthBar.UsesDistanceVisibility) continue;
                 Material material = renderer.sharedMaterial;
                 if (material == null || !material.HasProperty("_BaseColor"))
                     continue;

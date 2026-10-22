@@ -61,7 +61,7 @@ namespace VoxelRacer
             if (displayAnchor != null)
                 displayAnchor.Rotate(Vector3.up, rotationDegreesPerSecond * Time.deltaTime, Space.World);
 
-            if (isLoading)
+            if (isLoading || VoxelLoadingScreen.IsLoading)
                 return;
 
             Keyboard keyboard = Keyboard.current;
@@ -147,7 +147,7 @@ namespace VoxelRacer
 
         private void StartRace()
         {
-            if (isLoading || selectedDefinition == null)
+            if (isLoading || VoxelLoadingScreen.IsLoading || selectedDefinition == null)
                 return;
             VoxelTrackProgressState.BeginSequence();
             VoxelTrackDefinition firstTrack = VoxelTrackProgressState.CurrentTrack;
@@ -162,12 +162,12 @@ namespace VoxelRacer
             }
             VoxelCarRunState.BeginNewRun(selectedDefinition);
             isLoading = true;
-            SceneManager.LoadScene(buildIndex);
+            VoxelLoadingScreen.LoadScene(buildIndex);
         }
 
         private void ReturnToMainMenu()
         {
-            if (isLoading)
+            if (isLoading || VoxelLoadingScreen.IsLoading)
                 return;
             int buildIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/" + mainMenuSceneName + ".unity");
             if (buildIndex < 0)
@@ -176,7 +176,7 @@ namespace VoxelRacer
                 return;
             }
             isLoading = true;
-            SceneManager.LoadScene(buildIndex);
+            VoxelLoadingScreen.LoadScene(buildIndex);
         }
 
         private void RefreshUi()

@@ -16,6 +16,7 @@ namespace VoxelRacer.Editor
         [MenuItem("Tools/Voxel Racer/Validate Boost Bottle Upgrade")]
         public static void Run()
         {
+            using var allState = new VoxelGarageUpgradeDockValidation.SavedState();
             int cash = VoxelCurrencyState.Balance;
             bool purchased = VoxelBoostUpgradeState.IsPurchased;
             const BindingFlags staticFlags = BindingFlags.Static | BindingFlags.NonPublic;
@@ -52,6 +53,8 @@ namespace VoxelRacer.Editor
                 var button = root.GetComponentsInChildren<Button>(true).First(b => b.name == "Boost Bottle Purchase Button");
                 Check(button.interactable, "Shop did not enable affordable upgrade");
                 button.onClick.Invoke();
+                Check(!VoxelBoostUpgradeState.IsPurchased && VoxelCurrencyState.Balance == tuning.purchasePrice * 2, "Preview spent cash before confirmation");
+                typeof(VoxelRepairUpgradeSceneController).GetMethod("ConfirmUpgradePurchase", flags).Invoke(shop, null);
                 Check(VoxelBoostUpgradeState.IsPurchased && !button.interactable && VoxelCurrencyState.Balance == tuning.purchasePrice, "Shop purchase failed");
                 Check(!VoxelBoostUpgradeState.TryPurchase(tuning, definition) && VoxelCurrencyState.Balance == tuning.purchasePrice, "Duplicate charged cash");
                 VoxelBoostUpgradeState.ApplyTo(car.transform, definition);
@@ -61,7 +64,7 @@ namespace VoxelRacer.Editor
                 var bottle = car.transform.Find(VoxelBoostUpgradeState.InstanceName);
                 Check(bottle.localPosition.x > 0 && Vector3.Dot(bottle.up, new Vector3(0, .5f, 1).normalized) > .999f, "Bottle does not follow right panel slope");
                 var scroll = root.GetComponentInChildren<ScrollRect>(true);
-                Check(scroll != null && scroll.content.rect.height > scroll.viewport.rect.height, "Upgrade list is not scrollable");
+                Check(scroll != null && scroll.horizontal && !scroll.vertical, "Upgrade list lost horizontal scrolling");
                 Check(VoxelUpgradeFitCatalog.Discover().Any(e => e.Asset == tuning && e.Fits(definition)), "Fit preview missing bottle");
                 VoxelBoostUpgradeState.BeginNewRun();
                 Check(!VoxelBoostUpgradeState.IsPurchased && VoxelBoostUpgradeState.ResolveTuning(definition) == VoxelBoostTuning.Load(), "New run did not restore default");

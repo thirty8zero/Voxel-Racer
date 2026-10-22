@@ -7,7 +7,7 @@ namespace VoxelRacer
     /// <summary>Stable world tiles surround the camera in every direction. Only visible props
     /// are submitted, grouped by mesh/material, without thousands of scenery GameObjects.</summary>
     [DefaultExecutionOrder(1000)]
-    public sealed class VoxelDistantScenery : MonoBehaviour
+    public sealed partial class VoxelDistantScenery : MonoBehaviour
     {
         private const float TileSize = 32;
         private sealed class Prop
@@ -63,6 +63,7 @@ namespace VoxelRacer
                             gameObject.layer,camera,0,properties,ShadowCastingMode.Off,true,null,LightProbeUsage.Off);
                 }
             }
+            SubmitHorizonFoliage(camera);
         }
 
         public float CoverageRadius(Camera camera, VoxelScenerySet set)
@@ -82,8 +83,8 @@ namespace VoxelRacer
             VisiblePropCount=0;
             VisibleBatchCount=0;
             var set=road!=null && road.trackDefinition!=null?road.trackDefinition.scenerySet:null;
-            if(set==null || !set.distantSceneryEnabled || set.distantPropsPerTile<=0)
-            { tiles.Clear(); tileBounds.Clear(); lastSet=null; CachedPropCount=0; return; }
+            if(set==null || !set.distantSceneryEnabled)
+            { tiles.Clear(); tileBounds.Clear(); lastSet=null; CachedPropCount=0; ClearHorizonFoliage(); return; }
             float radius=CoverageRadius(camera,set);
             var center=new Vector2Int(Mathf.FloorToInt(camera.transform.position.x/TileSize),Mathf.FloorToInt(camera.transform.position.z/TileSize));
             bool settingsChanged=set!=lastSet || radius!=lastRadius || set.distantScenerySeed!=lastSeed || set.distantPropsPerTile!=lastDensity ||
@@ -123,10 +124,19 @@ namespace VoxelRacer
                     if(delta.sqrMagnitude>distance*distance || !GeometryUtility.TestPlanesAABB(planes,prop.bounds)) continue;
                     var key=(prop.mesh,prop.material);
                     if(!batches.TryGetValue(key,out var list)) { list=new List<Matrix4x4>(); batches.Add(key,list); }
-                    list.Add(prop.matrix); VisiblePropCount++;
+                    var matrix = prop.matrix;
+                    if (prop.maximumDistance <= 0)
+                    {
+                        // Instanced 3D props grow in across the outer 20% of their
+                        // visible range; keep translation and cached full-size bounds.
+                        float growth = Mathf.SmoothStep(0, 1, Mathf.Clamp01((distance - delta.magnitude) / Mathf.Max(1, distance * .2f)));
+                        for (int axis = 0; axis < 3; axis++) matrix.SetColumn(axis, matrix.GetColumn(axis) * growth);
+                    }
+                    list.Add(matrix); VisiblePropCount++;
                 }
             }
             foreach(var batch in batches.Values)if(batch.Count>0)VisibleBatchCount++;
+            PrepareHorizonFoliage(camera, set);
         }
 
         private List<Prop> BuildTile(Vector2Int key,VoxelScenerySet set)
@@ -201,6 +211,6 @@ namespace VoxelRacer
             tileBounds[key]=aggregateBounds;
             return result;
         }
-        private void OnDisable() { tiles.Clear(); tileBounds.Clear(); batches.Clear(); lastSet=null; CachedPropCount=VisiblePropCount=VisibleBatchCount=0; }
+        private void OnDisable() { tiles.Clear(); tileBounds.Clear(); batches.Clear(); ClearHorizonFoliage(); lastSet=null; CachedPropCount=VisiblePropCount=VisibleBatchCount=0; }
     }
 }

@@ -18,7 +18,7 @@ namespace VoxelRacer
         private EndlessVoxelRoad path;
         private float trackDistance;
         private float laneOffset;
-        private int currentHealth;
+        private float currentHealth;
         private const float ProjectileDebrisForce = 6f;
         internal static readonly List<VoxelObstacle> ActiveProjectileTargets = new();
         private VoxelProjectileVoxelCache projectileVoxels;
@@ -37,6 +37,7 @@ namespace VoxelRacer
             ApplyTrackPose();
             BuildVoxelBox();
             projectileVoxels = new VoxelProjectileVoxelCache(transform, null);
+            VoxelMissileTarget.Register(gameObject);
         }
 
         private void Update()
@@ -101,6 +102,24 @@ namespace VoxelRacer
             currentHealth--;
             if (currentHealth <= 0)
                 Explode(hitPoint, impactDirection);
+        }
+
+        /// <summary>Carves the blast sphere and applies configured missile damage once per crate.</summary>
+        public void TakeMissileBlast(Vector3 centre, float radius, float damage, Vector3 direction,
+            MeshRenderer[] pieces, bool directImpact = false)
+        {
+            if (hasBeenHit || damage <= 0f) return;
+            int removed = 0;
+            foreach (var piece in pieces)
+            {
+                if (!VoxelSphericalBlast.Contains(piece, centre, radius)) continue;
+                if (Application.isPlaying && removed < 24) SpawnWeaponDebris(piece.transform, direction);
+                piece.gameObject.SetActive(false);
+                removed++;
+            }
+            if (removed == 0 && !directImpact) return;
+            currentHealth = Mathf.Max(0f, currentHealth - damage);
+            if (currentHealth <= 0f) Explode(centre, direction);
         }
 
         /// <summary>Chooses an intact voxel on the struck rear surface so repeated fire peels the box inward instead of clearing one horizontal row.</summary>

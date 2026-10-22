@@ -52,10 +52,13 @@ namespace VoxelRacer.Editor
                     if (controller.cameraTuning == garage) controller.ApplyCameraTuning();
             if (target is VoxelMainMenuTuning menu)
             {
+                if (GUILayout.Button("Refresh Main Menu Artwork"))
+                    foreach (var controller in UnityEngine.Object.FindObjectsByType<VoxelMainMenuController>(FindObjectsSortMode.None))
+                        if (controller.tuning == menu || controller.tuning == null) controller.BuildArtwork();
                 using (new EditorGUI.DisabledScope(!Application.isPlaying))
                     if (GUILayout.Button("Refresh Live Main Menu"))
                         foreach (var controller in UnityEngine.Object.FindObjectsByType<VoxelMainMenuController>(FindObjectsSortMode.None))
-                            if (controller.tuning == menu) { controller.BuildFeaturedCars(); controller.BuildDesertScenery(); }
+                            if (controller.tuning == menu) { controller.BuildFeaturedCars(); controller.BuildDesertScenery(); controller.BuildArtwork(); }
             }
         }
     }
@@ -73,6 +76,7 @@ namespace VoxelRacer.Editor
     internal static class VoxelContentOdinLayout
     {
         internal static bool Supports(Type type) => type == typeof(VoxelScenerySet) || type == typeof(VoxelTrackSequence) ||
+            type == typeof(VoxelLoadingScreenSettings) ||
             type == typeof(VoxelCameraTuning) || type == typeof(VoxelStaticObstacleDefinition) || type == typeof(VoxelRoadsideTurretTuning) ||
             type == typeof(VoxelCarDefinition) || type == typeof(VoxelMainMenuTuning) || type == typeof(VoxelRepairUpgradeTuning) ||
             type == typeof(VoxelBossDefinition) || type == typeof(VoxelBossSpikeAttackTuning) || type == typeof(VoxelBossMineAttackTuning);
@@ -100,6 +104,12 @@ namespace VoxelRacer.Editor
             if (type == typeof(VoxelMainMenuTuning))
             {
                 if (name == "featuredCars") { group = "Featured Cars"; attributes.Add(new InlineEditorAttribute()); }
+                if (name == "titleLogo") attributes.Add(new PreviewFieldAttribute(96));
+                if (name == "backgroundArtwork" || name == "foregroundArtwork")
+                {
+                    attributes.Add(new ShowIfAttribute("artworkEnabled"));
+                    attributes.Add(new PreviewFieldAttribute(96));
+                }
                 if (name == "mountainScale") attributes.Add(new ShowIfAttribute("showHorizonMountains"));
             }
             if (type == typeof(VoxelStaticObstacleDefinition))

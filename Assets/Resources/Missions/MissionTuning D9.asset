@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ac5574a0d1241f7a5f7f94ba58382f9, type: 3}
+  m_Name: MissionTuning D9
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionTuning
+  displayName: Tequila Plains 9
+  requiredPoints: 2200
+  completionCurrencyAward: 500
+  crateRewards:
+  - source: {fileID: 11400000, guid: a2642cf1b770f304089540f52b9277a3, type: 2}
+    chance: 0.25
+    multiplierWeight: 1
+    cashWeight: 1
+    timeWeight: 1
+    multiplierBonus: 0.5
+    minimumCash: 20
+    maximumCash: 80
+    minimumTimeSeconds: 15
+    maximumTimeSeconds: 25
+  repairCostPerPixel: 2
+  timeLimitSeconds: 160
+  timeBonusCurrencyMultiplier: 1
+  maximumTimeMultiplier: 5
+  enemyVoxelMultiplier: 0.01
+  enemyDestroyedMultiplier: 0.1
+  barrelMultiplier: 0.05
+  nearMissMultiplier: 0.1
+  civilianVoxelMultiplierPenalty: 0.01
+  civilianDestroyedMultiplierPenalty: 0.5
+  bonusWarningSeconds: 10
+  damagePopupHoldSeconds: 1
+  voxelDamagePopupHoldSeconds: 0.12
+  multiplierPopupHoldSeconds: 1
+  voxelMultiplierPopupHoldSeconds: 0.17
+  destroyedVehicleMultiplierPopupHoldSeconds: 0.17
+  civilianVoxelPopupQuietSeconds: 1
+  enemyVoxelDamagePoints: 1
+  enemyVehicleDestroyedPoints: 25
+  fuelDrumDestroyedPoints: 10
+  fuelDrumDestroyedPopupDuration: 2
+  roadsideTurretTuning: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
+  roadsideTurretSpawnCheckInterval: 2
+  roadsideTurretSpawnChance: 0.7
+  roadsideTurretSpawnDistanceAhead: 250
+  maximumActiveRoadsideTurrets: 1
+  civilianNearMissDistance: 1
+  civilianNearMissMinPoints: 1
+  civilianNearMissMaxPoints: 10
+  civilianNearMissScoreStepPercent: 10
+  civilianNearMissPassClearance: 0.5
+  civilianNearMissPlayerHalfWidth: 1.3
+  civilianNearMissPlayerHalfLength: 2.3
+  civilianNearMissPopupDuration: 2
+  civilianVoxelDamagePoints: -1
+  civilianVehicleDestroyedPoints: -5

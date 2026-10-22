@@ -16,6 +16,10 @@ namespace VoxelRacer
         [Tooltip("Currency awarded whenever this mission is completed.")]
         [Min(0)] public int completionCurrencyAward = 100;
 
+        [Header("Crate Rewards")]
+        [Tooltip("Mission-specific reward settings for each crate source. An empty list awards no crate prizes. Prize weights are relative to the other eligible prize types.")]
+        public VoxelDestructionRewards.Entry[] crateRewards = System.Array.Empty<VoxelDestructionRewards.Entry>();
+
         [Header("Repairs")]
         [Tooltip("Currency per repaired pixel in the garage after completing this mission. Zero makes repairs free.")]
         [Min(0)] public float repairCostPerPixel = 2f;
@@ -38,6 +42,22 @@ namespace VoxelRacer
         [Min(0f)] public float civilianDestroyedMultiplierPenalty = 1f;
         [Min(1f)] public float bonusWarningSeconds = 10f;
 
+        [Header("Popup Feedback")]
+        [Tooltip("Hold beneath the mission percentage panel before non-voxel score numbers (ram damage, destruction and near misses) fly into the score tally. A new non-voxel number sends the previous held number off early. Applies to either sign.")]
+        [InspectorName("Non Voxel Damage Popup Hold Seconds (s)")]
+        [Min(0f)] public float damagePopupHoldSeconds = .12f;
+        [Tooltip("Hold before individual voxel-hit damage/score numbers fly into the score tally. Applies to either sign and preserves travel speed.")]
+        [Min(0f)] public float voxelDamagePopupHoldSeconds = .12f;
+        [Tooltip("Hold before other multiplier popups fly to the counter: crate prizes, barrels, near misses and kill-chain bonuses. Voxel damage and destroyed vehicles use the separate settings below.")]
+        [InspectorName("Other Multiplier Popup Hold Seconds (s)")]
+        [Min(0f)] public float multiplierPopupHoldSeconds = .17f;
+        [Tooltip("Hold before voxel multiplier popups fly to the counter, for both positive enemy-voxel rewards and negative civilian-voxel penalties. Enemy rewards still occur per 10 voxels; civilian penalties appear after their quiet period.")]
+        [Min(0f)] public float voxelMultiplierPopupHoldSeconds = .17f;
+        [Tooltip("Hold before destroyed-vehicle multiplier popups fly to the counter, for both positive enemy destruction rewards and negative civilian destruction penalties.")]
+        [Min(0f)] public float destroyedVehicleMultiplierPopupHoldSeconds = .17f;
+        [Tooltip("Seconds without civilian voxel damage before its accumulated multiplier penalty popup appears. The voxel multiplier hold follows this delay.")]
+        [Min(0f)] public float civilianVoxelPopupQuietSeconds = 1f;
+
         [Header("Enemy Score")]
         [Min(0)] public int enemyVoxelDamagePoints = 1;
         // Legacy fallback for callers without an enemy identity; gameplay uses the enemy vehicle tuning.
@@ -57,7 +77,7 @@ namespace VoxelRacer
         [Tooltip("Chance that a turret is created at each spawn check.")]
         [Range(0f, 1f)] public float roadsideTurretSpawnChance = 0.35f;
         [Tooltip("Distance ahead of the player where a successful turret spawn is placed.")]
-        [Min(10f)] public float roadsideTurretSpawnDistanceAhead = 100f;
+        [Min(10f)] public float roadsideTurretSpawnDistanceAhead = 250f;
         [Tooltip("Maximum number of roadside turrets that may be active at once.")]
         [Min(1)] public int maximumActiveRoadsideTurrets = 1;
 
@@ -90,10 +110,17 @@ namespace VoxelRacer
         {
             requiredPoints = Mathf.Max(1, requiredPoints);
             completionCurrencyAward = Mathf.Max(0, completionCurrencyAward);
+            VoxelDestructionRewards.SanitizeEntries(crateRewards);
             repairCostPerPixel = Mathf.Max(0, repairCostPerPixel);
             timeLimitSeconds = Mathf.Max(1f, timeLimitSeconds);
             maximumTimeMultiplier = Mathf.Max(1f, maximumTimeMultiplier);
             timeBonusCurrencyMultiplier = Mathf.Clamp(timeBonusCurrencyMultiplier, 1f, maximumTimeMultiplier);
+            damagePopupHoldSeconds = Mathf.Max(0f, damagePopupHoldSeconds);
+            voxelDamagePopupHoldSeconds = Mathf.Max(0f, voxelDamagePopupHoldSeconds);
+            multiplierPopupHoldSeconds = Mathf.Max(0f, multiplierPopupHoldSeconds);
+            voxelMultiplierPopupHoldSeconds = Mathf.Max(0f, voxelMultiplierPopupHoldSeconds);
+            destroyedVehicleMultiplierPopupHoldSeconds = Mathf.Max(0f, destroyedVehicleMultiplierPopupHoldSeconds);
+            civilianVoxelPopupQuietSeconds = Mathf.Max(0f, civilianVoxelPopupQuietSeconds);
             enemyVoxelDamagePoints = Mathf.Max(0, enemyVoxelDamagePoints);
             enemyVehicleDestroyedPoints = Mathf.Max(0, enemyVehicleDestroyedPoints);
             fuelDrumDestroyedPoints = Mathf.Max(0, fuelDrumDestroyedPoints);

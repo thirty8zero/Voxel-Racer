@@ -1,6 +1,6 @@
 Shader "Voxel Racer/Horizon Sun"
 {
-    Properties { _BaseColor("Sun Colour", Color) = (1,.84,.12,1) }
+    Properties { _BaseColor("Sun Colour", Color) = (1,.84,.12,1) [HideInInspector] _HorizonBackground("Horizon Background",Float)=1 }
     SubShader
     {
         Tags { "RenderPipeline"="UniversalPipeline" "Queue"="Geometry" "RenderType"="Opaque" }
@@ -13,12 +13,22 @@ Shader "Voxel Racer/Horizon Sun"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             CBUFFER_START(UnityPerMaterial)
             half4 _BaseColor;
+            float _HorizonBackground;
             CBUFFER_END
             struct Attributes { float4 positionOS:POSITION; };
             struct Varyings { float4 positionCS:SV_POSITION; };
             Varyings vert(Attributes v)
             {
-                Varyings o; o.positionCS=TransformObjectToHClip(v.positionOS.xyz); return o;
+                Varyings o; o.positionCS=TransformObjectToHClip(v.positionOS.xyz);
+                // Behind mountains/world, with enough separation from the cubemap
+                // skybox's far-plane depth to survive 24-bit render targets.
+                #if UNITY_REVERSED_Z
+                float backgroundDepth=0.00002;
+                #else
+                float backgroundDepth=0.99998;
+                #endif
+                o.positionCS.z=lerp(o.positionCS.z,o.positionCS.w*backgroundDepth,_HorizonBackground);
+                return o;
             }
             half4 frag(Varyings i):SV_Target { return _BaseColor; }
             ENDHLSL

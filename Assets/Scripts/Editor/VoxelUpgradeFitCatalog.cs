@@ -76,10 +76,21 @@ namespace VoxelRacer.Editor
         public IEnumerable<VoxelUpgradeFitEntry> Discover()
         {
             foreach (var tuning in VoxelUpgradeFitCatalog.Assets<VoxelBoostUpgradeTuning>())
+            {
                 yield return new VoxelUpgradeFitEntry {
-                    Asset = tuning, Label = tuning.displayName + " — Right rear panel", Fits = tuning.Fits,
+                    Asset = tuning, Label = tuning.displayName + (tuning.bottleCount > 1 ? " — Both rear panels" : " — Right rear panel"), Fits = tuning.Fits,
                     Build = car => VoxelBoostUpgradeState.CreateVisual(car, tuning)
                 };
+                if (tuning.bottleCount > 1)
+                    foreach (bool right in new[] { false, true })
+                    {
+                        bool side = right;
+                        yield return new VoxelUpgradeFitEntry {
+                            Asset = tuning, Label = tuning.displayName + (side ? " — Right rear panel" : " — Left rear panel"), Fits = tuning.Fits,
+                            Build = car => VoxelBoostUpgradeState.CreateBottle(car, tuning, side)
+                        };
+                    }
+            }
         }
     }
 

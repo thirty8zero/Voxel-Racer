@@ -82,6 +82,15 @@ namespace VoxelRacer.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("recycleBehindDistance"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("finishRoadBehindDistance"));
             EditorGUILayout.Space();
+            if (EditorGUILayout.Foldout(SessionState.GetBool("VoxelRacer.RoadHorizonFoldout", true), "Road Horizon", true))
+            {
+                SessionState.SetBool("VoxelRacer.RoadHorizonFoldout", true);
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("horizonRoadEnabled"));
+                using (new EditorGUI.DisabledScope(!serializedObject.FindProperty("horizonRoadEnabled").boolValue))
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("horizonRoadDistance"));
+            }
+            else SessionState.SetBool("VoxelRacer.RoadHorizonFoldout", false);
+            EditorGUILayout.Space();
             EditorGUILayout.LabelField("Turning Road Pieces", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("turnChancePerSegment"));
             VoxelTuningInspector.DrawRange("Turn Angle", serializedObject.FindProperty("minimumTurnAngle"), serializedObject.FindProperty("maximumTurnAngle"));

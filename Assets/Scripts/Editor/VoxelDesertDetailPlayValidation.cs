@@ -16,7 +16,7 @@ namespace VoxelRacer.Editor
         private static VoxelCarController player;
         private static Mesh[] oldMeshes;
         private static float started;
-        private static int phase,clumps,visible,batches;
+        private static int phase,clumps,visible,batches,horizonVisible;
         [InitializeOnLoadMethod]
         private static void Hook(){EditorApplication.playModeStateChanged-=Changed;EditorApplication.playModeStateChanged+=Changed;}
         [MenuItem("Tools/Voxel Racer/Validate Desert Details in Play Mode")]
@@ -50,6 +50,7 @@ namespace VoxelRacer.Editor
                 road=root.GetComponentInChildren<EndlessVoxelRoad>();
                 foreach(var fade in root.GetComponentsInChildren<VoxelFadeIn>())
                 {VoxelMissileValidation.Call(fade,"RestoreOpaqueMaterials");fade.enabled=false;}
+                foreach(var growth in root.GetComponentsInChildren<VoxelSpawnScaleIn>()) growth.Complete();
                 foreach(var countdown in Object.FindObjectsByType<VoxelStartCountdown>(FindObjectsSortMode.None))countdown.enabled=false;
                 foreach(var t in root.GetComponentsInChildren<Transform>(true))if(t.name=="Race Opening Fade")t.gameObject.SetActive(false);
                 VoxelMissionProgress.Active?.SetStartCountdown(null);
@@ -73,6 +74,8 @@ namespace VoxelRacer.Editor
                     oldMeshes=covers.Select(c=>c.GetComponent<MeshFilter>().sharedMesh).ToArray();
                     var distant=road.GetComponent<VoxelDistantScenery>();distant.Prepare(Camera.main);
                     visible=distant.VisiblePropCount;batches=distant.VisibleBatchCount;
+                    horizonVisible=distant.VisibleHorizonClumpCount;
+                    if(horizonVisible<=100 || distant.CachedHorizonClumpCount>60000)throw new InvalidOperationException("Missing or unbounded live horizon ground cover");
                     if(visible<=0 || batches>40)throw new InvalidOperationException("Live instancing groups invalid");
                     ScreenCapture.CaptureScreenshot("Temp/DesertDetails/LiveRace.png");phase=1;started=Time.realtimeSinceStartup;
                 }
@@ -86,8 +89,10 @@ namespace VoxelRacer.Editor
                     var covers=root.GetComponentsInChildren<VoxelDesertGroundCover>();
                     if(covers.Length!=road.segmentCount || !oldMeshes.Any(m=>m==null))throw new InvalidOperationException("Recycling leaked or removed foliage batches");
                     if(!File.Exists("Temp/DesertDetails/LiveRace.png"))throw new InvalidOperationException("Live capture not written");
+                    var scenery=road.GetComponent<VoxelDistantScenery>();scenery.Prepare(Camera.main);
+                    if(scenery.VisibleHorizonClumpCount<=0 || scenery.CachedHorizonClumpCount>60000)throw new InvalidOperationException("Horizon cards did not stream with the live road");
                     Finish("PASS (Play Mode): real race bootstrap/materials/camera/HUD, "+clumps+" close foliage clumps in "+road.segmentCount+
-                        " segment renderers; "+visible+" visible distant props in "+batches+" mesh/material groups; player moved 160m, road chunks recycled with foliage, old combined meshes released and renderer count stayed bounded. Temporary scene removed on return to Edit Mode; original editor objects, time scale and background setting restored. Screenshot: LiveRace.png. Target-phone frame-time profiling remains unmeasured.");
+                        " segment renderers; "+visible+" visible distant props in "+batches+" mesh/material groups; "+horizonVisible+" visible horizon grass/bush cards. Player moved 160m, road chunks and horizon tiles recycled with foliage, old combined meshes released and renderer count stayed bounded. Temporary scene removed on return to Edit Mode; original editor objects, time scale and background setting restored. Screenshot: LiveRace.png. Target-phone frame-time profiling remains unmeasured.");
                 }
             }
             catch(Exception e){Finish("FAIL: "+e);}

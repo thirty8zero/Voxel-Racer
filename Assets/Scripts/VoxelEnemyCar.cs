@@ -12,6 +12,7 @@ namespace VoxelRacer
         public float HealthPercent => Tuning == null ? 0f : Mathf.Clamp01(CurrentHealth / Tuning.vehicleHealth);
         public float LaneOffset => laneOffset + sideRamOffset;
         public float TrackDistance => trackDistance + rearRamForwardOffset;
+        public bool IsDrivingTraffic => !hasBeenRammed;
 
         private readonly Dictionary<Transform, float> voxelHealth = new();
         internal static readonly List<VoxelEnemyCar> ActiveProjectileTargets = new();
@@ -123,8 +124,9 @@ namespace VoxelRacer
             currentSpeed = spawnSpeed;
             if(IsBoss) currentSpeed=GetBossDriveSpeed();
             CreateModel(enemy);
-            if(!IsBoss) healthBar = VoxelEnemyHealthBar.Create(transform, enemy);
+            if(!IsBoss) healthBar = VoxelEnemyHealthBar.Create(transform, enemy, player.transform);
             ApplyTrackPose();
+            VoxelNightHeadlights.Attach(gameObject, road != null ? road.trackDefinition : VoxelRacerBootstrap.ActiveTrack);
             previousCollisionRelative=target.CollisionTrackPosition-new Vector2(LaneOffset,TrackDistance);
             gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure();
             if(IsBoss)

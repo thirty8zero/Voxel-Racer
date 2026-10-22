@@ -42,3 +42,5 @@ MonoBehaviour:
   patchCoverage: 0.55
   patchContrast: 0.95
   distantClumpsPerTile: 28
+  horizonGroundCoverEnabled: 1
+  horizonClumpsPerTile: 48

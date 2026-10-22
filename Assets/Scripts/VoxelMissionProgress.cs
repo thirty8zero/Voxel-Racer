@@ -44,6 +44,7 @@ namespace VoxelRacer
         public float RemainingTime { get; private set; }
         public bool TimeBonusAvailable => RemainingTime > 0f;
         public Vector2 PercentageScreenPosition { get; private set; }
+        public Vector2 ScoreScreenPosition { get; private set; }
         public int BaseCurrencyEarned { get; private set; }
         public int TimeBonusCurrencyEarned { get; private set; }
         public int RemainingTimeBonusSeconds { get; private set; }
@@ -60,7 +61,17 @@ namespace VoxelRacer
         private readonly System.Collections.Generic.List<MultiplierFlight> multiplierFlights = new();
         private struct MultiplierFlight { public float amount, startedAt, valueAfter; public string reason; public Vector2 origin; }
         private float displayedMultiplierBonus, multiplierPulseUntil;
-        private const float MultiplierFlightDuration = .85f;
+        private const float MultiplierTravelDuration = .68f;
+        private static bool IsVoxelMultiplier(string reason) => reason == "VOXEL DAMAGE" ||
+            reason == "CIVILIAN DAMAGE" || reason == "ENEMY VOXELS";
+        private float GetMultiplierHoldDuration(string reason)
+        {
+            if (Tuning == null) return .17f;
+            float hold = IsVoxelMultiplier(reason) ? Tuning.voxelMultiplierPopupHoldSeconds :
+                reason == "ENEMY DESTROYED" || reason == "CIVILIAN DESTROYED"
+                    ? Tuning.destroyedVehicleMultiplierPopupHoldSeconds : Tuning.multiplierPopupHoldSeconds;
+            return Mathf.Max(0f, hold);
+        }
         private float pendingVoxelChange, lastVoxelDamageAt;
         private Vector2 pendingVoxelOrigin;
         private int enemyVoxelsTowardsReward;
@@ -71,7 +82,8 @@ namespace VoxelRacer
 
         private void FlushVoxelPopup()
         {
-            if (Mathf.Abs(pendingVoxelChange) < .0001f || Time.unscaledTime - lastVoxelDamageAt < 1f) return;
+            if (Mathf.Abs(pendingVoxelChange) < .0001f || Time.unscaledTime - lastVoxelDamageAt <
+                Mathf.Max(0f, Tuning != null ? Tuning.civilianVoxelPopupQuietSeconds : 1f)) return;
             multiplierFlights.Add(new MultiplierFlight { amount = pendingVoxelChange, startedAt = Time.unscaledTime,
                 valueAfter = EffectiveTimeBonusMultiplier, reason = "VOXEL DAMAGE", origin = pendingVoxelOrigin });
             pendingVoxelChange = 0;
@@ -139,13 +151,26 @@ namespace VoxelRacer
         private VoxelStartCountdown startCountdown;
         private bool rewardAwarded;
         private Font percentageSymbolFont;
+        private const float ScorePenaltyFlashSeconds = .5f;
+        private const float ScorePenaltyFlashHoldSeconds = .15f;
+        private float lastScorePenaltyAt = float.NegativeInfinity;
+
+        private Color GetMissionScoreColour(Color normal)
+        {
+            float age = Time.unscaledTime - lastScorePenaltyAt;
+            return Color.Lerp(new Color(1f, .15f, .1f), normal,
+                Mathf.Clamp01((age - ScorePenaltyFlashHoldSeconds) /
+                    (ScorePenaltyFlashSeconds - ScorePenaltyFlashHoldSeconds)));
+        }
 
         public void Configure(VoxelMissionTuning tuning)
         {
+            CancelCompletionSlowMotion();
             Tuning = tuning;
             IsBossEncounter=false;missionBoss=null;
             Breakdown.Clear();
             Points = 0;
+            lastScorePenaltyAt = float.NegativeInfinity;
             BonusCashEarned = 0;
             DestructionMultiplierBonus = 0;
             EffectiveTimeBonusMultiplier = StartingMultiplier;
@@ -156,6 +181,7 @@ namespace VoxelRacer
             enemyVoxelsTowardsReward = 0;
             pendingVoxelChange = 0;
             PercentageScreenPosition = new Vector2(Screen.width * .5f, 39f);
+            ScoreScreenPosition = new Vector2(Screen.width * .5f, 39f);
             IsComplete = false; IsFailed = false;
             timeExtensionStartedAt = float.NegativeInfinity;
             timeExtensionAmount = 0;
@@ -175,6 +201,7 @@ namespace VoxelRacer
 
         private void OnDisable()
         {
+            CancelCompletionSlowMotion();
             if (Active == this)
                 Active = null;
         }
@@ -238,18 +265,27 @@ namespace VoxelRacer
 
         public static void ReportCivilianVoxelDamage(int count = 1)
         {
+            var mission = Active;
             if (count > 0 && Active != null) Active.lastVoxelDamageAt = Time.unscaledTime;
-            if (Active?.Tuning != null)
-                Active.AddPoints(Active.Tuning.civilianVoxelDamagePoints * count, "Civilian damage", count);
+            if (mission?.Tuning != null && !mission.IsComplete && !mission.IsFailed)
+            {
+                int points = mission.Tuning.civilianVoxelDamagePoints * count;
+                mission.AddPoints(points, "Civilian damage", count);
+                if (count > 0 && points < 0)
+                    VoxelScorePopup.Show(Vector3.zero, points, VoxelScorePopup.Style.WeaponDamage);
+            }
         }
 
         public static void ReportCivilianVehicleDestroyed(Vector3? position = null)
         {
-            if (Active?.Tuning != null)
+            if (Active?.Tuning != null && !Active.IsComplete && !Active.IsFailed)
             {
                 Active.CancelKillChain();
                 Active.ChangeMultiplier(-Active.Tuning.civilianDestroyedMultiplierPenalty, "CIVILIAN DESTROYED", position);
                 Active.AddPoints(Active.Tuning.civilianVehicleDestroyedPoints, "Civilian vehicles destroyed");
+                if (Active.Tuning.civilianVehicleDestroyedPoints < 0)
+                    VoxelScorePopup.Show(position ?? Vector3.zero, Active.Tuning.civilianVehicleDestroyedPoints,
+                        VoxelScorePopup.Style.EnemyDestroyed);
             }
         }
 
@@ -260,6 +296,7 @@ namespace VoxelRacer
 
             int before = Points;
             Points = Mathf.Max(0, Points + points);
+            if (Points < before) lastScorePenaltyAt = Time.unscaledTime;
             Breakdown.Add(points > 0 ? VoxelMissionBreakdown.Group.ProgressGained : VoxelMissionBreakdown.Group.ProgressLost,
                 source, Mathf.Abs(Points - before), count);
             if (!IsBossEncounter && Points >= Tuning.requiredPoints && !IsComplete)
@@ -268,15 +305,22 @@ namespace VoxelRacer
 
         private void Update()
         {
+            TickCompletionSlowMotion();
             FlushVoxelPopup();
             for (int i = 0; i < multiplierFlights.Count;)
             {
                 var flight = multiplierFlights[i];
-                if (Time.unscaledTime - flight.startedAt < MultiplierFlightDuration) break;
-                displayedMultiplierBonus = EffectiveTimeBonusMultiplier;
+                // Different reward types can arrive out of creation order.
+                if (Time.unscaledTime - flight.startedAt < GetMultiplierHoldDuration(flight.reason) + MultiplierTravelDuration)
+                { i++; continue; }
                 lastMultiplierWasNegative = flight.amount < 0;
                 multiplierPulseUntil = Time.unscaledTime + .32f;
                 multiplierFlights.RemoveAt(i);
+                // Keep longer-held rewards out of the displayed counter until their own arrival.
+                float waiting = pendingVoxelChange;
+                foreach (var pending in multiplierFlights) waiting += pending.amount;
+                displayedMultiplierBonus = Mathf.Clamp(EffectiveTimeBonusMultiplier - waiting,
+                    1f, Tuning != null ? Mathf.Max(1f, Tuning.maximumTimeMultiplier) : 1f);
             }
             if (!Application.isPlaying || Tuning == null || IsComplete || IsFailed ||
                 (startCountdown != null && !startCountdown.IsComplete))
@@ -317,10 +361,12 @@ namespace VoxelRacer
 
         private void CompleteMission()
         {
+            if (IsComplete || IsFailed) return;
             BankPendingKillChains();
             IsComplete = true;
             if (rewardAwarded || Tuning == null)
                 return;
+            BeginCompletionSlowMotion();
 
             // Match the whole seconds displayed by the countdown. This bonus is
             // added after the live multiplier cap, so finishing early always counts.
@@ -343,6 +389,7 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
+            if (VoxelLoadingScreen.IsLoading) return;
             if (!Application.isPlaying || Tuning == null || VoxelPlayerDeathScreen.IsShowing)
                 return;
 

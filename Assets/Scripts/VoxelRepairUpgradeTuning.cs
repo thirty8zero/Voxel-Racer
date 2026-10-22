@@ -6,6 +6,10 @@ namespace VoxelRacer
     [CreateAssetMenu(menuName = "Voxel Racer/Repair Upgrade Tuning", fileName = "RepairUpgradeTuning")]
     public sealed class VoxelRepairUpgradeTuning : ScriptableObject
     {
+        [Header("Upgrade Catalogue")]
+        [Tooltip("Group upgrades behind section tabs. Turn off to show every upgrade in one scrolling row; turn back on to restore the tabs.")]
+        public bool showUpgradeSectionTabs = true;
+
         [Header("Camera")]
         public Vector3 cameraPosition = new Vector3(5.2f, 2.4f, 3.4f);
         public Vector3 cameraLookAt = new Vector3(0f, 1.05f, 0f);

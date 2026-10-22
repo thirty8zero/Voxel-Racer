@@ -30,6 +30,7 @@ namespace VoxelRacer
         private Button performanceWheelButton;
         private Text performanceWheelLabel;
         private Button boostUpgradeButton;
+        private Button dualBoostUpgradeButton;
         private Text boostUpgradeLabel;
         private Button ploughUpgradeButton;
         private Text ploughUpgradeLabel;
@@ -63,6 +64,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (VoxelLoadingScreen.IsLoading) return;
             LayoutGarageDock();
             UpdateUpgradePlacementInput();
             UpdateCarRotationInput();
@@ -123,7 +125,7 @@ namespace VoxelRacer
             // Reuse the same radial integrity widget used during missions. Its
             // built-in top-left anchors keep the workshop view consistent with the HUD.
             integrityDisplay = gameObject.AddComponent<VoxelCarIntegrityDisplay>();
-            integrityDisplay.target = DisplayedCar;
+            integrityDisplay.ConfigureForGarage(DisplayedCar);
         }
 
         private static void BuildTent(Transform workshop, Material poleMaterial, Material roofMaterial)
@@ -261,6 +263,8 @@ namespace VoxelRacer
             boostUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Boost Bottle Purchase Button", string.Empty, 30,
                 new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Boost));
             boostUpgradeLabel = boostUpgradeButton.GetComponentInChildren<Text>();
+            dualBoostUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Dual Boost Bottle Purchase Button", string.Empty, 30,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.DualBoost));
             engineUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "V6 Engine Purchase Button", string.Empty, 30,
                 new Vector2(.5f,.5f), Vector2.zero, new Vector2(560,100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Engine));
             engineUpgradeLabel = engineUpgradeButton.GetComponentInChildren<Text>();
@@ -484,9 +488,9 @@ namespace VoxelRacer
                 "% ACCEL\nCOST <color=#FFD12A>"+tuning.purchasePrice+"</color>");
         }
 
-        private void TryPurchaseBoostBottle()
+        private void TryPurchaseBoostBottle(bool dual = false)
         {
-            var tuning = VoxelBoostUpgradeTuning.LoadUpgrade();
+            var tuning = dual ? VoxelBoostUpgradeTuning.LoadDualUpgrade() : VoxelBoostUpgradeTuning.LoadUpgrade();
             if (DisplayedCar == null || !VoxelBoostUpgradeState.TryPurchase(tuning, definition)) return;
             VoxelBoostUpgradeState.ApplyTo(DisplayedCar.transform, definition);
             VoxelCarRunState.Capture(DisplayedCar, definition);
@@ -586,7 +590,7 @@ namespace VoxelRacer
 
         public void StartNextRace()
         {
-            if (isLoading || DisplayedCar == null)
+            if (isLoading || VoxelLoadingScreen.IsLoading || DisplayedCar == null)
                 return;
 
             if (pendingUpgrades.Count > 0)
@@ -599,7 +603,7 @@ namespace VoxelRacer
 
         private void StartNextRaceConfirmed()
         {
-            if (isLoading || DisplayedCar == null) return;
+            if (isLoading || VoxelLoadingScreen.IsLoading || DisplayedCar == null) return;
             CancelUpgradePlacement();
 
             VoxelTrackDefinition nextTrack = VoxelTrackProgressState.AdvanceToNextTrack();
@@ -615,7 +619,7 @@ namespace VoxelRacer
 
             VoxelCarRunState.Capture(DisplayedCar, definition);
             isLoading = true;
-            SceneManager.LoadScene(buildIndex);
+            VoxelLoadingScreen.LoadScene(buildIndex);
         }
 
         private static Material CreateMaterial(string materialName, Color colour)

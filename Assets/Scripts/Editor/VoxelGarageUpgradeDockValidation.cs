@@ -22,14 +22,73 @@ namespace VoxelRacer.Editor
         }
         private static void CheckCardOrder(VoxelGarageUpgradeCard[] cards)
         {
-            var ordered=cards.OrderBy(c=>((RectTransform)c.transform).anchoredPosition.x).ToArray();
+            foreach(var group in cards.GroupBy(c=>c.Category))
+            {
+            var ordered=group.OrderBy(c=>((RectTransform)c.transform).anchoredPosition.x).ToArray();
             for(int i=1;i<ordered.Length;i++)
             {
                 var a=ordered[i-1];var b=ordered[i];
                 Check(!a.FullyPurchased || b.FullyPurchased,"A fully purchased upgrade precedes an available upgrade");
                 if(a.FullyPurchased==b.FullyPurchased)
                     Check(a.Cost<b.Cost || a.Cost==b.Cost && a.CatalogueOrder<b.CatalogueOrder,"Cards are not in stable ascending price order");
-                Check(b.transform.GetSiblingIndex()==i,"Card hierarchy order and visual order disagree");
+                Check(b.transform.GetSiblingIndex()>a.transform.GetSiblingIndex(),"Card hierarchy order and visual order disagree");
+            }
+            }
+        }
+        public static void CheckCategories(VoxelRepairUpgradeSceneController shop)
+        {
+            var cards=shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
+            var expected=new[] {
+                new[]{"Left Door Armor Purchase Button","Plough Purchase Button"},
+                new[]{"Performance Wheel Purchase Button","Wheel Spike Purchase Button","Star Wheel Spike Purchase Button"},
+                new[]{"Long Gun Purchase Button"},new[]{"Left Missile Purchase Button"},
+                new[]{"Boost Bottle Purchase Button","Dual Boost Bottle Purchase Button"},new[]{"V6 Engine Purchase Button"} };
+            var labels=new[]{"Armor","Wheels &\nTires","Guns","Missiles","Boost","Engines"};
+            var categoryField=typeof(VoxelRepairUpgradeSceneController).GetField("upgradeCategory",Instance);
+            var original=(VoxelGarageUpgradeCategory)categoryField.GetValue(shop);
+            var previewField=typeof(VoxelRepairUpgradeSceneController).GetField("upgradePlacement",Instance);
+            var preview=(VoxelGarageUpgradePlacement)previewField.GetValue(shop);
+            var selections=preview?.Selections.ToArray();int wallet=VoxelCurrencyState.Balance;
+            var originalTuning = shop.cameraTuning;
+            var modeTuning = Object.Instantiate(originalTuning != null ? originalTuning : VoxelRepairUpgradeTuning.Load());
+            try
+            {
+                shop.cameraTuning = modeTuning;
+                modeTuning.showUpgradeSectionTabs = false;
+                typeof(VoxelRepairUpgradeSceneController).GetMethod("LayoutGarageDock",Instance).Invoke(shop,null);
+                var allVisible = cards.Where(c=>c.gameObject.activeSelf).OrderBy(c=>((RectTransform)c.transform).anchoredPosition.x).ToArray();
+                Check(allVisible.Length == 10, "Continuous row must show all ten upgrades");
+                Check(shop.GetComponentsInChildren<Button>(true).Where(b=>b.name.StartsWith("Category ")).All(b=>!b.gameObject.activeSelf), "Continuous row still shows section tabs");
+                Check(allVisible.SequenceEqual(cards.OrderBy(c=>c.FullyPurchased).ThenBy(c=>c.Cost).ThenBy(c=>c.CatalogueOrder)), "Continuous row lost stable price/purchase ordering");
+                for (int i=0;i<allVisible.Length;i++)
+                    Check(Mathf.Abs(((RectTransform)allVisible[i].transform).anchoredPosition.x-(105+i*224))<.1f, "Continuous row contains category gaps");
+                var allScroll=(ScrollRect)typeof(VoxelRepairUpgradeSceneController).GetField("upgradeCategoryScroll",Instance).GetValue(shop);
+                Check(Mathf.Abs(allScroll.content.rect.width-(10*224-14))<.1f, "Continuous row cannot scroll through the full catalogue");
+                modeTuning.showUpgradeSectionTabs = true;
+                typeof(VoxelRepairUpgradeSceneController).GetMethod("LayoutGarageDock",Instance).Invoke(shop,null);
+                for(int i=0;i<expected.Length;i++)
+                {
+                    var category=(VoxelGarageUpgradeCategory)i;
+                    var tab=shop.GetComponentsInChildren<Button>(true).Single(b=>b.name=="Category "+category);
+                    Check(tab.GetComponentInChildren<Text>().text==labels[i],"Category tab label incorrect");
+                    tab.onClick.Invoke();
+                    var visible=cards.Where(c=>c.gameObject.activeSelf).ToArray();
+                    Check(visible.Select(c=>c.name).OrderBy(n=>n).SequenceEqual(expected[i].OrderBy(n=>n)),"Incorrect parts in category "+category);
+                    Check(visible.All(c=>c.Category==category),"Category metadata mismatch");
+                    var scroll=(ScrollRect)typeof(VoxelRepairUpgradeSceneController).GetField("upgradeCategoryScroll",Instance).GetValue(shop);
+                    Check(Mathf.Abs(scroll.content.rect.width-(visible.Length*224-14))<.1f && scroll.content.anchoredPosition==Vector2.zero,
+                        "Category leaves blank card gaps or stale scroll position");
+                    CheckCardOrder(cards);
+                    Check(VoxelCurrencyState.Balance==wallet && previewField.GetValue(shop)==preview &&
+                        (preview==null || preview.Selections.SequenceEqual(selections)),"Switching categories changed the pending cart or spent cash");
+                }
+            }
+            finally
+            {
+                shop.cameraTuning = originalTuning;
+                Object.DestroyImmediate(modeTuning);
+                typeof(VoxelRepairUpgradeSceneController).GetMethod("ShowUpgradeCategory",Instance).Invoke(shop,new object[]{original});
+                typeof(VoxelRepairUpgradeSceneController).GetMethod("LayoutGarageDock",Instance).Invoke(shop,null);
             }
         }
         private static void ResetPurchases(){foreach(var type in States)type.GetMethod("BeginNewRun").Invoke(null,null);}
@@ -56,7 +115,8 @@ namespace VoxelRacer.Editor
         public static void CheckShop(VoxelRepairUpgradeSceneController shop,VoxelCarController car,VoxelCarDefinition definition)
         {
             var cards=shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
-            Check(cards.Length==9,"Some upgrade types are missing or side cards were not combined");
+            Check(cards.Length==10,"Some upgrade types are missing or side cards were not combined");
+            CheckCategories(shop);
             ResetPurchases();VoxelCurrencyState.Reset();Refresh(shop);
             Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Unaffordable && !c.GetComponent<Button>().interactable),"Unaffordable cards must be disabled");
             foreach(var card in cards)card.GetComponent<Button>().onClick.Invoke();
@@ -68,6 +128,7 @@ namespace VoxelRacer.Editor
                 if(!f.IsLiteral && !f.IsInitOnly && f.FieldType==typeof(bool))f.SetValue(null,true);
             typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount",Static).SetValue(null,VoxelGunUpgradeState.LongGunTuning.maximumPurchases);
             typeof(VoxelWheelSpikeUpgradeState).GetField("installedTuning",Static).SetValue(null,VoxelWheelSpikeTuning.LoadStar());
+            typeof(VoxelBoostUpgradeState).GetField("installedTuning",Static).SetValue(null,VoxelBoostUpgradeTuning.LoadDualUpgrade());
             VoxelCurrencyState.Reset();Refresh(shop);
             Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Equipped && !c.GetComponent<Button>().interactable),"Equipped state must persist with an empty wallet");
             ResetPurchases();typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount",Static).SetValue(null,1);
@@ -140,6 +201,14 @@ namespace VoxelRacer.Editor
             Bounds headingBounds=RectBounds(canvas,(RectTransform)panel.Find("Upgrade Title"));
             Check(backBounds.max.x+10<headingBounds.min.x,"Back overlaps Vehicle Upgrades heading");
             var repair=(RectTransform)canvas.Find("Repair Panel");
+            var dial=shop.transform.Find("Player Integrity HUD/Integrity Dial Backplate") as RectTransform;
+            if (dial != null)
+            {
+                Bounds dialBounds=RectBounds(canvas,dial), repairPanelBounds=RectBounds(canvas,repair);
+                Check(repairPanelBounds.max.y <= dialBounds.min.y - 20, "Repair panel overlaps the integrity meter or lacks clearance");
+                Check(repairPanelBounds.min.y >= canvas.rect.yMin + 19 && repairPanelBounds.max.x <= canvas.rect.xMax,
+                    "Repair panel escapes the screen");
+            }
             var repairBack=(RectTransform)repair.Find("Close Panel");
             Check(repairBack.sizeDelta==back.sizeDelta && repairBack.GetComponentInChildren<Text>().text=="BACK",
                 "Repair and upgrade menus must share the Back button");
@@ -156,8 +225,21 @@ namespace VoxelRacer.Editor
             Check(a.max.x+10<b.min.x,"Upgrade strip overlaps next mission button");
             Check(a.min.y>=canvas.rect.yMin && b.min.y>=canvas.rect.yMin && b.max.x<=canvas.rect.xMax+.1f,"Dock escapes screen bounds");
             var scroll=panel.GetComponentInChildren<ScrollRect>(true);
-            Check(scroll.horizontal && !scroll.vertical && scroll.content.GetComponentsInChildren<VoxelGarageUpgradeCard>().Length==9,
+            Check(scroll.horizontal && !scroll.vertical && scroll.content.GetComponentsInChildren<VoxelGarageUpgradeCard>(true).Length==10,
                 "Horizontal catalogue missing");
+            var tabs=panel.GetComponentsInChildren<Button>(true).Where(t=>t.name.StartsWith("Category ")).ToArray();
+            Check(tabs.Length==6 && tabs.All(t=>t.gameObject.activeSelf == shop.UpgradeSectionTabsEnabled),"Garage section-tab visibility mismatch");
+            Bounds previousTab=default;
+            for(int i=0;i<tabs.Length;i++)
+            {
+                if (!tabs[i].gameObject.activeSelf) continue;
+                Bounds tab=RectBounds(canvas,(RectTransform)tabs[i].transform);
+                Bounds viewport=RectBounds(canvas,scroll.viewport);
+                Check(tab.min.x>=a.min.x && tab.max.x<=a.max.x && tab.min.y>viewport.max.y+8 && tab.max.y<backBounds.min.y-8,
+                    "Category tab escapes its row or overlaps cards/Back");
+                if(i>0)Check(tab.min.x>previousTab.max.x+4,"Category tabs overlap");
+                previousTab=tab;
+            }
             Check(camera.rect==new Rect(0,0,1,1),"Garage must render the floor behind the translucent cards");
             if(upgrades)
             {

@@ -15,13 +15,13 @@ MonoBehaviour:
   turretTuning: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
   turretSpawnCheckInterval: 3
   turretSpawnChance: 0.5
-  turretSpawnDistanceAhead: 200
+  turretSpawnDistanceAhead: 250
   maximumActiveTurrets: 1
   oilSlickSpawns:
   - obstacle: {fileID: 11400000, guid: 19611ab95d5ae8444b5f57946cd9c1a3, type: 2}
     spawnWeight: 1
   oilSlickSpawnCheckInterval: 2
   oilSlickSpawnChance: 0.35
-  oilSlickSpawnDistanceAhead: 200
+  oilSlickSpawnDistanceAhead: 250
   maximumActiveOilSlicks: 2
   oilSlickClearance: 12

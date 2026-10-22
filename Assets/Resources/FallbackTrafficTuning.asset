@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26135ffcab891994295171d69ac5176d, type: 3}
   m_Name: FallbackTrafficTuning
   m_EditorClassIdentifier: 
-  spawnDistanceAhead: 200
+  spawnDistanceAhead: 250
   obstacleCarSpawnChance: 0.5
   oppositeDirectionChance: 0.5
   enemyCarSpawnChance: 0.8

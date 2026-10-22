@@ -23,6 +23,10 @@ namespace VoxelRacer
         [Range(0, 1)] public float patchCoverage = .55f;
         [Range(0, 1)] public float patchContrast = .95f;
         [Range(0, 100)] public int distantClumpsPerTile = 28;
+        [Header("Road Horizon Ground Cover")]
+        public bool horizonGroundCoverEnabled = true;
+        [Tooltip("Lightweight bush/grass cards per 32m tile around the road continuation. Uses the same atlas, scale and patch distribution as nearby ground cover.")]
+        [Range(0, 100)] public int horizonClumpsPerTile = 48;
         public int Revision { get; private set; }
 
         public float Density(Vector3 position)

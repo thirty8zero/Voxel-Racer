@@ -12,7 +12,7 @@ namespace VoxelRacer
 
         private static Material drumMaterial;
         private static Material stripeMaterial;
-        private readonly Dictionary<Transform, int> drumHealth = new();
+        private readonly Dictionary<Transform, float> drumHealth = new();
         private readonly Dictionary<Transform, VoxelVehicleDamageEffects> drumEffects = new();
         private VoxelCarController target;
         private VoxelStaticObstacleDefinition definition;
@@ -44,7 +44,7 @@ namespace VoxelRacer
             // Keep this world-space billboard wider than the full drum group while
             // avoiding any Canvas work for this small, temporary feedback element.
             healthBar = VoxelEnemyHealthBar.Create(transform, 3.35f, 0.18f, 1.15f,
-                new Color(0.92f, 0.05f, 0.04f), new Color(0.30f, 0.01f, 0.01f));
+                new Color(0.92f, 0.05f, 0.04f), new Color(0.30f, 0.01f, 0.01f), outlined: true);
             healthBar.gameObject.SetActive(false);
             CacheProjectileVoxels();
         }
@@ -88,9 +88,32 @@ namespace VoxelRacer
 
             SpawnWeaponDebris(hitVoxel, impactDirection);
             hitVoxel.gameObject.SetActive(false);
-            drumHealth.TryGetValue(drum, out int health);
+            ApplyWeaponDamage(drum, 1f, impactDirection);
+        }
+
+        /// <summary>Each drum in the blast loses missile damage once, independent of carved voxel count.</summary>
+        public void TakeMissileBlast(Transform drum, Vector3 centre, float radius, float damage, Vector3 direction,
+            MeshRenderer[] pieces, bool directImpact = false)
+        {
+            if (hasExploded || damage <= 0f || drum == null || !drumHealth.ContainsKey(drum)) return;
+            int removed = 0;
+            foreach (var piece in pieces)
+            {
+                if (!VoxelSphericalBlast.Contains(piece, centre, radius)) continue;
+                if (Application.isPlaying && removed < 24) SpawnWeaponDebris(piece.transform, direction);
+                piece.gameObject.SetActive(false);
+                removed++;
+            }
+            if (removed == 0 && !directImpact) return;
+            ApplyWeaponDamage(drum, damage, direction);
+        }
+
+        private void ApplyWeaponDamage(Transform drum, float damage, Vector3 impactDirection)
+        {
+            drumHealth.TryGetValue(drum, out float health);
             health = health <= 0 ? Mathf.Max(1, definition != null ? definition.hitPoints : 3) : health;
-            health--;
+            health = Mathf.Max(0f, health - damage);
+            drumHealth[drum] = health;
             if (healthBar != null)
             {
                 healthBar.gameObject.SetActive(true);
@@ -99,14 +122,13 @@ namespace VoxelRacer
             }
             if (health > 0)
             {
-                drumHealth[drum] = health;
                 UpdateDamageEffects(drum, health);
                 return;
             }
             Explode(false, impactDirection);
         }
 
-        private void UpdateDamageEffects(Transform drum, int health)
+        private void UpdateDamageEffects(Transform drum, float health)
         {
             int maximumHealth = Mathf.Max(1, definition != null ? definition.hitPoints : 3);
             float healthFraction = health / (float)maximumHealth;
@@ -249,6 +271,7 @@ namespace VoxelRacer
                 drum.localPosition = position;
                 drumHealth[drum] = Mathf.Max(1, definition != null ? definition.hitPoints : 3);
                 BuildVoxelDrum(drum, paint, stripe);
+                VoxelMissileTarget.Register(drum.gameObject);
             }
         }
 

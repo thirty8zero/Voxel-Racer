@@ -15,6 +15,7 @@ namespace VoxelRacer
 
         public static void ResetAndReturnToMainMenu()
         {
+            if (VoxelLoadingScreen.IsLoading) return;
             int buildIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/MainMenu.unity");
             if (buildIndex < 0)
             {
@@ -26,7 +27,7 @@ namespace VoxelRacer
             VoxelMobileControls.ClearHeldInput();
             BeginNewRun(VoxelCarSelectionState.GetSelectedOrDefault());
             VoxelTrackProgressState.BeginSequence();
-            SceneManager.LoadScene(buildIndex);
+            VoxelLoadingScreen.LoadScene(buildIndex);
         }
 
         public static void BeginNewRun(VoxelCarDefinition definition)

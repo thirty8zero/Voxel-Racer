@@ -7,7 +7,7 @@ using Object = UnityEngine.Object;
 
 namespace VoxelRacer
 {
-    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough, StarSpikes }
+    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough, StarSpikes, DualBoost }
 
     public readonly struct VoxelGarageUpgradeSelection
     {
@@ -173,6 +173,8 @@ namespace VoxelRacer
                     break;
                 case VoxelGarageUpgradeKind.Boost:
                     VoxelBoostUpgradeState.CreateVisual(car, VoxelBoostUpgradeTuning.LoadUpgrade()); break;
+                case VoxelGarageUpgradeKind.DualBoost:
+                    VoxelBoostUpgradeState.CreateVisual(car, VoxelBoostUpgradeTuning.LoadDualUpgrade()); break;
                 case VoxelGarageUpgradeKind.Engine:
                     VoxelEngineUpgradeState.CreateVisual(car, VoxelEngineUpgradeTuning.Load()); break;
                 case VoxelGarageUpgradeKind.Plough:

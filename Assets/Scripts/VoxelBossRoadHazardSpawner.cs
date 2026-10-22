@@ -64,6 +64,7 @@ namespace VoxelRacer
             var turret = turretObject.AddComponent<VoxelRoadsideTurret>();
             turret.Configure(player, road, turretTuning, distance, Random.value < .5f ? -1f : 1f);
             turretObject.AddComponent<VoxelFadeIn>();
+            VoxelSpawnScaleIn.Play(turretObject);
         }
 
         private void TrySpawnOilSlick()
@@ -86,6 +87,7 @@ namespace VoxelRacer
             oil.transform.SetParent(obstacleSpawner.transform);
             oil.Configure(player, road, definition, distance, laneOffset, obstacleSpawner.laneWidth);
             oil.gameObject.AddComponent<VoxelFadeIn>();
+            VoxelSpawnScaleIn.Play(oil.gameObject);
         }
 
         private VoxelStaticObstacleDefinition ChooseOilSlick()

@@ -94,8 +94,11 @@ namespace VoxelRacer
                 return;
             }
 
-            bool oilSpin = player != null && player.IsOilSpinning && player.TrackPath != null;
-            Quaternion roadHeading = oilSpin ? player.TrackPath.Evaluate(player.TrackDistance).rotation :
+            // The car root includes the visual steering yaw/roll. Using that pose
+            // swings the chase offset and aim when steering starts and straightens.
+            // Follow the actual road frame throughout driving, including oil spins.
+            bool hasRoadHeading = player != null && player.TrackPath != null;
+            Quaternion roadHeading = hasRoadHeading ? player.TrackPath.Evaluate(player.TrackDistance).rotation :
                 Quaternion.Euler(0f, target.eulerAngles.y, 0f);
             lastRoadHeading = roadHeading;
             Vector3 cameraTargetPosition = GetSmoothedLaneTargetPosition(roadHeading);
@@ -103,7 +106,7 @@ namespace VoxelRacer
             chaseOffset = GetBossAttackCameraOffset(player, cameraTargetPosition, roadHeading, chaseOffset, deltaTime);
             float chaseLookAhead = Tuning != null ? Tuning.chaseLookAhead : lookAhead;
             transform.position = cameraTargetPosition + roadHeading * chaseOffset;
-            Vector3 lookForward = oilSpin ? roadHeading * Vector3.forward : target.forward;
+            Vector3 lookForward = hasRoadHeading ? roadHeading * Vector3.forward : target.forward;
             transform.rotation = Quaternion.LookRotation(cameraTargetPosition + lookForward * chaseLookAhead + Vector3.up * 0.3f - transform.position);
             ApplyShake();
         }

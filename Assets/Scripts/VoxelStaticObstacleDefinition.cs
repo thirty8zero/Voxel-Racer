@@ -30,7 +30,7 @@ namespace VoxelRacer
         [Min(1)] public int playerDamageVoxelsMax = 12;
 
         [Header("Weapon Damage")]
-        [Tooltip("Projectile hits required to destroy a box or detonate one fuel drum.")]
+        [Tooltip("Health of a crate or individual fuel drum. Bullets remove one point per hit; missiles apply their configured damage once per affected crate/drum.")]
         [Min(1)] public int hitPoints = 3;
         [Tooltip("Randomness used when choosing a voxel from the rearmost surface struck by a bullet. Higher values make damage less row-by-row.")]
         [Min(0f)] public float rearSurfaceHitRandomness = 0.8f;

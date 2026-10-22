@@ -100,6 +100,7 @@ namespace VoxelRacer
             BuildVisuals();
             if (!IsEnemyTraffic) ApplyRandomPaintColour();
             ApplyTrackPose();
+            VoxelNightHeadlights.Attach(gameObject, road != null ? road.trackDefinition : VoxelRacerBootstrap.ActiveTrack);
             previousCollisionRelative=target.CollisionTrackPosition-new Vector2(laneOffset,trackDistance);
             gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure();
         }

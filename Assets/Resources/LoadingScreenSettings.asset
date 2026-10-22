@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 19b104acddd44d518f9785af9162f14b, type: 3}
+  m_Name: LoadingScreenSettings
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelLoadingScreenSettings
+  showImages: 0
+  images:
+  - {fileID: 2800000, guid: 706fcd06f1a1fb14689d48097e6e5f4a, type: 3}
+  - {fileID: 2800000, guid: 0f244a44c828fae41a2e292877b3a08b, type: 3}
+  - {fileID: 2800000, guid: d170d90122c7af349b642bd8d6a3c130, type: 3}
+  - {fileID: 2800000, guid: 5671c4cc71ced224d9183eac52f27c88, type: 3}
+  - {fileID: 2800000, guid: 86a0cc899e81dd24b933c7c33ac7ef4d, type: 3}
+  - {fileID: 2800000, guid: eccb22726df977149bc499ae87049360, type: 3}
+  minimumDisplaySeconds: 0.65
+  topBarFraction: 0.1
+  bottomBarFraction: 0.18
+  loadingFontSize: 88

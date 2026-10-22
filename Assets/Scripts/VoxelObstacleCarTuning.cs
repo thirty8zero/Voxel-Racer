@@ -7,7 +7,7 @@ namespace VoxelRacer
     [CreateAssetMenu(menuName = "Voxel Racer/Obstacle Car Tuning", fileName = "VoxelObstacleCarTuning")]
     public sealed class VoxelObstacleCarTuning : ScriptableObject
     {
-        [Min(1f)] public float spawnDistanceAhead = 65f;
+        [Min(1f)] public float spawnDistanceAhead = 250f;
         [Range(0f, 1f)] public float obstacleCarSpawnChance = 0.5f;
         [Range(0f, 1f)] public float oppositeDirectionChance = 0.5f;
         [Tooltip("Chance that a spawned traffic vehicle is an enemy selected from this track's Enemy Vehicle Pool.")]

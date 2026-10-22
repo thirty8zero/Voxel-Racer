@@ -36,6 +36,7 @@ namespace VoxelRacer
         {
             if (player == null || !player.IsDestroyed || target != player || deathSequenceStarted || isShown) return;
             VoxelPauseMenu.ResumeActivePause();
+            VoxelMissionProgress.Active?.CancelCompletionSlowMotion();
             deathSequenceStarted = true;
             IsShowing = true;
             VoxelMobileControls.ClearHeldInput();
@@ -216,7 +217,7 @@ namespace VoxelRacer
 
         private void ReturnToMainMenu()
         {
-            if (isLoading)
+            if (isLoading || VoxelLoadingScreen.IsLoading)
                 return;
 
             int buildIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/" + mainMenuSceneName + ".unity");
@@ -229,7 +230,7 @@ namespace VoxelRacer
             VoxelCarRunState.BeginNewRun(VoxelCarSelectionState.GetSelectedOrDefault());
             VoxelTrackProgressState.BeginSequence();
             isLoading = true;
-            SceneManager.LoadScene(buildIndex);
+            VoxelLoadingScreen.LoadScene(buildIndex);
         }
     }
 }

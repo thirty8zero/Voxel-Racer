@@ -1,6 +1,6 @@
 Shader "Voxel Racer/Mountain Card"
 {
- Properties { _BaseMap("Mountain Artwork",2D)="white" {} _Cutoff("Alpha Cutoff",Range(0,1))=.5 }
+ Properties { _BaseMap("Mountain Artwork",2D)="white" {} _Cutoff("Alpha Cutoff",Range(0,1))=.5 _BaseColor("Tint",Color)=(1,1,1,1) [HideInInspector] _HorizonBackground("Horizon Background",Float)=1 }
  SubShader
  {
   Tags { "RenderPipeline"="UniversalPipeline" "Queue"="AlphaTest" "RenderType"="TransparentCutout" }
@@ -13,9 +13,23 @@ Shader "Voxel Racer/Mountain Card"
    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
    TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
    float _Cutoff;
+   half4 _BaseColor;
+   float _HorizonBackground;
    struct Attributes { float4 positionOS:POSITION; float2 uv:TEXCOORD0; };
    struct Varyings { float4 positionCS:SV_POSITION; float2 uv:TEXCOORD0; };
-   Varyings vert(Attributes v) { Varyings o; o.positionCS=TransformObjectToHClip(v.positionOS.xyz); o.uv=v.uv; return o; }
+   Varyings vert(Attributes v)
+   {
+    Varyings o; o.positionCS=TransformObjectToHClip(v.positionOS.xyz); o.uv=v.uv;
+    // This artwork is a backdrop, not a physical wall across the road at 170m.
+    // Keep projected size; sit in front of the sun/moon and cubemap skybox.
+    #if UNITY_REVERSED_Z
+    float backgroundDepth=0.00003;
+    #else
+    float backgroundDepth=0.99997;
+    #endif
+    o.positionCS.z=lerp(o.positionCS.z,o.positionCS.w*backgroundDepth,_HorizonBackground);
+    return o;
+   }
    half4 frag(Varyings i):SV_Target
    {
     // Alternate mirrored strips so both joins meet the identical edge of the artwork.
@@ -24,7 +38,7 @@ Shader "Voxel Racer/Mountain Card"
     clip(c.a-_Cutoff);
     // Reject bright pure-red matte remnants without recolouring the red rock artwork.
     if(c.r>.65 && c.g<.035 && c.b<.035) discard;
-    return half4(c.rgb,1);
+    return half4(c.rgb*_BaseColor.rgb,1);
    }
    ENDHLSL
   }

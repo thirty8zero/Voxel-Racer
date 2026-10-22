@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace VoxelRacer
 {
@@ -15,18 +17,131 @@ namespace VoxelRacer
         private Transform featuredDisplayRoot;
         private Transform desertSceneryRoot;
         private bool isLoading;
+        private Transform startButtonTransform;
+        private Tween startButtonPulse;
 
         private void Awake()
         {
             tuning = tuning != null ? tuning : VoxelMainMenuTuning.Load();
             BuildFeaturedCars();
             BuildDesertScenery();
+            BuildArtwork();
+            BuildMenuUi();
+        }
 
-            RectTransform canvas = VoxelMenuUi.CreateCanvas(transform, "Main Menu UI");
-            VoxelMenuUi.CreateText(canvas, "Title", "VOXEL RACER", 264, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(1600f, 250f)).color = Color.black;
-            VoxelMenuUi.CreateButton(canvas, "Start Button", "START", 132,
+        public void BuildMenuUi()
+        {
+            tuning = tuning != null ? tuning : VoxelMainMenuTuning.Load();
+            var existing = transform.Find("Main Menu UI") as RectTransform;
+            RectTransform canvas = existing != null ? existing : VoxelMenuUi.CreateCanvas(transform, "Main Menu UI");
+            BuildTitle(canvas);
+            var existingButton = canvas.Find("Start Button");
+            if (existingButton != null) { startButtonTransform = existingButton; return; }
+            var startButton = VoxelMenuUi.CreateButton(canvas, "Start Button", "START", 132,
                 new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(780f, 204f), StartMission);
+            // Keep the label's existing layout so the large font stays unclipped.
+            ((RectTransform)startButton.transform).sizeDelta = new Vector2(340f, 124f);
+            startButton.image.color = new Color(0f, 0f, 0f, .7f);
+            startButtonTransform = startButton.transform;
+        }
+
+        private void BuildTitle(RectTransform canvas)
+        {
+            var oldTitle = canvas.Find("Title");
+            if (oldTitle != null) oldTitle.gameObject.SetActive(false);
+            var existing = canvas.Find("Road Spectre Logo");
+            if (existing == null)
+            {
+                var logoRoot = new GameObject("Road Spectre Logo", typeof(RectTransform));
+                logoRoot.transform.SetParent(canvas, false);
+                existing = logoRoot.transform;
+            }
+            var rect = (RectTransform)existing;
+            rect.anchorMin = new Vector2(.05f, .62f); rect.anchorMax = new Vector2(.95f, .98f);
+            rect.pivot = new Vector2(.5f, .5f); rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
+            SetArtworkLayer(existing, "Logo Image", tuning != null ? tuning.titleLogo : null, AspectRatioFitter.AspectMode.FitInParent);
+        }
+
+        private void OnEnable()
+        {
+            if (startButtonTransform == null) return;
+            startButtonPulse = startButtonTransform.DOScale(1.06f, .7f)
+                .SetEase(Ease.InOutSine)
+                .SetLoops(-1, LoopType.Yoyo)
+                .SetUpdate(true)
+                .SetLink(gameObject);
+        }
+
+        private void OnDisable()
+        {
+            startButtonPulse?.Kill();
+            startButtonPulse = null;
+            if (startButtonTransform != null) startButtonTransform.localScale = Vector3.one;
+        }
+
+        /// <summary>Non-interactive placeholder layers between the scene and the original menu UI.</summary>
+        public void BuildArtwork()
+        {
+            tuning = tuning != null ? tuning : VoxelMainMenuTuning.Load();
+            var titleCanvas = transform.Find("Main Menu UI") as RectTransform;
+            if (titleCanvas != null) BuildTitle(titleCanvas);
+            var existing = transform.Find("Main Menu Artwork");
+            bool show = tuning != null && tuning.artworkEnabled && tuning.backgroundArtwork != null;
+            if (!show)
+            {
+                if (existing != null) existing.gameObject.SetActive(false);
+                return;
+            }
+
+            if (existing == null)
+            {
+                var root = new GameObject("Main Menu Artwork", typeof(RectTransform), typeof(Canvas));
+                root.transform.SetParent(transform, false);
+                existing = root.transform;
+            }
+            existing.gameObject.SetActive(true);
+            var canvas = existing.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 99; // VoxelMenuUi's original title/button canvas is 100.
+            SetArtworkLayer(existing, "Sunset Highway Background", tuning.backgroundArtwork, AspectRatioFitter.AspectMode.EnvelopeParent);
+            var foregroundArea = existing.Find("Foreground Artwork Area") as RectTransform;
+            if (foregroundArea == null)
+            {
+                foregroundArea = new GameObject("Foreground Artwork Area", typeof(RectTransform)).GetComponent<RectTransform>();
+                foregroundArea.SetParent(existing, false);
+                var previousForeground = existing.Find("Muscle Car Foreground");
+                if (previousForeground != null) previousForeground.SetParent(foregroundArea, false);
+            }
+            // The logo ends just above the white roof; the particle area may extend behind it.
+            foregroundArea.anchorMin = new Vector2(.08f, .02f);
+            foregroundArea.anchorMax = new Vector2(.92f, .84f);
+            foregroundArea.anchoredPosition = Vector2.zero; foregroundArea.sizeDelta = Vector2.zero;
+            foregroundArea.SetAsLastSibling();
+            SetArtworkLayer(foregroundArea, "Muscle Car Foreground", tuning.foregroundArtwork, AspectRatioFitter.AspectMode.FitInParent);
+        }
+
+        private static void SetArtworkLayer(Transform parent, string name, Texture2D texture, AspectRatioFitter.AspectMode aspectMode)
+        {
+            var existing = parent.Find(name);
+            if (existing == null)
+            {
+                var layer = new GameObject(name, typeof(RectTransform), typeof(RawImage), typeof(AspectRatioFitter));
+                layer.transform.SetParent(parent, false);
+                existing = layer.transform;
+            }
+            existing.SetAsLastSibling();
+            existing.gameObject.SetActive(texture != null);
+            if (texture == null) return;
+            var rect = (RectTransform)existing;
+            rect.pivot = new Vector2(.5f, .5f);
+            var image = existing.GetComponent<RawImage>();
+            image.texture = texture;
+            image.color = Color.white;
+            image.raycastTarget = false;
+            var fitter = existing.GetComponent<AspectRatioFitter>();
+            fitter.aspectMode = aspectMode;
+            fitter.aspectRatio = texture.width / (float)texture.height;
         }
 
         public void BuildDesertScenery()
@@ -62,7 +177,7 @@ namespace VoxelRacer
                     .AddComponent<VoxelHorizonMountains>();
                 mountains.transform.SetParent(desertSceneryRoot, false);
                 mountains.Configure(menuCamera != null ? menuCamera.transform : transform, track,
-                    tuning != null ? tuning.mountainScale : 1f);
+                    tuning != null ? tuning.mountainScale : 1f, useTrackTimeOfDay: false);
                 if (menuCamera != null)
                 {
                     float mountainDistance = track != null ? track.mountainDistance : 170f;
@@ -122,7 +237,7 @@ namespace VoxelRacer
             if (featuredDisplayRoot != null)
                 featuredDisplayRoot.Rotate(Vector3.up, 18f * Time.unscaledDeltaTime, Space.World);
 
-            if (isLoading)
+            if (isLoading || VoxelLoadingScreen.IsLoading)
                 return;
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null &&
@@ -258,7 +373,7 @@ namespace VoxelRacer
 
         public void StartMission()
         {
-            if (isLoading)
+            if (isLoading || VoxelLoadingScreen.IsLoading)
                 return;
             VoxelCarDefinition selectedCar = VoxelCarSelectionState.GetSelectedOrDefault();
             if (selectedCar == null)
@@ -277,7 +392,7 @@ namespace VoxelRacer
                 return;
             }
             isLoading = true;
-            SceneManager.LoadScene(buildIndex);
+            VoxelLoadingScreen.LoadScene(buildIndex);
         }
     }
 }

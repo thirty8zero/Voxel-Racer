@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace VoxelRacer
 {
-    /// <summary>Persistent settings for the player's single-charge speed boost.</summary>
+    /// <summary>Shared performance and recharge settings for each player boost charge.</summary>
     [CreateAssetMenu(menuName = "Voxel Racer/Player/Boost Tuning", fileName = "VoxelBoostTuning")]
     public class VoxelBoostTuning : ScriptableObject
     {

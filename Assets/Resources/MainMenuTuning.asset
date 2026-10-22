@@ -14,6 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMainMenuTuning
   featuredCars:
   - {fileID: 11400000, guid: 469e13644c9b1ba46adf0a72ec4cf6eb, type: 2}
+  titleLogo: {fileID: 2800000, guid: 3034b6004af73c744968a18141319ef0, type: 3}
+  artworkEnabled: 1
+  backgroundArtwork: {fileID: 2800000, guid: 43ae437a3c1af1b4fae2f254d4d5d7b8, type: 3}
+  foregroundArtwork: {fileID: 2800000, guid: be02a98af2b729642a631bad8d5662bc, type: 3}
   showHorizonMountains: 1
   mountainScale: 0.2
   cactusCount: 24

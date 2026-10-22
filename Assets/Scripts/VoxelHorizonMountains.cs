@@ -17,6 +17,7 @@ namespace VoxelRacer
         private float radius = 170f;
         private float verticalScale = 1f;
         [SerializeField, HideInInspector] private float verticalScaleMultiplier = 1f;
+        [SerializeField, HideInInspector] private bool applyTrackTimeOfDay = true;
         private float baseHeight = -45f;
         private float minimumPeakHeight = 14f;
         private float maximumPeakHeight = 42f;
@@ -32,12 +33,15 @@ namespace VoxelRacer
         private int appliedSeed;
         private Material appliedCardMaterial;
         private Vector2 appliedCardUV;
+        private MaterialPropertyBlock tintProperties;
+        private Color appliedTint;
 
         public void Configure(Transform followTarget, VoxelTrackDefinition track,
-            float scaleMultiplier = 1f)
+            float scaleMultiplier = 1f, bool useTrackTimeOfDay = true)
         {
             target = followTarget;
             trackDefinition = track;
+            applyTrackTimeOfDay = useTrackTimeOfDay;
             verticalScaleMultiplier = Mathf.Max(0.1f, scaleMultiplier);
             verticalScale = verticalScaleMultiplier;
             ReadTrackSettings();
@@ -52,6 +56,8 @@ namespace VoxelRacer
                 ReadTrackSettings();
                 Build();
             }
+            Color tint = NightTint;
+            if (tint != appliedTint) ApplyTint();
             UpdatePosition();
         }
 
@@ -111,6 +117,7 @@ namespace VoxelRacer
             if (!textured && material.HasProperty("_BaseColor"))
                 material.SetColor("_BaseColor", colour);
             renderer.sharedMaterial = material;
+            ApplyTint();
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             renderer.lightProbeUsage = LightProbeUsage.Off;
@@ -125,6 +132,25 @@ namespace VoxelRacer
             appliedCardMaterial = trackDefinition != null ? trackDefinition.mountainCardMaterial : null;
             appliedCardUV = trackDefinition != null ? trackDefinition.mountainCardVerticalUV : Vector2.zero;
         }
+
+        private void ApplyTint()
+        {
+            var renderer = GetComponent<MeshRenderer>();
+            if (renderer == null || renderer.sharedMaterial == null) return;
+            appliedTint = NightTint;
+            var material = renderer.sharedMaterial;
+            Color baseColour = material.HasProperty("_BaseColor") ? material.GetColor("_BaseColor")
+                : material.HasProperty("_Color") ? material.GetColor("_Color") : Color.white;
+            tintProperties ??= new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(tintProperties);
+            tintProperties.SetColor("_BaseColor", baseColour * appliedTint);
+            tintProperties.SetColor("_Color", baseColour * appliedTint);
+            tintProperties.SetFloat("_HorizonBackground", 1f);
+            renderer.SetPropertyBlock(tintProperties);
+        }
+
+        private Color NightTint => applyTrackTimeOfDay && trackDefinition != null && trackDefinition.nightTime
+            ? trackDefinition.nightMountainTint : Color.white;
 
         private Mesh CreateMountainMesh()
         {

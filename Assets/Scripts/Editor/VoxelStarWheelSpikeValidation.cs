@@ -37,9 +37,10 @@ namespace VoxelRacer.Editor
                 var incompatible=ScriptableObject.CreateInstance<VoxelCarDefinition>();
                 try {Check(!star.Fits(incompatible),"Wheel-less car accepted");} finally {Object.DestroyImmediate(incompatible);}
                 var mesh=star.spikePrefab.GetComponent<MeshFilter>().sharedMesh;
-                var tips=mesh.vertices.Where(v=>Mathf.Abs(v.x-.44f)<.0001f).Distinct().ToArray();
-                Check(tips.Length==5 && tips.All(v=>Mathf.Abs(new Vector2(v.y,v.z).magnitude-.15f)<.0001f),"Five large star tips missing");
-                Check(mesh.vertices.Any(v=>Vector3.Distance(v,new Vector3(.33f,0,0))<.0001f),"Short central tip missing");
+                var tips=mesh.vertices.Where(v=>Mathf.Abs(v.x-.4525f)<.0001f).Distinct().ToArray();
+                Check(tips.Length==5 && tips.All(v=>Mathf.Abs(new Vector2(v.y,v.z).magnitude-.21f)<.0001f),"Five raised, wider-spaced star tips missing");
+                Check(mesh.vertices.Any(v=>Vector3.Distance(v,new Vector3(.2625f,0,0))<.0001f),"Short central tip missing");
+                Check(mesh.subMeshCount==2 && mesh.triangles.Length/3<800,"Detailed model exceeded its two-material/mobile geometry budget");
                 Check(star.spikePrefab.GetComponentsInChildren<MeshRenderer>().Length==1 && star.spikePrefab.GetComponentsInChildren<Collider>().Length==0,
                     "Star visual must use one renderer and no colliders");
                 var carRoot=new GameObject("Temporary Car");carRoot.transform.SetParent(root.transform,false);
@@ -101,6 +102,7 @@ namespace VoxelRacer.Editor
                 foreach(var r in original)if(r!=null)r.enabled=false;
                 Render(combined,"UpgradesOnlyLeft",new Vector3(-6,2,-5));Render(combined,"UpgradesOnlyRight",new Vector3(6,2,-5));
                 Render(star.spikePrefab,"StarCloseup",new Vector3(1.5f,.25f,.4f),Vector3.right*.13f,.42f);
+                Render(star.spikePrefab,"StarSide",new Vector3(.65f,.3f,1.5f),Vector3.right*.24f,.42f);
                 Check(VoxelCurrencyState.Balance==cash-star.purchasePrice && VoxelWheelSpikeUpgradeState.InstalledTuning==star,"Fit preview changed run state");
                 VoxelCarRunState.BeginNewRun(definition);
                 VoxelWheelSpikeUpgradeState.ApplyTo(next.transform);

@@ -115,7 +115,6 @@ namespace VoxelRacer
             BuildFinishLine(generated, road);
             SetupGameplay(generated, car, road);
             SetupCamera(car);
-            SetupLighting();
             SetupSky(car, activeTrack);
         }
 
@@ -753,27 +752,33 @@ namespace VoxelRacer
             }
         }
 
-        internal static void SetupLighting()
+        internal static void SetupLighting(VoxelTrackDefinition track)
         {
-            var light = Object.FindFirstObjectByType<Light>();
+            var light = RenderSettings.sun;
+            if (light == null || light.type != LightType.Directional)
+            {
+                light = null;
+                foreach (var candidate in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+                    if (candidate.type == LightType.Directional) { light = candidate; break; }
+            }
             if (light == null)
             {
                 light = new GameObject("Sun").AddComponent<Light>();
                 light.type = LightType.Directional;
             }
 
-            light.transform.rotation = Quaternion.Euler(48f, -32f, 0f);
-            light.intensity = 1.3f;
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.55f, 0.62f, 0.72f);
+            VoxelTrackEnvironment.ApplyLighting(light, track);
+            RenderSettings.sun = light;
         }
 
-        internal static void SetupSky(Transform target, VoxelTrackDefinition track = null)
+        public static void SetupSky(Transform target, VoxelTrackDefinition track = null)
         {
             track ??= ActiveTrack;
-            if (track != null && track.skyboxMaterial != null)
+            SetupLighting(track);
+            var selectedSky = VoxelTrackEnvironment.ResolveSkybox(track);
+            if (selectedSky != null)
             {
-                RenderSettings.skybox = track.skyboxMaterial;
+                RenderSettings.skybox = selectedSky;
             }
             else
             {
@@ -787,11 +792,7 @@ namespace VoxelRacer
                 RenderSettings.skybox = skybox;
             }
 
-            RenderSettings.fog = track == null || track.fogEnabled;
-            RenderSettings.fogColor = track != null ? track.fogColour : new Color(0.58f, 0.20f, 0.18f);
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = track != null ? track.fogStartDistance : 90f;
-            RenderSettings.fogEndDistance = track != null ? track.fogEndDistance : 320f;
+            VoxelTrackEnvironment.ApplyFog(track);
 
             var horizonSun = Object.FindFirstObjectByType<VoxelHorizonSun>(FindObjectsInactive.Include);
             bool sunEnabled = track == null || track.horizonSunEnabled;
@@ -805,6 +806,7 @@ namespace VoxelRacer
                 if (horizonSun == null)
                     horizonSun = new GameObject("Horizon Sun").AddComponent<VoxelHorizonSun>();
                 horizonSun.gameObject.SetActive(true);
+                horizonSun.gameObject.name = track != null && track.nightTime ? "Horizon Moon" : "Horizon Sun";
                 horizonSun.Configure(target, track);
             }
 

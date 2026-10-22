@@ -83,6 +83,7 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
+            if (VoxelLoadingScreen.IsLoading) return;
             if (!Application.isPlaying || !BossGettingAway || player.IsDestroyed || VoxelPlayerDeathScreen.IsShowing) return;
             var style = new GUIStyle(GUI.skin.label) { font = VoxelHudStyles.HudFont, fontSize = 26, alignment = TextAnchor.MiddleCenter };
             style.normal.textColor = Color.Lerp(new Color(1f, .7f, .1f), Color.red, .5f + .5f * Mathf.Sin(Time.unscaledTime * 6));

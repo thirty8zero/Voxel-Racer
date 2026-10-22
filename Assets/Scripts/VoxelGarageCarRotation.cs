@@ -101,7 +101,7 @@ namespace VoxelRacer
             bool mouseDown = (touch == null || !touch.press.isPressed) && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
             if (!touchDown && !mouseDown) return;
             Vector2 start = touchDown ? touch.position.ReadValue() : Mouse.current.position.ReadValue();
-            if (BlocksCarRotation(start) || !PointerOverCar(start)) return;
+            if (BlocksCarRotation(start)) return;
             rotationUsesTouch = touchDown;
             rotationTouchId = touchDown ? touch.touchId.ReadValue() : 0;
             previousRotationPointer = start;
@@ -140,14 +140,6 @@ namespace VoxelRacer
             garageZoomAmount = Mathf.Clamp(garageZoomAmount + zoomAmount, -range, range);
             workshopCamera.fieldOfView = Mathf.Clamp(
                 cameraTuning.cameraFieldOfView - garageZoomAmount, 10f, 90f);
-        }
-
-        private bool PointerOverCar(Vector2 position)
-        {
-            Ray ray = workshopCamera.ScreenPointToRay(position);
-            foreach (var renderer in (upgradePlacement != null ? upgradePlacement.Car : DisplayedCar.gameObject).GetComponentsInChildren<Renderer>())
-                if (renderer.enabled && renderer.gameObject.activeInHierarchy && renderer.bounds.IntersectRay(ray)) return true;
-            return false;
         }
 
         private bool BlocksCarRotation(Vector2 position)

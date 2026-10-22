@@ -22,7 +22,8 @@ namespace VoxelRacer.Editor
         private static VoxelGunTuning weapon;
         private static float started, savedScale;
         private static bool savedBackground;
-        private static int phase, crateHealth, drumHealth;
+        private static int phase;
+        private static float crateHealth, drumHealth;
         private static readonly List<Object> tunings = new();
 
         [InitializeOnLoadMethod]
@@ -68,7 +69,7 @@ namespace VoxelRacer.Editor
         private static void Shoot(float x)
         { VoxelProjectile.Create(root.transform.position + new Vector3(x, .7f, 0), Vector3.forward, weapon); }
 
-        private static int DrumHealth() => ((Dictionary<Transform, int>)typeof(VoxelFuelDrumObstacle)
+        private static float DrumHealth() => ((Dictionary<Transform, float>)typeof(VoxelFuelDrumObstacle)
             .GetField("drumHealth", Private).GetValue(drums)).Values.Sum();
 
         private static void Check(bool value, string message)
@@ -95,7 +96,7 @@ namespace VoxelRacer.Editor
                 crate = Target("QA crate", 40).AddComponent<VoxelObstacle>();
                 var crateDefinition = Clone(Resources.Load<VoxelStaticObstacleDefinition>("StaticObstacles/VoxelBox"));
                 crate.Configure(player, null, crateDefinition, 50, 40);
-                crateHealth = (int)typeof(VoxelObstacle).GetField("currentHealth", Private).GetValue(crate);
+                crateHealth = (float)typeof(VoxelObstacle).GetField("currentHealth", Private).GetValue(crate);
                 drums = Target("QA drums", 60).AddComponent<VoxelFuelDrumObstacle>();
                 var drumDefinition = Clone(Resources.Load<VoxelStaticObstacleDefinition>("StaticObstacles/FuelDrums"));
                 drums.Configure(player, null, drumDefinition, 50, 60); drumHealth = DrumHealth();
@@ -122,7 +123,7 @@ namespace VoxelRacer.Editor
                 if (phase == 0)
                 {
                     Check(enemy.CurrentHealth == 999 && traffic.CurrentHealth == 999, "Real bullet failed to damage collider-free enemy/traffic.");
-                    Check((int)typeof(VoxelObstacle).GetField("currentHealth", Private).GetValue(crate) == crateHealth - 1,
+                    Check((float)typeof(VoxelObstacle).GetField("currentHealth", Private).GetValue(crate) == crateHealth - 1,
                         "Real bullet failed to damage crate.");
                     Check(DrumHealth() == drumHealth - 1, "Real bullet failed to damage fuel drums.");
                     Check(occluded.CurrentHealth == 1000, "Bullet pierced closer physics wall.");

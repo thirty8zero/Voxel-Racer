@@ -20,7 +20,7 @@ MonoBehaviour:
   finishLookSideOffset: 3.4
   finishFieldOfView: 42
   finishSequenceDuration: 2.5
-  laneChangeCameraDuration: 1
+  laneChangeCameraDuration: 0.5
   laneChangeCameraEasing: 6
   bossAttackCameraEnabled: 1
   bossAttackCameraTriggerDistance: 20

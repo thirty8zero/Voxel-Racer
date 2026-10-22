@@ -148,8 +148,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7e37c59b04d26bc4a93500ec78cd0188, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelRepairUpgradeSceneController
+  garageRotationDegreesPerScreen: 360
+  garageAutoRotationDegreesPerSecond: 12
+  garageAutoRotationResumeDelay: 5
+  garageZoomFieldOfViewRange: 15
+  garageMouseWheelZoomStep: 1.25
+  garagePinchZoomDegreesPerScreen: 15
   raceSceneName: SampleScene
   repairTuning: {fileID: 0}
+  cameraTuning: {fileID: 0}
 --- !u!4 &717853387
 Transform:
   m_ObjectHideFlags: 0

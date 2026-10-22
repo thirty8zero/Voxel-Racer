@@ -18,6 +18,9 @@ namespace VoxelRacer.Editor
         private static GameObject root;
         private static VoxelObstacleCarTuning tuning;
         private static VoxelFadeIn[] fades;
+        private static VoxelSpawnScaleIn[] growth;
+        private static Transform[][] growthTargets;
+        private static Vector3[][] growthScales, growthPositions;
         private static MeshRenderer[][] renderers;
         private static Material[][] originals;
         private static Color[][] colours;
@@ -71,6 +74,42 @@ namespace VoxelRacer.Editor
             }
         }
 
+        private static void VerifyFullScale(int index)
+        {
+            Check(growth[index].transform.localScale == Vector3.one, "Vehicle gameplay root was scaled.");
+            for (int i = 0; i < growthTargets[index].Length; i++)
+            {
+                var target = growthTargets[index][i]; if (target == null) continue;
+                Check(target.localScale == growthScales[index][i] && target.localPosition == growthPositions[index][i],
+                    "Spawn growth did not restore the authored visual size/offset.");
+            }
+        }
+
+        private static void VerifyAuthoredScale()
+        {
+            var prop = new GameObject("Nonuniform spawn root"); prop.transform.SetParent(root.transform);
+            prop.transform.localScale = new Vector3(2, 3, 4);
+            var collider = prop.AddComponent<BoxCollider>(); Vector3 collisionSize = collider.bounds.size;
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube).transform; visual.SetParent(prop.transform, false);
+            Vector3 position = new(1, 2, 3), scale = new(.5f, 1, 2);
+            visual.localPosition = position; visual.localScale = scale;
+            VoxelSpawnScaleIn.Play(prop); var effect = prop.GetComponent<VoxelSpawnScaleIn>();
+            Check(visual.localScale == Vector3.zero && visual.localPosition == Vector3.zero, "Visual did not start at zero.");
+            typeof(VoxelSpawnScaleIn).GetMethod("Advance", Private).Invoke(effect, new object[] { effect.duration * .5f });
+            Check((visual.localScale - scale * .5f).sqrMagnitude < .00001f && (visual.localPosition - position * .5f).sqrMagnitude < .00001f,
+                "Mid-growth size/offset lost authored proportions.");
+            Check(prop.transform.localScale == new Vector3(2, 3, 4) && collider.bounds.size == collisionSize,
+                "Spawn presentation changed the gameplay root/collider.");
+            effect.enabled = false;
+            Check(visual.localScale == scale && visual.localPosition == position, "Interrupted growth left a shrunken prop.");
+            VoxelSpawnScaleIn.Play(prop); Check(effect.enabled && visual.localScale == Vector3.zero, "Disabled effect did not restart.");
+            // A detached piece is now owned by debris; cleanup must not snap it back.
+            visual.SetParent(root.transform, false); visual.localScale = Vector3.one; visual.localPosition = Vector3.one * 10;
+            effect.enabled = false;
+            Check(visual.localScale == Vector3.one && visual.localPosition == Vector3.one * 10, "Cleanup moved detached debris.");
+            Object.Destroy(visual.gameObject); Object.Destroy(prop);
+        }
+
         private static void Setup()
         {
             savedScale = Time.timeScale; savedBackground = Application.runInBackground;
@@ -85,17 +124,29 @@ namespace VoxelRacer.Editor
                 tuning.civilianVehiclePool = new[] { Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning") };
                 spawner.obstacleCarTuning = tuning;
                 var spawn = typeof(VoxelObstacleSpawner).GetMethod("SpawnObject", Private);
-                for (int i = 0; i < 4; i++) spawn.Invoke(spawner, new object[] { null, 65f });
+                for (int i = 0; i < 4; i++) spawn.Invoke(spawner, new object[] { null, tuning.spawnDistanceAhead });
                 var cars = root.GetComponentsInChildren<VoxelObstacleCar>();
                 Check(cars.Length == 4 && cars.Select(c => c.LaneOffset).Distinct().Count() == 4,
                     "Wave lost vehicles or bypassed occupied-lane clearance.");
-                foreach (var car in cars) car.transform.position = root.transform.position + new Vector3(car.LaneOffset, 0, 65);
+                Check(cars.All(c => Mathf.Abs(c.TrackDistance - tuning.spawnDistanceAhead) < .001f),
+                    "Traffic did not use the configured spawn distance.");
+                foreach (var car in cars) car.transform.position = root.transform.position + new Vector3(car.LaneOffset, 0, tuning.spawnDistanceAhead);
                 fades = cars.Select(c => c.GetComponent<VoxelFadeIn>()).ToArray();
+                growth = cars.Select(c => c.GetComponent<VoxelSpawnScaleIn>()).ToArray();
+                Check(growth.All(g => g != null), "Actual traffic spawns did not start scale-in.");
+                Check(growth.All(g => Mathf.Approximately(g.duration, 1f)), "Spawn growth did not default to one second.");
+                growthTargets = new Transform[4][]; growthScales = new Vector3[4][]; growthPositions = new Vector3[4][];
                 renderers = new MeshRenderer[4][]; originals = new Material[4][]; colours = new Color[4][];
                 var materials = new HashSet<Material>();
                 for (int i = 0; i < 4; i++)
                 {
                     fades[i].duration = i == 0 ? .2f : 2f;
+                    growth[i].duration = fades[i].duration;
+                    var visuals = ((IEnumerable)typeof(VoxelSpawnScaleIn).GetField("visuals", Private).GetValue(growth[i])).Cast<object>().ToArray();
+                    growthTargets[i] = visuals.Select(v => (Transform)v.GetType().GetField("target").GetValue(v)).ToArray();
+                    growthScales[i] = visuals.Select(v => (Vector3)v.GetType().GetField("scale").GetValue(v)).ToArray();
+                    growthPositions[i] = visuals.Select(v => (Vector3)v.GetType().GetField("position").GetValue(v)).ToArray();
+                    Check(visuals.Length > 0 && growthTargets[i].All(t => t.localScale == Vector3.zero), "Traffic visuals did not start at zero scale.");
                     var states = ((IEnumerable)typeof(VoxelFadeIn).GetField("renderers", Private).GetValue(fades[i])).Cast<object>().ToArray();
                     renderers[i] = states.Select(s => (MeshRenderer)s.GetType().GetField("renderer").GetValue(s)).ToArray();
                     originals[i] = states.Select(s => (Material)s.GetType().GetField("opaqueMaterial").GetValue(s)).ToArray();
@@ -103,7 +154,9 @@ namespace VoxelRacer.Editor
                     foreach (var state in states) materials.Add((Material)state.GetType().GetField("fadeMaterial").GetValue(state));
                 }
                 sharedMaterials = materials.ToArray();
+                VerifyAuthoredScale();
                 Check(sharedMaterials.Length == originals.SelectMany(a => a).Distinct().Count(), "Live wave created per-voxel material copies.");
+                Time.timeScale = 0; phase = -1;
                 started = Time.realtimeSinceStartup; EditorApplication.update += Tick;
             }
             catch (Exception e) { Finish("FAIL: " + e); }
@@ -111,12 +164,21 @@ namespace VoxelRacer.Editor
 
         private static void Tick()
         {
-            if (!Application.isPlaying || EditorApplication.isPaused || Time.realtimeSinceStartup - started < (phase == 0 ? .5f : 2.5f)) return;
+            if (!Application.isPlaying || EditorApplication.isPaused || Time.realtimeSinceStartup - started < (phase < 0 ? .15f : phase == 0 ? .5f : 2.5f)) return;
             try
             {
+                if (phase < 0)
+                {
+                    Check(growthTargets.SelectMany(t => t).All(t => t.localScale == Vector3.zero), "Growth advanced while the game clock was paused.");
+                    Time.timeScale = 1; phase = 0; started = Time.realtimeSinceStartup; return;
+                }
                 if (phase == 0)
                 {
                     VerifyRestored(0);
+                    VerifyFullScale(0);
+                    Check(growthTargets[1][0].localScale.sqrMagnitude > 0 &&
+                        growthTargets[1][0].localScale.sqrMagnitude < growthScales[1][0].sqrMagnitude,
+                        "Live growth did not advance smoothly between zero and full size.");
                     Check(renderers[1][0].sharedMaterial != originals[1][0] && renderers[1][0].sharedMaterial != null,
                         "One fade completion broke an overlapping fade.");
                     var block = new MaterialPropertyBlock(); renderers[1][0].GetPropertyBlock(block);
@@ -124,14 +186,18 @@ namespace VoxelRacer.Editor
                     Check(alpha > 0 && alpha < 1, "Live fade did not advance opacity.");
                     fades[1].enabled = false; VerifyRestored(1);
                     fades[1].enabled = true;
+                    growth[1].enabled = false; VerifyFullScale(1);
+                    VoxelSpawnScaleIn.Play(growth[1].gameObject);
+                    Check(growthTargets[1].All(t => t.localScale == Vector3.zero), "Re-enabled growth did not restart at zero.");
                     Object.Destroy(fades[2].gameObject); // Last-user cleanup also needs early destruction.
                     renderers[3][0].gameObject.SetActive(false); // Normal voxel removal while fading.
                     phase = 1; started = Time.realtimeSinceStartup;
                     return;
                 }
                 VerifyRestored(1); VerifyRestored(3);
+                VerifyFullScale(1); VerifyFullScale(3);
                 Check(sharedMaterials.All(m => m == null), "Completed/destroyed live fades leaked shared materials.");
-                Finish("PASS (Play Mode): actual four-car wave chooses four clear lanes; material count follows source materials, independent opacity advances on real frames, overlapping fades survive early completion, disable/re-enable restores/restarts correctly, destroyed cars/inactive voxels clean up, opaque materials and traffic paint recover exactly. Temporary objects/cloned tuning removed; no source assets or purchases changed. Not an FPS benchmark.");
+                Finish("PASS (Play Mode): actual four-car wave chooses four clear lanes; visuals grow from zero to authored size on real frames while gameplay roots remain full size; paused clock freezes growth; nonuniform proportions/offsets restored; interrupted/restarted growth and detached debris handled; shared opacity/paint restoration and early destruction/inactive-voxel cleanup preserved. Temporary objects/cloned tuning removed; no source assets or purchases changed. Not an FPS benchmark.");
             }
             catch (Exception e) { Finish("FAIL: " + e); }
         }

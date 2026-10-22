@@ -19,11 +19,10 @@ namespace VoxelRacer.Editor
                 VoxelUpgradeFitPreview.Open((ScriptableObject)target);
             if(target is VoxelMissionTuning)
             {
-                EditorGUILayout.HelpBox("Enemy destruction scores are on each enemy vehicle tuning. Crate rewards use the shared DestructionRewards asset.",MessageType.Info);
-                if(GUILayout.Button("Open Shared Crate Rewards")) Selection.activeObject=Resources.Load<VoxelDestructionRewards>("DestructionRewards");
+                EditorGUILayout.HelpBox("Enemy destruction scores are on each enemy vehicle tuning. Crate Rewards below belong to this mission: chance is per destroyed crate; prize weights set the relative odds after a successful roll. Empty sources or all-zero weights award nothing. Cash uses steps of 10, time uses steps of 5; time prizes are excluded after expiry.",MessageType.Info);
             }
             if(target is VoxelDestructionRewards)
-                EditorGUILayout.HelpBox("Prize chance is per destroyed source. Eligible prizes are equally likely. Cash uses multiples of 10; timer rewards use 5-second steps and are unavailable after time expires.",MessageType.Info);
+                EditorGUILayout.HelpBox("Legacy shared reward reference. Gameplay now reads Crate Rewards on the active mission's Mission Tuning asset; changes here do not affect missions.",MessageType.Info);
             if(target is VoxelObstacleCarTuning)
                 EditorGUILayout.HelpBox("Phase speeds are multiples of player top speed (1 = 100%). Civilian traffic maintains a 1.5m following margin in addition to vehicle lengths; blocked spawn positions are skipped.",MessageType.Info);
             base.OnInspectorGUI();
@@ -57,6 +56,7 @@ namespace VoxelRacer.Editor
             {
                 if(name=="displayName")group="Identity";
                 else if(name.Contains("Price")||name=="maximumPurchases"||name=="upgradeLevel")group="Purchase";
+                else if(type==typeof(VoxelBoostUpgradeTuning) && name=="bottleCount")group="Boost Charges";
                 else if(name.Contains("Prefab"))group="Model & Compatibility";
                 else if(name.IndexOf("mount",StringComparison.OrdinalIgnoreCase)>=0)group="Fit & Mounting";
                 else if(name.Contains("Bonus")||name.Contains("Reduction")||name=="voxelHitPoints")group="Performance & Damage";
@@ -90,12 +90,18 @@ namespace VoxelRacer.Editor
             }
             if(type==typeof(VoxelMissionTuning))
             {
+                if(name=="crateRewards") attributes.Add(new LabelTextAttribute("Reward Sources"));
                 if(name.Contains("MultiplierPenalty"))group="Multiplier/Penalties";
                 else if(name=="enemyVoxelMultiplier"||name=="enemyDestroyedMultiplier"||name=="barrelMultiplier"||name=="nearMissMultiplier")group="Multiplier/Gains";
                 else if(name=="maximumTimeMultiplier"||name=="timeBonusCurrencyMultiplier"||name=="bonusWarningSeconds")group="Multiplier/Limits & Timer";
                 else if(group.Contains("Score")||group=="Civilian Penalties")group="Scoring/"+group;
             }
             if(type==typeof(VoxelDestructionRewards))group="Crate Reward Sources";
+            if(type==typeof(VoxelDesertFoliageTuning) && name.StartsWith("horizon"))
+            {
+                group="Road Horizon Ground Cover";
+                if(name!="horizonGroundCoverEnabled") attributes.Add(new ShowIfAttribute("horizonGroundCoverEnabled"));
+            }
             if(type==typeof(VoxelEnemyVehicleTuning) && name=="mineLayer")
             {group="Mine Laying";attributes.Add(new InlineEditorAttribute());}
             if(type==typeof(VoxelEnemyVehicleTuning) && name=="psychoBug")
@@ -144,6 +150,7 @@ namespace VoxelRacer.Editor
             string n=name.ToLowerInvariant();
             if(n.Contains("percent"))return " (%)";
             if(n.Contains("chance"))return " (0–1)";
+            if(n.EndsWith("seconds"))return " (s)";
             if(n.Contains("multiplier")||n.Contains("fraction"))return " (×)";
             if(n.Contains("duration")||n.Contains("interval")||n.Contains("seconds")||n.Contains("delay")||n.Contains("lifetime")||n.Contains("cooldown")||n=="boostlength")return " (s)";
             if(n=="acceleration"||n=="braking"||n=="brakingforce")return " (m/s²)";
@@ -157,9 +164,10 @@ namespace VoxelRacer.Editor
         public override void ProcessChildMemberAttributes(InspectorProperty parent,MemberInfo member,List<Attribute> attributes)
         {
             if(!(member is FieldInfo))return;
-            string group=member.Name.Contains("Cash")?"Cash Prize":member.Name.Contains("Time")?"Timer Prize":member.Name=="multiplierBonus"?"Multiplier Prize":"Source & Chance";
+            string group=member.Name.EndsWith("Weight")?"Prize Odds":member.Name.Contains("Cash")?"Cash Prize":member.Name.Contains("Time")?"Timer Prize":member.Name=="multiplierBonus"?"Multiplier Prize":"Source & Chance";
             attributes.Add(new FoldoutGroupAttribute(group));
-            VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelDestructionRewards.Entry),member.Name,group,attributes);
+            if(member.Name.EndsWith("Weight")) attributes.Add(new SuffixLabelAttribute("weight"));
+            else VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelDestructionRewards.Entry),member.Name,group,attributes);
         }
     }
 }

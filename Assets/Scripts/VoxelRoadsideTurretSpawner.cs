@@ -65,6 +65,7 @@ namespace VoxelRacer
             var turret = turretObject.AddComponent<VoxelRoadsideTurret>();
             turret.Configure(target, path, turretTuning, distance, Random.value < 0.5f ? -1f : 1f);
             turretObject.AddComponent<VoxelFadeIn>();
+            VoxelSpawnScaleIn.Play(turretObject);
         }
     }
 }

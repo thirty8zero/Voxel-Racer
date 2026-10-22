@@ -3,12 +3,16 @@ using UnityEngine.InputSystem;
 
 namespace VoxelRacer
 {
-    /// <summary>Consumes one full boost charge per activation, then refills it over the configured cooldown.</summary>
+    /// <summary>Uses one ready bottle at a time; each spent charge recharges independently.</summary>
     public sealed class VoxelBoostController : MonoBehaviour
     {
         public VoxelCarController Target { get; private set; }
         public VoxelBoostTuning Tuning { get; private set; }
-        public float ChargePercent { get; private set; } = 1f;
+        public int ChargeCount { get; private set; } = 1;
+        public int ActiveChargeIndex { get; private set; } = -1;
+        public float ChargePercent => IsBoosting ? GetChargePercent(ActiveChargeIndex) :
+            ChargeCount > 1 ? Mathf.Max(charges[0], charges[1]) : charges[0];
+        public float GetChargePercent(int index) => index >= 0 && index < ChargeCount ? charges[index] : 0f;
         public bool IsBoosting { get; private set; }
         public bool IsReady => !IsBoosting && ChargePercent >= 0.999f;
         public float RamDamageMultiplier
@@ -24,6 +28,8 @@ namespace VoxelRacer
         }
 
         private float boostEndsAt;
+        private readonly float[] charges = { 1f, 1f };
+        private int nextCharge;
         private ParticleSystem[] exhaustFireEffects;
 
         public void Configure(VoxelCarController player, VoxelBoostTuning tuning)
@@ -32,7 +38,10 @@ namespace VoxelRacer
             Target = player;
             if (Target != null) Target.BoostController = this;
             Tuning = tuning;
-            ChargePercent = 1f;
+            ChargeCount = tuning is VoxelBoostUpgradeTuning upgrade ? Mathf.Clamp(upgrade.bottleCount, 1, 2) : 1;
+            charges[0] = charges[1] = 1f;
+            nextCharge = 0;
+            ActiveChargeIndex = -1;
             IsBoosting = false;
             Target?.SetBoostSpeedBonus(0f);
             SetBoostForwardOffset(false);
@@ -46,7 +55,14 @@ namespace VoxelRacer
                 return false;
 
             IsBoosting = true;
-            ChargePercent = 1f;
+            for (int offset = 0; offset < ChargeCount; offset++)
+            {
+                int index = (nextCharge + offset) % ChargeCount;
+                if (charges[index] < .999f) continue;
+                ActiveChargeIndex = index;
+                nextCharge = (index + 1) % ChargeCount;
+                break;
+            }
             boostEndsAt = Time.time + Tuning.boostLength;
             Target.SetBoostSpeedBonus(Tuning.boostSpeed, Tuning.boostAccelerationMultiplier);
             SetBoostForwardOffset(true);
@@ -63,26 +79,34 @@ namespace VoxelRacer
             if (Keyboard.current != null && Keyboard.current.altKey.wasPressedThisFrame)
                 TryActivateBoost();
 
+            AdvanceCharges(Time.time, Time.deltaTime);
+        }
+
+        private void AdvanceCharges(float now, float deltaTime)
+        {
+            // Cooldowns continue on idle bottles even while another bottle is boosting.
+            for (int index = 0; index < ChargeCount; index++)
+                if (index != ActiveChargeIndex && charges[index] < 1f)
+                    charges[index] = Mathf.Clamp01(charges[index] + deltaTime / Mathf.Max(.05f, Tuning.rechargeCooldownLength));
+
             if (IsBoosting)
             {
-                ChargePercent = Mathf.Clamp01((boostEndsAt - Time.time) / Tuning.boostLength);
-                if (Time.time < boostEndsAt && !ShouldCancelBoost())
+                charges[ActiveChargeIndex] = Mathf.Clamp01((boostEndsAt - now) / Mathf.Max(.05f, Tuning.boostLength));
+                if (now < boostEndsAt && !ShouldCancelBoost())
                     return;
 
                 IsBoosting = false;
-                ChargePercent = 0f;
+                charges[ActiveChargeIndex] = 0f;
+                ActiveChargeIndex = -1;
                 Target.SetBoostSpeedBonus(0f);
                 SetBoostForwardOffset(false);
                 SetExhaustFireEmission(false);
             }
-
-            if (ChargePercent < 1f)
-                ChargePercent = Mathf.Clamp01(ChargePercent + Time.deltaTime / Tuning.rechargeCooldownLength);
         }
 
         private bool CanUseBoost()
         {
-            return !VoxelPauseMenu.IsPaused && Target != null && Tuning != null && !Target.IsDestroyed && IsReady &&
+            return isActiveAndEnabled && !VoxelLoadingScreen.IsLoading && !VoxelPauseMenu.IsPaused && Target != null && Tuning != null && !Target.IsDestroyed && IsReady &&
                 (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete) &&
                 (VoxelMissionProgress.Active == null || !VoxelMissionProgress.Active.IsComplete);
         }
@@ -93,6 +117,9 @@ namespace VoxelRacer
 
         private void OnDisable()
         {
+            if (IsBoosting && ActiveChargeIndex >= 0) charges[ActiveChargeIndex] = 0f;
+            IsBoosting = false;
+            ActiveChargeIndex = -1;
             if (Target != null)
             {
                 Target.SetBoostSpeedBonus(0f);

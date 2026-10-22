@@ -25,9 +25,8 @@ namespace VoxelRacer
         {
             public readonly VoxelGarageUpgradeKind Kind;
             public readonly int Slot, Price;
-            public readonly string Title;
-            public PendingUpgrade(VoxelGarageUpgradeKind kind, int slot, int price, string title)
-            { Kind = kind; Slot = slot; Price = price; Title = title; }
+            public PendingUpgrade(VoxelGarageUpgradeKind kind, int slot, int price)
+            { Kind = kind; Slot = slot; Price = price; }
         }
         private int PendingCount(VoxelGarageUpgradeKind kind) => upgradePlacement?.PendingCount(kind) ?? 0;
         private int AvailableUpgradeCash => Mathf.Max(0, VoxelCurrencyState.Balance - quotedUpgradePrice);
@@ -36,52 +35,73 @@ namespace VoxelRacer
         private int placementPointerId;
         private bool placementPointerDragged;
 
+        private static string UpgradeDisplayName(VoxelGarageUpgradeKind kind)
+        {
+            string name=kind switch
+            {
+                VoxelGarageUpgradeKind.Armour => VoxelArmorTuning.Load()?.displayName,
+                VoxelGarageUpgradeKind.Guns => VoxelGunUpgradeState.LongGunTuning?.displayName,
+                VoxelGarageUpgradeKind.Missiles => VoxelMissileLauncherTuning.Load()?.weapon?.displayName,
+                VoxelGarageUpgradeKind.Wheels => VoxelPerformanceWheelTuning.Load()?.displayName,
+                VoxelGarageUpgradeKind.Spikes => VoxelWheelSpikeTuning.Load()?.displayName,
+                VoxelGarageUpgradeKind.StarSpikes => VoxelWheelSpikeTuning.LoadStar()?.displayName,
+                VoxelGarageUpgradeKind.Boost => VoxelBoostUpgradeTuning.LoadUpgrade()?.displayName,
+                VoxelGarageUpgradeKind.DualBoost => VoxelBoostUpgradeTuning.LoadDualUpgrade()?.displayName,
+                VoxelGarageUpgradeKind.Engine => VoxelEngineUpgradeTuning.Load()?.displayName,
+                VoxelGarageUpgradeKind.Plough => VoxelPloughTuning.Load()?.displayName,
+                _ => null
+            };
+            return string.IsNullOrWhiteSpace(name)?kind.ToString().ToUpperInvariant():name.Trim().ToUpperInvariant();
+        }
+
         private bool UpgradeOffer(VoxelGarageUpgradeKind kind, out int price, out string title)
         {
-            price = 0; title = string.Empty;
+            price = 0; title = UpgradeDisplayName(kind);
             switch (kind)
             {
                 case VoxelGarageUpgradeKind.Armour:
                     var armour = VoxelArmorTuning.Load();
                     if (armour == null) return false;
-                    price = armour.panelPurchasePrice; title = "DOOR ARMOUR";
+                    price = armour.panelPurchasePrice;
                     return armour.panelPrefab != null && armour.Fits(definition) && !VoxelArmorUpgradeState.IsFullyPurchased;
                 case VoxelGarageUpgradeKind.Guns:
                     var gun = VoxelGunUpgradeState.LongGunTuning;
                     if (gun == null) return false;
-                    price = gun.purchasePrice; title = gun.displayName.ToUpperInvariant();
+                    price = gun.purchasePrice;
                     return VoxelGunUpgradeState.CanPurchase(gun);
                 case VoxelGarageUpgradeKind.Missiles:
                     var missile = VoxelMissileLauncherTuning.Load();
                     if (missile == null || missile.weapon == null) return false;
-                    price = missile.weapon.purchasePrice; title = "MISSILE LAUNCHER";
+                    price = missile.weapon.purchasePrice;
                     return missile.Fits(definition) && (!VoxelMissileUpgradeState.IsPurchased(false) || !VoxelMissileUpgradeState.IsPurchased(true));
                 case VoxelGarageUpgradeKind.Wheels:
                     var wheels = VoxelPerformanceWheelTuning.Load();
                     if (wheels == null) return false;
-                    price = wheels.purchasePrice; title = "PERFORMANCE TIRES";
+                    price = wheels.purchasePrice;
                     return wheels.Fits(definition) && !VoxelPerformanceWheelUpgradeState.IsPurchased;
                 case VoxelGarageUpgradeKind.Spikes:
                 case VoxelGarageUpgradeKind.StarSpikes:
                     var spikes = kind == VoxelGarageUpgradeKind.StarSpikes ? VoxelWheelSpikeTuning.LoadStar() : VoxelWheelSpikeTuning.Load();
                     if (spikes == null) return false;
-                    price = spikes.purchasePrice; title = spikes.displayName.ToUpperInvariant();
+                    price = spikes.purchasePrice;
                     return spikes.Fits(definition) && VoxelWheelSpikeUpgradeState.CanPurchase(spikes) &&
                         PendingCount(kind == VoxelGarageUpgradeKind.Spikes ? VoxelGarageUpgradeKind.StarSpikes : VoxelGarageUpgradeKind.Spikes) == 0;
                 case VoxelGarageUpgradeKind.Boost:
-                    var boost = VoxelBoostUpgradeTuning.LoadUpgrade();
+                case VoxelGarageUpgradeKind.DualBoost:
+                    var boost = kind == VoxelGarageUpgradeKind.DualBoost ? VoxelBoostUpgradeTuning.LoadDualUpgrade() : VoxelBoostUpgradeTuning.LoadUpgrade();
                     if (boost == null) return false;
-                    price = boost.purchasePrice; title = "BOOST BOTTLE";
-                    return boost.Fits(definition) && !VoxelBoostUpgradeState.IsPurchased;
+                    price = boost.purchasePrice;
+                    return VoxelBoostUpgradeState.CanPurchase(boost, definition) &&
+                        PendingCount(kind == VoxelGarageUpgradeKind.Boost ? VoxelGarageUpgradeKind.DualBoost : VoxelGarageUpgradeKind.Boost) == 0;
                 case VoxelGarageUpgradeKind.Engine:
                     var engine = VoxelEngineUpgradeTuning.Load();
                     if (engine == null) return false;
-                    price = engine.purchasePrice; title = engine.displayName.ToUpperInvariant();
+                    price = engine.purchasePrice;
                     return engine.Fits(definition) && !VoxelEngineUpgradeState.IsPurchased;
                 case VoxelGarageUpgradeKind.Plough:
                     var plough = VoxelPloughTuning.Load();
                     if (plough == null) return false;
-                    price = plough.purchasePrice; title = plough.displayName.ToUpperInvariant();
+                    price = plough.purchasePrice;
                     return VoxelPloughUpgradeState.CanPurchase(plough, definition);
             }
             return false;
@@ -91,7 +111,7 @@ namespace VoxelRacer
         {
             if (isLoading || DisplayedCar == null || MissionStartWarningVisible) return;
             if (PendingCount(kind) > 0) { RemovePendingUpgrade(kind, -1); return; }
-            if (!UpgradeOffer(kind, out int price, out string title) || AvailableUpgradeCash < price) return;
+            if (!UpgradeOffer(kind, out int price, out _) || AvailableUpgradeCash < price) return;
             int capacity = kind == VoxelGarageUpgradeKind.Guns ? Mathf.Clamp(VoxelGunUpgradeState.LongGunTuning.maximumPurchases, 1, 2) :
                 kind == VoxelGarageUpgradeKind.Armour || kind == VoxelGarageUpgradeKind.Missiles ? 2 : 1;
             int owned = kind == VoxelGarageUpgradeKind.Guns ? VoxelGunUpgradeState.PurchasedLongGunCount :
@@ -102,7 +122,7 @@ namespace VoxelRacer
             {
                 if (upgradePlacement == null) upgradePlacement = new VoxelGarageUpgradePlacement(DisplayedCar.gameObject, kind);
                 else upgradePlacement.ShowKind(kind);
-                if (!upgradePlacement.RequiresPlacement) AddPendingUpgrade(kind, 0, price, title);
+                if (!upgradePlacement.RequiresPlacement) AddPendingUpgrade(kind, 0, price);
                 RefreshPlacementPresentation();
             }
             catch (Exception e)
@@ -116,17 +136,17 @@ namespace VoxelRacer
         private void SelectUpgradePlacement(int slot)
         {
             if (MissionStartWarningVisible || upgradePlacement == null || !upgradePlacement.RequiresPlacement ||
-                !UpgradeOffer(upgradePlacement.Kind, out int price, out string title) || AvailableUpgradeCash < price ||
+                !UpgradeOffer(upgradePlacement.Kind, out int price, out _) || AvailableUpgradeCash < price ||
                 upgradePlacement.IsPending(upgradePlacement.Kind, slot)) return;
             upgradePlacement.Select(slot);
-            AddPendingUpgrade(upgradePlacement.Kind, slot, price, title);
+            AddPendingUpgrade(upgradePlacement.Kind, slot, price);
             RefreshPlacementPresentation();
         }
 
-        private void AddPendingUpgrade(VoxelGarageUpgradeKind kind, int slot, int price, string title)
+        private void AddPendingUpgrade(VoxelGarageUpgradeKind kind, int slot, int price)
         {
             price = Mathf.Max(0, price);
-            pendingUpgrades.Add(new PendingUpgrade(kind, slot, price, title));
+            pendingUpgrades.Add(new PendingUpgrade(kind, slot, price));
             quotedUpgradePrice += price;
         }
 
@@ -229,7 +249,7 @@ namespace VoxelRacer
                 foreach (var selected in pendingUpgrades) if (selected.Kind == part.Kind)
                 { if (selected.Slot == 0) left = true; else right = true; }
                 if (text.Length > 0) text.Append("\n\n");
-                text.Append(part.Title);
+                text.Append(UpgradeDisplayName(part.Kind));
                 if (part.Kind == VoxelGarageUpgradeKind.Armour || part.Kind == VoxelGarageUpgradeKind.Guns || part.Kind == VoxelGarageUpgradeKind.Missiles)
                     text.Append("\n").Append(left && right ? "LEFT + RIGHT  X2" : left ? "LEFT" : "RIGHT");
             }
@@ -300,6 +320,7 @@ namespace VoxelRacer
                 case VoxelGarageUpgradeKind.Spikes: TryPurchaseWheelSpikes(); break;
                 case VoxelGarageUpgradeKind.StarSpikes: TryPurchaseStarWheelSpikes(); break;
                 case VoxelGarageUpgradeKind.Boost: TryPurchaseBoostBottle(); break;
+                case VoxelGarageUpgradeKind.DualBoost: TryPurchaseBoostBottle(true); break;
                 case VoxelGarageUpgradeKind.Engine: TryPurchaseEngine(); break;
                 case VoxelGarageUpgradeKind.Plough: TryPurchasePlough(); break;
             }

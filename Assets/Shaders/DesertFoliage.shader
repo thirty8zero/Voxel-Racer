@@ -7,6 +7,8 @@ Shader "Voxel Racer/Desert Foliage"
         _Cutoff("Alpha Cutoff", Range(0,1)) = .45
         _FadeStart("Fade Start", Float) = 110
         _DrawDistance("Draw Distance", Float) = 150
+        [HideInInspector] _FadeInStart("Fade In Start", Float) = 0
+        [HideInInspector] _FadeInEnd("Fade In End", Float) = 0
     }
     SubShader
     {
@@ -26,20 +28,28 @@ Shader "Voxel Racer/Desert Foliage"
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
             CBUFFER_START(UnityPerMaterial)
                 half4 _Tint;
-                float _Cutoff, _FadeStart, _DrawDistance;
+                float _Cutoff, _FadeStart, _DrawDistance, _FadeInStart, _FadeInEnd;
             CBUFFER_END
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; half4 colour : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float3 growthPivot : TEXCOORD1; half4 colour : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; half3 light : TEXCOORD1; half fog : TEXCOORD2; float distance : TEXCOORD3; half4 colour : COLOR; UNITY_VERTEX_OUTPUT_STEREO };
             Varyings Vert(Attributes input)
             {
                 UNITY_SETUP_INSTANCE_ID(input);
                 Varyings output; UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-                float3 world = TransformObjectToWorld(input.positionOS.xyz);
+                // Standalone instanced cards use the mesh origin; combined nearby
+                // clumps carry their individual ground anchor in UV1.
+                float3 anchor = TransformObjectToWorld(input.growthPivot);
+                float viewDistance = distance(anchor, _WorldSpaceCameraPos);
+                float grow = saturate((_DrawDistance - viewDistance) / max(1, _DrawDistance - _FadeStart));
+                if (_FadeInEnd > 0)
+                    grow *= saturate((viewDistance - _FadeInStart) / max(1, _FadeInEnd - _FadeInStart));
+                grow = smoothstep(0, 1, grow);
+                float3 world = TransformObjectToWorld(lerp(input.growthPivot, input.positionOS.xyz, grow));
                 output.positionCS = TransformWorldToHClip(world); output.uv = input.uv;
                 float3 normal = TransformObjectToWorldNormal(input.normalOS);
                 Light sun = GetMainLight();
                 output.light = half3(.42,.42,.42) + sun.color * (.35 + .25 * abs(dot(normal, sun.direction)));
-                output.fog = ComputeFogFactor(output.positionCS.z); output.distance = distance(world, _WorldSpaceCameraPos);
+                output.fog = ComputeFogFactor(output.positionCS.z); output.distance = viewDistance;
                 output.colour = input.colour;
                 return output;
             }
@@ -48,6 +58,8 @@ Shader "Voxel Racer/Desert Foliage"
                 half4 plant = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
                 clip(plant.a - _Cutoff);
                 float fade = saturate((_DrawDistance - input.distance) / max(1, _DrawDistance - _FadeStart));
+                if (_FadeInEnd > 0)
+                    fade *= saturate((input.distance - _FadeInStart) / max(1, _FadeInEnd - _FadeInStart));
                 float dither = frac(52.9829189 * frac(dot(floor(input.positionCS.xy), float2(.06711056,.00583715))));
                 clip(fade - dither);
                 half3 colour = plant.rgb * _Tint.rgb * input.colour.rgb * input.light;

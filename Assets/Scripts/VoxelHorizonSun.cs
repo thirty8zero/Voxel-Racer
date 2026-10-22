@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace VoxelRacer
 {
-    /// <summary>A flat, stepped yellow disc behind the mountains, independent of vehicle heading.</summary>
+    /// <summary>A flat, stepped sun or moon behind the mountains, independent of vehicle heading.</summary>
     [ExecuteAlways]
     public sealed class VoxelHorizonSun : MonoBehaviour
     {
@@ -74,14 +74,15 @@ namespace VoxelRacer
             distanceAhead = Mathf.Max(trackDefinition.sunDistanceAhead, trackDefinition.mountainDistance + 5f);
             azimuthDegrees = trackDefinition.sunAzimuthDegrees;
             horizontalOffset = trackDefinition.sunHorizontalOffset;
-            horizonHeight = trackDefinition.sunHorizonHeight;
+            horizonHeight = trackDefinition.nightTime ? trackDefinition.moonHorizonHeight : trackDefinition.sunHorizonHeight;
             diameter = trackDefinition.sunDiameter;
-            colour = trackDefinition.sunColour;
+            colour = trackDefinition.nightTime ? trackDefinition.moonColour : trackDefinition.sunColour;
         }
 
         private void ApplyColour()
         {
             properties.SetColor(BaseColour, colour);
+            properties.SetFloat("_HorizonBackground", 1f);
             discRenderer.SetPropertyBlock(properties);
             appliedColour = colour;
         }

@@ -4,6 +4,7 @@ using UnityEngine.UI;
 namespace VoxelRacer
 {
     public enum VoxelGarageUpgradeState { Affordable, Unaffordable, Equipped, Incompatible, Pending }
+    public enum VoxelGarageUpgradeCategory { Armor, WheelsAndTires, Guns, Missiles, Boost, Engines }
 
     /// <summary>Presentation only; purchase callbacks and ownership remain with the garage shop.</summary>
     public sealed class VoxelGarageUpgradeCard : MonoBehaviour
@@ -12,14 +13,20 @@ namespace VoxelRacer
         public int Cost { get; private set; }
         public bool FullyPurchased { get; private set; }
         public int CatalogueOrder { get; private set; }
+        public VoxelGarageUpgradeCategory Category { get; private set; }
+        public VoxelGarageUpgradeKind UpgradeKind { get; private set; }
         private Button button;
         private VoxelGaragePanel frame;
         private VoxelGarageUpgradeIcon icon;
         private Text titleLabel, price, status, slots;
         private readonly Image[] segments = new Image[4];
-        public void Build(Button purchaseButton, string title, VoxelGarageIconKind kind, Font heading, Font body, int catalogueOrder = 0)
+        public void Build(Button purchaseButton, string title, VoxelGarageIconKind kind, Font heading, Font body, int catalogueOrder = 0,
+            VoxelGarageUpgradeCategory category = VoxelGarageUpgradeCategory.Armor,
+            VoxelGarageUpgradeKind upgradeKind = VoxelGarageUpgradeKind.Armour)
         {
             CatalogueOrder = catalogueOrder;
+            Category = category;
+            UpgradeKind = upgradeKind;
             button = purchaseButton;
             // Retain the original label for the existing shop refresh/validation paths.
             button.GetComponentInChildren<Text>().enabled = false;
@@ -53,6 +60,10 @@ namespace VoxelRacer
             var label = VoxelMenuUi.CreateText(transform, name, text, size, TextAnchor.MiddleCenter,
                 new Vector2(.5f, .5f), new Vector2(0, y), new Vector2(190, height));
             label.font = font; return label;
+        }
+        public void SetTitle(string title)
+        {
+            if(titleLabel!=null && titleLabel.text!=title)titleLabel.text=title;
         }
         public void Refresh(int cost, bool compatible, int owned, int capacity = 1, int pending = 0, int availableCash = -1)
         {

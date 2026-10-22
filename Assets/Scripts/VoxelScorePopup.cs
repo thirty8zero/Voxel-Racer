@@ -30,18 +30,22 @@ namespace VoxelRacer
         // vertical even while the chase camera and target vehicle are both moving.
         private const float WeaponScreenRisePixelsPerSecond = 180f;
         private const float DestroyedScoreSideDriftSpeed = 5.5f;
+        private const float InterruptedTravelDuration = .3f;
         private static readonly Queue<VoxelScorePopup> Pool = new();
         private static Transform poolRoot;
+        private static VoxelScorePopup heldHudPopup;
 
         private float elapsed;
         private float lifetime;
         private float riseSpeed;
         private float riseDuration;
         private float fadeOutDuration;
+        private float holdDuration;
         private Vector3 sideDriftDirection;
         private Camera viewCamera;
         private string displayText;
         private Style displayStyle;
+        private bool isNegativeScore;
         private bool screenPositionLocked;
         private Vector3 lockedScreenPosition;
         private static GUIStyle weaponStyle;
@@ -50,14 +54,18 @@ namespace VoxelRacer
         private static GUIStyle destroyedStyle;
         private static GUIStyle nearMissTitleStyle;
         private static GUIStyle nearMissPointsStyle;
+        private static Font penaltyFont;
+        private static readonly Dictionary<Style, GUIStyle> PenaltyStyles = new();
+        private static readonly Dictionary<int, float> HudTopExtents = new();
         private static readonly List<Rect> DrawnPopupRects = new();
         private static int popupLayoutFrame = -1;
         private bool FliesToMission => displayStyle == Style.WeaponDamage || displayStyle == Style.RamDamage ||
             displayStyle == Style.EnemyDestroyed || displayStyle == Style.FuelDrumDestroyed ||
             displayStyle == Style.NearMiss;
+        private bool UsesHudSlot => FliesToMission && (displayStyle != Style.WeaponDamage || isNegativeScore);
 
-        public static float MissionFlightProgress(float age, float duration) =>
-            Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((age - .12f) / Mathf.Max(.01f, duration - .12f)));
+        public static float MissionFlightProgress(float age, float duration, float holdDuration = .12f) =>
+            Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((age - holdDuration) / Mathf.Max(.01f, duration - holdDuration)));
 
         public static void Show(Vector3 position, int points, Style style, float lifetimeOverride = -1f)
         {
@@ -99,6 +107,7 @@ namespace VoxelRacer
 
         private void Begin(Vector3 position, int points, Style style, float lifetimeOverride)
         {
+            ReleaseHeldSlot();
             elapsed = 0f;
             viewCamera = Camera.main;
             // Scatter on the camera's screen-horizontal axis so simultaneous awards
@@ -113,6 +122,7 @@ namespace VoxelRacer
             displayText = points > 0 ? $"+{points}" : points.ToString();
             if (style == Style.BonusCash) displayText = $"+${points}";
             displayStyle = style;
+            isNegativeScore = points < 0;
             screenPositionLocked = false;
 
             if ((FliesToMission || style == Style.BonusCash) && viewCamera != null)
@@ -165,14 +175,68 @@ namespace VoxelRacer
             }
 
             gameObject.SetActive(true);
-            if (FliesToMission) fadeOutDuration = 0f;
+            if (FliesToMission)
+            {
+                var tuning = VoxelMissionProgress.Active?.Tuning;
+                holdDuration = Mathf.Max(0f, tuning == null ? .12f : style == Style.WeaponDamage
+                    ? tuning.voxelDamagePopupHoldSeconds : tuning.damagePopupHoldSeconds);
+                lifetime = holdDuration + Mathf.Max(.01f, lifetime - .12f);
+                fadeOutDuration = 0f;
+            }
+            if (UsesHudSlot)
+            {
+                if (heldHudPopup != null) heldHudPopup.LaunchEarly();
+                heldHudPopup = this;
+                float topExtent = GetHudPopupTopExtent(style, isNegativeScore);
+                Vector2 origin = VoxelMissionProgress.Active != null
+                    ? VoxelMissionProgress.Active.GetNonVoxelDamagePopupOrigin(topExtent)
+                    : new Vector2(Screen.width * .5f, 129f * Screen.height / 1080f + topExtent);
+                lockedScreenPosition = new Vector3(origin.x, Screen.height - origin.y, 1f);
+                screenPositionLocked = true;
+            }
         }
+
+        private static Font PenaltyFont => penaltyFont != null ? penaltyFont :
+            penaltyFont = Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
+
+        private static float GetHudPopupTopExtent(Style style, bool negative)
+        {
+            if (style == Style.NearMiss) return 100f; // Title above its score line.
+            int size = style == Style.WeaponDamage ? 60 : style == Style.RamDamage ? 152 : 192;
+            int key = size * 2 + (negative ? 1 : 0);
+            if (HudTopExtents.TryGetValue(key, out float extent)) return extent;
+            Font font = negative ? PenaltyFont : VoxelHudStyles.HudFont;
+            font.RequestCharactersInTexture("0123456789", size, FontStyle.Normal);
+            float height = 0f;
+            foreach (char digit in "0123456789")
+                if (font.GetCharacterInfo(digit, out CharacterInfo glyph, size, FontStyle.Normal))
+                    height = Mathf.Max(height, glyph.glyphHeight);
+            extent = (height > 0f ? height : size) * .5f + 2f;
+            HudTopExtents[key] = extent;
+            return extent;
+        }
+
+        private void LaunchEarly()
+        {
+            if (elapsed < holdDuration)
+            {
+                // Leave the shared reading spot promptly while keeping the award's tally flight.
+                float travelDuration = Mathf.Min(InterruptedTravelDuration, lifetime - holdDuration);
+                elapsed = holdDuration;
+                lifetime = holdDuration + travelDuration;
+            }
+            ReleaseHeldSlot();
+        }
+
+        private void ReleaseHeldSlot() { if (heldHudPopup == this) heldHudPopup = null; }
+        private void OnDisable() => ReleaseHeldSlot();
 
         private void Update()
         {
             elapsed += Time.deltaTime;
             if (FliesToMission)
             {
+                if (elapsed >= holdDuration) ReleaseHeldSlot();
                 // Keep the spawn point fixed while the camera and damaged vehicle move.
                 if (!screenPositionLocked && Camera.main != null)
                 {
@@ -213,6 +277,7 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
+            if (VoxelLoadingScreen.IsLoading) return;
             // These are absolute-position IMGUI labels, so calculating and drawing
             // only during repaint prevents Layout/Repaint from registering a popup
             // twice in the overlap list.
@@ -221,7 +286,7 @@ namespace VoxelRacer
 
             if (viewCamera == null)
                 viewCamera = Camera.main;
-            if (viewCamera == null || string.IsNullOrEmpty(displayText))
+            if ((!UsesHudSlot && viewCamera == null) || string.IsNullOrEmpty(displayText))
                 return;
 
             Vector3 screenPosition = screenPositionLocked
@@ -232,11 +297,11 @@ namespace VoxelRacer
 
             if (FliesToMission)
             {
-                float progress = MissionFlightProgress(elapsed, lifetime);
+                float progress = MissionFlightProgress(elapsed, lifetime, holdDuration);
                 float scale = 1f - progress;
                 if (scale <= .0001f) return;
                 Vector2 destination = VoxelMissionProgress.Active != null
-                    ? VoxelMissionProgress.Active.PercentageScreenPosition : new Vector2(Screen.width * .5f, 39f);
+                    ? VoxelMissionProgress.Active.ScoreScreenPosition : new Vector2(Screen.width * .5f, 39f);
                 Vector2 start = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
                 Vector2 center = Vector2.Lerp(start, destination, progress);
                 var matrix = GUI.matrix;
@@ -245,19 +310,19 @@ namespace VoxelRacer
                     GUIUtility.ScaleAroundPivot(Vector2.one * scale, center);
                     if (displayStyle == Style.NearMiss)
                     {
-                        DrawOutlinedLabel(new Rect(center.x - 130f, center.y - 72f, 260f, 54f), "NEAR MISS!",
+                        DrawOutlinedLabel(new Rect(center.x - 130f, center.y - 112f, 260f, 54f), "NEAR MISS!",
                             nearMissTitleStyle ??= CreateStyle(38, Color.white));
-                        DrawOutlinedLabel(new Rect(center.x - 130f, center.y - 20f, 260f, 78f), displayText,
-                            nearMissPointsStyle ??= CreateStyle(76, new Color(1f, .86f, .08f)));
+                        DrawOutlinedLabel(new Rect(center.x - 260f, center.y - 58f, 520f, 156f), displayText,
+                            nearMissPointsStyle ??= CreateStyle(152, new Color(1f, .86f, .08f)));
                     }
                     else
-                        DrawOutlinedLabel(new Rect(center.x - 140f, center.y - 60f, 280f, 120f), displayText, GetStyle(displayStyle));
+                        DrawOutlinedLabel(new Rect(center.x - 280f, center.y - 120f, 560f, 240f), displayText, GetStyle(displayStyle, isNegativeScore));
                 }
                 finally { GUI.matrix = matrix; }
                 return;
             }
 
-            GUIStyle style = GetStyle(displayStyle);
+            GUIStyle style = GetStyle(displayStyle, isNegativeScore);
             float width = displayStyle == Style.WeaponDamage ? 150f : 240f;
             float height = displayStyle == Style.WeaponDamage ? 64f : 120f;
             bool driftsOffscreen = displayStyle == Style.FuelDrumDestroyed ||
@@ -348,8 +413,18 @@ namespace VoxelRacer
             return Mathf.Clamp01((lifetime - elapsed) / fadeOutDuration);
         }
 
-        private static GUIStyle GetStyle(Style style)
+        private static GUIStyle GetStyle(Style style, bool negative = false)
         {
+            if (negative)
+            {
+                if (!PenaltyStyles.TryGetValue(style, out var penalty))
+                {
+                    penalty = CreateStyle(GetStyle(style).fontSize, new Color(1f, .15f, .1f));
+                    penalty.font = PenaltyFont;
+                    PenaltyStyles[style] = penalty;
+                }
+                return penalty;
+            }
             switch (style)
             {
                 case Style.BonusCash:
@@ -360,12 +435,12 @@ namespace VoxelRacer
                     }
                     return cashStyle;
                 case Style.RamDamage:
-                    return ramStyle ??= CreateStyle(76, new Color(1f, 0.38f, 0.04f));
+                    return ramStyle ??= CreateStyle(152, new Color(1f, 0.38f, 0.04f));
                 case Style.EnemyDestroyed:
                 case Style.FuelDrumDestroyed:
-                    return destroyedStyle ??= CreateStyle(96, new Color(0.96f, 0.08f, 0.04f));
+                    return destroyedStyle ??= CreateStyle(192, new Color(0.96f, 0.08f, 0.04f));
                 default:
-                    return weaponStyle ??= CreateStyle(30, new Color(1f, 0.86f, 0.08f));
+                    return weaponStyle ??= CreateStyle(60, new Color(1f, 0.86f, 0.08f));
             }
         }
 

@@ -6,7 +6,7 @@ namespace VoxelRacer
 {
     /// <summary>Generates and recycles a road measured along a shared centreline path.</summary>
     [ExecuteAlways]
-    public sealed class EndlessVoxelRoad : MonoBehaviour
+    public sealed partial class EndlessVoxelRoad : MonoBehaviour
     {
         [Header("Persistent Tuning")]
         [Tooltip("This road reads from the shared asset. Edit the asset itself to make persistent changes.")]
@@ -29,6 +29,10 @@ namespace VoxelRacer
         [Header("Segments")]
         [Min(5f)] public float segmentLength = 30f;
         [Min(3)] public int segmentCount = 8;
+        [Header("Road Horizon")]
+        public bool horizonRoadEnabled = true;
+        [Tooltip("Distance ahead covered by a lightweight road/shoulder/marking mesh. No extra scenery, traffic or colliders are generated.")]
+        [Range(100f, 1000f)] public float horizonRoadDistance = 760f;
         [Min(0f)] public float recycleBehindDistance = 45f;
         [Header("Turning Road Pieces")]
         [Range(0f, 1f)] public float turnChancePerSegment = 0.35f;
@@ -107,6 +111,7 @@ namespace VoxelRacer
         }
 
         internal float SceneryTrackDistance => targetController != null ? targetController.TrackDistance : 0;
+        internal uint PathRevision { get; private set; }
 
         public void SetTuning(VoxelRoadTuning value)
         {
@@ -126,6 +131,7 @@ namespace VoxelRacer
         {
             if (pathSegments.Count > 0)
                 return;
+            PathRevision++;
             EnsureContinuousGround();
             if (Application.isPlaying && randomizeTurnSeedEachRun && !hasRandomizedTurnSeedForRun)
             {
@@ -140,6 +146,7 @@ namespace VoxelRacer
             for (int index = 0; index < Mathf.Max(3, segmentCount); index++)
                 AppendSegment(true);
             CaptureAppliedValues();
+            RefreshHorizonRoad();
         }
 
         /// <summary>Compatibility hook used by the generated-scene bootstrap.</summary>
@@ -158,6 +165,7 @@ namespace VoxelRacer
                 child.gameObject.SetActive(false);
                 if (Application.isPlaying) Destroy(child.gameObject); else DestroyImmediate(child.gameObject);
             }
+            horizonStart = float.NaN;
             BuildInitialRoad();
         }
 
@@ -251,11 +259,13 @@ namespace VoxelRacer
             maximumTurnAngle = Mathf.Max(minimumTurnAngle, maximumTurnAngle);
             maximumTrackHeading = Mathf.Max(maximumTurnAngle, maximumTrackHeading);
             curveDegreesPerSlice = Mathf.Max(1f, curveDegreesPerSlice);
+            horizonRoadDistance = Mathf.Clamp(horizonRoadDistance, 100f, 1000f);
         }
 
         private void RebuildRoadVisuals()
         {
             isRebuilding = true;
+            horizonStart = float.NaN;
             DestroyRoadSegments(true);
             pathSegments.Clear();
             visibleSegments.Clear();
@@ -325,6 +335,7 @@ namespace VoxelRacer
                 next.visual = CreateSegmentVisual(next);
                 visibleSegments.Add(next);
             }
+            RefreshHorizonRoad();
         }
 
         /// <summary>Restores recently recycled road only for the finish shot, then freezes recycling.</summary>
@@ -352,6 +363,7 @@ namespace VoxelRacer
         {
             rebuildQueued = true;
             isRebuilding = true;
+            horizonStart = float.NaN;
             DestroyRoadSegments(false);
             pathSegments.Clear();
             visibleSegments.Clear();
@@ -503,7 +515,12 @@ namespace VoxelRacer
                 continuousGround.SetAsFirstSibling();
             }
 
-            continuousGround.localScale = new Vector3(groundWidth, 0.25f, groundWidth);
+            // The extension must have ground beneath it beyond the old 350m edge.
+            // This only enlarges the existing single box; scenery coverage/density
+            // still use the authored groundWidth and retain their current budgets.
+            float groundCoverage = horizonRoadEnabled
+                ? Mathf.Max(groundWidth, (horizonRoadDistance + segmentLength * 2f) * 2f) : groundWidth;
+            continuousGround.localScale = new Vector3(groundCoverage, 0.25f, groundCoverage);
             var renderer = continuousGround.GetComponent<MeshRenderer>();
             if (renderer != null)
                 renderer.sharedMaterial = VoxelRacerBootstrap.GroundMaterial;
@@ -542,6 +559,7 @@ namespace VoxelRacer
             cactus.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
             BuildRandomCactusVisual(cactus, minimumCactusHeightScale, maximumCactusHeightScale, minimumCactusWidthScale, maximumCactusWidthScale,
                 trackDefinition != null ? trackDefinition.cactusShades : null);
+            VoxelSpawnScaleIn.Play(cactus.gameObject);
         }
 
         internal static void BuildRandomCactusVisual(Transform cactus, float minimumHeightScale,
@@ -610,6 +628,7 @@ namespace VoxelRacer
                     if (overlaps) continue;
                     var instance = VoxelScenerySet.Spawn(entry, segment, position, scale);
                     occupied.Add(instance.GetComponent<VoxelSceneryInstance>());
+                    VoxelSpawnScaleIn.Play(instance);
                     break;
                 }
             }
@@ -634,6 +653,7 @@ namespace VoxelRacer
                 scenery.transform.position = pose.position + pose.right * side * Random.Range(minimumOffset, maximumOffset);
                 scenery.transform.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
                 scenery.transform.localScale *= Random.Range(trackDefinition.minimumSceneryScale, trackDefinition.maximumSceneryScale);
+                VoxelSpawnScaleIn.Play(scenery);
             }
         }
 

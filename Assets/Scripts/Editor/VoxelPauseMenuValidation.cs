@@ -34,6 +34,8 @@ namespace VoxelRacer.Editor
         private static float savedScale, started, phaseStarted, gameClock, bonusClock, cooldown, lane;
         private static Vector3 position;
         private static int phase;
+        private static bool sentPauseKey;
+        private static bool capturedPauseScreenshot;
 
         [InitializeOnLoadMethod]
         private static void Hook()
@@ -119,7 +121,8 @@ namespace VoxelRacer.Editor
                 pause.Configure(car);
                 integrity = root.AddComponent<VoxelCarIntegrityDisplay>(); integrity.target = car;
                 keyboard = InputSystem.AddDevice<Keyboard>();
-                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Escape));
+                sentPauseKey = false;
+                capturedPauseScreenshot = false;
                 phase = 0;
                 started = phaseStarted = Time.realtimeSinceStartup;
                 EditorApplication.update += Tick;
@@ -155,6 +158,13 @@ namespace VoxelRacer.Editor
             try
             {
                 Check(Time.realtimeSinceStartup - started < 25f, "Pause check timed out (phase " + phase + ").");
+                // Startup loading intentionally consumes menu input. Begin the test
+                // only once that overlay has released its input gate.
+                if (phase == 0 && !sentPauseKey && !VoxelLoadingScreen.IsLoading)
+                {
+                    InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.Escape));
+                    sentPauseKey = true;
+                }
                 if (phase == 0 && VoxelPauseMenu.IsPaused)
                 {
                     Snapshot();
@@ -205,9 +215,13 @@ namespace VoxelRacer.Editor
                     pausedCrate = hazard.AddComponent<VoxelObstacle>();
                     pausedCrate.Configure(car, null, null, car.TrackDistance, car.CurrentLaneOffset);
                     Directory.CreateDirectory("Temp");
-                    ScreenCapture.CaptureScreenshot("Temp/PauseMenu.png");
                     InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.LeftCtrl, Key.D, Key.LeftAlt));
                     phase = 4;
+                }
+                else if (phase == 4 && !capturedPauseScreenshot && Time.realtimeSinceStartup - phaseStarted > .25f)
+                {
+                    ScreenCapture.CaptureScreenshot("Temp/PauseMenu.png");
+                    capturedPauseScreenshot = true;
                 }
                 else if (phase == 4 && Time.realtimeSinceStartup - phaseStarted > 1f)
                 {

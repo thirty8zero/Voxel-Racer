@@ -25,6 +25,8 @@ MonoBehaviour:
   segmentCount: 8
   recycleBehindDistance: 45
   finishRoadBehindDistance: 150
+  horizonRoadEnabled: 1
+  horizonRoadDistance: 760
   turnChancePerSegment: 0.35
   minimumTurnAngle: 12
   maximumTurnAngle: 32

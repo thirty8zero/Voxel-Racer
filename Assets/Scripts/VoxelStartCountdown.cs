@@ -17,6 +17,7 @@ namespace VoxelRacer
         private float countdownStartedAt;
         private bool started;
         private bool prepared;
+        private bool waitingForLoadingScreen;
         private CanvasGroup openingFade;
 
         public bool IsComplete => started && Time.time - countdownStartedAt >= 3f;
@@ -45,6 +46,7 @@ namespace VoxelRacer
             target.SetDrivingEnabled(false);
             prepared = true;
             started = false;
+            waitingForLoadingScreen = false;
         }
 
         public void BeginCountdown()
@@ -56,6 +58,13 @@ namespace VoxelRacer
             EnsureOpeningFade();
             openingFade.gameObject.SetActive(true);
             openingFade.alpha = 1f;
+            if (VoxelLoadingScreen.IsLoading)
+            {
+                started = false;
+                waitingForLoadingScreen = true;
+                return;
+            }
+            waitingForLoadingScreen = false;
             openingStartedAt = Time.time;
             countdownStartedAt = openingStartedAt + blackScreenDuration + fadeInDuration;
             started = true;
@@ -69,6 +78,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            if (waitingForLoadingScreen && !VoxelLoadingScreen.IsLoading) BeginCountdown();
             if (target == null || !started)
                 return;
 
@@ -145,6 +155,7 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
+            if (VoxelLoadingScreen.IsLoading) return;
             if (!Application.isPlaying || target == null || !started || VoxelPauseMenu.IsPaused || VoxelPlayerDeathScreen.IsShowing)
                 return;
 

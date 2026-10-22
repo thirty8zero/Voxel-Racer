@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26135ffcab891994295171d69ac5176d, type: 3}
   m_Name: Traffic Tuning
   m_EditorClassIdentifier: 
-  spawnDistanceAhead: 200
+  spawnDistanceAhead: 250
   obstacleCarSpawnChance: 0.6
   oppositeDirectionChance: 0.7
   enemyCarSpawnChance: 0.5
@@ -24,8 +24,8 @@ MonoBehaviour:
   - vehicle: {fileID: 11400000, guid: 7ef7c7942375e48449e654ec812ee807, type: 2}
     spawnWeight: 1
   legacyEnemyVehiclePool: []
-  minimumWaveInterval: 1.5
-  maximumWaveInterval: 2.5
+  minimumWaveInterval: 1
+  maximumWaveInterval: 2
   minimumObjectsPerWave: 4
   maximumObjectsPerWave: 8
   sameLaneCivilianSpeedTolerance: 1
@@ -121,6 +121,8 @@ MonoBehaviour:
   segmentCount: 8
   recycleBehindDistance: 45
   finishRoadBehindDistance: 150
+  horizonRoadEnabled: 1
+  horizonRoadDistance: 760
   turnChancePerSegment: 0.2
   minimumTurnAngle: 15
   maximumTurnAngle: 45
@@ -164,6 +166,15 @@ MonoBehaviour:
     spawnWeight: 1
   - obstacle: {fileID: 11400000, guid: 6f275487debd2654bb47e3a2d9f2e5f4, type: 2}
     spawnWeight: 1
+  nightTime: 0
+  nightSkyboxMaterial: {fileID: 0}
+  moonColour: {r: 0.65, g: 0.82, b: 1, a: 1}
+  moonHorizonHeight: 20
+  nightLightColour: {r: 0.55, g: 0.7, b: 1, a: 1}
+  nightLightIntensity: 0.65
+  nightAmbientColour: {r: 0.24, g: 0.32, b: 0.48, a: 1}
+  nightFogColour: {r: 0.055, g: 0.09, b: 0.17, a: 1}
+  nightMountainTint: {r: 0.24, g: 0.36, b: 0.65, a: 1}
   skyboxMaterial: {fileID: 2100000, guid: 09f369df2178e084194d57d31526fab6, type: 2}
   roadMaterial: {fileID: 0}
   groundMaterial: {fileID: 0}
@@ -197,7 +208,7 @@ MonoBehaviour:
   fogEnabled: 1
   fogColour: {r: 0.58, g: 0.2, b: 0.18, a: 1}
   fogStartDistance: 90
-  fogEndDistance: 320
+  fogEndDistance: 720
   horizonSunEnabled: 1
   sunDistanceAhead: 220
   sunAzimuthDegrees: 45

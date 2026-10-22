@@ -28,6 +28,7 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
+            if (VoxelLoadingScreen.IsLoading) return;
             if (!Application.isPlaying || selectionComplete || target == null)
                 return;
 

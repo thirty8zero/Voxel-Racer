@@ -28,11 +28,26 @@ namespace VoxelRacer
                 fitsBeside ? missionArea.y : missionArea.yMax + 12f * scale, width, 105f * scale);
         }
 
+        public Vector2 GetNonVoxelDamagePopupOrigin(float topExtent)
+        {
+            Rect area = GetMissionHudArea(IsBossEncounter);
+            float badgeWidth = Mathf.Min(180f * HeaderScale, area.width * .26f);
+            float x = area.xMax - badgeWidth * .5f;
+            Rect multiplier = GetMultiplierArea(area);
+            float bottom = area.yMax;
+            // On narrow layouts the multiplier wraps beneath the progress panel.
+            if (multiplier.yMin >= area.yMax && multiplier.xMax > x - 280f && multiplier.xMin < x + 280f)
+                bottom = multiplier.yMax;
+            return new Vector2(Mathf.Clamp(x, 280f, Mathf.Max(280f, Screen.width - 280f)),
+                bottom + 6f * HeaderScale + topExtent);
+        }
+
         private void DrawMissionHeader(Rect area, bool compactBoss, float alpha)
         {
             float scale = HeaderScale;
             GUI.Box(area, GUIContent.none, VoxelHudStyles.Box(30));
             Color colour = IsComplete ? new Color(.25f, 1f, .38f) : Color.white;
+            Color scoreColour = GetMissionScoreColour(colour);
             float badgeWidth = Mathf.Min(180f * scale, area.width * .26f);
             var badge = new Rect(area.xMax - badgeWidth, area.y, badgeWidth, area.height);
             Fill(badge, new Color(.015f, .025f, .04f, .45f), alpha);
@@ -42,6 +57,8 @@ namespace VoxelRacer
 
             var headingArea = new Rect(area.x + 36f * scale, area.y + 3f * scale,
                 Mathf.Max(1, area.width - badgeWidth - 72f * scale), (compactBoss ? 45f : 63f) * scale);
+            // Boss/completed headers have no numeric score; use their heading as the fallback.
+            ScoreScreenPosition = headingArea.center;
             var nameStyle = HeaderStyle(Mathf.RoundToInt((compactBoss ? 42f : 60f) * scale), colour, VoxelHudStyles.HudFont);
             string name = IsComplete ? "MISSION COMPLETE" : DisplayName;
             if (IsComplete || IsBossEncounter)
@@ -53,7 +70,7 @@ namespace VoxelRacer
             {
                 percentageSymbolFont ??= Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
                 string score = Points + "/" + Mathf.Max(1, Tuning.requiredPoints);
-                var scoreStyle = HeaderStyle(Mathf.RoundToInt(36f * scale), colour, percentageSymbolFont);
+                var scoreStyle = HeaderStyle(Mathf.RoundToInt(36f * scale), scoreColour, percentageSymbolFont);
                 float scoreSpace = Mathf.Min(headingArea.width * .42f, scoreStyle.CalcSize(new GUIContent(score)).x);
                 FitHeaderText(scoreStyle, score, scoreSpace);
                 float scoreWidth = scoreStyle.CalcSize(new GUIContent(score)).x;
@@ -62,14 +79,16 @@ namespace VoxelRacer
                 float nameWidth = nameStyle.CalcSize(new GUIContent(name)).x;
                 float start = headingArea.center.x - (nameWidth + gap + scoreWidth) * .5f;
                 GUI.Label(new Rect(start, headingArea.y, nameWidth, headingArea.height), name, nameStyle);
-                GUI.Label(new Rect(start + nameWidth + gap, headingArea.y, scoreWidth, headingArea.height), score, scoreStyle);
+                var scoreArea = new Rect(start + nameWidth + gap, headingArea.y, scoreWidth, headingArea.height);
+                GUI.Label(scoreArea, score, scoreStyle);
+                ScoreScreenPosition = scoreArea.center;
             }
 
             // IMPACTED has no percent glyph; the full readout uses the HUD's numeric font.
             percentageSymbolFont ??= Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
             int wholePercent = IsComplete ? 100 : Mathf.Min(99, Mathf.RoundToInt(Percent * 100f));
             string percentage = wholePercent + "%";
-            var percentStyle = HeaderStyle(Mathf.RoundToInt(90f * scale), colour, percentageSymbolFont);
+            var percentStyle = HeaderStyle(Mathf.RoundToInt(90f * scale), scoreColour, percentageSymbolFont);
             FitHeaderText(percentStyle, percentage, Mathf.Max(1, badge.width - 16f * scale));
             GUI.Label(badge, percentage, percentStyle);
             PercentageScreenPosition = badge.center;

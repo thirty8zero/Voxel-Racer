@@ -27,6 +27,7 @@ namespace VoxelRacer
             var owner = root.GetComponent<VoxelDesertGroundCover>();
             var vertices = new List<Vector3>(tuning.clumpsPerSegment * 8); var normals = new List<Vector3>(tuning.clumpsPerSegment * 8);
             var uv = new List<Vector2>(tuning.clumpsPerSegment * 8); var colours = new List<Color32>(tuning.clumpsPerSegment * 8);
+            var growthPivots = new List<Vector3>(tuning.clumpsPerSegment * 8);
             var indices = new List<int>(tuning.clumpsPerSegment * 12);
             // Fetch asset arrays once per variant, not once per plant during chunk recycling.
             var cards = new Card[tuning.variants.Length];
@@ -60,11 +61,13 @@ namespace VoxelRacer
                 if (blocked) continue;
                 var matrix = root.transform.worldToLocalMatrix * Matrix4x4.TRS(position, Quaternion.Euler(0, Next() * 360, 0), Vector3.one * scale);
                 int first = vertices.Count;
+                Vector3 growthPivot = matrix.MultiplyPoint3x4(Vector3.zero);
                 var sourceVertices = card.vertices; var sourceNormals = card.normals; var sourceUv = card.uv;
                 float shade = Mathf.Lerp(.86f, 1.08f, Next());
                 for (int v = 0; v < sourceVertices.Length; v++)
                 {
                     vertices.Add(matrix.MultiplyPoint3x4(sourceVertices[v]));
+                    growthPivots.Add(growthPivot);
                     normals.Add(matrix.MultiplyVector(sourceNormals[v]).normalized); uv.Add(sourceUv[v]);
                     float baseShade = Mathf.Lerp(.72f, 1, Mathf.Clamp01(sourceVertices[v].y / Mathf.Max(.1f, card.bounds.max.y)));
                     colours.Add(new Color(shade * baseShade, shade * baseShade, shade * baseShade * .97f, 1));
@@ -74,6 +77,7 @@ namespace VoxelRacer
             }
             owner.generatedMesh = new Mesh { name = "Batched Desert Foliage", indexFormat = IndexFormat.UInt16 };
             owner.generatedMesh.SetVertices(vertices); owner.generatedMesh.SetNormals(normals); owner.generatedMesh.SetUVs(0, uv);
+            owner.generatedMesh.SetUVs(1, growthPivots);
             owner.generatedMesh.SetColors(colours); owner.generatedMesh.SetTriangles(indices, 0); owner.generatedMesh.RecalculateBounds();
             root.GetComponent<MeshFilter>().sharedMesh = owner.generatedMesh;
             var renderer = root.GetComponent<MeshRenderer>(); renderer.sharedMaterial = tuning.material;

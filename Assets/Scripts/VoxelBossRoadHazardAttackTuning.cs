@@ -10,14 +10,14 @@ namespace VoxelRacer
         public VoxelRoadsideTurretTuning turretTuning;
         [Min(.1f)] public float turretSpawnCheckInterval = 5f;
         [Range(0f, 1f)] public float turretSpawnChance = .4f;
-        [Min(10f)] public float turretSpawnDistanceAhead = 100f;
+        [Min(10f)] public float turretSpawnDistanceAhead = 250f;
         [Min(1)] public int maximumActiveTurrets = 1;
 
         [Header("Oil Slicks")]
         public VoxelStaticObstacleSpawnEntry[] oilSlickSpawns;
         [Min(.1f)] public float oilSlickSpawnCheckInterval = 5f;
         [Range(0f, 1f)] public float oilSlickSpawnChance = .35f;
-        [Min(10f)] public float oilSlickSpawnDistanceAhead = 100f;
+        [Min(10f)] public float oilSlickSpawnDistanceAhead = 250f;
         [Min(1)] public int maximumActiveOilSlicks = 2;
         [Min(0f)] public float oilSlickClearance = 12f;
 

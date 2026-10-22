@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a788dbf777c0be41bf14bd88fe6fb4b, type: 3}
   m_Name: BasicHoodGunTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
-  displayName: Basic Hood Gun
+  displayName: BASIC HOOD GUN
   visualPrefab: {fileID: 0}
   purchasePrice: 50
   maximumPurchases: 2

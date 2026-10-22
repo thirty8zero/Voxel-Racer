@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a788dbf777c0be41bf14bd88fe6fb4b, type: 3}
   m_Name: LongBarrelHoodGunTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
-  displayName: LONG BARREL GUN
+  displayName: THUMP CANNONS
   visualPrefab: {fileID: 4125248041604159245, guid: a424565e8cb5851408940778327aa5aa, type: 3}
   purchasePrice: 500
   maximumPurchases: 2

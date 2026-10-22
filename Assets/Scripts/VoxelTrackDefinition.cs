@@ -32,6 +32,21 @@ namespace VoxelRacer
         [HideInInspector]
         public VoxelStaticObstacleSpawnEntry[] staticObstacleSpawns;
 
+        [Header("Time Of Day")]
+        [Tooltip("Use the matching blue/black pixel sky, pale blue moon and cooler, darker lighting for this track.")]
+        public bool nightTime;
+        [Tooltip("Optional night sky override. Empty uses Scenery/DesertNightPixelSky; the daytime sky is preserved.")]
+        public Material nightSkyboxMaterial;
+        public Color moonColour = new(.65f, .82f, 1f);
+        [Tooltip("Moon centre above the horizon, in metres. Uses the sun's distance, heading and diameter.")]
+        public float moonHorizonHeight = 20f;
+        public Color nightLightColour = new(.55f, .70f, 1f);
+        [Min(0f)] public float nightLightIntensity = .65f;
+        public Color nightAmbientColour = new(.24f, .32f, .48f);
+        public Color nightFogColour = new(.055f, .09f, .17f);
+        [Tooltip("Multiplies the unlit mountain artwork at night without changing its source material.")]
+        public Color nightMountainTint = new(.24f, .36f, .65f);
+
         [Header("Optional Material Overrides")]
         [Tooltip("Leave an override empty to use its generated colour below.")]
         public Material skyboxMaterial;
@@ -118,6 +133,8 @@ namespace VoxelRacer
         [Min(0.1f)] public float maximumSceneryScale = 1.25f;
 
 #if UNITY_EDITOR
+        private bool environmentRefreshQueued;
+
         private void OnValidate()
         {
             maximumSceneryPerSegment = Mathf.Max(minimumSceneryPerSegment, maximumSceneryPerSegment);
@@ -128,6 +145,24 @@ namespace VoxelRacer
             mountainScale = Mathf.Max(0.1f, mountainScale);
             groundNoisePixelSize = Mathf.Max(0.05f, groundNoisePixelSize);
             VoxelAssetSaveQueue.Request(this);
+            if (!environmentRefreshQueued)
+            {
+                environmentRefreshQueued = true;
+                UnityEditor.EditorApplication.delayCall += RefreshLiveEnvironment;
+            }
+        }
+
+        private void RefreshLiveEnvironment()
+        {
+            environmentRefreshQueued = false;
+            if (this == null) return;
+            foreach (var road in FindObjectsByType<EndlessVoxelRoad>(FindObjectsSortMode.None))
+            {
+                if (road.trackDefinition != this) continue;
+                var car = road.transform.Find("Player Voxel Car");
+                if (car != null) VoxelRacerBootstrap.SetupSky(car, this);
+            }
+            UnityEditor.SceneView.RepaintAll();
         }
 #endif
     }

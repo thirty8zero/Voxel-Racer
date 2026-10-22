@@ -54,7 +54,8 @@ namespace VoxelRacer.Editor
                 road.tuning=null;road.trackDefinition=track;road.segmentCount=8;road.turnChancePerSegment=.45f;road.turnSeed=173;
                 road.BuildInitialRoad();
                 var path=(System.Collections.ICollection)typeof(EndlessVoxelRoad).GetField("pathSegments",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance).GetValue(road);
-                Check(path.Count==road.segmentCount,"Foliage sampling appended path-only segments during road construction");
+                Check(path.Count>=road.segmentCount && root.transform.Cast<Transform>().Count(t=>t.name=="Road Segment")==road.segmentCount,
+                    "Distant path extension changed the detailed road chunk budget");
                 var covers=root.GetComponentsInChildren<VoxelDesertGroundCover>();
                 Check(covers.Length==8 && covers.Sum(c=>c.ClumpCount)>700,"Roadside foliage is missing or too sparse");
                 foreach(var cover in covers)
@@ -62,6 +63,11 @@ namespace VoxelRacer.Editor
                     var renderer=cover.GetComponent<MeshRenderer>();var mesh=cover.GetComponent<MeshFilter>().sharedMesh;
                     Check(renderer.sharedMaterial==tuning.material && renderer.shadowCastingMode==ShadowCastingMode.Off &&
                         !renderer.receiveShadows && mesh.triangles.Length/3==cover.ClumpCount*4,"Segment foliage batching incorrect");
+                    var anchors = new System.Collections.Generic.List<Vector3>(); mesh.GetUVs(1, anchors);
+                    Check(anchors.Count == mesh.vertexCount, "Combined foliage is missing per-clump growth pivots.");
+                    for (int first = 0; first < anchors.Count; first += 8)
+                        for (int vertex = 1; vertex < 8; vertex++)
+                            Check(anchors[first + vertex] == anchors[first], "A foliage clump grows around different pivots.");
                     foreach(var vertex in mesh.vertices)
                     {
                         var p=cover.transform.TransformPoint(vertex);float closest=float.PositiveInfinity;

@@ -120,7 +120,7 @@ namespace VoxelRacer.Editor
                 {
                     var arrow = buttons[i].Find("Chevron").GetComponent<RectTransform>();
                     Vector2 visual = overlay.InverseTransformPoint(arrow.position);
-                    Check(Vector2.Distance(visual, new Vector2(overlay.rect.xMin + (i == 0 ? 310 : 530), overlay.rect.yMin + 150)) < .01f, "Steering arrows moved when extending input");
+                    Check(Vector2.Distance(visual, new Vector2(overlay.rect.xMin + (i == 0 ? 230 : 610), overlay.rect.yMin + 150)) < .01f, "Steering artwork must move outward 80 units while input stays fixed");
                 }
                 var integrityBackplate = root.GetComponentsInChildren<RectTransform>().First(r => r.name == "Integrity Dial Backplate");
                 Check(!bounds[3].Overlaps(Bounds(integrityBackplate, overlay)), "Boost overlaps the integrity dial");
@@ -137,6 +137,7 @@ namespace VoxelRacer.Editor
                 }
                 foreach (Transform item in root.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
                 Save("Controls.png");
+                SaveBrakeIcon(buttons[2].GetComponent<Image>().sprite, Path.Combine(directory, "BrakePedal.png"));
                 var annotations = DrawTouchAreas(overlay, buttons);
                 foreach (Transform item in annotations.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
                 Save("TouchAreas.png"); annotations.SetActive(false);
@@ -185,6 +186,28 @@ namespace VoxelRacer.Editor
                 if (texture != null) Object.DestroyImmediate(texture);
                 Object.DestroyImmediate(root); EditorSceneManager.ClosePreviewScene(scene);
                 if (existingEventSystem == null && EventSystem.current != null) Object.DestroyImmediate(EventSystem.current.gameObject);
+            }
+        }
+
+        private static void SaveBrakeIcon(Sprite sprite, string path)
+        {
+            var source = sprite.texture;
+            var rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
+            var previous = RenderTexture.active;
+            var image = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
+            try
+            {
+                Graphics.Blit(source, rt);
+                RenderTexture.active = rt;
+                image.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0);
+                image.Apply();
+                File.WriteAllBytes(path, image.EncodeToPNG());
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                RenderTexture.ReleaseTemporary(rt);
+                Object.DestroyImmediate(image);
             }
         }
 

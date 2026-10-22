@@ -15,6 +15,17 @@ MonoBehaviour:
   displayName: Tequila Plains 6
   requiredPoints: 1800
   completionCurrencyAward: 450
+  crateRewards:
+  - source: {fileID: 11400000, guid: a2642cf1b770f304089540f52b9277a3, type: 2}
+    chance: 0.25
+    multiplierWeight: 1
+    cashWeight: 1
+    timeWeight: 1
+    multiplierBonus: 0.5
+    minimumCash: 20
+    maximumCash: 80
+    minimumTimeSeconds: 15
+    maximumTimeSeconds: 25
   repairCostPerPixel: 2
   timeLimitSeconds: 120
   timeBonusCurrencyMultiplier: 1
@@ -26,6 +37,12 @@ MonoBehaviour:
   civilianVoxelMultiplierPenalty: 0.01
   civilianDestroyedMultiplierPenalty: 0.5
   bonusWarningSeconds: 10
+  damagePopupHoldSeconds: 1
+  voxelDamagePopupHoldSeconds: 0.12
+  multiplierPopupHoldSeconds: 1
+  voxelMultiplierPopupHoldSeconds: 0.17
+  destroyedVehicleMultiplierPopupHoldSeconds: 0.17
+  civilianVoxelPopupQuietSeconds: 1
   enemyVoxelDamagePoints: 1
   enemyVehicleDestroyedPoints: 25
   fuelDrumDestroyedPoints: 10
@@ -33,7 +50,7 @@ MonoBehaviour:
   roadsideTurretTuning: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
   roadsideTurretSpawnCheckInterval: 2
   roadsideTurretSpawnChance: 0.6
-  roadsideTurretSpawnDistanceAhead: 200
+  roadsideTurretSpawnDistanceAhead: 250
   maximumActiveRoadsideTurrets: 1
   civilianNearMissDistance: 1
   civilianNearMissMinPoints: 1
@@ -43,5 +60,5 @@ MonoBehaviour:
   civilianNearMissPlayerHalfWidth: 1.3
   civilianNearMissPlayerHalfLength: 2.3
   civilianNearMissPopupDuration: 2
-  civilianVoxelDamagePoints: -2
-  civilianVehicleDestroyedPoints: -30
+  civilianVoxelDamagePoints: -1
+  civilianVehicleDestroyedPoints: -5

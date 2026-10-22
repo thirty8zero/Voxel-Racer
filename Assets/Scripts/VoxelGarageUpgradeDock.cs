@@ -12,6 +12,12 @@ namespace VoxelRacer
         private Rect garageLayoutSafeArea;
         private float garageDockTop = 382;
         private VoxelGarageUpgradeCard[] sortedUpgradeCards;
+        private VoxelGarageUpgradeCategory upgradeCategory;
+        private readonly Button[] upgradeCategoryTabs = new Button[6];
+        private ScrollRect upgradeCategoryScroll;
+        private Text upgradeScrollHint;
+        private bool? appliedUpgradeSectionTabs;
+        public bool UpgradeSectionTabsEnabled => cameraTuning == null || cameraTuning.showUpgradeSectionTabs;
         private Vector3[] garageCarFitPoints = System.Array.Empty<Vector3>();
         private bool garageUpgradeFramingValid;
         private Matrix4x4 garageUpgradeProjection, garageUpgradeBaseProjection;
@@ -19,6 +25,7 @@ namespace VoxelRacer
 
         private void BuildBottomUpgradeStrip(Transform panel)
         {
+            cameraTuning = cameraTuning != null ? cameraTuning : VoxelRepairUpgradeTuning.Load();
             panel.GetComponent<Image>().enabled = false;
             var heading = panel.Find("Upgrade Title").GetComponent<Text>();
             heading.text = "VEHICLE UPGRADES"; heading.font = GarageMono; heading.fontSize = 24;
@@ -27,7 +34,7 @@ namespace VoxelRacer
             var viewport = new GameObject("Upgrade Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image));
             viewport.transform.SetParent(panel,false);
             var rect = (RectTransform)viewport.transform; rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one;
-            rect.offsetMin = new Vector2(12,20); rect.offsetMax = new Vector2(-12,-116);
+            rect.offsetMin = new Vector2(12,20); rect.offsetMax = new Vector2(-12,-186);
             viewport.GetComponent<Image>().color = new Color(0,0,0,.01f);
             var content = new GameObject("Upgrade Cards", typeof(RectTransform)); content.transform.SetParent(viewport.transform,false);
             var cr = (RectTransform)content.transform; cr.anchorMin = new Vector2(0,.5f); cr.anchorMax = new Vector2(0,.5f);
@@ -35,12 +42,16 @@ namespace VoxelRacer
             rightArmorUpgradeButton.gameObject.SetActive(false);
             rightMissileButton.gameObject.SetActive(false);
             var buttons = new[] { leftArmorUpgradeButton, engineUpgradeButton, gunUpgradeButton,
-                leftMissileButton, performanceWheelButton, boostUpgradeButton, wheelSpikeUpgradeButton, ploughUpgradeButton, starWheelSpikeUpgradeButton };
-            var titles = new[] { "ARMOUR", "ENGINE +\nSPOILER", "MACHINE\nGUNS", "MISSILES",
-                "TIRES", "BOOST", "WHEEL\nSPIKES", "PLOUGH", "STAR WHEEL\nSPIKES" };
+                leftMissileButton, performanceWheelButton, boostUpgradeButton, wheelSpikeUpgradeButton, ploughUpgradeButton, starWheelSpikeUpgradeButton, dualBoostUpgradeButton };
+            var upgrades = new[] { VoxelGarageUpgradeKind.Armour, VoxelGarageUpgradeKind.Engine, VoxelGarageUpgradeKind.Guns,
+                VoxelGarageUpgradeKind.Missiles, VoxelGarageUpgradeKind.Wheels, VoxelGarageUpgradeKind.Boost,
+                VoxelGarageUpgradeKind.Spikes, VoxelGarageUpgradeKind.Plough, VoxelGarageUpgradeKind.StarSpikes, VoxelGarageUpgradeKind.DualBoost };
             var kinds = new[] { VoxelGarageIconKind.Armour, VoxelGarageIconKind.Engine, VoxelGarageIconKind.Guns,
                 VoxelGarageIconKind.Missile, VoxelGarageIconKind.Wheels, VoxelGarageIconKind.Boost,
-                VoxelGarageIconKind.Spikes, VoxelGarageIconKind.Plough, VoxelGarageIconKind.StarSpikes };
+                VoxelGarageIconKind.Spikes, VoxelGarageIconKind.Plough, VoxelGarageIconKind.StarSpikes, VoxelGarageIconKind.Boost };
+            var categories = new[] { VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.Engines, VoxelGarageUpgradeCategory.Guns,
+                VoxelGarageUpgradeCategory.Missiles, VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Boost,
+                VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Boost };
             cr.sizeDelta = new Vector2(buttons.Length*224-14,234);
             sortedUpgradeCards = new VoxelGarageUpgradeCard[buttons.Length];
             for(int i=0;i<buttons.Length;i++)
@@ -48,12 +59,26 @@ namespace VoxelRacer
                 buttons[i].transform.SetParent(content.transform,false);
                 Place((RectTransform)buttons[i].transform,new Vector2(0,.5f),new Vector2(105+i*224,0),new Vector2(210,234));
                 sortedUpgradeCards[i] = buttons[i].gameObject.AddComponent<VoxelGarageUpgradeCard>();
-                sortedUpgradeCards[i].Build(buttons[i],titles[i],kinds[i],GarageHeading,GarageMono,i);
+                sortedUpgradeCards[i].Build(buttons[i],UpgradeDisplayName(upgrades[i]),kinds[i],GarageHeading,GarageMono,i,categories[i],upgrades[i]);
             }
             var scroll=viewport.AddComponent<ScrollRect>(); scroll.viewport=rect; scroll.content=cr;
             scroll.horizontal=true; scroll.vertical=false; scroll.movementType=ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity=55;
-            Caption(panel,"Upgrade Scroll Hint","SWIPE / SCROLL  >",18,new Vector2(.5f,0),new Vector2(0,8),new Vector2(380,22));
+            upgradeCategoryScroll = scroll;
+            upgradeScrollHint = Caption(panel,"Upgrade Scroll Hint","SWIPE / SCROLL  >",18,new Vector2(.5f,0),new Vector2(0,8),new Vector2(380,22));
+            var labels = new[] { "Armor", "Wheels &\nTires", "Guns", "Missiles", "Boost", "Engines" };
+            for (int i=0;i<labels.Length;i++)
+            {
+                var category=(VoxelGarageUpgradeCategory)i;
+                var tab=VoxelMenuUi.CreateButton(panel,"Category "+category,labels[i],24,
+                    new Vector2(0,1),Vector2.zero,new Vector2(150,58),()=>ShowUpgradeCategory(category));
+                tab.navigation = new Navigation { mode = Navigation.Mode.None };
+                Frame(tab.gameObject,UpgradeAccent,new Color(.025f,.045f,.07f,.9f));
+                var label=tab.GetComponentInChildren<Text>();label.font=GarageMono;
+                label.resizeTextForBestFit=true;label.resizeTextMinSize=18;label.resizeTextMaxSize=24;
+                upgradeCategoryTabs[i]=tab;
+            }
+            ShowUpgradeCategory(VoxelGarageUpgradeCategory.Armor);
             var dockBackground=VoxelMenuUi.CreatePanel(panel.parent,"Upgrade Dock Shade",new Vector2(.5f,0),new Vector2(0,190),new Vector2(4000,380));
             dockBackground.color=new Color(.014f,.020f,.032f,.14f); dockBackground.raycastTarget=false;
             garageDockShade=dockBackground.gameObject;garageDockShade.transform.SetAsFirstSibling();
@@ -88,8 +113,19 @@ namespace VoxelRacer
         private void LayoutGarageDock()
         {
             if(garageCanvas==null || garageUpgradePanel==null || NextRaceButton==null) return;
+            bool tabs = UpgradeSectionTabsEnabled;
+            bool sectionModeChanged = appliedUpgradeSectionTabs != tabs;
+            if (sectionModeChanged)
+            {
+                appliedUpgradeSectionTabs = tabs;
+                foreach (var tab in upgradeCategoryTabs) if (tab != null) tab.gameObject.SetActive(tabs);
+                upgradeCategoryScroll.StopMovement();
+                upgradeCategoryScroll.content.anchoredPosition = Vector2.zero;
+                ShowUpgradeCategory(upgradeCategory);
+                LayoutUpgradeCategory();
+            }
             Vector2 size=garageCanvas.rect.size; Rect safe=Screen.safeArea;
-            if(size==garageLayoutSize && safe==garageLayoutSafeArea) return;
+            if(size==garageLayoutSize && safe==garageLayoutSafeArea && !sectionModeChanged) return;
             garageLayoutSize=size; garageLayoutSafeArea=safe;
             LayoutGarageHeader(size, safe);
             garageUpgradeFramingValid=false;
@@ -97,17 +133,25 @@ namespace VoxelRacer
             float left=Mathf.Max(36,safe.xMin*sx+18);
             float right=Mathf.Max(36,(Screen.width-safe.xMax)*sx+18);
             float bottom=Mathf.Max(54,safe.yMin*sy+20);
-            const float missionWidth=350, gap=24, height=374;
+            const float missionWidth=350, gap=24;
+            float height = tabs ? 444 : 370;
+            float cardTopInset = tabs ? 186 : 112;
             var panel=(RectTransform)garageUpgradePanel.transform;
             panel.anchorMin=new Vector2(0,0); panel.anchorMax=new Vector2(1,0); panel.pivot=new Vector2(.5f,0);
             panel.offsetMin=new Vector2(left,bottom); panel.offsetMax=new Vector2(-right-missionWidth-gap,bottom+height);
             // Keep the cards and mission button centred below the larger Back/header row.
-            float cardCentre=bottom+(height+20-116)*.5f;
+            upgradeCategoryScroll.viewport.offsetMax = new Vector2(-12, -cardTopInset);
+            float cardCentre=bottom+(height+20-cardTopInset)*.5f;
             Place((RectTransform)NextRaceButton.transform,new Vector2(1,0),new Vector2(-right-missionWidth*.5f,cardCentre),new Vector2(missionWidth,172));
             garageDockTop=bottom+height+18;
             var backdrop=(RectTransform)garageDockShade.transform;
             backdrop.anchorMin=Vector2.zero;backdrop.anchorMax=new Vector2(1,0);backdrop.pivot=new Vector2(.5f,0);
             backdrop.anchoredPosition=Vector2.zero;backdrop.sizeDelta=new Vector2(0,garageDockTop);
+            float tabWidth=(panel.rect.width-24-5*8)/upgradeCategoryTabs.Length;
+            for(int i=0;i<upgradeCategoryTabs.Length;i++)
+                Place((RectTransform)upgradeCategoryTabs[i].transform,new Vector2(0,1),
+                    new Vector2(12+tabWidth*.5f+i*(tabWidth+8),-144),new Vector2(tabWidth,58));
+            RefreshUpgradeScrollHint();
             LayoutGarageFeedback();
             ApplyGaragePreviewViewport();
         }
@@ -235,7 +279,10 @@ namespace VoxelRacer
             leftMissileButton?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(missile!=null && missile.weapon!=null?missile.weapon.purchasePrice:0,fits,
                 (VoxelMissileUpgradeState.IsPurchased(false)?1:0)+(VoxelMissileUpgradeState.IsPurchased(true)?1:0),2,PendingCount(VoxelGarageUpgradeKind.Missiles),AvailableUpgradeCash);
             var wheels=VoxelPerformanceWheelTuning.Load(); Card(performanceWheelButton,wheels!=null?wheels.purchasePrice:0,wheels!=null && wheels.Fits(definition),VoxelPerformanceWheelUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Wheels);
-            var boost=VoxelBoostUpgradeTuning.LoadUpgrade(); Card(boostUpgradeButton,boost!=null?boost.purchasePrice:0,boost!=null && boost.Fits(definition),VoxelBoostUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Boost);
+            var boost=VoxelBoostUpgradeTuning.LoadUpgrade(); Card(boostUpgradeButton,boost!=null?boost.purchasePrice:0,
+                boost!=null && boost.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.DualBoost)==0,VoxelBoostUpgradeState.IsEquipped(boost),VoxelGarageUpgradeKind.Boost);
+            var dualBoost=VoxelBoostUpgradeTuning.LoadDualUpgrade(); Card(dualBoostUpgradeButton,dualBoost!=null?dualBoost.purchasePrice:0,
+                dualBoost!=null && dualBoost.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.Boost)==0,VoxelBoostUpgradeState.IsEquipped(dualBoost),VoxelGarageUpgradeKind.DualBoost);
             var spikes=VoxelWheelSpikeTuning.Load(); Card(wheelSpikeUpgradeButton,spikes!=null?spikes.purchasePrice:0,
                 spikes!=null && spikes.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.StarSpikes)==0,
                 VoxelWheelSpikeUpgradeState.IsEquipped(spikes),VoxelGarageUpgradeKind.Spikes);
@@ -243,6 +290,8 @@ namespace VoxelRacer
                 star!=null && star.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.Spikes)==0,
                 VoxelWheelSpikeUpgradeState.IsEquipped(star),VoxelGarageUpgradeKind.StarSpikes);
             var plough=VoxelPloughTuning.Load(); Card(ploughUpgradeButton,plough!=null?plough.purchasePrice:0,plough!=null && plough.Fits(definition),VoxelPloughUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Plough);
+            if(sortedUpgradeCards!=null)
+                foreach(var card in sortedUpgradeCards)card.SetTitle(UpgradeDisplayName(card.UpgradeKind));
             SortUpgradeCards();
             CacheGarageCarBounds();
             RefreshNextMission();
@@ -260,8 +309,50 @@ namespace VoxelRacer
             {
                 var card=sortedUpgradeCards[i];
                 card.transform.SetSiblingIndex(i);
-                ((RectTransform)card.transform).anchoredPosition=new Vector2(105+i*224,0);
             }
+            LayoutUpgradeCategory();
+        }
+        private void ShowUpgradeCategory(VoxelGarageUpgradeCategory category)
+        {
+            if (!UpgradeSectionTabsEnabled) { LayoutUpgradeCategory(); return; }
+            if (isLoading || GarageSettingsVisible || MissionStartWarningVisible) return;
+            upgradeCategory=category;
+            // Changing catalogue pages keeps the shared pending cart and its car preview.
+            rotatingCar=pinching=placementPointerHeld=false;
+            upgradeCategoryScroll.StopMovement();
+            upgradeCategoryScroll.content.anchoredPosition=Vector2.zero;
+            foreach(var tab in upgradeCategoryTabs)
+            {
+                if(tab==null)continue;
+                bool selected=tab==upgradeCategoryTabs[(int)category];
+                var frame=tab.GetComponentInChildren<VoxelGaragePanel>();
+                frame.edgeColor=selected?new Color(.25f,.75f,1f):new Color(.24f,.34f,.45f);
+                frame.color=selected?new Color(.035f,.22f,.36f,.96f):new Color(.025f,.045f,.07f,.9f);
+                frame.SetVerticesDirty();
+                tab.GetComponentInChildren<Text>().color=selected?Color.white:new Color(.62f,.70f,.79f);
+            }
+            LayoutUpgradeCategory();
+        }
+        private void LayoutUpgradeCategory()
+        {
+            if(sortedUpgradeCards==null || upgradeCategoryScroll==null)return;
+            int visible=0;
+            var positions=new int[upgradeCategoryTabs.Length];
+            foreach(var card in sortedUpgradeCards)
+            {
+                bool show=!UpgradeSectionTabsEnabled || card.Category==upgradeCategory;
+                card.gameObject.SetActive(show);
+                int slot = UpgradeSectionTabsEnabled ? positions[(int)card.Category]++ : visible;
+                ((RectTransform)card.transform).anchoredPosition=new Vector2(105+slot*224,0);
+                if(show)visible++;
+            }
+            upgradeCategoryScroll.content.sizeDelta=new Vector2(Mathf.Max(0,visible*224-14),234);
+            RefreshUpgradeScrollHint();
+        }
+        private void RefreshUpgradeScrollHint()
+        {
+            if(upgradeScrollHint!=null && upgradeCategoryScroll!=null)
+                upgradeScrollHint.gameObject.SetActive(upgradeCategoryScroll.content.rect.width>upgradeCategoryScroll.viewport.rect.width+1);
         }
     }
 }

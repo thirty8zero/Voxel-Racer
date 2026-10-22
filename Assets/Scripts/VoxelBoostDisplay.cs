@@ -12,6 +12,7 @@ namespace VoxelRacer
         private RectTransform controlsCanvas, expandedTouchArea;
         private float touchCanvasWidth = -1f;
         private Image boostRing;
+        private Image boostTrack, secondBoostRing, secondBoostTrack;
         private Text boostText;
         private RectTransform cap;
         private Texture2D capTexture, stemTexture;
@@ -61,8 +62,14 @@ namespace VoxelRacer
         {
             cap.anchoredPosition = new Vector2(0f, Mathf.Lerp(-8f, 24f, height));
             cap.localScale = Vector3.one * Mathf.Lerp(.94f, 1f, height);
-            boostRing.fillAmount = Mathf.Clamp01(charge) * ArcFraction;
             boostText.color = new Color(.65f, .9f, 1f, illuminated ? 1f : .65f);
+            bool dual = boost != null && boost.ChargeCount == 2;
+            float arc = dual ? 145f / 360f : ArcFraction;
+            boostTrack.fillAmount = arc;
+            boostRing.fillAmount = Mathf.Clamp01(dual ? boost.GetChargePercent(0) : charge) * arc;
+            secondBoostTrack.gameObject.SetActive(dual);
+            secondBoostRing.gameObject.SetActive(dual);
+            if (dual) secondBoostRing.fillAmount = boost.GetChargePercent(1) * arc;
         }
 
         private void BuildHud()
@@ -103,11 +110,20 @@ namespace VoxelRacer
 
             ringSprite = CreateRingSprite();
             Image track = CreateRingImage(canvas, ringSprite);
+            boostTrack = track;
             track.name = "Boost Charge Track";
             track.color = new Color(0.04f, 0.16f, 0.27f, 0.8f);
             boostRing = CreateRingImage(canvas, ringSprite);
             boostRing.name = "Boost Charge Ring";
             boostRing.color = new Color(0.12f, 0.65f, 1f, 1f);
+            secondBoostTrack = CreateRingImage(canvas, ringSprite);
+            secondBoostTrack.name = "Boost Charge Track 2";
+            secondBoostTrack.color = track.color;
+            secondBoostRing = CreateRingImage(canvas, ringSprite);
+            secondBoostRing.name = "Boost Charge Ring 2";
+            secondBoostRing.color = boostRing.color;
+            secondBoostTrack.rectTransform.localRotation = secondBoostRing.rectTransform.localRotation = Quaternion.Euler(0, 0, -185f);
+            secondBoostTrack.fillAmount = 145f / 360f;
 
             boostText = VoxelMenuUi.CreateText(cap, "Boost Label", "BOOST", 43, TextAnchor.MiddleCenter,
                 new Vector2(.5f, .5f), new Vector2(0f, 8f), new Vector2(152f, 66f));

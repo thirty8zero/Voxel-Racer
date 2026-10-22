@@ -155,7 +155,7 @@ namespace VoxelRacer
             if (spawnTimeRemaining > 0f)
                 return;
 
-            float spawnDistanceAhead = obstacleCarTuning != null ? obstacleCarTuning.spawnDistanceAhead : 65f;
+            float spawnDistanceAhead = obstacleCarTuning != null ? obstacleCarTuning.spawnDistanceAhead : 250f;
             EndlessVoxelRoad path = target.TrackPath;
             float spawnTrackDistance = target.TrackDistance + spawnDistanceAhead;
             if (path == null)
@@ -203,6 +203,7 @@ namespace VoxelRacer
                         enemy.transform.SetParent(transform);
                         enemy.Configure(target, obstacleCarTuning, selected, path, distance, enemyLaneOffset);
                         enemy.gameObject.AddComponent<VoxelFadeIn>();
+                        VoxelSpawnScaleIn.Play(enemy.gameObject);
                         return;
                     }
                 }
@@ -224,6 +225,7 @@ namespace VoxelRacer
                     obstacle.Defeated += radarEncounter.RadarDefeated;
                 }
                 obstacle.gameObject.AddComponent<VoxelFadeIn>();
+                VoxelSpawnScaleIn.Play(obstacle.gameObject);
             }
             else
             {
@@ -249,6 +251,7 @@ namespace VoxelRacer
                         oil.transform.SetParent(transform);
                         oil.Configure(target, path, definition, distance, laneOffset, laneWidth);
                         oil.gameObject.AddComponent<VoxelFadeIn>();
+                        VoxelSpawnScaleIn.Play(oil.gameObject);
                         break;
                     }
                     case VoxelStaticObstacleType.Pothole:
@@ -257,6 +260,7 @@ namespace VoxelRacer
                         pothole.transform.SetParent(transform);
                         pothole.Configure(target, path, definition, distance, laneOffset, laneWidth);
                         pothole.gameObject.AddComponent<VoxelFadeIn>();
+                        VoxelSpawnScaleIn.Play(pothole.gameObject);
                         break;
                     }
                     case VoxelStaticObstacleType.FuelDrums:
@@ -265,6 +269,7 @@ namespace VoxelRacer
                         drums.transform.SetParent(transform);
                         drums.Configure(target, path, definition, distance, laneOffset);
                         drums.gameObject.AddComponent<VoxelFadeIn>();
+                        VoxelSpawnScaleIn.Play(drums.gameObject);
                         break;
                     }
                     default:
@@ -273,6 +278,7 @@ namespace VoxelRacer
                         obstacle.transform.SetParent(transform);
                         obstacle.Configure(target, path, definition, distance, laneOffset);
                         obstacle.gameObject.AddComponent<VoxelFadeIn>();
+                        VoxelSpawnScaleIn.Play(obstacle.gameObject);
                         break;
                     }
                 }

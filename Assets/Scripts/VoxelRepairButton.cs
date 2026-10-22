@@ -9,6 +9,7 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
+            if (VoxelLoadingScreen.IsLoading) return;
             if (!Application.isPlaying || target == null || VoxelPlayerDeathScreen.IsShowing)
                 return;
 

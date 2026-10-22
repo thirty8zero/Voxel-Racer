@@ -4,8 +4,8 @@ namespace VoxelRacer
     public static class VoxelSphericalBlast
     {
         public static bool Contains(MeshRenderer voxel, Vector3 centre, float radius) => voxel != null && voxel.enabled &&
-            voxel.gameObject.activeInHierarchy && voxel.GetComponentInParent<VoxelIndestructiblePart>() == null &&
-            voxel.GetComponentInParent<VoxelEnemyHealthBar>() == null && (voxel.bounds.center - centre).sqrMagnitude <= radius * radius;
+            voxel.gameObject.activeInHierarchy && (voxel.bounds.center - centre).sqrMagnitude <= radius * radius &&
+            voxel.GetComponentInParent<VoxelIndestructiblePart>() == null && voxel.GetComponentInParent<VoxelEnemyHealthBar>() == null;
     }
     public sealed partial class VoxelEnemyCar
     {

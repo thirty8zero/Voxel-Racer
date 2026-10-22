@@ -123,8 +123,8 @@ namespace VoxelRacer.Editor
                     case 5:
                         typeof(VoxelPostRaceContinue).GetMethod("UpdateRewardSequence", Private).Invoke(rewards, null);
                         if (Time.realtimeSinceStartup - stageStarted < 1.65f) return;
-                        var bonus = root.GetComponentsInChildren<Text>(true).First(t => t.name == "Time Bonus Reward");
-                        Check(bonus.gameObject.activeSelf && bonus.text.Contains("MISSION MULTIPLIER 2.00x") && bonus.text.Contains("+0.30x") && bonus.text.Contains("FINAL MULTIPLIER 2.30x") && !bonus.text.Contains("SEC LEFT"), "Results do not explain mission multiplier, time addition and final multiplier");
+                        var bonus = VoxelMissionBreakdownValidation.MultiplierSummary(rewards);
+                        Check(((GameObject)typeof(VoxelPostRaceContinue).GetField("timeBonusPanel", Private).GetValue(rewards)).activeSelf && bonus.Contains("MISSION MULTIPLIER 2.00x") && bonus.Contains("+0.30x") && bonus.Contains("FINAL MULTIPLIER 2.30x") && !bonus.Contains("SEC LEFT"), "Results do not explain mission multiplier, time addition and final multiplier");
                         Check(root.GetComponentsInChildren<Text>(true).First(t => t.name == "Total Mission Reward").gameObject.activeSelf, "Reward reveal must use unscaled time");
                         Equal(mission.EffectiveTimeBonusMultiplier, 2, "Completed mission multiplier must freeze");
                         Equal(mission.FinalRewardMultiplier, 2.3f, "Completed payout multiplier must freeze");

@@ -138,7 +138,9 @@ namespace VoxelRacer
             chevronObject.transform.SetParent(button.transform, false);
             RectTransform rect = chevronObject.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
-            rect.anchoredPosition = new Vector2(action == MobileControlAction.Left ? 310f : 100f, 0f);
+            // Artwork-only outset: 80 height-scaled units is about 0.5cm on a landscape phone.
+            // Keep the transparent parent rectangles and pointer handlers fixed.
+            rect.anchoredPosition = new Vector2(action == MobileControlAction.Left ? 230f : 180f, 0f);
             rect.sizeDelta = new Vector2(88f, 128f);
             if (action == MobileControlAction.Left)
                 rect.localRotation = Quaternion.Euler(0f, 0f, 180f);
@@ -273,47 +275,32 @@ namespace VoxelRacer
             const int size = 256;
             brakeButtonTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
             {
-                name = "Runtime Brake Disc Button",
+                name = "Runtime Brake Pedal Button",
                 filterMode = FilterMode.Bilinear,
                 wrapMode = TextureWrapMode.Clamp
             };
             var pixels = new Color[size * size];
-            var caliperBolts = new Vector2[3];
-            for (int i = 0; i < caliperBolts.Length; i++)
-            {
-                float angle = (20f + i * 27f) * Mathf.Deg2Rad;
-                caliperBolts[i] = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 0.665f;
-            }
+            // Reference-style pedal: rounded, gently tapered silver plate with
+            // four dark horizontal grip slots. Bake once, with a transparent surround.
             for (int y = 0; y < size; y++)
             for (int x = 0; x < size; x++)
             {
                 float u = (x + 0.5f) / size * 2f - 1f;
                 float v = (y + 0.5f) / size * 2f - 1f;
-                var point = new Vector2(u, v);
-                float radius = point.magnitude;
-                float angle = Mathf.Atan2(v, u) * Mathf.Rad2Deg;
-                float light = Mathf.Clamp01(0.55f + v * 0.25f - u * 0.15f);
-                Color face = new Color(0.055f, 0.07f, 0.085f);
-                Color colour = radius > 0.9f
-                    ? Color.Lerp(new Color(0.18f, 0.21f, 0.24f), new Color(0.50f, 0.54f, 0.58f), light)
-                    : face;
-
-                // Rotor silhouette and separated upper-right caliper follow the reference.
-                if (radius < 0.74f && !(radius > 0.43f && angle > -5f && angle < 94f))
+                float halfWidth = Mathf.Lerp(.76f, .90f, Mathf.InverseLerp(-.60f, .60f, v));
+                var corner = new Vector2(Mathf.Abs(u) - (halfWidth - .10f), Mathf.Abs(v) - .50f);
+                float plateDistance = new Vector2(Mathf.Max(corner.x, 0f), Mathf.Max(corner.y, 0f)).magnitude +
+                    Mathf.Min(Mathf.Max(corner.x, corner.y), 0f) - .10f;
+                Color colour = Color.Lerp(new Color(.87f, .88f, .86f), new Color(.96f, .97f, .95f),
+                    Mathf.InverseLerp(-.60f, .60f, v));
+                for (int slot = 0; slot < 4; slot++)
                 {
-                    colour = Color.Lerp(new Color(0.58f, 0.63f, 0.68f), new Color(0.96f, 0.98f, 1f), light);
-                    if ((radius > 0.36f && radius < 0.41f) || radius < 0.135f ||
-                        new Vector2(Mathf.Abs(u) - 0.20f, Mathf.Abs(v) - 0.20f).magnitude < 0.035f)
-                        colour = face;
+                    float slotY = .36f - slot * .24f;
+                    float slotDistance = new Vector2(Mathf.Max(Mathf.Abs(u) - .585f, 0f), v - slotY).magnitude - .065f;
+                    float slotAlpha = Mathf.Clamp01(.5f - slotDistance * size * .5f);
+                    colour = Color.Lerp(colour, new Color(.35f, .37f, .36f), slotAlpha);
                 }
-                if (radius > 0.48f && radius < 0.86f && angle > 8f && angle < 86f)
-                {
-                    colour = Color.Lerp(new Color(0.50f, 0.025f, 0.035f), new Color(0.97f, 0.16f, 0.12f), light);
-                    foreach (Vector2 bolt in caliperBolts)
-                        if (Vector2.Distance(point, bolt) < 0.047f)
-                            colour = new Color(0.92f, 0.95f, 0.98f);
-                }
-                colour.a = Mathf.Clamp01(0.5f + (0.98f - radius) * size * 0.5f);
+                colour.a = Mathf.Clamp01(.5f - plateDistance * size * .5f);
                 pixels[y * size + x] = colour;
             }
             brakeButtonTexture.SetPixels(pixels);

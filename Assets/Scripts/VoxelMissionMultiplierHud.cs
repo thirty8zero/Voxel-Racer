@@ -63,9 +63,10 @@ namespace VoxelRacer
 
             foreach (var flight in multiplierFlights)
             {
-                float t = Mathf.Clamp01((Time.unscaledTime - flight.startedAt) / MultiplierFlightDuration);
+                float age = Time.unscaledTime - flight.startedAt;
                 // Briefly hold the labelled gain at its source, then visibly connect it to the counter.
-                float travel = Mathf.SmoothStep(0, 1, Mathf.Clamp01((t - .2f) / .8f));
+                float travelTime = Mathf.Clamp01((age - GetMultiplierHoldDuration(flight.reason)) / MultiplierTravelDuration);
+                float travel = Mathf.SmoothStep(0, 1, travelTime);
                 Vector2 from = new Vector2(flight.origin.x * Screen.width, flight.origin.y * Screen.height);
                 // Start above the vehicle rather than over its body, while keeping clear of the header.
                 if (flight.reason != "KILL CHAIN COMBO")
@@ -78,9 +79,9 @@ namespace VoxelRacer
                     Vector2 trail = Vector2.Lerp(from, point, 1 - dot * .035f);
                     Fill(new Rect(trail.x - 2, trail.y - 2, 4, 4), colour, alpha * (1 - dot / 6f) * .6f);
                 }
-                float opacity = alpha * (1 - Mathf.Clamp01((t - .9f) / .1f));
+                float opacity = alpha * (1 - Mathf.Clamp01((travelTime - .875f) / .125f));
                 GUI.color = new Color(1, 1, 1, opacity);
-                float labelScale = flight.reason == "KILL CHAIN COMBO" ? 2f : 1f;
+                float labelScale = MultiplierPopupScale(flight.reason);
                 OutlinedBonusLabel(new Rect(point.x - 90 * labelScale, point.y - 18 * labelScale, 180 * labelScale, 30 * labelScale),
                     (flight.amount > 0 ? "+" : "") + flight.amount.ToString("0.00") + "x", BonusStyle(Mathf.RoundToInt(24 * labelScale), colour));
             }
@@ -89,6 +90,9 @@ namespace VoxelRacer
         }
 
         internal static string FormatMultiplier(float value) => value <= 1f ? "--" : value.ToString("0.00") + "x";
+
+        private static float MultiplierPopupScale(string reason) => IsVoxelMultiplier(reason)
+            ? 1f : reason == "KILL CHAIN COMBO" ? 4f : 2f;
 
         private void DrawTimeExtension(Rect panel, float alpha)
         {

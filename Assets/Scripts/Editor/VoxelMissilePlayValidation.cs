@@ -136,6 +136,7 @@ namespace VoxelRacer.Editor
                     if (!sawEffects) throw new Exception("No live rocket/smoke particles before impact");
                     if (Mathf.Abs(enemy.CurrentHealth - (1000 - weapon.damagePerBullet)) > .01f) throw new Exception("Missile health damage repeated");
                     if (!enemy.GetComponentsInChildren<MeshRenderer>(true).Any(r => !r.gameObject.activeSelf)) throw new Exception("No blast voxels removed");
+                    VoxelMissileObstacleValidation.Run();
                     Finish("PASS: rear launcher flame bursts on both sides, backward particle velocity, local attachment, no idle emission, automatic finish and repeat-shot reuse; actual firing/ammo/cooldown, live clockwise HUD refill and full/ready/re-fire reset, rocket exhaust and smoke particles, Update-driven descending flight, swept impact, one explosion, health damage once, spherical voxel removal, both sides explode once at maximum range without starting/restarting camera shake and stop emitting trails; physics impacts retain shake. Play Mode.");
                 }
                 else if (Time.realtimeSinceStartup - started > 6) throw new Exception("Timed out waiting for live missile impact; health=" + enemy.CurrentHealth + ", missile=" + (missile != null ? missile.transform.position.ToString() : "expired") + ", effects=" + sawEffects);
