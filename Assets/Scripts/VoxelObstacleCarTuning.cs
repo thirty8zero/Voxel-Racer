@@ -7,11 +7,13 @@ namespace VoxelRacer
     [CreateAssetMenu(menuName = "Voxel Racer/Obstacle Car Tuning", fileName = "VoxelObstacleCarTuning")]
     public sealed class VoxelObstacleCarTuning : ScriptableObject
     {
-        [Min(1f)] public float spawnDistanceAhead = 250f;
+        [Min(1f)] public float spawnDistanceAhead = 220f;
         [Range(0f, 1f)] public float obstacleCarSpawnChance = 0.5f;
         [Range(0f, 1f)] public float oppositeDirectionChance = 0.5f;
         [Tooltip("Chance that a spawned traffic vehicle is an enemy selected from this track's Enemy Vehicle Pool.")]
         [Range(0f, 1f)] public float enemyCarSpawnChance = 0.25f;
+        [Tooltip("After this many waves without an actual enemy spawn, force one enemy into the next wave if a safe lane exists. Zero disables this fallback. Uses the enabled Enemy Vehicle Pool even when random spawn chances are zero.")]
+        [Min(0)] public int enemyDroughtWaveLimit = 6;
         [InspectorName("Enemy Vehicle Pool")]
         [Tooltip("Only enemies in this list can spawn on this track. Spawn Weight is relative to the other entries; zero disables an entry. Empty disables ordinary enemies; boss/radar objectives use their own settings.")]
         public VoxelEnemyVehicleSpawnEntry[] enemyVehicleSpawns;
@@ -81,41 +83,13 @@ namespace VoxelRacer
         [HideInInspector] [Min(1)] public int potholePlayerDamageVoxelsMin = 10;
         [HideInInspector] [Min(1)] public int potholePlayerDamageVoxelsMax = 14;
 
-        public Color[] paintColours =
-        {
-            new Color(0.80f, 0.07f, 0.10f),
-            new Color(0.98f, 0.55f, 0.06f),
-            new Color(0.12f, 0.70f, 0.32f),
-            new Color(0.55f, 0.18f, 0.82f)
-        };
+        [Tooltip("Shared civilian models and paint colours. Editing this asset affects every track using it. Create another with Create > Voxel Racer > Civilian Traffic Set, or duplicate an existing set. Missing/empty sets disable civilians; radar objectives keep their own override.")]
+        public VoxelCivilianTrafficSet civilianTrafficSet;
 
-        [Tooltip("Civilian models, each with an equal chance. Empty uses the legacy car/van settings.")]
-        public VoxelEnemyVehicleTuning[] civilianVehiclePool;
-
-        public VoxelEnemyVehicleTuning ChooseCivilianVehicle(out bool van)
-        {
-            int count = 0;
-            if (civilianVehiclePool != null)
-                foreach (var entry in civilianVehiclePool) if (entry != null && entry.modelPrefab != null) count++;
-            if (count > 0)
-            {
-                int pick = Random.Range(0, count);
-                foreach (var entry in civilianVehiclePool)
-                    if (entry != null && entry.modelPrefab != null && pick-- == 0)
-                    { van = entry == semiTrailerEnemyTuning; return entry; }
-            }
-            van = Random.value < semiTrailerSpawnChance;
-            return van ? semiTrailerEnemyTuning : trafficCarEnemyTuning;
-        }
-
-        // Retain serialized names to migrate existing tracks without losing their settings.
-        [InspectorName("Van Spawn Chance")]
-        [Range(0f, 1f)] public float semiTrailerSpawnChance = 0.35f;
-        [Tooltip("Combat durability used by the regular traffic car.")]
-        public VoxelEnemyVehicleTuning trafficCarEnemyTuning;
-        [InspectorName("Van Vehicle Tuning")]
-        [Tooltip("Model and durability used by the civilian van (replaces the former semi-trailer slot).")]
-        public VoxelEnemyVehicleTuning semiTrailerEnemyTuning;
+        public VoxelEnemyVehicleTuning[] CivilianVehiclePool => civilianTrafficSet != null ? civilianTrafficSet.civilianVehiclePool : null;
+        public Color[] PaintColours => civilianTrafficSet != null ? civilianTrafficSet.paintColours : null;
+        public bool HasCivilianVehicles => civilianTrafficSet != null && civilianTrafficSet.HasCivilianVehicles;
+        public VoxelEnemyVehicleTuning ChooseCivilianVehicle() => civilianTrafficSet != null ? civilianTrafficSet.ChooseCivilianVehicle() : null;
 
         [Tooltip("Civilian vehicles choose all phase speeds from the player's maximum speed. These legacy absolute speed values are retained for existing assets but are no longer used.")]
         [HideInInspector] [Min(0f)] public float sameDirectionSpeedMin = 10f;
@@ -129,11 +103,11 @@ namespace VoxelRacer
         [Min(0f)] public float engageSpeedDistance = 0f;
 
         [Min(0f)] public float sameDirectionSpawnSpeedMultiplierMin = 0.31f;
-        [Min(0f)] public float sameDirectionSpawnSpeedMultiplierMax = 0.56f;
+        [Min(0f)] public float sameDirectionSpawnSpeedMultiplierMax = 0.45f;
         [Min(0f)] public float sameDirectionApproachSpeedMultiplierMin = 0.31f;
-        [Min(0f)] public float sameDirectionApproachSpeedMultiplierMax = 0.56f;
+        [Min(0f)] public float sameDirectionApproachSpeedMultiplierMax = 0.45f;
         [Min(0f)] public float sameDirectionEngageSpeedMultiplierMin = 0.31f;
-        [Min(0f)] public float sameDirectionEngageSpeedMultiplierMax = 0.56f;
+        [Min(0f)] public float sameDirectionEngageSpeedMultiplierMax = 0.45f;
 
         [Min(0f)] public float oncomingSpawnSpeedMultiplierMin = 0.69f;
         [Min(0f)] public float oncomingSpawnSpeedMultiplierMax = 1f;

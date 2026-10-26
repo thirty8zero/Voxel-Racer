@@ -13,11 +13,11 @@ namespace VoxelRacer.Editor
             var root=new GameObject("Temporary civilian validation");
             var random=UnityEngine.Random.state;
             var tuning=UnityEngine.Object.Instantiate(VoxelObstacleCarTuning.Load());
+            using var civilianSetScope = new VoxelCivilianTrafficSetScope(tuning);
             try
             {
-                tuning.civilianVehiclePool=null;
-                tuning.semiTrailerSpawnChance=0;
-                tuning.paintColours=new[]{Color.magenta};
+                tuning.civilianTrafficSet.civilianVehiclePool =new[]{Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning")};
+                tuning.civilianTrafficSet.paintColours =new[]{Color.magenta};
                 var player=root.AddComponent<VoxelCarController>();player.enabled=false;
                 var go=new GameObject("Traffic test");go.transform.SetParent(root.transform);
                 var car=go.AddComponent<VoxelObstacleCar>();car.enabled=false;

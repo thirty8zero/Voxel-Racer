@@ -17,6 +17,7 @@ namespace VoxelRacer.Editor
         private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
         private static GameObject root;
         private static VoxelObstacleCarTuning tuning;
+        private static VoxelCivilianTrafficSetScope civilianSetScope;
         private static VoxelFadeIn[] fades;
         private static VoxelSpawnScaleIn[] growth;
         private static Transform[][] growthTargets;
@@ -49,6 +50,7 @@ namespace VoxelRacer.Editor
             if (state == PlayModeStateChange.EnteredPlayMode) EditorApplication.delayCall += Setup;
             if (state == PlayModeStateChange.ExitingPlayMode)
             {
+                civilianSetScope?.Dispose(); civilianSetScope = null;
                 EditorApplication.update -= Tick;
                 Application.runInBackground = savedBackground; Time.timeScale = savedScale;
                 SessionState.SetBool(Pending, false);
@@ -120,8 +122,9 @@ namespace VoxelRacer.Editor
                 var player = root.AddComponent<VoxelCarController>(); player.enabled = false; player.topSpeed = 0;
                 var spawner = root.AddComponent<VoxelObstacleSpawner>(); spawner.enabled = false; spawner.SetTarget(player);
                 tuning = Object.Instantiate(VoxelObstacleCarTuning.Load());
+                civilianSetScope = new VoxelCivilianTrafficSetScope(tuning);
                 tuning.obstacleCarSpawnChance = 1; tuning.enemyCarSpawnChance = 0; tuning.oppositeDirectionChance = 0;
-                tuning.civilianVehiclePool = new[] { Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning") };
+                tuning.civilianTrafficSet.civilianVehiclePool = new[] { Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning") };
                 spawner.obstacleCarTuning = tuning;
                 var spawn = typeof(VoxelObstacleSpawner).GetMethod("SpawnObject", Private);
                 for (int i = 0; i < 4; i++) spawn.Invoke(spawner, new object[] { null, tuning.spawnDistanceAhead });
@@ -204,6 +207,7 @@ namespace VoxelRacer.Editor
 
         private static void Finish(string report)
         {
+            civilianSetScope?.Dispose(); civilianSetScope = null;
             EditorApplication.update -= Tick;
             Directory.CreateDirectory("Temp"); File.WriteAllText("Temp/WaveSpawnPlayValidation.txt", report);
             if (root != null) Object.Destroy(root); if (tuning != null) Object.Destroy(tuning);

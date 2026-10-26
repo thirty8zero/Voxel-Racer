@@ -113,14 +113,7 @@ namespace VoxelRacer.Editor
         private static float Front(int row) => row<5?2.02f:2.01f-(row-5)*.07f;
         private static void Register(VoxelEnemyVehicleTuning kombi)
         {
-            var hatch=Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning");var van=Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/CivilianVanTuning");var beetle=Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/CivilianBeetleTuning");
-            foreach(string guid in AssetDatabase.FindAssets("t:VoxelTrackDefinition").Concat(AssetDatabase.FindAssets("t:VoxelObstacleCarTuning")).Distinct())
-                foreach(var traffic in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)).OfType<VoxelObstacleCarTuning>())
-                {
-                    var existing=traffic.civilianVehiclePool;if(existing!=null&&existing.Contains(kombi))continue;
-                    // Preserve existing entries and their weighting; append the new civilian once.
-                    traffic.civilianVehiclePool=(existing!=null&&existing.Length>0?existing:new[]{traffic.trafficCarEnemyTuning??hatch,traffic.semiTrailerEnemyTuning??van,beetle}).Concat(new[]{kombi}).Where(v=>v!=null).ToArray();EditorUtility.SetDirty(traffic);
-                }
+            VoxelCivilianTrafficSetAuthoring.RegisterVehicle(kombi);
         }
         private static Material Mat(string name,Color colour)
         {

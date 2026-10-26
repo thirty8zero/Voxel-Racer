@@ -126,16 +126,7 @@ namespace VoxelRacer.Editor
                     AssetDatabase.CreateAsset(tuning,TuningPath);
                 }
                 tuning.modelPrefab=AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);EditorUtility.SetDirty(tuning);
-                var hatch=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>("Assets/Resources/EnemyVehicles/TrafficCarTuning.asset");
-                var van=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>("Assets/Resources/EnemyVehicles/CivilianVanTuning.asset");
-                foreach(string guid in AssetDatabase.FindAssets("t:VoxelObstacleCarTuning").Concat(AssetDatabase.FindAssets("t:VoxelTrackDefinition")).Distinct())
-                    foreach(var traffic in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)).OfType<VoxelObstacleCarTuning>())
-                    {
-                        if(traffic.civilianVehiclePool!=null&&traffic.civilianVehiclePool.Contains(tuning))continue;
-                        var existing=traffic.civilianVehiclePool;
-                        traffic.civilianVehiclePool=(existing!=null&&existing.Length>0?existing:new[]{traffic.trafficCarEnemyTuning??hatch,traffic.semiTrailerEnemyTuning??van}).Concat(new[]{tuning}).Where(v=>v!=null).Distinct().ToArray();
-                        EditorUtility.SetDirty(traffic);
-                    }
+                VoxelCivilianTrafficSetAuthoring.RegisterVehicle(tuning);
                 AssetDatabase.SaveAssets(); Debug.Log("Beetle built: "+root.GetComponentsInChildren<MeshRenderer>().Length+" pieces");
             }
             finally{Object.DestroyImmediate(root);}

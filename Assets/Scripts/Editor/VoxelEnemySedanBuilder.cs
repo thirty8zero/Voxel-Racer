@@ -98,6 +98,7 @@ namespace VoxelRacer.Editor
                     for(int n=0;n<2;n++) Block(root.transform,"Rectangular headlamp",new Vector3(side*(.755f+n*.19f),.77f,2.269f),new Vector3(.16f,.23f,.025f),lamp);
                     for(int n=0;n<3;n++) Block(root.transform,"Tail light",new Vector3(side*(.63f+n*.15f),.78f,-2.22f),new Vector3(.14f,.20f,.05f),n==2?amber:red);
                 }
+                VoxelVehicleDriveline.Ensure(root);
                 PrefabUtility.SaveAsPrefabAsset(root,PrefabPath);
                 var tuning=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>("Assets/Resources/EnemyVehicles/BlackInterceptorTuning.asset");
                 Undo.RecordObject(tuning,"Assign enemy sedan model");

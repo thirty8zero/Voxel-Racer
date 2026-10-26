@@ -28,7 +28,7 @@ MonoBehaviour:
   weaponDebrisSpreadForce: 1.2
   explosionEffectScale: 1.2
   explosionDebrisCount: 50
-  explosionDebrisScale: 1
+  explosionDebrisScale: 0.75
   explosionDebrisLifetime: 4
   explosionForwardForce: 5
   explosionUpwardForce: 15

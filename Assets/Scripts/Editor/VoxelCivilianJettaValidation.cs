@@ -21,6 +21,7 @@ namespace VoxelRacer.Editor
             var scene=EditorSceneManager.NewPreviewScene();var root=new GameObject("Temporary Jetta validation");
             UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(root,scene);
             var traffic=Object.Instantiate(VoxelObstacleCarTuning.Load());
+            using var civilianSetScope = new VoxelCivilianTrafficSetScope(traffic);
             try
             {
                 var jetta=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>(VoxelCivilianJettaBuilder.TuningPath);
@@ -32,12 +33,12 @@ namespace VoxelRacer.Editor
                 int pools=0;
                 foreach(string guid in AssetDatabase.FindAssets("t:VoxelTrackDefinition").Concat(AssetDatabase.FindAssets("t:VoxelObstacleCarTuning")).Distinct())
                     foreach(var pool in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)).OfType<VoxelObstacleCarTuning>())
-                    {Check(pool.civilianVehiclePool!=null&&pool.civilianVehiclePool.Count(v=>v==jetta)==1,"Jetta missing/duplicated in "+pool.name);pools++;}
-                Check(traffic.civilianVehiclePool.All(v=>v!=null&&v.modelPrefab!=null)&&traffic.civilianVehiclePool.Distinct().Count()==traffic.civilianVehiclePool.Length,"Fallback must contain valid unique civilian models");
-                int[] counts=new int[traffic.civilianVehiclePool.Length];UnityEngine.Random.InitState(1812);
-                for(int i=0;i<counts.Length*3000;i++)counts[Array.IndexOf(traffic.civilianVehiclePool,traffic.ChooseCivilianVehicle(out _))]++;
+                    {Check(pool.CivilianVehiclePool!=null&&pool.CivilianVehiclePool.Count(v=>v==jetta)==1,"Jetta missing/duplicated in "+pool.name);pools++;}
+                Check(traffic.CivilianVehiclePool.All(v=>v!=null&&v.modelPrefab!=null)&&traffic.CivilianVehiclePool.Distinct().Count()==traffic.CivilianVehiclePool.Length,"Fallback must contain valid unique civilian models");
+                int[] counts=new int[traffic.CivilianVehiclePool.Length];UnityEngine.Random.InitState(1812);
+                for(int i=0;i<counts.Length*3000;i++)counts[Array.IndexOf(traffic.CivilianVehiclePool,traffic.ChooseCivilianVehicle())]++;
                 Check(counts.All(n=>n>2700&&n<3300),"Civilian pool does not select all models equally");
-                traffic.civilianVehiclePool=new[]{jetta};traffic.paintColours=new[]{Color.magenta};
+                traffic.civilianTrafficSet.civilianVehiclePool =new[]{jetta};traffic.civilianTrafficSet.paintColours =new[]{Color.magenta};
                 var player=root.AddComponent<VoxelCarController>();player.enabled=false;
                 foreach(bool same in new[]{true,false})
                 {

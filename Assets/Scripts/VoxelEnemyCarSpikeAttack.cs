@@ -37,6 +37,8 @@ namespace VoxelRacer
 
         private void LateUpdate()
         {
+            UpdatePsychoBugAfterPlayer();
+            ResolveRearContact();
             // Run after both vehicles move, including the player's boost offset.
             if(SpikeAttackActive && !hasBeenRammed && target != null) KeepSpikeBodiesSeparated();
         }

@@ -41,6 +41,7 @@ namespace VoxelRacer.Editor
                 }
                 Block(bowl,"Receiver arm",new Vector3(0,0,.17f),new Vector3(.045f,.045f,.34f),material);
                 Block(bowl,"Receiver",new Vector3(0,0,.35f),new Vector3(.10f,.10f,.10f),material);
+                VoxelVehicleDriveline.Ensure(root);
                 var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
                 var tuning = AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>(TuningPath);
                 if(tuning==null)

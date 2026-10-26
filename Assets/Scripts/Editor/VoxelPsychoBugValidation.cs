@@ -87,6 +87,85 @@ namespace VoxelRacer.Editor
         [MenuItem("Tools/Voxel Racer/Validate Psycho Bug Behaviour")]
         public static void RunBehaviour() => RunChecks(false);
 
+        [MenuItem("Tools/Voxel Racer/Validate Psycho Bug Ram Alignment")]
+        public static void RunRamAlignment()
+        {
+            Check(!Application.isPlaying,"Run editor validation outside Play Mode.");
+            var active=SceneManager.GetActiveScene();
+            var scene=EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Additive);
+            var random=UnityEngine.Random.state;
+            using var saved=new VoxelGarageUpgradeDockValidation.SavedState();
+            try { VoxelRacerBootstrap.ReloadGeneratedMaterials(); CheckRamAlignment(); }
+            finally { UnityEngine.Random.state=random;SceneManager.SetActiveScene(active);EditorSceneManager.CloseScene(scene,true); }
+        }
+
+        private static void CheckRamAlignment()
+        {
+            using var f=new Fixture();
+            EditorUtility.CopySerialized(Resources.Load<VoxelPsychoBugTuning>("EnemyVehicles/PsychoBugBehaviour"),f.Behaviour);
+            f.Behaviour.shootingWindows=false;f.Behaviour.damageEvasion=false;f.Behaviour.weaveChance=0;f.Behaviour.feintChance=0;
+            f.Behaviour.sideRamDamageMin=f.Behaviour.sideRamDamageMax=0;
+            f.Road.laneCount=3;f.Road.roadWidth=16;f.Player.topSpeed=35;
+            Set(f.Player,"currentLane",1);Set(f.Player,"previousLane",1);f.Player.SetLaneLayout(3,16f/3);
+            var report=new System.Text.StringBuilder();
+            var failures=new System.Collections.Generic.List<string>();
+            foreach(float dt in new[]{1f/120,1f/60,1f/30,1f/15,.25f})
+            foreach(float speed in new[]{35f,20f,14.1f})
+            foreach(float side in new[]{-16f/3,16f/3})
+            foreach(float lead in new[]{200f,-30f})
+            foreach(bool playerFirst in new[]{true,false})
+            {
+                Property(f.Player,"TrackDistance",100f);Property(f.Player,"CurrentSpeed",speed);
+                f.Spawn(side,lead);Set(f.Enemy,"currentSpeed",speed);
+                Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);
+                float minimum=lead,maximum=lead,warningGap=999,slamGap=999,time=0;bool sawWarning=false,sawSlam=false;
+                bool alignedWarning=true,alignedSlam=true;
+                while(time<8 && (!sawWarning || f.Enemy.PsychoPhase==PsychoBugPhase.Warning || f.Enemy.PsychoPhase==PsychoBugPhase.Slamming))
+                {
+                    float previous=f.Enemy.TrackDistance;
+                    if(!playerFirst)Call(f.Enemy,"Update");
+                    Property(f.Player,"TrackDistance",f.Player.TrackDistance+f.Player.CurrentSpeed*dt);Call(f.Player,"ApplyTrackPose");
+                    if(playerFirst)Call(f.Enemy,"Update");
+                    Check(f.Enemy.TrackDistance==previous,"Bug moved during Update instead of waiting for player movement");
+                    // Production calls this from LateUpdate, after either Update ordering.
+                    Call(f.Enemy,"AdvancePsychoBug",dt);Call(f.Enemy,"ApplyTrackPose");
+                    float gap=f.Enemy.TrackDistance-f.Player.CollisionTrackPosition.y;
+                    if(f.Enemy.PsychoPhase==PsychoBugPhase.Aligning){minimum=Mathf.Min(minimum,gap);maximum=Mathf.Max(maximum,gap);}
+                    if(f.Enemy.PsychoPhase==PsychoBugPhase.Warning)
+                    {
+                        if(!sawWarning)warningGap=gap;sawWarning=true;
+                        alignedWarning &= Mathf.Abs(gap)<=f.Behaviour.alignmentTolerance+.01f && Mathf.Abs(f.Enemy.DriveSpeed-speed)<.01f;
+                    }
+                    if(f.Enemy.PsychoPhase==PsychoBugPhase.Slamming)
+                    {
+                        if(!sawSlam)slamGap=gap;sawSlam=true;
+                        alignedSlam &= Mathf.Abs(gap)<=f.Behaviour.alignmentTolerance+.01f;
+                    }
+                    time+=dt;
+                }
+                bool passed=sawWarning && sawSlam && alignedWarning && alignedSlam &&
+                    (lead>0 ? minimum>=-.01f : maximum<=.01f);
+                string line=(passed?"PASS":"FAIL")+": dt="+dt.ToString("0.000")+", speed="+speed+", side="+side+", lead="+lead+", playerFirst="+playerFirst+
+                    ", gap range="+minimum.ToString("0.00")+".."+maximum.ToString("0.00")+", warning="+warningGap.ToString("0.00")+", slam="+slamGap.ToString("0.00")+", phase="+f.Enemy.PsychoPhase;
+                report.AppendLine(line);if(!passed)failures.Add(line);
+            }
+            Directory.CreateDirectory("Temp/PsychoBug");File.WriteAllText("Temp/PsychoBug/RamAlignment.txt",report.ToString());
+            Check(failures.Count==0,"Ram alignment failures: "+string.Join("\n",failures));
+            foreach(float speed in new[]{0f,35f})
+            foreach(float side in new[]{-16f/3,16f/3})
+            {
+                Property(f.Player,"CurrentSpeed",20f);f.Spawn(side);Call(f.Enemy,"BeginPsychoRam");
+                Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Slamming);
+                int integrity=f.Player.RemainingIntegrityVoxels;
+                Property(f.Player,"CurrentSpeed",speed);f.Step(.25f);
+                Check(f.Enemy.PsychoPhase==PsychoBugPhase.Recovering && f.Player.RemainingIntegrityVoxels==integrity &&
+                    Mathf.Abs(f.Enemy.LaneOffset-f.Player.CollisionTrackPosition.x)>=f.EnemyTuning.collisionHalfWidth+f.Behaviour.playerCollisionHalfWidth,
+                    "A long-frame speed change delivered a front/rear hit instead of aborting the side slam");
+            }
+            File.AppendAllText("Temp/PsychoBug/RamAlignment.txt","PASS: abrupt acceleration/braking during a committed slam cancels before lateral contact, both sides, 250ms step.\n");
+            Debug.Log("PASS Psycho Bug ram alignment: both sides, ahead/behind, speeds 14.1/20/35, 15/30/60/120 FPS and 250ms steps, either Update order.");
+        }
+
         private static void RunChecks(bool validateAssets)
         {
             Check(!Application.isPlaying,"Run editor validation outside Play Mode.");
@@ -151,9 +230,13 @@ namespace VoxelRacer.Editor
                 CheckAggression();
                 CheckActiveMovement();
                 CheckOncomingAndApproachSpeed();
+                CheckEnemySpeedFloors();
+                CheckFastRamReturn();
+                CheckRamAlignment();
                 CheckLowSpeedAndBarrels();
                 CheckBlockedMergeAndReturn();
                 // Explicit opt-out retains optional stationary/reverse positioning.
+                f.Behaviour.fastRamReturn=false;
                 f.Behaviour.minimumAlignmentSpeed=f.Behaviour.minimumRamSpeed=f.Behaviour.minimumDrivingSpeed=0;
                 Property(f.Player,"CurrentSpeed",0f);f.Spawn(3,30);Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);Set(f.Enemy,"currentSpeed",0f);
                 float track=f.Enemy.TrackDistance;for(int i=0;i<25;i++)f.Step(.02f,false);
@@ -164,6 +247,7 @@ namespace VoxelRacer.Editor
                     "Left/right one-second warning and pull-away, single configured swept slam damage, recovery, player-ram interruption, boost escape, feint, brief shot window and health damage; forward/back positioning, optional reverse, traffic corridor/oncoming/rear clearance, following speed cap, blocked attack and attacker reservation. Authored defaults approach from 200m on a three-lane 16m road, repeat three natural rams, maintain independent cruise when player brakes, and trigger a passing-alignment ram with random attack chance zero. Hit reactions interrupt exposure, dodge both road edges, survive repeated hits/in-progress merges, accelerate when no lane is available, respect obstacles/cooldown and preserve counter-ram stagger. Shooting placement times out promptly; repeated attacks return within five seconds. Temporary scene/state/random/currency/purchases restored.");
                 File.AppendAllText("Temp/PsychoBug/Validation.txt", " Low-speed alignment/committed-ram cancellation, shooting forward floor, editable thresholds, braking escape, real barrel avoidance, long-frame emergency clearance, blocked-road stopping and destroyed-barrel release also passed.");
                 File.AppendAllText("Temp/PsychoBug/Validation.txt", " New checks passed: 14m/s deliberate approach floor, slow-player breakaway without repeated alignment, actual civilian oncoming prediction beyond the old horizon, retreat from an unsafe unfinished merge, swept diagonal clearance and head-on separation in either vehicle Update order including long frames.");
+                File.AppendAllText("Temp/PsychoBug/Validation.txt", " Ordinary enemy minimum speed passed at spawn/approach/engagement, post-ram stopped/slow/fast player matching, editable/zero floors and lane-change burst; Psycho Bug follows a floor-limited Black Interceptor without crawling when the player is stopped. See Temp/EnemyMinimumSpeed/Validation.txt.");
                 File.AppendAllText("Temp/PsychoBug/Validation.txt", " Blocked player-lane merges return to a centre with weaving disabled; blocked original lanes select the next clear centre; emergency-buffer contact permits separation without crossing through traffic. Aggressive authored 200m approaches reach real warning/slam/damage at 35, 20 and 14.1m/s, including progress beyond the former timeout.");
                 Debug.Log("PASS Psycho Bug " + (validateAssets ? "model, integration and " : "") + "behaviour checks (Edit Mode).");
             }
@@ -288,6 +372,7 @@ namespace VoxelRacer.Editor
                 }
             }
             Property(f.Player,"CurrentSpeed",20f);f.Spawn(3,12);
+            f.Behaviour.fastRamReturn=false;
             f.Behaviour.minimumDrivingSpeed=6f;
             for(int i=0;i<100 && f.Enemy.PsychoPhase!=PsychoBugPhase.Warning;i++)
             {
@@ -296,6 +381,7 @@ namespace VoxelRacer.Editor
             }
             f.Wait(PsychoBugPhase.Warning,4);
             f.Behaviour.minimumDrivingSpeed=20f;
+            f.Behaviour.fastRamReturn=true;
 
             f.Road.laneCount=3;f.Road.roadWidth=16;f.Player.SetLaneLayout(3,16f/3);
             Set(f.Player,"currentLane",1);Set(f.Player,"previousLane",1);Call(f.Player,"ApplyTrackPose");
@@ -350,6 +436,127 @@ namespace VoxelRacer.Editor
                 }
             }
             finally { ReleaseBars(go);Object.DestroyImmediate(go); }
+        }
+
+        [MenuItem("Tools/Voxel Racer/Validate Enemy Minimum Speeds")]
+        public static void RunMinimumSpeeds() => RunBehaviour();
+
+        private static void CheckEnemySpeedFloors()
+        {
+            using var f = new Fixture();
+            var tuning = Object.Instantiate(Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning"));
+            var go = new GameObject("Black Interceptor Minimum Speed QA");
+            go.transform.SetParent(f.Root.transform, false);
+            var black = go.AddComponent<VoxelEnemyCar>(); black.enabled = false;
+            try
+            {
+                Check(tuning.minimumDrivingSpeed == 20f, "Authored Black Interceptor minimum must be 20m/s");
+                Property(f.Player, "CurrentSpeed", 0f);
+                black.Configure(f.Player, f.Traffic, tuning, f.Road, f.Player.TrackDistance + 200f, 0f);
+                Check(black.DriveSpeed >= 20f, "Black Interceptor spawned below its minimum speed");
+                foreach (float gap in new[] { 200f, 40f, 0f })
+                {
+                    Set(black, "trackDistance", f.Player.TrackDistance + gap);
+                    Check((float)Call(black, "GetCurrentDriveSpeed") >= 20f, "An ordinary driving phase ignored its minimum");
+                }
+                Call(black, "BeginRamResponse", false, Vector3.right);
+                foreach (float playerSpeed in new[] { 0f, 1f, 8f, 19f, 20f, 35f })
+                {
+                    Property(f.Player, "CurrentSpeed", playerSpeed);
+                    Check(Mathf.Approximately((float)Call(black, "GetCurrentDriveSpeed"), Mathf.Max(20f, playerSpeed)),
+                        "Post-ram speed matching ignored the minimum or capped a faster player");
+                }
+                Property(f.Player, "CurrentSpeed", 0f);
+                tuning.minimumDrivingSpeed = 8f;
+                Check((float)Call(black, "GetCurrentDriveSpeed") == 8f, "Edited minimum speed was ignored");
+                tuning.minimumDrivingSpeed = 0f;
+                Check((float)Call(black, "GetCurrentDriveSpeed") == 0f, "Zero did not disable the minimum speed");
+                tuning.minimumDrivingSpeed = 20f;
+                Property(f.Player, "CurrentSpeed", 35f);
+                Set(black, "laneChangeSpeedBoostUntil", Time.time + 10f);
+                Check(Mathf.Approximately((float)Call(black, "GetCurrentDriveSpeed"), 35f * (1f + tuning.laneChangeSpeedBoostMultiplier)),
+                    "Minimum speed changed the evasive speed burst");
+                Set(black, "laneChangeSpeedBoostUntil", -1f);
+                // Rear impacts accelerate toward 110% of normal engine-adjusted maximum, independent of braking.
+                f.Player.SetEnginePerformance(20f, 0f);
+                Property(f.Player, "CurrentSpeed", 0f); Set(black, "currentSpeed", 20f);
+                Call(black, "BeginRamResponse", true, Vector3.forward);
+                Check((float)typeof(VoxelEnemyCar).GetField("rearRamEscapeUntil", Private).GetValue(black) > Time.time,
+                    "Rear ram did not start the acceleration response");
+                float expectedEscape = f.Player.EffectiveTopSpeed * 1.1f;
+                float firstStep = (float)Call(black, "GetRearRamEscapeSpeed", .01f);
+                Check(firstStep > 20f && firstStep < expectedEscape, "Rear ram did not accelerate smoothly");
+                for(int i=0;i<30;i++) Set(black, "currentSpeed", (float)Call(black, "GetRearRamEscapeSpeed", .02f));
+                Check(Mathf.Abs(black.DriveSpeed - expectedEscape) < .001f, "Rear ram ignored 110% engine-adjusted top speed");
+                Property(f.Player, "CurrentSpeed", 8f);
+                Check(Mathf.Abs((float)Call(black, "GetRearRamEscapeSpeed", .1f) - expectedEscape) < .001f,
+                    "Rear escape slowed when the player braked");
+                Set(black, "laneChangeSpeedBoostUntil", Time.time + 10f);
+                Check(Mathf.Abs((float)Call(black, "GetCurrentDriveSpeed") - expectedEscape) < .001f,
+                    "Rear escape stacked an unrelated evasive multiplier");
+                Set(black, "laneChangeSpeedBoostUntil", -1f); Set(black, "rearRamEscapeUntil", -1f);
+                Call(black, "BeginRamResponse", false, Vector3.right);
+                Check((float)typeof(VoxelEnemyCar).GetField("rearRamEscapeUntil", Private).GetValue(black) < 0,
+                    "Side impact incorrectly started rear escape");
+                Set(black, "speedMatchUntil", -1f);
+                f.Player.SetEnginePerformance(0f, 0f);
+                Property(f.Player, "CurrentSpeed", 0f);
+                f.Behaviour.sideRamEnabled = false; f.Behaviour.shootingWindows = false;
+                f.Behaviour.weaveThroughTraffic = false;
+                f.Spawn(0f, 85f);
+                Set(black, "trackDistance", f.Player.TrackDistance + 100f);
+                float startBlack = black.TrackDistance, startBug = f.Enemy.TrackDistance;
+                foreach (float seconds in new[] { 1f / 30f, 1f / 60f, 1f / 120f })
+                {
+                    for (int i = 0; i < Mathf.RoundToInt(1f / seconds); i++)
+                    {
+                        float speed = (float)Call(black, "GetCurrentDriveSpeed");
+                        Set(black, "currentSpeed", speed);
+                        Set(black, "trackDistance", black.TrackDistance + speed * seconds);
+                        f.Step(seconds, false);
+                        Check(black.DriveSpeed >= 20f && f.Enemy.DriveSpeed >= 19.99f,
+                            "Stopped player caused the Black Interceptor or following Bug to crawl");
+                    }
+                }
+                Check(black.TrackDistance >= startBlack + 59f && f.Enemy.TrackDistance >= startBug + 59f,
+                    "Clear-road enemies failed to move away from the stopped player");
+                Directory.CreateDirectory("Temp/EnemyMinimumSpeed");
+                File.WriteAllText("Temp/EnemyMinimumSpeed/Validation.txt",
+                    "PASS (Edit Mode): authored Black Interceptor 20m/s minimum at spawn, approach and engagement; side-ram matching with player at 0/1/8/19/20/35m/s; edited/zero minimum; uncapped evasive burst; rear-ram smooth acceleration to 110% engine-adjusted maximum, braking independence, no evasive stacking and no rear escape from a side hit; Psycho Bug following Black Interceptor with stopped player at 30/60/120 FPS. Cloned tuning, temporary objects and state restored.");
+            }
+            finally
+            {
+                Call(black, "OnDisable"); ReleaseBars(go); Object.DestroyImmediate(go); Object.DestroyImmediate(tuning);
+            }
+        }
+
+        private static void CheckFastRamReturn()
+        {
+            using var f = new Fixture();
+            f.Player.topSpeed = 35f;
+            f.Behaviour.shootingWindows=false; f.Behaviour.damageEvasion=false; f.Behaviour.weaveChance=0;
+            f.Behaviour.fastRamReturn=true;
+            Directory.CreateDirectory("Temp/PsychoBug");
+            File.WriteAllText("Temp/PsychoBug/FastRamReturn.txt", "");
+            foreach(float seconds in new[]{1f/30f,1f/60f,1f/120f})
+            foreach(float playerSpeed in new[]{35f,20f,14.1f})
+            foreach(float side in new[]{-3f,3f})
+            {
+                Property(f.Player,"CurrentSpeed",playerSpeed); f.Spawn(side,200f);
+                Set(f.Enemy,"currentSpeed",playerSpeed); Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);
+                float elapsed=0; bool reversed=false;
+                while(elapsed<5f && f.Enemy.PsychoPhase!=PsychoBugPhase.Warning)
+                {
+                    f.Step(seconds,false); elapsed+=seconds; reversed|=f.Enemy.DriveSpeed<0;
+                }
+                Check(f.Enemy.PsychoPhase==PsychoBugPhase.Warning && reversed,
+                    "Fast 200m ram return failed at "+playerSpeed+"m/s, dt="+seconds+"; phase="+f.Enemy.PsychoPhase+", gap="+(f.Enemy.TrackDistance-f.Player.TrackDistance)+", speed="+f.Enemy.DriveSpeed);
+                float gapAtWarning = f.Enemy.TrackDistance - f.Player.CollisionTrackPosition.y;
+                Check(Mathf.Abs(gapAtWarning)<=f.Behaviour.alignmentTolerance &&
+                    Mathf.Abs(f.Enemy.DriveSpeed-playerSpeed)<=f.Behaviour.ramSpeedTolerance,
+                    "Fast return began warning before matching position and speed: gap="+gapAtWarning+", speed="+f.Enemy.DriveSpeed+", player="+playerSpeed);
+                File.AppendAllText("Temp/PsychoBug/FastRamReturn.txt", "PASS: "+Mathf.RoundToInt(1f/seconds)+" FPS, player "+playerSpeed+"m/s, side "+side+", 200m return to warning in "+elapsed.ToString("0.00")+"s.\n");
+            }
         }
 
         private static void CheckLowSpeedAndBarrels()
@@ -504,7 +711,7 @@ namespace VoxelRacer.Editor
                 Check(AssetDatabase.Contains(r.GetComponent<MeshFilter>().sharedMesh),"Unsaved procedural mesh");
             foreach(string guid in AssetDatabase.FindAssets("t:VoxelObstacleCarTuning").Concat(AssetDatabase.FindAssets("t:VoxelTrackDefinition")).Distinct())
             foreach(var traffic in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)).OfType<VoxelObstacleCarTuning>())
-                Check(traffic.enemyVehicleSpawns.Count(e=>e!=null && e.vehicle==tuning)==1 && !traffic.civilianVehiclePool.Contains(tuning),"Pool registration wrong: "+traffic.name);
+                Check(traffic.enemyVehicleSpawns.Count(e=>e!=null && e.vehicle==tuning)==1 && !traffic.CivilianVehiclePool.Contains(tuning),"Pool registration wrong: "+traffic.name);
             CheckInspector(tuning.psychoBug);
         }
         private static void CheckInspector(VoxelPsychoBugTuning tuning)

@@ -24,7 +24,10 @@ namespace VoxelRacer.Editor
         [MenuItem("Tools/Voxel Racer/Preview Touch Areas and Boost Button")]
         public static void Run() => Render("Temp/TouchHud");
 
-        public static void Render(string directory, int width = 1920)
+        [MenuItem("Tools/Voxel Racer/Preview Control Scheme B Touch Areas")]
+        public static void RunSchemeB() => Render("Temp/TouchHud/SchemeB", 1920, true);
+
+        public static void Render(string directory, int width = 1920, bool schemeB = false)
         {
             if (Application.isPlaying) throw new InvalidOperationException("Render this preview in Edit Mode.");
             Directory.CreateDirectory(directory);
@@ -44,6 +47,7 @@ namespace VoxelRacer.Editor
                 var car = root.AddComponent<VoxelCarController>(); car.enabled = false;
                 var controls = root.AddComponent<VoxelMobileControls>();
                 Call(controls, "BuildHud"); controls.Configure(car);
+                controls.ApplyControlScheme(schemeB);
                 var boost = root.AddComponent<VoxelBoostDisplay>(); Call(boost, "BuildHud");
                 var integrity = root.AddComponent<VoxelCarIntegrityDisplay>(); Call(integrity, "BuildHud");
                 Check(root.transform.Find("Boost HUD").GetComponent<CanvasScaler>().matchWidthOrHeight == 1f &&
@@ -54,9 +58,11 @@ namespace VoxelRacer.Editor
                 var buttons = names.Select(n => rects.First(r => r.name == n)).ToArray();
                 var boostRect = buttons[3];
                 Check(boostRect.anchorMin == Vector2.zero && boostRect.anchoredPosition == new Vector2(420, 630), "Inset boost placement");
-                Vector2[] expectedPositions = { new(0, 150), new(430, 150), new(420, 390), new(420, 630), new(-310, 150), new(-310, 390) };
+                float steeringY = schemeB ? 390f : 150f;
+                float brakeY = schemeB ? 150f : 390f;
+                Vector2[] expectedPositions = { new(0, steeringY), new(430, steeringY), new(420, brakeY), new(420, 630), new(-310, 150), new(-310, 390) };
                 for (int i = 0; i < buttons.Length; i++)
-                    Check(buttons[i].anchoredPosition == expectedPositions[i], names[i] + " must retain its original height with only a horizontal inset");
+                    Check(buttons[i].anchoredPosition == expectedPositions[i], names[i] + " is in the wrong position for this control scheme");
                 Check(boostRect.sizeDelta == new Vector2(220, 220), "Boost touch area must remain fixed");
                 var cap = rects.First(r => r.name == "Boost Cap");
                 float lastHeight = -100;
@@ -78,7 +84,7 @@ namespace VoxelRacer.Editor
                 camera.cullingMask = 1 << 31;
                 var overlay = VoxelMenuUi.CreateCanvas(root.transform, "Touch Area Annotations");
                 overlay.GetComponent<Canvas>().sortingOrder = 200;
-                var heading = VoxelMenuUi.CreateText(overlay, "Preview Title", "TOUCH AREAS", 42, TextAnchor.MiddleCenter,
+                var heading = VoxelMenuUi.CreateText(overlay, "Preview Title", schemeB ? "CONTROL SCHEME B — TOUCH AREAS" : "CONTROL SCHEME A — TOUCH AREAS", 42, TextAnchor.MiddleCenter,
                     new Vector2(.5f, 1), new Vector2(0, -85), new Vector2(1000, 65));
                 heading.color = new Color(.6f, .85f, 1f);
                 VoxelMenuUi.CreateText(overlay, "Preview Note", "Outlined rectangles are the full tap targets, including transparent pixels.", 25,
@@ -120,7 +126,7 @@ namespace VoxelRacer.Editor
                 {
                     var arrow = buttons[i].Find("Chevron").GetComponent<RectTransform>();
                     Vector2 visual = overlay.InverseTransformPoint(arrow.position);
-                    Check(Vector2.Distance(visual, new Vector2(overlay.rect.xMin + (i == 0 ? 230 : 610), overlay.rect.yMin + 150)) < .01f, "Steering artwork must move outward 80 units while input stays fixed");
+                    Check(Vector2.Distance(visual, new Vector2(overlay.rect.xMin + (i == 0 ? 230 : 610), overlay.rect.yMin + steeringY)) < .01f, "Steering artwork must retain its horizontal outset on the selected row");
                 }
                 var integrityBackplate = root.GetComponentsInChildren<RectTransform>().First(r => r.name == "Integrity Dial Backplate");
                 Check(!bounds[3].Overlaps(Bounds(integrityBackplate, overlay)), "Boost overlaps the integrity dial");
@@ -128,7 +134,8 @@ namespace VoxelRacer.Editor
                 for (int i = 0; i < bounds.Length; i++)
                 {
                     for (int j = i + 1; j < bounds.Length; j++) Check(!bounds[i].Overlaps(bounds[j]), "Touch targets overlap: " + names[i] + " / " + names[j]);
-                    Check(buttons[i].GetComponent<Image>().raycastTarget && buttons[i].GetComponent<Image>().alphaHitTestMinimumThreshold == 0,
+                    Check(VoxelHudStyles.GetTouchArea(buttons[i]).GetComponent<Image>().raycastTarget &&
+                        VoxelHudStyles.GetTouchArea(buttons[i]).GetComponent<Image>().alphaHitTestMinimumThreshold == 0,
                         "Preview must use actual rectangular raycast targets");
                     // World-to-canvas conversion can round a screen-edge target by a fraction of a pixel.
                     Check(bounds[i].xMin >= overlay.rect.xMin - .01f && bounds[i].xMax <= overlay.rect.xMax + .01f &&
@@ -167,7 +174,7 @@ namespace VoxelRacer.Editor
                 boostRect.gameObject.SetActive(false); ring.gameObject.SetActive(false); track.gameObject.SetActive(false);
                 foreach (Transform item in root.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
                 Save("BoostCooldown.png");
-                File.WriteAllText(Path.Combine(directory, "Validation.txt"), "PASS: actual runtime HUD preview; six effective input rectangles in bounds and non-overlapping; expanded steering/brake/boost regions and 160 units extra on each horizontal side of gun/missile targets; original heights and artwork preserved; blue boost above brake; fixed boost artwork while cap rises monotonically through cooldown; 1x displays -- and 1.25x stays numeric. Edit Mode geometry/presentation checks. Missile purchase state restored.");
+                File.WriteAllText(Path.Combine(directory, "Validation.txt"), "PASS: Control Scheme " + (schemeB ? "B" : "A") + "; actual runtime HUD preview; six effective input rectangles in bounds and non-overlapping; selected steering/brake rows, expanded touch widths, target heights and artwork preserved; unchanged boost/gun/missile positions; fixed boost artwork while cap rises monotonically through cooldown; 1x displays -- and 1.25x stays numeric. Edit Mode geometry/presentation checks. Missile purchase state restored; control preference untouched.");
                 Debug.Log("Touch HUD preview and checks saved to " + directory);
 
                 void Save(string name)

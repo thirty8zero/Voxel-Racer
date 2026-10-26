@@ -21,7 +21,7 @@ MonoBehaviour:
   ammunitionPerStage: 0
   spreadDegrees: 0
   projectileSpeed: 75
-  maximumRange: 160
+  maximumRange: 150
   damagePerBullet: 35
   areaOfEffectRadius: 1.8
   projectileKind: 1

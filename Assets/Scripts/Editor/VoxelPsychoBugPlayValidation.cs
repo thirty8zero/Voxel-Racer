@@ -20,6 +20,10 @@ namespace VoxelRacer.Editor
         private static VoxelMissionTuning missionTuning;
         private static VoxelGunTuning gun;
         private static VoxelObstacleCar oncoming;
+        private static VoxelEnemyCar blackInterceptor;
+        private static VoxelEnemyVehicleTuning blackTuning;
+        private static float blackStartDistance;
+        private static bool fastReturnReversed;
         private static Vector2 previousTrafficRelative;
         private static VoxelGarageUpgradeDockValidation.SavedState saved;
         private static Scene scene,previousScene;
@@ -205,7 +209,53 @@ namespace VoxelRacer.Editor
                             "Actual frame-driven oncoming civilian passed through the Bug");
                         previousTrafficRelative=trafficRelative;
                         if(Time.realtimeSinceStartup-phaseStarted<2.5f)break;
-                        Finish("PASS (Play Mode): actual frame-driven positioning, exposure, alignment, full one-second pull-away warning and committed slam; real gun projectile removes enemy health and promptly interrupts exposure with a lane dodge and acceleration; both side rams damage the real player prefab once, recovery prevents repeated hits, real boost collision offset escapes, player ram cancels attack and damages enemy, actual pause menu freezes motion/timers, mission completion stops attacks. Independent cruise persists when player stops; moderate braking still allows a real delayed ram, while a player below the 14m/s approach floor makes the Bug break away without repeated alignment. Zero-speed alignment cancels and accelerates away; a low-speed committed warning cancels without damage. Actual oncoming civilian and Bug remain separated in a deliberately blocked head-on corridor. Temporary scenes/objects/tuning, clocks, preferences, mission/campaign/currency/purchases and random state restored.");return;
+                        f.Enemy.enabled=false; oncoming.enabled=false;
+                        blackTuning=Object.Instantiate(Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning"));
+                        var blackObject=new GameObject("Live Black Interceptor minimum-speed QA");blackObject.transform.SetParent(f.Root.transform,false);
+                        blackInterceptor=blackObject.AddComponent<VoxelEnemyCar>();
+                        blackInterceptor.Configure(f.Player,f.Traffic,blackTuning,f.Road,f.Player.TrackDistance+40f,-6f);
+                        Call(blackInterceptor,"BeginRamResponse",true,Vector3.forward);
+                        blackStartDistance=blackInterceptor.TrackDistance;Next();break;
+                    case 14:
+                        if(Time.realtimeSinceStartup-phaseStarted<.3f)break;
+                        Check(blackInterceptor!=null && Mathf.Abs(blackInterceptor.DriveSpeed-f.Player.EffectiveTopSpeed*1.1f)<.01f && blackInterceptor.TrackDistance>blackStartDistance+4f,
+                            "Live Black Interceptor did not accelerate to 110% top speed after a rear ram");
+                        Property(f.Player,"CurrentSpeed",8f);Next();break;
+                    case 15:
+                        if(Time.realtimeSinceStartup-phaseStarted<.3f)break;
+                        Check(Mathf.Abs(blackInterceptor.DriveSpeed-f.Player.EffectiveTopSpeed*1.1f)<.01f,"Rear escape tracked braking instead of maximum speed");
+                        f.Player.SetEnginePerformance(25f,0f);
+                        Property(f.Player,"CurrentSpeed",35f);Next();break;
+                    case 16:
+                        if(Time.realtimeSinceStartup-phaseStarted<.3f)break;
+                        Check(Mathf.Abs(blackInterceptor.DriveSpeed-f.Player.EffectiveTopSpeed*1.1f)<.01f,"Rear escape ignored current engine-adjusted maximum speed");
+                        Property(f.Player,"CurrentSpeed",0f);Next();break;
+                    case 17:
+                        if(Time.realtimeSinceStartup-phaseStarted<.3f)break;
+                        Check(Mathf.Abs(blackInterceptor.DriveSpeed-f.Player.EffectiveTopSpeed*1.1f)<.01f,"Repeated player braking changed rear escape speed");
+                        Next();break;
+                    case 18:
+                        // Escape uses scaled gameplay time; slow editor frames can advance less than wall time.
+                        float escapeEnd=(float)typeof(VoxelEnemyCar).GetField("rearRamEscapeUntil",VoxelPsychoBugValidation.Private).GetValue(blackInterceptor);
+                        if(Time.time<escapeEnd+.1f)break;
+                        Check(Mathf.Abs(blackInterceptor.DriveSpeed-20f)<.01f,"Rear escape did not expire back to minimum-limited ordinary driving: speed="+blackInterceptor.DriveSpeed+", time="+Time.time+", end="+escapeEnd);
+                        Object.Destroy(blackInterceptor.gameObject);blackInterceptor=null;
+                        f.Player.SetEnginePerformance(0f,0f); f.Player.topSpeed=35f; Property(f.Player,"CurrentSpeed",20f);
+                        f.Behaviour.fastRamReturn=true;f.Behaviour.sideRamEnabled=true;f.Behaviour.weaveThroughTraffic=true;
+                        f.Spawn(3f,200f);Set(f.Enemy,"currentSpeed",20f);Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);f.Enemy.enabled=true;
+                        fastReturnReversed=false;integrity=f.Player.RemainingIntegrityVoxels;Next();break;
+                    case 19:
+                        fastReturnReversed|=f.Enemy.DriveSpeed<0;
+                        Check(Time.realtimeSinceStartup-phaseStarted<5.5f,"Live 200m fast ram return took too long");
+                        if(f.Enemy.PsychoPhase!=PsychoBugPhase.Warning)break;
+                        Check(fastReturnReversed && Mathf.Abs(f.Enemy.DriveSpeed-f.Player.CurrentSpeed)<=f.Behaviour.ramSpeedTolerance,
+                            "Live fast return skipped attack-only reverse or failed to settle to player speed");
+                        warningStarted=Time.time;Next();break;
+                    case 20:
+                        if(f.Enemy.PsychoPhase!=PsychoBugPhase.Recovering)break;
+                        Check(Time.time-warningStarted>=.98f && f.Player.RemainingIntegrityVoxels==integrity-3,
+                            "Live fast return lost the full warning or actual side-ram damage");
+                        Finish("PASS (Play Mode): actual frame-driven exposure, bullet escape, left/right side rams, full one-second warning, single swept damage, recovery, player counter-ram, pause, mission completion, stopped/slow-player breakaway, and blocked head-on traffic safety. Black Interceptor rear ram accelerates to 110% of engine-adjusted top speed, ignores player braking, updates for changed engine maximum and expires to ordinary minimum-limited driving. Psycho Bug returns from a 200m lead in under 5.5s using attack-only reverse, matches player speed, then completes a full warning and real damaging ram. Temporary scenes/objects/tuning, clocks, preferences, mission/campaign/currency/purchases and random state restored.");return;
                 }
             }
             catch(Exception e){Finish("FAIL: "+e);}
@@ -221,6 +271,7 @@ namespace VoxelRacer.Editor
         {
             if(pause!=null)pause.SetPaused(false);
             f?.Dispose();f=null;
+            if(blackTuning!=null)Object.DestroyImmediate(blackTuning);blackTuning=null;blackInterceptor=null;
             if(gun!=null)Object.DestroyImmediate(gun);if(missionTuning!=null)Object.DestroyImmediate(missionTuning);
             if(previousScene.IsValid() && previousScene.isLoaded)SceneManager.SetActiveScene(previousScene);
             if(scene.IsValid() && scene.isLoaded)SceneManager.UnloadSceneAsync(scene);

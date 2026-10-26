@@ -9,7 +9,6 @@ namespace VoxelRacer
         private static readonly Color LossColour = new Color(1f, .24f, .18f);
         private float timeExtensionStartedAt = float.NegativeInfinity;
         private int timeExtensionAmount;
-        private Vector2 timeExtensionOrigin;
         public float TimeExtensionPulse => Mathf.Clamp01(1f - (Time.unscaledTime - timeExtensionStartedAt) / 1.5f);
 
         public bool AddBonusTime(int seconds, Vector3? position = null)
@@ -20,12 +19,6 @@ namespace VoxelRacer
             RemainingTime += seconds;
             timeExtensionAmount = Time.unscaledTime - timeExtensionStartedAt < .2f ? timeExtensionAmount + seconds : seconds;
             timeExtensionStartedAt = Time.unscaledTime;
-            timeExtensionOrigin = new Vector2(.5f, .5f);
-            if (position.HasValue && Camera.main != null)
-            {
-                var p = Camera.main.WorldToViewportPoint(position.Value);
-                if (p.z > 0) timeExtensionOrigin = new Vector2(Mathf.Clamp(p.x, .15f, .85f), Mathf.Clamp(1-p.y, .35f, .8f));
-            }
             return true;
         }
 
@@ -97,36 +90,21 @@ namespace VoxelRacer
         private void DrawTimeExtension(Rect panel, float alpha)
         {
             float age = Time.unscaledTime - timeExtensionStartedAt;
-            if (age < 0 || age > 1.5f) return;
-            var target = panel.center;
-            float travel = Mathf.SmoothStep(0, 1, Mathf.Clamp01((age - .2f) / .65f));
-            var from = new Vector2(timeExtensionOrigin.x * Screen.width, timeExtensionOrigin.y * Screen.height);
-            var point = Vector2.Lerp(from, target, travel);
+            if (age < 0 || age > 2f || IsComplete || IsFailed) return;
+            float scale = panel.width / 280f;
+            float opacity = alpha * (1f - Mathf.Clamp01((age - 1.5f) / .5f));
+            // Stay below even the enlarged urgency/extension pulse, without covering the digits.
+            float width = 300f * scale;
+            var area = new Rect(Mathf.Clamp(panel.center.x - width * .5f, 0f, Mathf.Max(0f, Screen.width - width)),
+                panel.yMax + 66f * scale, width, 76f * scale);
             var cyan = new Color(.2f, .95f, 1f);
-            if (age < .85f)
-            {
-                for (int i = 1; i <= 8; i++)
-                {
-                    var dot = Vector2.Lerp(from, point, 1 - i * .025f);
-                    Fill(new Rect(dot.x - 3, dot.y - 3, 6, 6), cyan, alpha * (1-i/9f));
-                }
-                Fill(new Rect(point.x - 150, point.y - 42, 300, 84), new Color(.01f, .12f, .18f, .95f), alpha);
-                GUI.color = new Color(1, 1, 1, alpha);
-                GUI.Label(new Rect(point.x - 150, point.y - 40, 300, 45), "+" + timeExtensionAmount + " SEC", BonusStyle(38, cyan));
-                GUI.Label(new Rect(point.x - 150, point.y + 5, 300, 30), "TIME EXTENDED!", BonusStyle(21, Color.white));
-            }
-            else
-            {
-                float burst = (age - .85f) / .65f;
-                for (int i = 0; i < 16; i++)
-                {
-                    float angle = i * Mathf.PI * 2 / 16;
-                    var dot = target + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * (28 + burst * 65);
-                    Fill(new Rect(dot.x - 3, dot.y - 3, 6, 6), cyan, alpha * (1-burst));
-                }
-                GUI.color = new Color(1, 1, 1, alpha * (1-burst));
-                GUI.Label(new Rect(panel.x, panel.yMax + 4, panel.width, 28), "+" + timeExtensionAmount + " SEC", BonusStyle(22, cyan));
-            }
+            Fill(area, new Color(.01f, .12f, .18f, .95f), opacity);
+            Fill(new Rect(area.x, area.y, area.width, 2f * scale), cyan, opacity);
+            GUI.color = new Color(1f, 1f, 1f, opacity);
+            GUI.Label(new Rect(area.x, area.y + 3f * scale, area.width, 43f * scale),
+                "+" + timeExtensionAmount + " SEC", BonusStyle(Mathf.Max(1, Mathf.RoundToInt(38f * scale)), cyan));
+            GUI.Label(new Rect(area.x, area.y + 46f * scale, area.width, 26f * scale),
+                "TIME EXTENDED!", BonusStyle(Mathf.Max(1, Mathf.RoundToInt(21f * scale)), Color.white));
         }
 
         private static void OutlinedBonusLabel(Rect rect, string text, GUIStyle style)

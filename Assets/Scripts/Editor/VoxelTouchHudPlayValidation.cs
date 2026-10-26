@@ -15,6 +15,7 @@ namespace VoxelRacer.Editor
         private static GameObject root;
         private static VoxelBoostController boost;
         private static VoxelPauseMenu pause;
+        private static VoxelMobileControls controls;
         private static VoxelBoostTuning tuning;
         private static RectTransform button, cap;
         private static float started, phaseAt, pausedCharge, lastCap, previousScale;
@@ -32,7 +33,7 @@ namespace VoxelRacer.Editor
         public static void Run()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Start in Edit Mode.");
-            foreach (string key in new[] { VoxelFpsCounter.PreferenceKey, VoxelFpsCounter.WavePreferenceKey })
+            foreach (string key in new[] { VoxelFpsCounter.PreferenceKey, VoxelFpsCounter.WavePreferenceKey, VoxelMobileControls.ControlSchemePreferenceKey })
             {
                 SessionState.SetBool(Pending + key + ".Exists", PlayerPrefs.HasKey(key));
                 SessionState.SetInt(Pending + key, PlayerPrefs.GetInt(key, 1));
@@ -50,7 +51,7 @@ namespace VoxelRacer.Editor
         }
         private static void Restore()
         {
-            foreach (string key in new[] { VoxelFpsCounter.PreferenceKey, VoxelFpsCounter.WavePreferenceKey })
+            foreach (string key in new[] { VoxelFpsCounter.PreferenceKey, VoxelFpsCounter.WavePreferenceKey, VoxelMobileControls.ControlSchemePreferenceKey })
             {
                 if (SessionState.GetBool(Pending + key + ".Exists", false)) PlayerPrefs.SetInt(key, SessionState.GetInt(Pending + key, 1));
                 else PlayerPrefs.DeleteKey(key);
@@ -69,6 +70,7 @@ namespace VoxelRacer.Editor
                 started = phaseAt = Time.realtimeSinceStartup; phase = 0;
                 root = new GameObject("Temporary Touch HUD Play QA");
                 var car = root.AddComponent<VoxelCarController>(); car.SetDrivingEnabled(false);
+                controls = root.AddComponent<VoxelMobileControls>(); controls.Configure(car);
                 boost = root.AddComponent<VoxelBoostController>();
                 tuning = ScriptableObject.CreateInstance<VoxelBoostTuning>(); tuning.boostLength = .35f; tuning.rechargeCooldownLength = .65f;
                 boost.Configure(car, tuning);
@@ -112,6 +114,7 @@ namespace VoxelRacer.Editor
                     VoxelFpsCounter.SetVisible(true); waveToggle.isOn = false;
                     Check(texts.First(t => t.name == "FPS").enabled && !texts.First(t => t.name == "Wave Debug").enabled,
                         "Wave toggle must not hide FPS");
+                    ValidateControlSchemes();
                     phaseAt = Time.realtimeSinceStartup; phase = 2;
                 }
                 else if (phase == 2 && Time.realtimeSinceStartup - phaseAt > .2f)
@@ -127,11 +130,47 @@ namespace VoxelRacer.Editor
                     Check(cap.anchoredPosition.y >= lastCap - .001f, "Cap moved down during recharge"); lastCap = cap.anchoredPosition.y;
                     Check(button.anchoredPosition == new Vector2(420, 630) && button.sizeDelta == new Vector2(220, 220), "Animation changed touch area");
                     if (boost.IsReady && Mathf.Abs(cap.anchoredPosition.y - 24) < .001f)
-                        Finish("PASS (Play Mode): real pointer-down activates and depresses boost immediately; cap stays down during burst, freezes through pause, then rises monotonically over the live cooldown to ready; fixed touch area; paused input blocked; persistent pause-menu wave toggle and independent FPS/wave visibility. Temporary objects/tuning removed; preferences restored.");
+                        Finish("PASS (Play Mode): real pointer-down activates and depresses boost immediately; cap stays down during burst, freezes through pause, then rises monotonically over the live cooldown to ready; fixed touch area; paused input blocked; persistent pause-menu wave toggle and independent FPS/wave visibility; Control Scheme B pause toggle swaps artwork and touch targets, clears held input, persists for rebuilt HUDs, and restores Scheme A. Temporary objects/tuning removed; preferences restored.");
                 }
             }
             catch (Exception e) { Finish("FAIL: " + e); }
         }
+        private static void ValidateControlSchemes()
+        {
+            var toggle = root.GetComponentsInChildren<Toggle>().First(t => t.name == "Control Scheme B Toggle");
+            var rects = controls.GetComponentsInChildren<RectTransform>();
+            var left = rects.First(r => r.name == "Move Left Button");
+            var right = rects.First(r => r.name == "Move Right Button");
+            var brake = rects.First(r => r.name == "Brake Button");
+            toggle.isOn = false;
+            Check(left.anchoredPosition.y == 150 && right.anchoredPosition.y == 150 && brake.anchoredPosition.y == 390,
+                "Scheme A positions did not restore");
+            // Seed held input directly: the public accessors deliberately mask it while paused.
+            var flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
+            foreach (string field in new[] { "brakeHeld", "fireHeld", "missileHeld" })
+                typeof(VoxelMobileControls).GetField(field, flags).SetValue(null, true);
+            toggle.isOn = true;
+            Check(VoxelMobileControls.UseControlSchemeB && PlayerPrefs.GetInt(VoxelMobileControls.ControlSchemePreferenceKey) == 1,
+                "Scheme B preference did not save");
+            Check(left.anchoredPosition.y == 390 && right.anchoredPosition.y == 390 && brake.anchoredPosition.y == 150,
+                "Scheme B did not swap brake and steering rows");
+            Check(left.Find("Chevron").position.y > brake.position.y && VoxelHudStyles.GetTouchArea(brake).position.y == brake.position.y,
+                "Artwork or expanded brake input did not move with its control");
+            foreach (string field in new[] { "brakeHeld", "fireHeld", "missileHeld" })
+                Check(!(bool)typeof(VoxelMobileControls).GetField(field, flags).GetValue(null), "Scheme switch left held input active");
+            var rebuilt = new GameObject("Temporary Rebuilt Scheme B HUD"); rebuilt.transform.SetParent(root.transform);
+            try
+            {
+                var copy = rebuilt.AddComponent<VoxelMobileControls>();
+                Check(copy.GetComponentsInChildren<RectTransform>().First(r => r.name == "Brake Button").anchoredPosition.y == 150,
+                    "New HUD did not use the saved Scheme B preference");
+            }
+            finally { Object.Destroy(rebuilt); }
+            toggle.isOn = false;
+            Check(!VoxelMobileControls.UseControlSchemeB && left.anchoredPosition.y == 150 && right.anchoredPosition.y == 150 && brake.anchoredPosition.y == 390,
+                "Turning Scheme B off did not restore the original layout");
+        }
+
         private static void Finish(string message)
         {
             EditorApplication.update -= Tick;

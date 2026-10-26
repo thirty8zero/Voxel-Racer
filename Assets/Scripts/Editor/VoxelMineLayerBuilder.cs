@@ -41,6 +41,7 @@ namespace VoxelRacer.Editor
                     Block(root.transform,"Outlet guide",new Vector3(x,.36f,-2.73f),new Vector3(.1f,.12f,.35f),steel);
                 Block(root.transform,"Ejection tray",new Vector3(0,.305f,-2.75f),new Vector3(.8f,.05f,.4f),steel);
                 Block(root.transform,"Dispenser warning lamp",new Vector3(0,1.09f,-2.6f),new Vector3(.14f,.07f,.12f),red);
+                VoxelVehicleDriveline.Ensure(root);
                 PrefabUtility.SaveAsPrefabAsset(root,CarPath);
             }
             finally { Object.DestroyImmediate(root); }

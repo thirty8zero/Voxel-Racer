@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14e1a555bc1144c88cda886ab136a42d, type: 3}
+  m_Name: CivilianTraffic_Default
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelCivilianTrafficSet
+  civilianVehiclePool:
+  - {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
+  - {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}
+  - {fileID: 11400000, guid: b56eba2a0575bdd4388fc938427a7989, type: 2}
+  - {fileID: 11400000, guid: d10e6994f682adc47aa52393807270b6, type: 2}
+  - {fileID: 11400000, guid: 7546fab2050013c4a8157b3828ffa0f9, type: 2}
+  - {fileID: 11400000, guid: 194983310eb686a4c82717357a156347, type: 2}
+  paintColours:
+  - {r: 0.92933357, g: 1, b: 0, a: 1}
+  - {r: 0.98, g: 0.55, b: 0.06, a: 1}
+  - {r: 0.12, g: 0.7, b: 0.32, a: 1}
+  - {r: 0.55, g: 0.18, b: 0.82, a: 1}
+  - {r: 0.735849, g: 0.18396226, b: 0.46626332, a: 1}
+  - {r: 0, g: 0.41960785, b: 1, a: 1}
+  - {r: 0.7924528, g: 0.7924528, b: 0.7924528, a: 0}
+  - {r: 0.56959194, g: 0.5549128, b: 0.8113208, a: 0}
+  - {r: 0, g: 0.8113208, b: 0.28988552, a: 0}

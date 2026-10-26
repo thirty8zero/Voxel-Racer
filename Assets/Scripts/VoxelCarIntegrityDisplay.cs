@@ -21,20 +21,29 @@ namespace VoxelRacer
         private Texture2D dialTexture;
         private Sprite dialSprite;
         private float damagePulseStartedAt = -1f;
+        private float criticalFlashStartedAt = -1f;
         private bool garageDisplay;
         private const float DamagePulseDuration = 0.28f;
+        private const float CriticalIntegrity = 0.15f;
+        private const float CriticalFlashPeriod = 0.5f;
+        private static readonly Color HealthyColour = new Color(0.16f, 0.92f, 0.28f);
+        private static readonly Color WarningYellow = new Color(1f, 1f, 0f);
+        private static readonly Color WarningOrange = new Color(1f, 0.45f, 0f);
+        private static readonly Color CriticalRed = new Color(1f, 0.05f, 0.03f);
 
         /// <summary>Shows the stationary garage car's integrity without race visibility or pause input.</summary>
         public void ConfigureForGarage(VoxelCarController car)
         {
             target = car;
             garageDisplay = true;
+            criticalFlashStartedAt = -1f;
         }
 
         private void OnEnable() => Active = this;
 
         private void OnDisable()
         {
+            criticalFlashStartedAt = -1f;
             if (Active == this)
                 Active = null;
             if (canvasGroup != null)
@@ -85,14 +94,18 @@ namespace VoxelRacer
         {
             float integrity = Mathf.Clamp01(target.IntegrityPercent / 100f);
             healthRing.fillAmount = integrity;
-            Color normalRingColour = Color.Lerp(new Color(0.95f, 0.12f, 0.08f),
-                new Color(0.16f, 0.92f, 0.28f), integrity);
+            if (integrity > CriticalIntegrity)
+                criticalFlashStartedAt = -1f;
+            else if (criticalFlashStartedAt < 0f)
+                criticalFlashStartedAt = Time.unscaledTime;
+            Color normalRingColour = GetIntegrityColour(integrity,
+                criticalFlashStartedAt < 0f ? 0f : Time.unscaledTime - criticalFlashStartedAt);
             float pulseProgress = damagePulseStartedAt < 0f ? 1f :
                 Mathf.Clamp01((Time.unscaledTime - damagePulseStartedAt) / DamagePulseDuration);
             float pulse = damagePulseStartedAt < 0f || pulseProgress >= 1f
                 ? 0f
                 : Mathf.Sin(pulseProgress * Mathf.PI);
-            healthRing.color = Color.Lerp(normalRingColour, new Color(1f, 0.05f, 0.03f), pulse);
+            healthRing.color = Color.Lerp(normalRingColour, CriticalRed, pulse);
             Vector3 radialScale = Vector3.one * (1f + pulse * 0.11f);
             healthRing.transform.localScale = radialScale;
             backgroundRing.transform.localScale = radialScale;
@@ -101,6 +114,22 @@ namespace VoxelRacer
             integrityLabelText.font = voxelFont;
             percentageText.font = activeFont;
             percentageText.text = Mathf.CeilToInt(target.IntegrityPercent) + "%";
+        }
+
+        private static Color GetIntegrityColour(float integrity, float criticalFlashElapsed)
+        {
+            if (integrity > 0.5f)
+                return HealthyColour;
+            if (integrity > 0.25f)
+                return Color.Lerp(WarningYellow, WarningOrange, Mathf.InverseLerp(0.5f, 0.26f, integrity));
+            if (integrity > CriticalIntegrity)
+                return CriticalRed;
+
+            // Two smooth flashes per real-time second, starting bright on entering critical health.
+            float brightness = Mathf.Lerp(0.25f, 1f,
+                (Mathf.Cos(criticalFlashElapsed * (2f * Mathf.PI / CriticalFlashPeriod)) + 1f) * 0.5f);
+            return new Color(CriticalRed.r * brightness, CriticalRed.g * brightness,
+                CriticalRed.b * brightness, 1f);
         }
 
         private void BuildHud()
@@ -151,7 +180,7 @@ namespace VoxelRacer
 
             healthRing = CreateRingImage(canvas, ringSprite);
             healthRing.name = "Integrity Ring";
-            healthRing.color = new Color(0.16f, 0.92f, 0.28f);
+            healthRing.color = HealthyColour;
 
             percentageText = VoxelMenuUi.CreateText(canvas, "Integrity Percentage", string.Empty, 110,
                 TextAnchor.MiddleCenter, new Vector2(0f, 1f), new Vector2(155f, -140f), new Vector2(190f, 100f));

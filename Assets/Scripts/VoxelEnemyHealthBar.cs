@@ -31,6 +31,30 @@ namespace VoxelRacer
         public bool UsesDistanceVisibility { get; private set; }
         public float VisibilityAlpha { get; private set; } = 1f;
 
+        /// <summary>Projected full frame, including the largest possible critical-health pulse.</summary>
+        public bool TryGetScreenRect(Camera camera, out Rect screenRect)
+        {
+            screenRect = default;
+            if (camera == null) return false;
+            float padding = BackgroundPadding + (outlineMaterial != null ? EnemyOutlineThickness * 2f : 0f);
+            float pulse = 1f + Mathf.Max(0f, criticalPulseScale);
+            Vector3 halfSize = new Vector3(Mathf.Max(width + padding, width * pulse),
+                Mathf.Max(fillHeight + padding, fillHeight * pulse), .16f) * .5f;
+            Vector2 minimum = Vector2.positiveInfinity, maximum = Vector2.negativeInfinity;
+            // Eight cached-shape corners avoid renderer searches and include perspective/depth.
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 local = new Vector3((corner & 1) == 0 ? -halfSize.x : halfSize.x,
+                    (corner & 2) == 0 ? -halfSize.y : halfSize.y, (corner & 4) == 0 ? -halfSize.z : halfSize.z);
+                Vector3 point = camera.WorldToScreenPoint(transform.TransformPoint(local));
+                if (point.z <= 0f) return false;
+                Vector2 guiPoint = new Vector2(point.x, Screen.height - point.y);
+                minimum = Vector2.Min(minimum, guiPoint); maximum = Vector2.Max(maximum, guiPoint);
+            }
+            screenRect = Rect.MinMaxRect(minimum.x, minimum.y, maximum.x, maximum.y);
+            return true;
+        }
+
         public static VoxelEnemyHealthBar Create(Transform owner, VoxelEnemyVehicleTuning tuning, Transform player = null)
         {
             var bar = Create(owner, tuning.healthBarWidth, tuning.healthBarHeight, tuning.healthBarHeightOffset,

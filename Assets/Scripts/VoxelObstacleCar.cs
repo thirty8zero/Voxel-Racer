@@ -19,6 +19,8 @@ namespace VoxelRacer
         public float TrackDistance => trackDistance;
         public bool TravelsWithPlayer => travelsWithPlayer;
         public float TravelSpeed => travelSpeed;
+        // Include later phases when deciding whether a car behind a forced spawn can catch it.
+        public float MaximumPhaseTravelSpeed => Mathf.Max(travelSpeed, Mathf.Max(spawnSpeed, Mathf.Max(approachSpeed, engageSpeed)));
         public float TrafficHalfLength => collisionHalfLength;
         public float TrafficHalfWidth => collisionHalfWidth;
         public bool IsDrivingTraffic => !hasBeenHit;
@@ -29,8 +31,10 @@ namespace VoxelRacer
 
         private VoxelCarController target;
         private bool travelsWithPlayer;
-        private bool isSemiTrailer;
+        private bool UsesVanImpactSettings => !IsEnemyTraffic && EnemyTuning != null && EnemyTuning.useVanImpactSettings;
         private Vector2 previousCollisionRelative;
+        private VoxelVehicleCollision.RearContact rearContact;
+        private float rearImpactSpeed;
         private float travelSpeed;
         private float spawnSpeed;
         private float approachSpeed;
@@ -48,15 +52,27 @@ namespace VoxelRacer
         private bool nearMissCandidate;
         private Transform[] modelWheels = System.Array.Empty<Transform>();
         private VoxelProjectileVoxelCache projectileVoxels;
+        private VoxelVehicleDamageParts damageParts;
+        private VoxelVehicleDamageParts DamageParts => damageParts ??= new VoxelVehicleDamageParts(transform);
+        private VoxelRearRamWobble rearRamWobble;
         private void CacheProjectileVoxels() => projectileVoxels = new VoxelProjectileVoxelCache(transform,
             renderer => renderer.GetComponentInParent<VoxelIndestructiblePart>() == null, true);
         private bool nearMissAwarded;
         private float closestNearMissDistance = float.PositiveInfinity;
 
-        public void Configure(VoxelCarController player, VoxelObstacleCarTuning value, bool sameDirection,
+        public bool Configure(VoxelCarController player, VoxelObstacleCarTuning value, bool sameDirection,
             EndlessVoxelRoad road, float distance, float offset, float matchingTravelSpeed = -1f, VoxelEnemyVehicleTuning vehicleOverride = null)
         {
+            IsEnemyTraffic = vehicleOverride != null;
+            EnemyTuning = vehicleOverride != null ? vehicleOverride : value.ChooseCivilianVehicle();
+            if (EnemyTuning == null || (!IsEnemyTraffic && EnemyTuning.modelPrefab == null))
+            {
+                enabled = false;
+                return false;
+            }
             target = player;
+            rearContact = default;
+            rearImpactSpeed = 0f;
             VoxelMissileTarget.Register(gameObject);
             tuning = value;
             travelsWithPlayer = sameDirection;
@@ -82,27 +98,17 @@ namespace VoxelRacer
                 engageSpeed = playerMaximumSpeed * Random.Range(engageMin, engageMax);
             }
             travelSpeed = spawnSpeed;
-            IsEnemyTraffic = vehicleOverride != null;
-            isSemiTrailer = false;
-            EnemyTuning = vehicleOverride != null ? vehicleOverride : tuning.ChooseCivilianVehicle(out isSemiTrailer);
-            if (EnemyTuning != null && (IsEnemyTraffic || EnemyTuning != tuning.trafficCarEnemyTuning))
-            {
-                collisionHalfWidth = EnemyTuning.collisionHalfWidth;
-                collisionHalfLength = EnemyTuning.collisionHalfLength;
-            }
-            CurrentHealth = EnemyTuning != null ? EnemyTuning.vehicleHealth : 1f;
-            if (isSemiTrailer)
-            {
-                collisionHalfWidth = EnemyTuning != null ? EnemyTuning.collisionHalfWidth : 1.4f;
-                collisionHalfLength = EnemyTuning != null ? EnemyTuning.collisionHalfLength : 2.65f;
-                gameObject.name = sameDirection ? "Civilian Van (Same Direction)" : "Civilian Van (Oncoming)";
-            }
+            collisionHalfWidth = EnemyTuning.collisionHalfWidth;
+            collisionHalfLength = EnemyTuning.collisionHalfLength;
+            CurrentHealth = EnemyTuning.vehicleHealth;
+            if (!IsEnemyTraffic) gameObject.name = EnemyTuning.displayName + (sameDirection ? " (Same Direction)" : " (Oncoming)");
             BuildVisuals();
             if (!IsEnemyTraffic) ApplyRandomPaintColour();
             ApplyTrackPose();
             VoxelNightHeadlights.Attach(gameObject, road != null ? road.trackDefinition : VoxelRacerBootstrap.ActiveTrack);
             previousCollisionRelative=target.CollisionTrackPosition-new Vector2(laneOffset,trackDistance);
             gameObject.AddComponent<VoxelVehicleDamageEffects>().Configure();
+            return true;
         }
 
         private void Update()
@@ -128,7 +134,11 @@ namespace VoxelRacer
                     new Vector2(collisionHalfWidth,collisionHalfLength),out var contact);
                 previousCollisionRelative=relative;
                 if (contactFound && Time.time >= nextCollisionTime)
+                {
+                    rearImpactSpeed = direction * travelSpeed + Mathf.Max(0f,
+                        (relative.y - previousRelative.y) / Mathf.Max(.0001f, Time.deltaTime));
                     HitCar(VoxelVehicleCollision.ImpactDirection(contact,target.transform));
+                }
                 else
                     UpdateNearMiss(previousRelative, relative);
 
@@ -161,6 +171,11 @@ namespace VoxelRacer
             Vector3 hitDirection = sweptDirection ?? (transform.position - target.transform.position).normalized;
             if (hitDirection.sqrMagnitude < 0.001f)
                 hitDirection = travelsWithPlayer ? target.transform.forward : -target.transform.forward;
+            if (Vector3.Dot(hitDirection, target.transform.forward) > Mathf.Abs(Vector3.Dot(hitDirection, target.transform.right)))
+            {
+                rearContact.Begin(target, transform, new Vector2(collisionHalfWidth, collisionHalfLength), rearImpactSpeed);
+                rearRamWobble?.Play(target);
+            }
 
             GetPlayerCollisionDamageRange(out int damageMin, out int damageMax);
             int selectedPlayerDamage = Random.Range(damageMin, damageMax + 1);
@@ -169,7 +184,7 @@ namespace VoxelRacer
             int integrityBeforeHit = target.RemainingIntegrityVoxels;
 #endif
             target.damageVoxelsPerHit = selectedPlayerDamage;
-            target.ApplyCollisionDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, IsEnemyTraffic ? EnemyTuning.displayName + " collision" : (isSemiTrailer ? "Civilian van collision" : "Civilian car collision"));
+            target.ApplyCollisionDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, IsEnemyTraffic ? EnemyTuning.displayName + " collision" : (UsesVanImpactSettings ? "Civilian van collision" : "Civilian car collision"));
             target.damageVoxelsPerHit = originalPlayerDamage;
 #if UNITY_EDITOR
             int integrityAfterHit = target.RemainingIntegrityVoxels;
@@ -180,7 +195,7 @@ namespace VoxelRacer
 
             // Begin damage on the surface facing the player, rather than from the traffic
             // car's centre, so detached voxels consistently identify the collision point.
-            float damageSurfaceOffset = isSemiTrailer
+            float damageSurfaceOffset = UsesVanImpactSettings
                 ? tuning.semiImpactVoxelDamageSurfaceOffset
                 : tuning.impactVoxelDamageSurfaceOffset;
             Vector3 obstacleImpactPoint = transform.position - hitDirection * damageSurfaceOffset;
@@ -195,9 +210,19 @@ namespace VoxelRacer
             ReportDestroyed(true);
             CurrentHealth = 0f;
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
-                EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
+                EnemyTuning != null ? EnemyTuning.explosionEffectScale : 1f);
             velocity = hitDirection * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
+            if (rearContact.Active)
+            {
+                Vector3 forward = path != null ? path.Evaluate(trackDistance).forward : Vector3.forward;
+                velocity += forward * Mathf.Max(0f, rearContact.BounceSpeed - Vector3.Dot(velocity, forward));
+            }
             destroyTime = Time.time + tuning.destroyedLifetime;
+        }
+
+        private void LateUpdate()
+        {
+            if (hasBeenHit && !VoxelPauseMenu.IsPaused && Time.timeScale > 0f) rearContact.ResolveWreck(transform);
         }
 
         /// <summary>Finds the nearest intact traffic voxel along a finite bullet segment, without per-voxel colliders.</summary>
@@ -250,6 +275,7 @@ namespace VoxelRacer
                 return;
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - damage);
+            hitVoxel = DamageParts.PreferBody(hitVoxel, hitPoint);
             if (hitVoxel != null)
             {
                 if (awardMissionPoints)
@@ -277,7 +303,7 @@ namespace VoxelRacer
             hasBeenHit = true;
             ReportDestroyed(awardMissionPoints);
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
-                EnemyTuning != null ? EnemyTuning.explosionEffectScale : (isSemiTrailer ? 1.35f : 1f));
+                EnemyTuning != null ? EnemyTuning.explosionEffectScale : 1f);
             ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount, DebrisStyle.Explosion);
             velocity = impactDirection.normalized * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + EnemyTuning.destroyedLifetime;
@@ -474,7 +500,7 @@ namespace VoxelRacer
                     renderer.GetComponentInParent<VoxelIndestructiblePart>() == null)
                     candidates.Add(renderer.transform);
 
-            candidates.Sort((a, b) => (a.position - hitPoint).sqrMagnitude.CompareTo((b.position - hitPoint).sqrMagnitude));
+            DamageParts.Sort(candidates, hitPoint);
             int destroyCount = Mathf.Min(voxelCount, candidates.Count);
             for (int index = 0; index < destroyCount; index++)
             {
@@ -487,6 +513,7 @@ namespace VoxelRacer
 
         private void SpawnDebris(Transform source, Vector3 impactDirection, DebrisStyle style)
         {
+            if (!Application.isPlaying) return;
             VoxelEnemyVehicleTuning vehicleTuning = EnemyTuning;
             if (vehicleTuning == null)
                 return;
@@ -530,10 +557,11 @@ namespace VoxelRacer
             Vector3 burstDirection = (impactDirection.normalized + Vector3.up * 0.75f).normalized;
             debris.transform.position = source.position + burstDirection * 0.45f + Random.insideUnitSphere * 0.16f;
             debris.transform.rotation = Random.rotation;
-            debris.transform.localScale = source.lossyScale * Random.Range(0.75f, 1.15f) * scale;
-            debris.GetComponent<MeshRenderer>().sharedMaterial = source.GetComponent<MeshRenderer>().sharedMaterial;
+            var sourceRenderer = source.GetComponent<MeshRenderer>();
+            debris.transform.localScale = VoxelDebris.GetSourceSize(sourceRenderer) * Random.Range(0.75f, 1.15f) * scale;
+            debris.GetComponent<MeshRenderer>().sharedMaterial = sourceRenderer.sharedMaterial;
             var paintProperties = new MaterialPropertyBlock();
-            source.GetComponent<MeshRenderer>().GetPropertyBlock(paintProperties);
+            sourceRenderer.GetPropertyBlock(paintProperties);
             debris.GetComponent<MeshRenderer>().SetPropertyBlock(paintProperties);
             Destroy(debris.GetComponent<BoxCollider>());
             Vector3 burst = burstDirection * Random.Range(forwardForceMin, forwardForceMax)
@@ -543,10 +571,18 @@ namespace VoxelRacer
 
         private void BuildVisuals()
         {
+            Transform visualRoot;
             if (EnemyTuning != null && EnemyTuning.modelPrefab != null)
-                Instantiate(EnemyTuning.modelPrefab, transform, false);
+                visualRoot = Instantiate(EnemyTuning.modelPrefab, transform, false).transform;
             else
-                VoxelRacerBootstrap.CreateObstacleCarVisuals(transform);
+            {
+                visualRoot = new GameObject("Traffic Car Visuals").transform;
+                visualRoot.SetParent(transform, false);
+                VoxelRacerBootstrap.CreateObstacleCarVisuals(visualRoot);
+            }
+            VoxelVehicleDriveline.Ensure(visualRoot.gameObject);
+            rearRamWobble = VoxelRearRamWobble.Bind(gameObject, visualRoot);
+            damageParts = new VoxelVehicleDamageParts(transform);
             CacheProjectileVoxels();
             var wheels = new List<Transform>();
             foreach (var child in GetComponentsInChildren<Transform>())
@@ -556,10 +592,10 @@ namespace VoxelRacer
 
         private void ApplyRandomPaintColour()
         {
-            if (tuning.paintColours == null || tuning.paintColours.Length == 0)
+            if (tuning.PaintColours == null || tuning.PaintColours.Length == 0)
                 return;
 
-            Color paintColour = tuning.paintColours[Random.Range(0, tuning.paintColours.Length)];
+            Color paintColour = tuning.PaintColours[Random.Range(0, tuning.PaintColours.Length)];
             var modelPaint = GetComponentInChildren<VoxelTrafficPaint>();
             Material paintMaterial = modelPaint != null ? modelPaint.bodyMaterial : VoxelRacerBootstrap.ObstacleCarPaintMaterial;
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())

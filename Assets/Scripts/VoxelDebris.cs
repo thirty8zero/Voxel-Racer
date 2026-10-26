@@ -15,6 +15,13 @@ namespace VoxelRacer
         private bool hasBounced;
         private bool hasSettled;
 
+        /// <summary>World dimensions in the source mesh's axes, including custom meshes and mirrored scales.</summary>
+        public static Vector3 GetSourceSize(MeshRenderer source)
+        {
+            Vector3 size = Vector3.Scale(source.localBounds.size, source.transform.lossyScale);
+            return new Vector3(Mathf.Abs(size.x), Mathf.Abs(size.y), Mathf.Abs(size.z));
+        }
+
         private void Awake()
         {
             ApplyDamageSoot();
@@ -53,8 +60,16 @@ namespace VoxelRacer
             Launch(initialVelocity, 1.5f);
         }
 
-        public void Launch(Vector3 initialVelocity, float lifetime)
+        public void Launch(Vector3 initialVelocity, float lifetime, Renderer appearanceSource = null)
         {
+            // Wood fragments retain the source material/property colours instead of damage soot.
+            if (appearanceSource != null)
+            {
+                var properties = new MaterialPropertyBlock();
+                appearanceSource.GetPropertyBlock(properties);
+                foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
+                    renderer.SetPropertyBlock(properties);
+            }
             velocity = initialVelocity;
             expireTime = Time.time + Mathf.Max(0.1f, lifetime);
             groundRestHeight = GroundHeight + Mathf.Max(0.02f, transform.lossyScale.y * 0.5f);

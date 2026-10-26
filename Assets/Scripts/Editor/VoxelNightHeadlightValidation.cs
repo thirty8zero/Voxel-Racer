@@ -85,7 +85,8 @@ namespace VoxelRacer.Editor
                     var traffic = Child(root.transform, "Preview " + setup.Item1).AddComponent<VoxelObstacleCar>();
                     // Explicit pool clone keeps this a civilian while selecting the preview model.
                     var tuning = Object.Instantiate(VoxelObstacleCarTuning.Load());
-                    tuning.civilianVehiclePool = new[] { Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/" + setup.Item1) };
+                    using var civilianSetScope = new VoxelCivilianTrafficSetScope(tuning);
+                    tuning.civilianTrafficSet.civilianVehiclePool = new[] { Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/" + setup.Item1) };
                     traffic.Configure(player, tuning, setup.Item4, road, setup.Item2, setup.Item3, 0);
                     traffic.enabled = false; cars.Add(traffic);
                 }

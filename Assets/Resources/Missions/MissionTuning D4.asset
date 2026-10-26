@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionTuning
   displayName: Tequila Plains 4
   requiredPoints: 1200
-  completionCurrencyAward: 300
+  completionCurrencyAward: 250
   crateRewards:
   - source: {fileID: 11400000, guid: a2642cf1b770f304089540f52b9277a3, type: 2}
     chance: 0.25

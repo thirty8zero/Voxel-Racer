@@ -13,14 +13,14 @@ namespace VoxelRacer
         [Min(0)] public float maximumSpeedMultiplier = 1.35f;
         [Tooltip("Independent cruising speed as a fraction of the player's normal top speed. Player braking does not lower this speed; traffic can still make the Bug brake.")]
         [Min(0)] public float cruiseSpeedMultiplier = .95f;
-        [Tooltip("Minimum forward cruising/shooting speed in m/s. Deliberate ram returns may brake down to minimumRamSpeed; obstacles can still force a stop.")]
+        [Tooltip("Minimum forward cruising/shooting speed in m/s. Fast ram returns use a temporary attack-only reverse; ordinary ram returns may brake to minimumRamSpeed. Obstacles can still force a stop.")]
         [Min(0)] public float minimumDrivingSpeed = 6f;
         [Min(0)] public float positioningSpeed = 28f;
         [Min(.01f)] public float positioningResponse = 2.6f;
         [Tooltip("Damps relative approach speed so returning to the player does not overshoot and repeatedly miss attack alignment.")]
         [Min(0)] public float positioningDamping = .6f;
         [Min(.1f)] public float laneChangeSpeed = 10f;
-        [Tooltip("Relative positioning normally uses braking. Enable actual reverse motion only if desired.")]
+        [Tooltip("Allow general shooting/positioning reverse motion. Fast Ram Return has its own temporary attack-only reverse, independent of this setting.")]
         public bool allowReverse;
         [Min(0)] public float maximumReverseSpeed = 5f;
 
@@ -56,13 +56,21 @@ namespace VoxelRacer
         [Range(0, 1)] public float sideRamChance = 1f;
         [Tooltip("When cruising or returning to a shooting position, becoming level in the adjacent lane starts attack alignment without a random chance roll. Still respects cooldown, recovery, exposure and the attacker limit.")]
         public bool ramOnPassingAlignment = true;
-        [Tooltip("Minimum speed in m/s for lining up or committing a ram. A slower player cancels alignment; a Bug slowed below this during warning/slam abandons the attack and returns to independent cruising. Zero disables this guard.")]
+        [Tooltip("Minimum player/committed ram speed in m/s. A slower player cancels alignment; a Bug slowed below this during warning/slam abandons the attack. Fast returns may temporarily reverse before settling to player speed. Zero disables this guard.")]
         [Min(0)] public float minimumRamSpeed = 6f;
-        [Tooltip("Minimum player speed in m/s for a deliberate ram approach. Below this speed the Bug breaks away. The Bug itself can brake to minimumRamSpeed while returning to the player.")]
+        [Tooltip("Minimum player speed in m/s for a deliberate ram approach. Below this speed the Bug breaks away. Fast returns may reverse temporarily; forward-only returns retain the minimumRamSpeed floor.")]
         [Min(0)] public float minimumAlignmentSpeed = 14f;
+        [Tooltip("Boss-style rapid return to side-ram alignment, allowing temporary reverse only after reaching the adjacent lane. Slow-player, traffic and attack gates still apply.")]
+        public bool fastRamReturn = true;
+        [Tooltip("Maximum relative closing speed in m/s during a fast side-ram return.")]
+        [Min(.1f)] public float ramReturnClosingSpeed = 80f;
+        [Tooltip("Relative closing speed per metre of remaining gap; eases into matched position and speed.")]
+        [Min(.1f)] public float ramReturnClosingResponse = 8f;
+        [Tooltip("Acceleration in m/s² when recovering from a fast return into matched speed.")]
+        [Min(.1f)] public float ramReturnAcceleration = 100f;
         [Tooltip("Fraction of the player's current speed used while braking back from a lead for a ram. The minimumRamSpeed floor still applies. Lower values return more aggressively.")]
         [Range(0, 1)] public float ramReturnSpeedFraction = .2f;
-        [Tooltip("Braking deceleration in m/s² while returning to ram alignment. Separate from ordinary traffic/cruise braking.")]
+        [Tooltip("Braking deceleration in m/s² while returning to ram alignment, including attack-only reverse. Separate from ordinary traffic/cruise braking.")]
         [Min(0)] public float ramReturnBraking = 90f;
         [Min(.1f)] public float alignmentTolerance = .8f;
         [Tooltip("Maximum speed difference before the warning begins, preventing the Bug from overshooting a braking player during its wind-up.")]

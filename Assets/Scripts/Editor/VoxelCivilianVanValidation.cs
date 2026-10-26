@@ -13,12 +13,12 @@ namespace VoxelRacer.Editor
             var random=UnityEngine.Random.state;
             var root=new GameObject("Temporary van validation");
             var tuning=UnityEngine.Object.Instantiate(VoxelObstacleCarTuning.Load());
+            using var civilianSetScope = new VoxelCivilianTrafficSetScope(tuning);
             try
             {
-                tuning.civilianVehiclePool=null;
-                tuning.semiTrailerSpawnChance=1;
-                tuning.semiTrailerEnemyTuning=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>(VoxelCivilianVanBuilder.TuningPath);
-                tuning.paintColours=new[]{Color.magenta};
+                var van=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>(VoxelCivilianVanBuilder.TuningPath);
+                tuning.civilianTrafficSet.civilianVehiclePool =new[]{van};
+                tuning.civilianTrafficSet.paintColours =new[]{Color.magenta};
                 var player=root.AddComponent<VoxelCarController>();player.enabled=false;
                 foreach(bool sameDirection in new[]{true,false})
                 {
@@ -26,7 +26,7 @@ namespace VoxelRacer.Editor
                     var car=go.AddComponent<VoxelObstacleCar>();car.enabled=false;
                     car.Configure(player,tuning,sameDirection,null,70,3,12);
                     Check(car.TravelsWithPlayer==sameDirection && car.TravelSpeed==12,"Civilian movement configuration changed");
-                    Check(car.EnemyTuning==tuning.semiTrailerEnemyTuning,"Van tuning not selected");
+                    Check(car.EnemyTuning==van && van.useVanImpactSettings,"Van model/impact settings not selected from pool");
                     var renderers=go.GetComponentsInChildren<MeshRenderer>();
                     Check(renderers.Length>300 && renderers.Length<650,"Piece budget exceeded: "+renderers.Length);
                     Check(go.GetComponentsInChildren<Collider>().Length==0,"Per-piece colliders present");
@@ -54,7 +54,7 @@ namespace VoxelRacer.Editor
                 foreach(string guid in AssetDatabase.FindAssets("t:VoxelTrackDefinition"))
                 {
                     var track=AssetDatabase.LoadAssetAtPath<VoxelTrackDefinition>(AssetDatabase.GUIDToAssetPath(guid));
-                    Check(track.obstacleCarTuning.semiTrailerEnemyTuning==tuning.semiTrailerEnemyTuning,"Track still references truck: "+track.name);
+                    Check(Array.IndexOf(track.obstacleCarTuning.CivilianVehiclePool,van)>=0,"Track pool is missing van: "+track.name);
                 }
             }
             finally {UnityEngine.Object.DestroyImmediate(root);UnityEngine.Object.DestroyImmediate(tuning);UnityEngine.Random.state=random;}

@@ -309,6 +309,15 @@ namespace VoxelRacer
             transform.rotation = pose.rotation * Quaternion.Euler(0f, visualYaw + oilSpinYaw, visualRoll);
         }
 
+        /// <summary>A blocked victim cannot be pushed through traffic by a continuing boost.</summary>
+        internal void LimitRearRamPosition(float maximumDistance)
+        {
+            float correction = Mathf.Max(0f, CollisionTrackPosition.y - maximumDistance);
+            if (correction <= 0f) return;
+            TrackDistance -= correction;
+            ApplyTrackPose();
+        }
+
         /// <summary>Applies the player-side recoil after a surviving enemy ram.</summary>
         public void ApplyRamResponse(bool rearImpact, Vector3 enemyDirection, VoxelEnemyVehicleTuning enemyTuning)
         {
@@ -336,6 +345,8 @@ namespace VoxelRacer
 
             ramForwardOffset = ramResponseForwardStart;
             ramLateralOffset = ramResponseLateralStart;
+            // Contact can run after the player's Update. Keep the visible body at its recoil position this frame.
+            ApplyTrackPose();
         }
 
         private void UpdateRamResponse()

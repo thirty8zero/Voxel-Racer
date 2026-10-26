@@ -970,6 +970,7 @@ namespace VoxelRacer
             CreateObstacleWheel(truck, 1.28f, -2.70f);
             CreateObstacleWheel(truck, -1.28f, -3.85f);
             CreateObstacleWheel(truck, 1.28f, -3.85f);
+            VoxelVehicleDriveline.Ensure(truck.gameObject);
         }
 
         private static void CreateObstacleCarVoxelVolume(string partName, Transform parent, Vector3 centre, Vector3 size, Material material, float targetVoxelSize = 0.30f)

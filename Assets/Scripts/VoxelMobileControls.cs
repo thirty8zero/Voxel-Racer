@@ -7,9 +7,12 @@ namespace VoxelRacer
     /// <summary>Touch controls for steering, braking and firing on mobile builds.</summary>
     public sealed class VoxelMobileControls : MonoBehaviour
     {
+        public const string ControlSchemePreferenceKey = "VoxelRacer.ControlSchemeB";
+        public static bool UseControlSchemeB => PlayerPrefs.GetInt(ControlSchemePreferenceKey, 0) != 0;
+        private static event System.Action<bool> ControlSchemeChanged;
         private VoxelCarController target;
         private CanvasGroup canvasGroup;
-        private RectTransform controlsCanvas, rightSteeringTouchArea, brakeTouchArea;
+        private RectTransform controlsCanvas, leftSteeringTouchArea, rightSteeringTouchArea, brakeTouchArea, brakeButtonRect;
         private float steeringCanvasWidth = -1f;
         private Texture2D fireButtonTexture;
         private Sprite fireButtonSprite;
@@ -26,6 +29,14 @@ namespace VoxelRacer
         public static bool IsBrakeHeld => brakeHeld && !VoxelPauseMenu.IsPaused;
         public static void ClearHeldInput() { fireHeld = missileHeld = brakeHeld = false; }
 
+        public static void SetControlSchemeB(bool enabled)
+        {
+            ClearHeldInput();
+            PlayerPrefs.SetInt(ControlSchemePreferenceKey, enabled ? 1 : 0);
+            PlayerPrefs.Save();
+            ControlSchemeChanged?.Invoke(enabled);
+        }
+
         public void Configure(VoxelCarController controller)
         {
             brakeHeld = false;
@@ -36,8 +47,29 @@ namespace VoxelRacer
 
         private void Awake() => BuildHud();
 
-        private void OnDisable() => ClearHeldInput();
+        private void OnEnable()
+        {
+            ControlSchemeChanged += ApplyControlScheme;
+            ApplyControlScheme(UseControlSchemeB);
+        }
+
+        private void OnDisable()
+        {
+            ControlSchemeChanged -= ApplyControlScheme;
+            ClearHeldInput();
+        }
         private void OnApplicationFocus(bool focused) { if (!focused) ClearHeldInput(); }
+
+        /// <summary>Moves artwork and its actual pointer targets together; previews do not save preferences.</summary>
+        public void ApplyControlScheme(bool schemeB)
+        {
+            if (leftSteeringTouchArea == null || rightSteeringTouchArea == null || brakeButtonRect == null) return;
+            ClearHeldInput();
+            float steeringY = schemeB ? 390f : 150f;
+            leftSteeringTouchArea.anchoredPosition = new Vector2(0f, steeringY);
+            rightSteeringTouchArea.anchoredPosition = new Vector2(430f, steeringY);
+            brakeButtonRect.anchoredPosition = new Vector2(420f, schemeB ? 150f : 390f);
+        }
 
         private void Update()
         {
@@ -105,8 +137,11 @@ namespace VoxelRacer
             CreateSteeringControl(canvas, "Move Left Button", new Vector2(150f, 150f), MobileControlAction.Left);
             CreateSteeringControl(canvas, "Move Right Button", new Vector2(370f, 150f), MobileControlAction.Right);
             Image brakeButton = CreateControl(canvas, "Brake Button", null, Vector2.zero,
-                new Vector2(260f, 390f), new Vector2(200f, 200f), MobileControlAction.Brake,
+                new Vector2(260f, 390f), new Vector2(300f, 300f), MobileControlAction.Brake,
                 Color.white, 0, CreateBrakeButtonSprite());
+            // Enlarge only the artwork; the separate touch target keeps its existing bounds.
+            brakeButton.raycastTarget = false;
+            brakeButtonRect = brakeButton.rectTransform;
             brakeTouchArea = ExpandControlTouchArea(brakeButton, MobileControlAction.Brake, new Vector2(630f, 200f));
             Image fireButton = CreateControl(canvas, "Fire Button", null, new Vector2(1f, 0f),
                 new Vector2(-150f, 150f), new Vector2(200f, 200f), MobileControlAction.Fire,
@@ -123,6 +158,7 @@ namespace VoxelRacer
             missileDisplay.Configure(target);
             UpdateMissileVisibility();
             RefreshSteeringTouchAreas();
+            ApplyControlScheme(UseControlSchemeB);
         }
 
         private void CreateSteeringControl(Transform parent, string name, Vector2 position, MobileControlAction action)
@@ -134,6 +170,7 @@ namespace VoxelRacer
             touch.anchoredPosition = new Vector2(action == MobileControlAction.Left ? 0f : 430f, 150f);
             touch.sizeDelta = new Vector2(action == MobileControlAction.Left ? 410f : 200f, 200f);
             if (action == MobileControlAction.Right) rightSteeringTouchArea = touch;
+            else leftSteeringTouchArea = touch;
             var chevronObject = new GameObject("Chevron", typeof(RectTransform), typeof(VoxelSteeringChevron));
             chevronObject.transform.SetParent(button.transform, false);
             RectTransform rect = chevronObject.GetComponent<RectTransform>();

@@ -95,9 +95,10 @@ namespace VoxelRacer.Editor
                 configuredRoot.transform.SetParent(root.transform, false);
                 var player = configuredRoot.AddComponent<VoxelCarController>(); player.enabled = false;
                 var configuredTuning = Object.Instantiate(tuning);
+                using var civilianSetScope = new VoxelCivilianTrafficSetScope(configuredTuning);
                 try
                 {
-                    configuredTuning.civilianVehiclePool = new[] { Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning") };
+                    configuredTuning.civilianTrafficSet.civilianVehiclePool = new[] { Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning") };
                     watch.Restart();
                     for (int i = 0; i < 8; i++)
                     {

@@ -152,7 +152,40 @@ namespace VoxelRacer.Editor
                 Set(finish, "<HasFinished>k__BackingField", true); spawner.SetRunFinish(finish);
                 Step(); Check(queue.Count == 0, "Mission completion did not clear pending requests.");
                 Equal(Remaining(), 3f, "Finished run advanced countdown");
-                report = "PASS (Play Mode simulation): real spawner Update at stopped/normal/boosted speeds, boost below maximum, residual speed, engine upgrades, zero maximum, opening/pause/death gates, earlier boosted wave, normal due wave, interval reset, one queued object per update, forced first wave and finish cleanup. Temporary objects removed; assets, purchases and random state preserved.";
+                spawner.SetRunFinish(null); spawner.SetStartCountdown(null);
+                Set(spawner, "<WavesSpawned>k__BackingField", 0);
+                Set(spawner, "lastEnemySpawnWave", 0);
+                tuning.enemyDroughtWaveLimit = 6;
+                tuning.enemyCarSpawnChance = 0;
+                tuning.enemyVehicleSpawns = new[] { new VoxelEnemyVehicleSpawnEntry {
+                    vehicle = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning") } };
+                int EnemyCount() => root.GetComponentsInChildren<VoxelEnemyCar>(true).Length;
+                for (int wave = 1; wave <= 7; wave++)
+                {
+                    Set(spawner, "spawnTimeRemaining", 0f); Step();
+                    Check(spawner.WavesSpawned == wave && queue.Count == 3, "Drought changed real wave queue size.");
+                    Set(spawner, "spawnTimeRemaining", 100f);
+                    for (int slot = 0; slot < 3; slot++)
+                    {
+                        Step();
+                        Check(queue.Count == 2 - slot, "Drought bypassed one object per frame.");
+                        Check(EnemyCount() == (wave == 7 ? 1 : 0), "Real queued seventh-wave trigger/count failed.");
+                    }
+                }
+                // Queue several waves without draining the first one. A future
+                // due wave must not force an enemy into an older queued request.
+                foreach (var enemy in root.GetComponentsInChildren<VoxelEnemyCar>(true)) Object.DestroyImmediate(enemy.gameObject);
+                Set(spawner, "<WavesSpawned>k__BackingField", 0); Set(spawner, "lastEnemySpawnWave", 0);
+                tuning.minimumObjectsPerWave = tuning.maximumObjectsPerWave = 10;
+                for (int wave = 1; wave <= 7; wave++) { Set(spawner, "spawnTimeRemaining", 0f); Step(); }
+                Check(EnemyCount() == 0 && queue.Count == 64, "Queued future waves triggered drought in the wrong wave.");
+                Set(spawner, "spawnTimeRemaining", 100f);
+                for (int request = 7; request <= 70; request++)
+                {
+                    Step();
+                    Check(EnemyCount() == (request >= 61 ? 1 : 0), "Drought lost queued request wave identity: " + request);
+                }
+                report = "PASS (Play Mode simulation): real spawner Update at stopped/normal/boosted speeds, boost below maximum, residual speed, engine upgrades, zero maximum, opening/pause/death gates, earlier boosted wave, normal due wave, interval reset, one queued object per update, forced first wave and finish cleanup. Enemy drought forces exactly one on wave seven after six missed waves, replaces an existing slot, preserves one-object-per-frame pacing and retains correct wave identity with 64 overlapping queued requests. Temporary objects removed; assets, purchases and random state preserved.";
             }
             catch (Exception e) { report = "FAIL: " + e; }
             finally

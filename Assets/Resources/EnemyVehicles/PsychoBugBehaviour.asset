@@ -44,8 +44,12 @@ MonoBehaviour:
   ramOnPassingAlignment: 1
   minimumRamSpeed: 6
   minimumAlignmentSpeed: 14
+  fastRamReturn: 1
+  ramReturnClosingSpeed: 80
+  ramReturnClosingResponse: 8
+  ramReturnAcceleration: 100
   ramReturnSpeedFraction: 0.2
-  ramReturnBraking: 90
+  ramReturnBraking: 180
   alignmentTolerance: 0.8
   ramSpeedTolerance: 1
   alignmentHoldDuration: 0.15

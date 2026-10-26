@@ -16,6 +16,7 @@ namespace VoxelRacer.Editor
             var state=UnityEngine.Random.state;
             var root=new GameObject("Temporary Beetle validation");
             var traffic=Object.Instantiate(VoxelObstacleCarTuning.Load());
+            using var civilianSetScope = new VoxelCivilianTrafficSetScope(traffic);
             try
             {
                 var beetle=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>(VoxelCivilianBeetleBuilder.TuningPath);
@@ -26,11 +27,11 @@ namespace VoxelRacer.Editor
                 Object.DestroyImmediate(shell);
                 foreach(var guid in AssetDatabase.FindAssets("t:VoxelTrackDefinition").Concat(AssetDatabase.FindAssets("t:VoxelObstacleCarTuning")).Distinct())
                     foreach(var t in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)).OfType<VoxelObstacleCarTuning>())
-                        Check(t.civilianVehiclePool!=null&&t.civilianVehiclePool.Contains(beetle)&&t.civilianVehiclePool.Count(v=>v==beetle)==1,"Pool registration missing: "+t.name);
-                var counts=new int[traffic.civilianVehiclePool.Length];UnityEngine.Random.InitState(1501);
-                for(int i=0;i<counts.Length*3000;i++)counts[Array.IndexOf(traffic.civilianVehiclePool,traffic.ChooseCivilianVehicle(out _))]++;
+                        Check(t.CivilianVehiclePool!=null&&t.CivilianVehiclePool.Contains(beetle)&&t.CivilianVehiclePool.Count(v=>v==beetle)==1,"Pool registration missing: "+t.name);
+                var counts=new int[traffic.CivilianVehiclePool.Length];UnityEngine.Random.InitState(1501);
+                for(int i=0;i<counts.Length*3000;i++)counts[Array.IndexOf(traffic.CivilianVehiclePool,traffic.ChooseCivilianVehicle())]++;
                 Check(counts.All(n=>n>2750&&n<3250),"Equal selection distribution failed");
-                traffic.civilianVehiclePool=new[]{beetle};traffic.paintColours=new[]{Color.magenta};
+                traffic.civilianTrafficSet.civilianVehiclePool =new[]{beetle};traffic.civilianTrafficSet.paintColours =new[]{Color.magenta};
                 var player=root.AddComponent<VoxelCarController>();player.enabled=false;
                 int count=0;
                 foreach(bool same in new[]{true,false})

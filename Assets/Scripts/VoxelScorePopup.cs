@@ -48,6 +48,10 @@ namespace VoxelRacer
         private bool isNegativeScore;
         private bool screenPositionLocked;
         private Vector3 lockedScreenPosition;
+        private VoxelEnemyHealthBar sourceHealthBar;
+        private bool usesHealthBarOrigin, healthBarOriginReady, hasInitialHealthBarRect;
+        private Rect initialHealthBarRect;
+        private const float HealthBarGapPixels = 6f;
         private static GUIStyle weaponStyle;
         private static GUIStyle cashStyle;
         private static GUIStyle ramStyle;
@@ -62,12 +66,13 @@ namespace VoxelRacer
         private bool FliesToMission => displayStyle == Style.WeaponDamage || displayStyle == Style.RamDamage ||
             displayStyle == Style.EnemyDestroyed || displayStyle == Style.FuelDrumDestroyed ||
             displayStyle == Style.NearMiss;
-        private bool UsesHudSlot => FliesToMission && (displayStyle != Style.WeaponDamage || isNegativeScore);
+        private bool UsesHudSlot => !usesHealthBarOrigin && FliesToMission && (displayStyle != Style.WeaponDamage || isNegativeScore);
 
         public static float MissionFlightProgress(float age, float duration, float holdDuration = .12f) =>
             Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((age - holdDuration) / Mathf.Max(.01f, duration - holdDuration)));
 
-        public static void Show(Vector3 position, int points, Style style, float lifetimeOverride = -1f)
+        public static void Show(Vector3 position, int points, Style style, float lifetimeOverride = -1f,
+            VoxelEnemyHealthBar healthBar = null)
         {
             if (!Application.isPlaying || points == 0)
                 return;
@@ -81,7 +86,7 @@ namespace VoxelRacer
             // Unity-destroyed Component remains a CLR object until collected.
             if (popup == null)
                 popup = Create();
-            popup.Begin(position, points, style, lifetimeOverride);
+            popup.BeginAtHealthBar(position, points, style, lifetimeOverride, healthBar);
         }
 
         public static void ShowNearMiss(Vector3 position, int points, float duration) =>
@@ -106,10 +111,19 @@ namespace VoxelRacer
         }
 
         private void Begin(Vector3 position, int points, Style style, float lifetimeOverride)
+            => BeginAtHealthBar(position, points, style, lifetimeOverride, null);
+
+        private void BeginAtHealthBar(Vector3 position, int points, Style style, float lifetimeOverride,
+            VoxelEnemyHealthBar healthBar)
         {
             ReleaseHeldSlot();
+            sourceHealthBar = healthBar;
+            usesHealthBarOrigin = healthBar != null;
+            healthBarOriginReady = hasInitialHealthBarRect = false;
             elapsed = 0f;
             viewCamera = Camera.main;
+            if (sourceHealthBar != null)
+                hasInitialHealthBarRect = sourceHealthBar.TryGetScreenRect(viewCamera, out initialHealthBarRect);
             // Scatter on the camera's screen-horizontal axis so simultaneous awards
             // remain readable regardless of the road's current heading.
             Vector3 screenRight = viewCamera != null ? viewCamera.transform.right : Vector3.right;
@@ -229,7 +243,12 @@ namespace VoxelRacer
         }
 
         private void ReleaseHeldSlot() { if (heldHudPopup == this) heldHudPopup = null; }
-        private void OnDisable() => ReleaseHeldSlot();
+        private void OnDisable()
+        {
+            ReleaseHeldSlot();
+            sourceHealthBar = null;
+            usesHealthBarOrigin = healthBarOriginReady = hasInitialHealthBarRect = false;
+        }
 
         private void Update()
         {
@@ -300,10 +319,9 @@ namespace VoxelRacer
                 float progress = MissionFlightProgress(elapsed, lifetime, holdDuration);
                 float scale = 1f - progress;
                 if (scale <= .0001f) return;
-                Vector2 destination = VoxelMissionProgress.Active != null
-                    ? VoxelMissionProgress.Active.ScoreScreenPosition : new Vector2(Screen.width * .5f, 39f);
-                Vector2 start = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
-                Vector2 center = Vector2.Lerp(start, destination, progress);
+                GUIStyle numberStyle = GetStyle(displayStyle, isNegativeScore);
+                Vector2 numberSize = numberStyle.CalcSize(new GUIContent(displayText));
+                Vector2 center = GetMissionFlightCenter(screenPosition, numberSize.y, progress);
                 var matrix = GUI.matrix;
                 try
                 {
@@ -315,6 +333,9 @@ namespace VoxelRacer
                         DrawOutlinedLabel(new Rect(center.x - 260f, center.y - 58f, 520f, 156f), displayText,
                             nearMissPointsStyle ??= CreateStyle(152, new Color(1f, .86f, .08f)));
                     }
+                    else if (usesHealthBarOrigin)
+                        DrawOutlinedLabel(new Rect(center.x - numberSize.x * .5f, center.y - numberSize.y * .5f,
+                            numberSize.x, numberSize.y), displayText, numberStyle);
                     else
                         DrawOutlinedLabel(new Rect(center.x - 280f, center.y - 120f, 560f, 240f), displayText, GetStyle(displayStyle, isNegativeScore));
                 }
@@ -348,6 +369,35 @@ namespace VoxelRacer
             Rect resolvedVisibleRect = ReserveVisibleRect(visibleRect);
             drawRect.position += resolvedVisibleRect.center - visibleRect.center;
             DrawOutlinedLabel(drawRect, displayText, style);
+        }
+
+        private Vector2 GetMissionFlightCenter(Vector3 screenPosition, float labelHeight, float progress)
+        {
+            if (usesHealthBarOrigin && !healthBarOriginReady) PrepareHealthBarOrigin(labelHeight);
+            if (screenPositionLocked) screenPosition = lockedScreenPosition;
+            Vector2 destination = VoxelMissionProgress.Active != null
+                ? VoxelMissionProgress.Active.ScoreScreenPosition : new Vector2(Screen.width * .5f, 39f);
+            Vector2 start = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
+            Vector2 center = Vector2.Lerp(start, destination, progress);
+            if (usesHealthBarOrigin && sourceHealthBar != null && sourceHealthBar.gameObject.activeInHierarchy &&
+                sourceHealthBar.TryGetScreenRect(viewCamera, out Rect barRect))
+                center.y = Mathf.Min(center.y, HealthBarPopupCenterY(barRect, labelHeight, 1f - progress));
+            return center;
+        }
+
+        private static float HealthBarPopupCenterY(Rect barRect, float labelHeight, float scale = 1f) =>
+            barRect.yMin - HealthBarGapPixels * Mathf.Max(.1f, Screen.height / 1080f) - (labelHeight * .5f + 2f) * scale;
+
+        private void PrepareHealthBarOrigin(float labelHeight)
+        {
+            if (sourceHealthBar != null && sourceHealthBar.gameObject.activeInHierarchy &&
+                sourceHealthBar.TryGetScreenRect(viewCamera, out Rect current))
+            { initialHealthBarRect = current; hasInitialHealthBarRect = true; }
+            if (!hasInitialHealthBarRect) return;
+            float spread = initialHealthBarRect.width * .25f;
+            float x = initialHealthBarRect.center.x + Mathf.Clamp(lockedScreenPosition.x - initialHealthBarRect.center.x, -spread, spread);
+            lockedScreenPosition = new Vector3(x, Screen.height - HealthBarPopupCenterY(initialHealthBarRect, labelHeight), 1f);
+            screenPositionLocked = healthBarOriginReady = true;
         }
 
         /// <summary>Reserves a popup rectangle for this repaint, moving later score labels clear of earlier ones.</summary>

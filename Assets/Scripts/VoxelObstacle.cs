@@ -205,6 +205,7 @@ namespace VoxelRacer
             debris.transform.rotation = Random.rotation;
             float debrisScale = definition != null ? definition.weaponDebrisScale : 0.65f;
             debris.transform.localScale = source.lossyScale * Random.Range(0.75f, 1.15f) * debrisScale;
+            debris.GetComponent<MeshFilter>().sharedMesh = source.GetComponent<MeshFilter>().sharedMesh;
             debris.GetComponent<MeshRenderer>().sharedMaterial = source.GetComponent<MeshRenderer>().sharedMaterial;
             Destroy(debris.GetComponent<BoxCollider>());
             float forwardForce = definition != null ? definition.weaponDebrisForwardForce : ProjectileDebrisForce;
@@ -212,7 +213,7 @@ namespace VoxelRacer
             float spreadForce = definition != null ? definition.weaponDebrisSpreadForce : 1.2f;
             float lifetime = definition != null ? definition.weaponDebrisLifetime : 1.1f;
             debris.AddComponent<VoxelDebris>().Launch(impactDirection.normalized * forwardForce +
-                Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce, lifetime);
+                Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce, lifetime, source.GetComponent<MeshRenderer>());
         }
 
         private void Explode(Vector3 hitPoint, Vector3 impactDirection)
@@ -220,8 +221,7 @@ namespace VoxelRacer
             if (hasBeenHit) return;
             hasBeenHit = true;
             VoxelDestructionRewards.ReportDestroyed(definition, transform.position);
-            VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.6f,
-                definition != null ? definition.explosionEffectScale : 0.75f, shakeCamera: false);
+            VoxelWoodSplinters.Play(transform.position + Vector3.up * 0.8f, impactDirection);
             var voxels = new List<Transform>();
             foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
                 if (renderer.gameObject.activeInHierarchy)
@@ -249,6 +249,7 @@ namespace VoxelRacer
             debris.transform.rotation = Random.rotation;
             float debrisScale = definition != null ? definition.explosionDebrisScale : 0.7f;
             debris.transform.localScale = source.lossyScale * Random.Range(0.7f, 1.1f) * debrisScale;
+            debris.GetComponent<MeshFilter>().sharedMesh = source.GetComponent<MeshFilter>().sharedMesh;
             debris.GetComponent<MeshRenderer>().sharedMaterial = source.GetComponent<MeshRenderer>().sharedMaterial;
             Destroy(debris.GetComponent<BoxCollider>());
             float forwardForce = definition != null ? definition.explosionForwardForce : 8f;
@@ -256,7 +257,7 @@ namespace VoxelRacer
             float spreadForce = definition != null ? definition.explosionSpreadForce : 3f;
             float lifetime = definition != null ? definition.explosionDebrisLifetime : 1.5f;
             debris.AddComponent<VoxelDebris>().Launch(impactDirection.normalized * forwardForce +
-                Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce, lifetime);
+                Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce, lifetime, source.GetComponent<MeshRenderer>());
         }
     }
 }

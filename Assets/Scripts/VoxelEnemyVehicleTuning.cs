@@ -25,6 +25,8 @@ namespace VoxelRacer
         [Min(0.01f)] public float vehicleHealth = 30f;
 
         [Header("Movement")]
+        [Tooltip("Minimum forward driving speed in m/s, including spawn, approach, engagement and post-ram player-speed matching. Zero disables the floor. Advanced Psycho Bug driving uses its own behaviour tuning.")]
+        [Min(0f)] public float minimumDrivingSpeed = 6f;
         [Tooltip("Random range for the multiplier applied to the player's maximum speed when this enemy spawns. The selected speed remains fixed for that enemy.")]
         [Min(0f)] public float minimumSpawnSpeedMultiplier = 0.98f;
         [Min(0f)] public float maximumSpawnSpeedMultiplier = 0.98f;
@@ -56,6 +58,8 @@ namespace VoxelRacer
         [Min(0.1f)] public float collisionHalfWidth = 1.35f;
         [Tooltip("Track-space collision depth used for a player ram. Increase this if vehicle models visibly overlap before impact.")]
         [Min(0.1f)] public float collisionHalfLength = 3.8f;
+        [Tooltip("When used in the Civilian Vehicle Pool, use the track's Van Impact Voxel Damage Surface Offset instead of the regular impact offset. Does not affect spawn selection or enemy/radar traffic.")]
+        public bool useVanImpactSettings;
 
         [Header("Player Impact")]
         [Tooltip("Random range of player-car voxels damaged when this enemy is rammed.")]
@@ -67,6 +71,10 @@ namespace VoxelRacer
         [Header("Player Ram Response")]
         [Tooltip("How long a surviving enemy matches the player's speed after being rammed.")]
         [Min(0f)] public float playerRamSpeedMatchDuration = 2f;
+        [Tooltip("After a surviving rear ram, accelerate away toward this multiple of the player's engine-adjusted normal top speed. Zero retains player-speed matching. Ordinary enemies only.")]
+        [Min(0f)] public float rearRamEscapeSpeedMultiplier;
+        [Min(0f)] public float rearRamEscapeAcceleration = 60f;
+        [Min(0f)] public float rearRamEscapeDuration = 3f;
         [Min(0f)] public float rearRamEnemyForwardPushDistance = 1.25f;
         [Min(0.01f)] public float rearRamEnemyForwardPushDuration = 0.18f;
         public VoxelEasingType rearRamEnemyForwardPushEasing = VoxelEasingType.EaseOutCubic;
@@ -131,6 +139,10 @@ namespace VoxelRacer
         {
             voxelHealth = Mathf.Max(0.01f, voxelHealth);
             vehicleHealth = Mathf.Max(0.01f, vehicleHealth);
+            minimumDrivingSpeed = Mathf.Max(0f, minimumDrivingSpeed);
+            rearRamEscapeSpeedMultiplier = Mathf.Max(0f, rearRamEscapeSpeedMultiplier);
+            rearRamEscapeAcceleration = Mathf.Max(0f, rearRamEscapeAcceleration);
+            rearRamEscapeDuration = Mathf.Max(0f, rearRamEscapeDuration);
             maximumSpawnSpeedMultiplier = Mathf.Max(minimumSpawnSpeedMultiplier, maximumSpawnSpeedMultiplier);
             approachSpeedDistance = Mathf.Max(engageSpeedDistance, approachSpeedDistance);
             maximumApproachSpeedMultiplier = Mathf.Max(minimumApproachSpeedMultiplier, maximumApproachSpeedMultiplier);

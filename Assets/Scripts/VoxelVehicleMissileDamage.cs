@@ -13,14 +13,20 @@ namespace VoxelRacer
         {
             if (hasBeenRammed || Tuning == null || damage <= 0) return;
             int removed = 0; bool touched = false;
-            foreach (var r in pieces)
+            // Blast bodywork first. Wheels survive a local blast while bodywork remains
+            // elsewhere, and become removable once the body is completely stripped.
+            for (int pass = 0; pass < 2; pass++)
             {
-                if (!VoxelSphericalBlast.Contains(r, centre, radius)) continue;
-                touched = true;
-                if (IsSpikeAttackActivePart(r.transform)) continue;
-                voxelHealth.Remove(r.transform);
-                if (Application.isPlaying && removed < 24) SpawnDebris(r.transform, (r.bounds.center - centre).normalized, DebrisStyle.Weapon);
-                r.gameObject.SetActive(false); removed++;
+                bool allowWheels = pass == 1 && !DamageParts.HasBody;
+                foreach (var r in pieces)
+                {
+                    if (!VoxelSphericalBlast.Contains(r, centre, radius) || DamageParts.IsWheel(r.transform) != (pass == 1)) continue;
+                    touched = true;
+                    if ((pass == 1 && !allowWheels) || IsSpikeAttackActivePart(r.transform)) continue;
+                    voxelHealth.Remove(r.transform);
+                    if (Application.isPlaying && removed < 24) SpawnDebris(r.transform, (r.bounds.center - centre).normalized, DebrisStyle.Weapon);
+                    r.gameObject.SetActive(false); removed++;
+                }
             }
             if (!touched && !directImpact) return;
             CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
@@ -36,15 +42,21 @@ namespace VoxelRacer
         public void TakeMissileBlast(Vector3 centre, float radius, float damage, Vector3 direction, MeshRenderer[] pieces, bool directImpact = false)
         {
             if (hasBeenHit || EnemyTuning == null || damage <= 0) return;
-            int removed = 0;
-            foreach (var r in pieces)
+            int removed = 0; bool touched = false;
+            for (int pass = 0; pass < 2; pass++)
             {
-                if (!VoxelSphericalBlast.Contains(r, centre, radius)) continue;
-                projectileVoxelHealth.Remove(r.transform);
-                if (Application.isPlaying && removed < 24) SpawnDebris(r.transform, (r.bounds.center - centre).normalized, DebrisStyle.Weapon);
-                r.gameObject.SetActive(false); removed++;
+                bool allowWheels = pass == 1 && !DamageParts.HasBody;
+                foreach (var r in pieces)
+                {
+                    if (!VoxelSphericalBlast.Contains(r, centre, radius) || DamageParts.IsWheel(r.transform) != (pass == 1)) continue;
+                    touched = true;
+                    if (pass == 1 && !allowWheels) continue;
+                    projectileVoxelHealth.Remove(r.transform);
+                    if (Application.isPlaying && removed < 24) SpawnDebris(r.transform, (r.bounds.center - centre).normalized, DebrisStyle.Weapon);
+                    r.gameObject.SetActive(false); removed++;
+                }
             }
-            if (removed == 0 && !directImpact) return;
+            if (!touched && !directImpact) return;
             CurrentHealth = Mathf.Max(0, CurrentHealth - damage);
             ReportVoxelDamage(removed); ReportVoxelDestroyed(removed, centre);
             if (CurrentHealth <= 0) DestroyFromWeaponHit(centre, direction);

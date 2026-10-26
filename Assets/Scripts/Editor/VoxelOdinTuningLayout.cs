@@ -25,6 +25,8 @@ namespace VoxelRacer.Editor
                 EditorGUILayout.HelpBox("Legacy shared reward reference. Gameplay now reads Crate Rewards on the active mission's Mission Tuning asset; changes here do not affect missions.",MessageType.Info);
             if(target is VoxelObstacleCarTuning)
                 EditorGUILayout.HelpBox("Phase speeds are multiples of player top speed (1 = 100%). Civilian traffic maintains a 1.5m following margin in addition to vehicle lengths; blocked spawn positions are skipped.",MessageType.Info);
+            if(target is VoxelCivilianTrafficSet)
+                EditorGUILayout.HelpBox("This set is shared: edits apply to every track referencing it. Duplicate it in the Project window for a separate vehicle pool or palette.",MessageType.Info);
             base.OnInspectorGUI();
         }
     }
@@ -38,13 +40,14 @@ namespace VoxelRacer.Editor
     [CustomEditor(typeof(VoxelMineLayerTuning)),CanEditMultipleObjects] internal sealed class VoxelMineOdinEditor:VoxelOdinTuningEditor {}
     [CustomEditor(typeof(VoxelPsychoBugTuning)),CanEditMultipleObjects] internal sealed class VoxelPsychoBugOdinEditor:VoxelOdinTuningEditor {}
     [CustomEditor(typeof(VoxelDestructionRewards)),CanEditMultipleObjects] internal sealed class VoxelRewardsOdinEditor:VoxelOdinTuningEditor {}
+    [CustomEditor(typeof(VoxelCivilianTrafficSet)),CanEditMultipleObjects] internal sealed class VoxelCivilianTrafficSetOdinEditor:VoxelOdinTuningEditor {}
 
     public sealed class VoxelOdinTuningLayout : OdinAttributeProcessor<ScriptableObject>
     {
         public static bool IsUpgrade(Type t) => t==typeof(VoxelGunTuning)||t==typeof(VoxelArmorTuning)||t==typeof(VoxelEngineUpgradeTuning)||
             t==typeof(VoxelMissileLauncherTuning)||t==typeof(VoxelPloughTuning)||t==typeof(VoxelPerformanceWheelTuning)||t==typeof(VoxelWheelSpikeTuning)||t==typeof(VoxelBoostUpgradeTuning);
         public static bool Supports(Type t) => VoxelContentOdinLayout.Supports(t)||IsUpgrade(t)||typeof(VoxelBoostTuning).IsAssignableFrom(t)||t==typeof(VoxelCarTuning)||
-            t==typeof(VoxelEnemyVehicleTuning)||t==typeof(VoxelObstacleCarTuning)||t==typeof(VoxelMissionTuning)||t==typeof(VoxelMineLayerTuning)||t==typeof(VoxelPsychoBugTuning)||t==typeof(VoxelDesertFoliageTuning)||t==typeof(VoxelDestructionRewards);
+            t==typeof(VoxelEnemyVehicleTuning)||t==typeof(VoxelObstacleCarTuning)||t==typeof(VoxelCivilianTrafficSet)||t==typeof(VoxelMissionTuning)||t==typeof(VoxelMineLayerTuning)||t==typeof(VoxelPsychoBugTuning)||t==typeof(VoxelDesertFoliageTuning)||t==typeof(VoxelDestructionRewards);
         public override void ProcessChildMemberAttributes(InspectorProperty parent,MemberInfo member,List<Attribute> attributes)
         {
             var type=parent.ValueEntry.TypeOfValue;
@@ -52,15 +55,7 @@ namespace VoxelRacer.Editor
             string name=member.Name;
             string group=VoxelTrackOdinLayout.Section(member.DeclaringType,name);
             if(VoxelContentOdinLayout.Supports(type)) group=VoxelContentOdinLayout.Configure(type,name,group,attributes);
-            if(IsUpgrade(type))
-            {
-                if(name=="displayName")group="Identity";
-                else if(name.Contains("Price")||name=="maximumPurchases"||name=="upgradeLevel")group="Purchase";
-                else if(type==typeof(VoxelBoostUpgradeTuning) && name=="bottleCount")group="Boost Charges";
-                else if(name.Contains("Prefab"))group="Model & Compatibility";
-                else if(name.IndexOf("mount",StringComparison.OrdinalIgnoreCase)>=0)group="Fit & Mounting";
-                else if(name.Contains("Bonus")||name.Contains("Reduction")||name=="voxelHitPoints")group="Performance & Damage";
-            }
+            if(IsUpgrade(type)) group=UpgradeSection(type,name,group);
             if (type == typeof(VoxelMissileLauncherTuning) && name == "weapon")
             { group = "Weapon Settings"; attributes.Add(new InlineEditorAttribute()); }
             if (type == typeof(VoxelGunTuning) && name.StartsWith("missile") && name != "missileCooldownSeconds")
@@ -80,11 +75,15 @@ namespace VoxelRacer.Editor
             if(type==typeof(VoxelObstacleCarTuning))
             {
                 group="Spawning & Density";
-                if(name=="enemyVehicleSpawns"||name=="enemyCarSpawnChance")group="Enemy Vehicles";
+                if(name=="enemyVehicleSpawns"||name=="enemyCarSpawnChance"||name=="enemyDroughtWaveLimit")group="Enemy Vehicles";
                 else if(name.StartsWith("sameDirection"))group="Movement/Same Direction";
                 else if(name.StartsWith("oncoming"))group="Movement/Oncoming";
                 else if(name.Contains("SpeedDistance")||name=="wheelSpinDegreesPerUnit")group="Movement/Phase Boundaries";
-                else if(name=="civilianVehiclePool"||name=="paintColours"||name.Contains("EnemyTuning")||name=="semiTrailerSpawnChance")group="Civilian Models & Colours";
+                else if(name=="civilianTrafficSet")
+                {
+                    group="Civilian Models & Colours";
+                    attributes.Add(new InlineEditorAttribute(InlineEditorModes.GUIOnly));
+                }
                 else if(name=="staticObstacleSpawns")group="Static Obstacles";
                 else if(name.Contains("Damage")||name.Contains("collision")||name.Contains("launch")||name=="destroyedLifetime")group="Collisions & Damage";
             }
@@ -114,6 +113,9 @@ namespace VoxelRacer.Editor
                 if(group=="Shooting Windows" && name!="shootingWindows") attributes.Add(new ShowIfAttribute("shootingWindows"));
                 if(group=="Damage Evasion" && name!="damageEvasion") attributes.Add(new ShowIfAttribute("damageEvasion"));
                 if(name=="maximumReverseSpeed") attributes.Add(new ShowIfAttribute("allowReverse"));
+                if(name=="ramReturnSpeedFraction") attributes.Add(new HideIfAttribute("fastRamReturn"));
+                if(name=="ramReturnClosingSpeed" || name=="ramReturnClosingResponse" || name=="ramReturnAcceleration")
+                    attributes.Add(new ShowIfAttribute("fastRamReturn"));
             }
             attributes.RemoveAll(a=>a is HeaderAttribute);
             AddGroups(group,attributes);
@@ -145,7 +147,34 @@ namespace VoxelRacer.Editor
             }
             else if(unit!="")attributes.Add(new LabelTextAttribute(ObjectNames.NicifyVariableName(name)+unit));
         }
-        private static string Unit(string name)
+        // Shared by the Odin Inspector and the dashboard's native serialized-property editor.
+        internal static string UpgradeSection(Type type,string name,string section)
+        {
+            if(name=="displayName")return "Identity";
+            if(name.Contains("Price")||name=="maximumPurchases"||name=="upgradeLevel")return "Purchase";
+            if(type==typeof(VoxelBoostUpgradeTuning) && name=="bottleCount")return "Boost Charges";
+            if(typeof(VoxelBoostTuning).IsAssignableFrom(type) &&
+                (name=="boostRamDamageBonusPercent"||name=="boostRamDamageWithPloughBonusPercent"))return "Boost Ram Damage";
+            if(type==typeof(VoxelMissileLauncherTuning) && name=="weapon")return "Weapon Settings";
+            if(type==typeof(VoxelGunTuning) && (name=="useMissileCooldown"||name=="missileCooldownSeconds"))return "Missile Cooldown";
+            if(type==typeof(VoxelGunTuning) && name.StartsWith("missile"))return "Missile Flight";
+            if(name.Contains("Prefab"))return "Model & Compatibility";
+            if(name.IndexOf("mount",StringComparison.OrdinalIgnoreCase)>=0)return "Fit & Mounting";
+            if(name.Contains("Bonus")||name.Contains("Reduction")||name=="voxelHitPoints")return "Performance & Damage";
+            return section;
+        }
+        internal static bool UpgradeFieldVisible(SerializedObject serialized,string name)
+        {
+            if(!(serialized.targetObject is VoxelGunTuning))return true;
+            bool missile=serialized.FindProperty("projectileKind").enumValueIndex==(int)VoxelProjectileKind.Missile;
+            bool cooldown=serialized.FindProperty("useMissileCooldown").boolValue;
+            if(name=="shotsPerSecond")return !missile||!cooldown;
+            if(name=="useMissileCooldown")return missile;
+            if(name=="missileCooldownSeconds")return missile&&cooldown;
+            if(name.StartsWith("missile"))return missile;
+            return true;
+        }
+        internal static string Unit(string name)
         {
             string n=name.ToLowerInvariant();
             if(n.Contains("percent"))return " (%)";
@@ -153,7 +182,8 @@ namespace VoxelRacer.Editor
             if(n.EndsWith("seconds"))return " (s)";
             if(n.Contains("multiplier")||n.Contains("fraction"))return " (×)";
             if(n.Contains("duration")||n.Contains("interval")||n.Contains("seconds")||n.Contains("delay")||n.Contains("lifetime")||n.Contains("cooldown")||n=="boostlength")return " (s)";
-            if(n=="acceleration"||n=="braking"||n=="brakingforce")return " (m/s²)";
+            if(n=="acceleration"||n=="braking"||n=="brakingforce"||n=="ramreturnacceleration"||n=="ramreturnbraking"||n=="rearramescapeacceleration")return " (m/s²)";
+            if(n=="ramreturnclosingspeed")return " (m/s)";
             if(n=="topspeed"||n=="boostspeed"||n=="projectilespeed"||n=="lanechangespeed"||n=="distanceadjustmentspeed"||n=="minimumdrivingspeed"||n=="minimumramspeed")return " (m/s)";
             if(n.Contains("distance")||n.Contains("radius")||n=="collisionhalfwidth"||n=="collisionhalflength")return " (m)";
             return "";

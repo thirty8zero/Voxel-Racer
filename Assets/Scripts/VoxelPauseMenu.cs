@@ -16,6 +16,7 @@ namespace VoxelRacer
         private GameObject menu;
         private Toggle fpsToggle;
         private Toggle waveToggle;
+        private Toggle controlSchemeToggle;
         private Button resumeButton;
         private bool paused;
         private float previousTimeScale;
@@ -51,6 +52,7 @@ namespace VoxelRacer
                 VoxelMobileControls.ClearHeldInput();
                 fpsToggle.SetIsOnWithoutNotify(VoxelFpsCounter.ShowCounter);
                 waveToggle.SetIsOnWithoutNotify(VoxelFpsCounter.ShowWaveDebug);
+                controlSchemeToggle.SetIsOnWithoutNotify(VoxelMobileControls.UseControlSchemeB);
                 menu.SetActive(true);
                 Canvas.ForceUpdateCanvases();
                 EventSystem.current?.SetSelectedGameObject(resumeButton.gameObject);
@@ -90,26 +92,29 @@ namespace VoxelRacer
             backdrop.rectTransform.anchorMax = Vector2.one;
             backdrop.rectTransform.offsetMin = backdrop.rectTransform.offsetMax = Vector2.zero;
             backdrop.color = new Color(0f, 0f, 0f, .70f);
-            Decoration(root, "Card Shadow", new Vector2(10, -12), new Vector2(768, 818), new Color(0, 0, 0, .4f));
-            Decoration(root, "Card Border", Vector2.zero, new Vector2(764, 814), new Color(.15f, .23f, .29f));
-            Image panel = VoxelMenuUi.CreatePanel(root, "Pause Panel", centre, Vector2.zero, new Vector2(760f, 810f));
+            Decoration(root, "Card Shadow", new Vector2(10, -12), new Vector2(768, 920), new Color(0, 0, 0, .4f));
+            Decoration(root, "Card Border", Vector2.zero, new Vector2(764, 916), new Color(.15f, .23f, .29f));
+            Image panel = VoxelMenuUi.CreatePanel(root, "Pause Panel", centre, Vector2.zero, new Vector2(760f, 912f));
             panel.color = new Color(.035f, .045f, .065f, .99f);
             var cyan = new Color(.28f, .80f, 1f);
             var muted = new Color(.54f, .62f, .70f);
-            Decoration(panel.transform, "Top Accent", new Vector2(0, 403), new Vector2(760, 4), cyan);
+            Decoration(panel.transform, "Top Accent", new Vector2(0, 454), new Vector2(760, 4), cyan);
             VoxelMenuUi.CreateText(panel.transform, "Brand", "ROAD SPECTRE", 25, TextAnchor.MiddleLeft,
-                centre, new Vector2(0, 337), new Vector2(648, 38)).color = cyan;
+                centre, new Vector2(0, 388), new Vector2(648, 38)).color = cyan;
             VoxelMenuUi.CreateText(panel.transform, "Title", "PAUSED", 108, TextAnchor.MiddleLeft,
-                centre, new Vector2(0, 253), new Vector2(648, 126));
+                centre, new Vector2(0, 304), new Vector2(648, 126));
             VoxelMenuUi.CreateText(panel.transform, "Pause Symbol", "II", 74, TextAnchor.MiddleCenter,
-                centre, new Vector2(286, 253), new Vector2(80, 90)).color = cyan;
-            Decoration(panel.transform, "Header Divider", new Vector2(0, 171), new Vector2(648, 2), new Color(.15f, .23f, .29f));
-            fpsToggle = CreateSettingRow(panel.transform, "FPS Toggle", "FPS COUNTER", "SHOW FRAME RATE", 105f);
+                centre, new Vector2(286, 304), new Vector2(80, 90)).color = cyan;
+            Decoration(panel.transform, "Header Divider", new Vector2(0, 222), new Vector2(648, 2), new Color(.15f, .23f, .29f));
+            fpsToggle = CreateSettingRow(panel.transform, "FPS Toggle", "FPS COUNTER", "SHOW FRAME RATE", 156f);
             fpsToggle.onValueChanged.AddListener(VoxelFpsCounter.SetVisible);
-            waveToggle = CreateSettingRow(panel.transform, "Wave Debug Toggle", "WAVE DEBUG", "SHOW TRAFFIC SPAWN DETAILS", 3f);
+            waveToggle = CreateSettingRow(panel.transform, "Wave Debug Toggle", "WAVE DEBUG", "SHOW TRAFFIC SPAWN DETAILS", 54f);
             waveToggle.onValueChanged.AddListener(VoxelFpsCounter.SetWaveDebugVisible);
+            controlSchemeToggle = CreateSettingRow(panel.transform, "Control Scheme B Toggle", "Control Scheme B", "SWAP BRAKE AND STEERING POSITIONS", -48f);
+            controlSchemeToggle.SetIsOnWithoutNotify(VoxelMobileControls.UseControlSchemeB);
+            controlSchemeToggle.onValueChanged.AddListener(VoxelMobileControls.SetControlSchemeB);
             resumeButton = VoxelMenuUi.CreateButton(panel.transform, "Resume Button", "RESUME", 50,
-                centre, new Vector2(0f, -126f), new Vector2(648f, 100f), () => SetPaused(false));
+                centre, new Vector2(0f, -177f), new Vector2(648f, 100f), () => SetPaused(false));
             resumeButton.image.color = cyan;
             resumeButton.GetComponentInChildren<Text>().color = new Color(.015f, .035f, .055f);
             var colours = resumeButton.colors;
@@ -117,16 +122,16 @@ namespace VoxelRacer
             colours.pressedColor = new Color(.68f, .82f, .90f);
             resumeButton.colors = colours;
             Button reset = VoxelMenuUi.CreateButton(panel.transform, "Reset Run Button", "RESET RUN", 32,
-                centre, new Vector2(0f, -233f), new Vector2(648f, 74f), ResetRun);
+                centre, new Vector2(0f, -284f), new Vector2(648f, 74f), ResetRun);
             reset.image.color = new Color(.14f, .07f, .085f);
             reset.GetComponentInChildren<Text>().color = new Color(1f, .55f, .52f);
             VoxelMenuUi.CreateText(panel.transform, "Reset Run Description", "CLEARS CASH, UPGRADES AND PROGRESS\nRETURNS TO MAIN MENU", 20,
-                TextAnchor.MiddleCenter, centre, new Vector2(0f, -307f), new Vector2(648f, 56f)).color = muted;
-            Decoration(panel.transform, "Escape Key", new Vector2(-77, -366), new Vector2(54, 30), new Color(.12f, .16f, .21f));
+                TextAnchor.MiddleCenter, centre, new Vector2(0f, -358f), new Vector2(648f, 56f)).color = muted;
+            Decoration(panel.transform, "Escape Key", new Vector2(-77, -417), new Vector2(54, 30), new Color(.12f, .16f, .21f));
             VoxelMenuUi.CreateText(panel.transform, "Escape Key Label", "ESC", 19, TextAnchor.MiddleCenter,
-                centre, new Vector2(-77, -366), new Vector2(54, 30)).color = muted;
+                centre, new Vector2(-77, -417), new Vector2(54, 30)).color = muted;
             VoxelMenuUi.CreateText(panel.transform, "Escape Hint", "TO RESUME", 20, TextAnchor.MiddleLeft,
-                centre, new Vector2(45, -366), new Vector2(150, 32)).color = muted;
+                centre, new Vector2(45, -417), new Vector2(150, 32)).color = muted;
             menu.SetActive(false);
         }
 

@@ -142,16 +142,7 @@ namespace VoxelRacer.Editor
 
         private static void Register(VoxelEnemyVehicleTuning vehicle)
         {
-            var defaults = new[] { "TrafficCarTuning", "CivilianVanTuning", "CivilianBeetleTuning", "CivilianKombiTuning" }
-                .Select(n => Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/" + n)).Where(v => v != null).ToArray();
-            foreach (string guid in AssetDatabase.FindAssets("t:VoxelTrackDefinition").Concat(AssetDatabase.FindAssets("t:VoxelObstacleCarTuning")).Distinct())
-                foreach (var traffic in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)).OfType<VoxelObstacleCarTuning>())
-                {
-                    var existing = traffic.civilianVehiclePool;
-                    if (existing != null && existing.Contains(vehicle)) continue;
-                    traffic.civilianVehiclePool = (existing != null && existing.Length > 0 ? existing : defaults).Concat(new[] { vehicle }).ToArray();
-                    EditorUtility.SetDirty(traffic);
-                }
+            VoxelCivilianTrafficSetAuthoring.RegisterVehicle(vehicle);
         }
         private static Material MaterialAsset(string name, Color colour)
         {

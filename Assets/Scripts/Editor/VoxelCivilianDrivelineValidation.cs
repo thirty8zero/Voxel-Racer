@@ -23,12 +23,13 @@ namespace VoxelRacer.Editor
             root.transform.position = new Vector3(10000, 10000, 10000);
             var random = UnityEngine.Random.state;
             var traffic = Object.Instantiate(VoxelObstacleCarTuning.Load());
+            using var civilianSetScope = new VoxelCivilianTrafficSetScope(traffic);
             var vehicle = Object.Instantiate(Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning"));
             try
             {
                 var player = root.AddComponent<VoxelCarController>(); player.enabled = false;
                 vehicle.vehicleHealth = 1000; vehicle.voxelHealth = 1000;
-                traffic.civilianVehiclePool = new[] { vehicle };
+                traffic.civilianTrafficSet.civilianVehiclePool = new[] { vehicle };
                 foreach (string path in VoxelCivilianDrivelineBuilder.PrefabPaths)
                 {
                     vehicle.modelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);

@@ -95,31 +95,11 @@ namespace VoxelRacer.Editor
             }
             tuning.displayName="Civilian Transit Van"; tuning.modelPrefab=AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
             tuning.collisionHalfWidth=1.4f; tuning.collisionHalfLength=2.65f;
+            tuning.useVanImpactSettings=true;
             EditorUtility.SetDirty(tuning); AssetDatabase.SaveAssets();
             Render();
         }
 
-        public static void ReplaceTruckSpawns()
-        {
-            var van=AssetDatabase.LoadAssetAtPath<VoxelEnemyVehicleTuning>(TuningPath);
-            var tunings=new System.Collections.Generic.HashSet<VoxelObstacleCarTuning>();
-            foreach(string guid in AssetDatabase.FindAssets("t:VoxelTrackDefinition"))
-            {
-                var track=AssetDatabase.LoadAssetAtPath<VoxelTrackDefinition>(AssetDatabase.GUIDToAssetPath(guid));
-                if(track.obstacleCarTuning!=null) tunings.Add(track.obstacleCarTuning);
-            }
-            foreach(string guid in AssetDatabase.FindAssets("t:VoxelObstacleCarTuning"))
-                foreach(var asset in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)))
-                    if(asset is VoxelObstacleCarTuning traffic) tunings.Add(traffic);
-            foreach(var traffic in tunings)
-            {
-                        Undo.RecordObject(traffic,"Replace truck with civilian van");
-                        traffic.semiTrailerEnemyTuning=van; traffic.semiImpactVoxelDamageSurfaceOffset=2.2f;
-                        if(traffic.semiTrailerSpawnChance<=0) traffic.semiTrailerSpawnChance=.25f;
-                        EditorUtility.SetDirty(traffic);
-            }
-            AssetDatabase.SaveAssets();
-        }
         private static void Wheel(Transform parent,int side,float z)
         {
             var wheel=new GameObject("Obstacle Voxel Wheel").transform;

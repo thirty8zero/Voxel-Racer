@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 26135ffcab891994295171d69ac5176d, type: 3}
   m_Name: FallbackTrafficTuning
   m_EditorClassIdentifier: 
-  spawnDistanceAhead: 250
+  spawnDistanceAhead: 220
   obstacleCarSpawnChance: 0.5
   oppositeDirectionChance: 0.5
   enemyCarSpawnChance: 0.8
+  enemyDroughtWaveLimit: 6
   enemyVehicleSpawns:
   - vehicle: {fileID: 11400000, guid: 1087bbf5e34c42dfad117821fdcd87a6, type: 2}
     spawnWeight: 1
@@ -35,21 +36,7 @@ MonoBehaviour:
   potholeSpawnChance: 0.35
   potholePlayerDamageVoxelsMin: 10
   potholePlayerDamageVoxelsMax: 14
-  paintColours:
-  - {r: 0.8, g: 0.07, b: 0.1, a: 1}
-  - {r: 0.98, g: 0.55, b: 0.06, a: 1}
-  - {r: 0.12, g: 0.7, b: 0.32, a: 1}
-  - {r: 0.55, g: 0.18, b: 0.82, a: 1}
-  civilianVehiclePool:
-  - {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
-  - {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}
-  - {fileID: 11400000, guid: b56eba2a0575bdd4388fc938427a7989, type: 2}
-  - {fileID: 11400000, guid: d10e6994f682adc47aa52393807270b6, type: 2}
-  - {fileID: 11400000, guid: 7546fab2050013c4a8157b3828ffa0f9, type: 2}
-  - {fileID: 11400000, guid: 194983310eb686a4c82717357a156347, type: 2}
-  semiTrailerSpawnChance: 0.35
-  trafficCarEnemyTuning: {fileID: 11400000, guid: a63a3244aa442e448a3f250cb8b09862, type: 2}
-  semiTrailerEnemyTuning: {fileID: 11400000, guid: 33546169548473045baacf1a9bfe0875, type: 2}
+  civilianTrafficSet: {fileID: 11400000, guid: 680596b27bbb4c9f9411721cf78c1a85, type: 2}
   sameDirectionSpeedMin: 10
   sameDirectionSpeedMax: 18
   oppositeDirectionSpeedMin: 22
@@ -57,11 +44,11 @@ MonoBehaviour:
   approachSpeedDistance: 100
   engageSpeedDistance: 0
   sameDirectionSpawnSpeedMultiplierMin: 0.31
-  sameDirectionSpawnSpeedMultiplierMax: 0.56
+  sameDirectionSpawnSpeedMultiplierMax: 0.45
   sameDirectionApproachSpeedMultiplierMin: 0.31
-  sameDirectionApproachSpeedMultiplierMax: 0.56
+  sameDirectionApproachSpeedMultiplierMax: 0.45
   sameDirectionEngageSpeedMultiplierMin: 0.31
-  sameDirectionEngageSpeedMultiplierMax: 0.56
+  sameDirectionEngageSpeedMultiplierMax: 0.45
   oncomingSpawnSpeedMultiplierMin: 0.69
   oncomingSpawnSpeedMultiplierMax: 1
   oncomingApproachSpeedMultiplierMin: 0.69

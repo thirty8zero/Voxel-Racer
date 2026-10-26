@@ -19,6 +19,7 @@ MonoBehaviour:
   destructionScore: 25
   voxelHealth: 1
   vehicleHealth: 80
+  minimumDrivingSpeed: 20
   minimumSpawnSpeedMultiplier: 0.1
   maximumSpawnSpeedMultiplier: 0.2
   approachSpeedDistance: 80
@@ -35,10 +36,14 @@ MonoBehaviour:
   laneChangeSpeedBoostDuration: 1
   collisionHalfWidth: 1.35
   collisionHalfLength: 3.8
+  useVanImpactSettings: 0
   playerDamageVoxelsMin: 50
   playerDamageVoxelsMax: 100
   playerRamDamage: 20
   playerRamSpeedMatchDuration: 2
+  rearRamEscapeSpeedMultiplier: 1.1
+  rearRamEscapeAcceleration: 60
+  rearRamEscapeDuration: 3
   rearRamEnemyForwardPushDistance: 1.25
   rearRamEnemyForwardPushDuration: 0.18
   rearRamEnemyForwardPushEasing: 5
