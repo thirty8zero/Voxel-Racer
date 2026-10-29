@@ -54,6 +54,10 @@ namespace VoxelRacer
         [Header("Side Ram")]
         public bool sideRamEnabled = true;
         [Range(0, 1)] public float sideRamChance = 1f;
+        [Tooltip("Chance to open with a ram approach, rolled once per spawn. Otherwise the Bug cruises/weaves first for Initial Ram Delay; normal attack chances and safety gates still apply afterwards.")]
+        [Range(0, 1)] public float initialRamChance = .5f;
+        [Tooltip("Seconds before either deliberate or passing-alignment rams are allowed when the opening ram roll fails. Shooting and traffic reactions remain available.")]
+        [Min(0)] public float initialRamDelay = 3f;
         [Tooltip("When cruising or returning to a shooting position, becoming level in the adjacent lane starts attack alignment without a random chance roll. Still respects cooldown, recovery, exposure and the attacker limit.")]
         public bool ramOnPassingAlignment = true;
         [Tooltip("Minimum player/committed ram speed in m/s. A slower player cancels alignment; a Bug slowed below this during warning/slam abandons the attack. Fast returns may temporarily reverse before settling to player speed. Zero disables this guard.")]
@@ -63,7 +67,9 @@ namespace VoxelRacer
         [Tooltip("Boss-style rapid return to side-ram alignment, allowing temporary reverse only after reaching the adjacent lane. Slow-player, traffic and attack gates still apply.")]
         public bool fastRamReturn = true;
         [Tooltip("Maximum relative closing speed in m/s during a fast side-ram return.")]
-        [Min(.1f)] public float ramReturnClosingSpeed = 80f;
+        [Min(.1f)] public float ramReturnClosingSpeed = 60f;
+        [Tooltip("Distance in metres at which a fast return starts reducing its closing speed toward a match. Applies from ahead or behind; stopping-distance safety can slow it earlier. Zero disables this extra slowdown range.")]
+        [Min(0)] public float ramReturnSlowdownDistance = 50f;
         [Tooltip("Relative closing speed per metre of remaining gap; eases into matched position and speed.")]
         [Min(.1f)] public float ramReturnClosingResponse = 8f;
         [Tooltip("Acceleration in m/s² when recovering from a fast return into matched speed.")]

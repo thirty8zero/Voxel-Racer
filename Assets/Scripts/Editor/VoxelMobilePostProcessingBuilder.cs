@@ -30,15 +30,19 @@ namespace VoxelRacer.Editor
                 profile = ScriptableObject.CreateInstance<VolumeProfile>();
                 AssetDatabase.CreateAsset(profile, ProfilePath);
                 var colour = profile.Add<ColorAdjustments>();
-                colour.contrast.Override(12f); colour.saturation.Override(6f);
+                colour.contrast.Override(18f); colour.saturation.Override(-4f);
                 var tone = profile.Add<Tonemapping>(); tone.mode.Override(TonemappingMode.Neutral);
                 var bloom = profile.Add<Bloom>();
-                bloom.intensity.Override(.12f); bloom.threshold.Override(1.1f);
+                bloom.intensity.Override(.10f); bloom.threshold.Override(1.15f);
                 bloom.scatter.Override(.45f); bloom.highQualityFiltering.Override(false);
                 bloom.filter.Override(BloomFilterMode.Dual);
                 bloom.downscale.Override(BloomDownscaleMode.Quarter); bloom.maxIterations.Override(4);
                 var vignette = profile.Add<Vignette>();
-                vignette.intensity.Override(.12f); vignette.smoothness.Override(.35f);
+                vignette.intensity.Override(.18f); vignette.smoothness.Override(.5f);
+                vignette.color.Override(new Color(.025f, .035f, .065f));
+                var split = profile.Add<SplitToning>();
+                split.shadows.Override(new Color(.43f, .47f, .55f));
+                split.highlights.Override(new Color(.53f, .515f, .49f)); split.balance.Override(5f);
                 foreach (var component in profile.components) AssetDatabase.AddObjectToAsset(component, profile);
                 EditorUtility.SetDirty(profile);
             }

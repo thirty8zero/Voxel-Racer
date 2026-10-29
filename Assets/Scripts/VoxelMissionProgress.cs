@@ -31,6 +31,7 @@ namespace VoxelRacer
         public void FailBossEncounter() { if(IsBossEncounter && !IsComplete) { IsFailed=true; ResetKillChain(); } }
         public bool IsBossEncounter {get;private set;}
         private VoxelEnemyCar missionBoss;
+        public VoxelEnemyCar BossVehicle => missionBoss;
         private string bossName;
         public void SetBossEncounter(bool enabled) {IsBossEncounter=enabled;missionBoss=null;radarDestroyedAt=-1f;bossArrivedAt=-1f;}
         public void ShowBoss(VoxelEnemyCar boss,string name) {missionBoss=boss;bossName=name;bossArrivedAt=Time.unscaledTime;}
@@ -332,6 +333,7 @@ namespace VoxelRacer
         public void AdvanceBonusClock(float seconds)
         {
             if (Tuning == null || IsComplete || IsFailed || seconds <= 0 ||
+                VoxelBossIntroduction.PausesMission(this) ||
                 VoxelPauseMenu.IsPaused || (startCountdown != null && !startCountdown.IsComplete)) return;
             AdvanceKillChainClock(seconds);
             float countdownSeconds = Mathf.Min(RemainingTime, seconds);
@@ -389,7 +391,7 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
-            if (VoxelLoadingScreen.IsLoading) return;
+            if (VoxelLoadingScreen.IsLoading || VoxelBossIntroduction.PausesMission(this)) return;
             if (!Application.isPlaying || Tuning == null || VoxelPlayerDeathScreen.IsShowing)
                 return;
 

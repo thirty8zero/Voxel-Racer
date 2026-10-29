@@ -72,6 +72,7 @@ namespace VoxelRacer.Editor
     [CustomEditor(typeof(VoxelBossDefinition)), CanEditMultipleObjects] internal sealed class VoxelBossDefinitionOdinEditor : VoxelContentOdinEditor { }
     [CustomEditor(typeof(VoxelBossSpikeAttackTuning)), CanEditMultipleObjects] internal sealed class VoxelBossSpikeAttackOdinEditor : VoxelContentOdinEditor { }
     [CustomEditor(typeof(VoxelBossMineAttackTuning)), CanEditMultipleObjects] internal sealed class VoxelBossMineAttackOdinEditor : VoxelContentOdinEditor { }
+    [CustomEditor(typeof(VoxelBichoLocoTuning)), CanEditMultipleObjects] internal sealed class VoxelBichoLocoOdinEditor : VoxelContentOdinEditor { }
 
     internal static class VoxelContentOdinLayout
     {

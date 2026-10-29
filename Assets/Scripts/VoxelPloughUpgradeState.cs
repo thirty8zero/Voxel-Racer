@@ -21,6 +21,10 @@ namespace VoxelRacer
             var tuning = VoxelPloughTuning.Load();
             if (car != null && purchased && tuning != null && tuning.Fits(definition)) CreateVisual(car, tuning);
         }
+        internal static void GrantForDevelopment(VoxelPloughTuning tuning, VoxelCarDefinition car)
+        {
+            if (tuning != null && tuning.Fits(car)) purchased = true;
+        }
         // Shared by runtime and the isolated fit preview. No run-state changes.
         public static GameObject CreateVisual(Transform car, VoxelPloughTuning tuning)
         {

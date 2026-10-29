@@ -26,6 +26,13 @@ namespace VoxelRacer
             var tuning = InstalledTuning;
             return IsPurchased && tuning != null && tuning.Fits(car) ? tuning : VoxelBoostTuning.Load();
         }
+
+        internal static void GrantForDevelopment(VoxelBoostUpgradeTuning tuning, VoxelCarDefinition car)
+        {
+            if (!CanPurchase(tuning, car)) return;
+            IsPurchased = true;
+            installedTuning = tuning;
+        }
         public static void ApplyTo(Transform car, VoxelCarDefinition definition)
         {
             var tuning = InstalledTuning;

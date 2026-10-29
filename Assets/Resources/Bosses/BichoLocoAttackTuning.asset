@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7131255e60394e21b349208118d2aa48, type: 3}
+  m_Name: BichoLocoAttackTuning
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBichoLocoTuning
+  combinedHopperHealthPercent: 90
+  healthBarWidth: 2.5
+  healthBarHeight: 0.22
+  healthBarClearance: 0.65
+  mineTuning: {fileID: 11400000, guid: f6e7dda4a6e2c864fa0a6331fde6551e, type: 2}
+  mineDropInterval: 0.55
+  lightStepDuration: 0.1
+  lightOnFraction: 0.9
+  mineRearClearance: 0.3
+  approachClosingSpeed: 10
+  minimumApproachDistance: 50
+  retreatDistance: 130
+  minimumRetreatInterval: 8
+  maximumRetreatInterval: 15
+  retreatSpeedAdvantage: 70
+  usePsychoBehaviourAfterHoppers: 1
+  bodyPhaseBehaviour: {fileID: 11400000, guid: ca4b20a6c9b0b3c40a9c19614cf9ff4a, type: 2}
+  explosionScale: 2.5
+  maximumDebris: 28
+  debrisOutwardSpeed: 10
+  debrisUpwardSpeed: 9
+  debrisLifetime: 4

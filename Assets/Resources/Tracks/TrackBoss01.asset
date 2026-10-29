@@ -47,7 +47,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6997a3a6ac6a8a24da582b5cbc898ccb, type: 3}
   m_Name: TrackBoss01
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
-  displayName: El Vandito
+  displayName: Find The Radar...
   raceSceneName: SampleScene
   roadTuning: {fileID: -2389841375544596361}
   obstacleCarTuning: {fileID: 2345100223370931295}
@@ -279,3 +279,5 @@ MonoBehaviour:
   civilianNearMissPopupDuration: 2
   civilianVoxelDamagePoints: -2
   civilianVehicleDestroyedPoints: -30
+  completionSlowMotionDuration: 1.5
+  completionSlowMotionTimeScale: 0.25

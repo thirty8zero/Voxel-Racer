@@ -19,10 +19,10 @@ MonoBehaviour:
   staticObstacleClearance: 12
   fireRate: 0.05
   bulletsPerVolley: 1
-  firingDuration: 0.5
+  firingDuration: 0.25
   pauseDuration: 2
   projectileSpeed: 50
   projectileLifetime: 3
-  playerDamageVoxels: 100
+  playerDamageVoxels: 50
   enemyHealthDamage: 1
   volleySpreadDegrees: 3

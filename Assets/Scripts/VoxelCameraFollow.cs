@@ -55,6 +55,9 @@ namespace VoxelRacer
             if (car == null || finishSequenceActive)
                 return;
 
+            bossDestructionFocusActive = false;
+            BossDestructionFocusComplete = true;
+
             target = car.transform;
             finishTarget = car;
             finishStartOffset = transform.position - target.position;
@@ -69,7 +72,10 @@ namespace VoxelRacer
         private void LateUpdate()
         {
             if (!Application.isPlaying || VoxelPauseMenu.IsPaused || target == null)
+            {
+                if (bossDestructionFocusActive) destructionFocusLastRealtime = Time.realtimeSinceStartupAsDouble;
                 return;
+            }
 
             UpdateFollow(Time.deltaTime);
         }
@@ -86,6 +92,12 @@ namespace VoxelRacer
             destroyedFollowTarget = null;
             destroyedCar = null;
             DeathSequenceComplete = false;
+
+            if (bossDestructionFocusActive)
+            {
+                UpdateBossDestructionFocus();
+                return;
+            }
 
             if (finishSequenceActive)
             {
@@ -114,6 +126,8 @@ namespace VoxelRacer
         public void BeginDeathSequence(VoxelCarController car)
         {
             if (car == null || destroyedFollowTarget == car.transform) return;
+            bossDestructionFocusActive = false;
+            BossDestructionFocusComplete = true;
             target = car.transform;
             // Capture the clean view and a stable road heading before the wreck tumbles.
             bool hasPreviousPose = cameraPoseTarget == target;
@@ -129,6 +143,8 @@ namespace VoxelRacer
             deathSequenceElapsed = 0f;
             var camera = GetComponent<Camera>();
             deathStartFieldOfView = camera != null ? camera.fieldOfView : finishFieldOfView;
+            if (camera != null && camera.TryGetComponent<VoxelMobilePostProcessing>(out var postProcessing))
+                postProcessing.SetDebriefFocus(false, 0);
             finishSequenceActive = false;
             FinishSequenceComplete = DeathSequenceComplete = false;
         }
@@ -180,8 +196,12 @@ namespace VoxelRacer
 
             Camera camera = GetComponent<Camera>();
             if (camera != null)
+            {
                 camera.fieldOfView = Mathf.Lerp(finishStartFieldOfView,
                     settings != null ? settings.finishFieldOfView : finishFieldOfView, easedProgress);
+                if (camera.TryGetComponent<VoxelMobilePostProcessing>(out var postProcessing))
+                    postProcessing.SetDebriefFocus(true, camera.transform.InverseTransformPoint(target.position + Vector3.up * .9f).z);
+            }
 
             ApplyShake();
 

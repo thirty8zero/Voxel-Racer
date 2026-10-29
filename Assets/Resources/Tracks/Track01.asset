@@ -198,8 +198,8 @@ MonoBehaviour:
   wheelSpinDegreesPerUnit: 125
   playerDamageVoxelsMin: 300
   playerDamageVoxelsMax: 400
-  obstacleDamageVoxelsMin: 100
-  obstacleDamageVoxelsMax: 200
+  obstacleDamageVoxelsMin: 75
+  obstacleDamageVoxelsMax: 100
   impactVoxelDamageSurfaceOffset: 1.7
   semiImpactVoxelDamageSurfaceOffset: 2.2
   collisionCooldown: 0.35

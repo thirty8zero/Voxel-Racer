@@ -12,6 +12,7 @@ namespace VoxelRacer
         private VoxelObstacleCar traffic;
         private VoxelObstacle crate;
         private VoxelFuelDrumObstacle drums;
+        private VoxelBichoHopper hopper;
         private Bounds localBounds;
         private bool ready;
         private bool membershipCached;
@@ -34,7 +35,7 @@ namespace VoxelRacer
         private void Start() => Prepare();
         private void OnDisable() => Active.Remove(this);
         private void OnDestroy() => Active.Remove(this);
-        private bool Alive => enemy != null ? enemy.CurrentHealth > 0 : traffic != null ? traffic.CurrentHealth > 0 :
+        private bool Alive => hopper != null ? hopper.IsAlive : enemy != null ? enemy.CurrentHealth > 0 : traffic != null ? traffic.CurrentHealth > 0 :
             crate != null ? crate.IsRoadHazard : drums != null && drums.IsRoadHazard;
         private void Prepare()
         {
@@ -46,14 +47,23 @@ namespace VoxelRacer
             if (!membershipCached)
             {
                 enemy = GetComponent<VoxelEnemyCar>(); traffic = GetComponent<VoxelObstacleCar>();
+                hopper = GetComponent<VoxelBichoHopper>();
                 crate = GetComponent<VoxelObstacle>(); drums = GetComponentInParent<VoxelFuelDrumObstacle>();
                 var geometry = new List<MeshRenderer>();
                 foreach (var renderer in GetComponentsInChildren<MeshRenderer>(true))
-                    if (renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null) geometry.Add(renderer);
+                    if (renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null &&
+                        (enemy == null || renderer.GetComponentInParent<VoxelBichoHopper>() == null)) geometry.Add(renderer);
                 pieces = geometry.ToArray();
                 spawnGrowth = GetComponentInParent<VoxelSpawnScaleIn>();
-                bossEntrance = GetComponentInChildren<VoxelBossEntrance>(true);
+                bossEntrance = hopper != null ? GetComponentInParent<VoxelBossEntrance>() : GetComponentInChildren<VoxelBossEntrance>(true);
                 membershipCached = true;
+            }
+            if (hopper != null)
+            {
+                localBounds = hopper.LocalBounds;
+                ready = bossEntrance == null || !bossEntrance.enabled;
+                preparedBossScale = bossEntrance != null ? bossEntrance.transform.localScale : Vector3.one;
+                return;
             }
             bool first = true;
             var worldToLocal = transform.worldToLocalMatrix;
@@ -91,6 +101,7 @@ namespace VoxelRacer
                 if (t == null || !t.isActiveAndEnabled) continue;
                 t.Prepare();
                 if (!t.Alive) continue;
+                if (t.transform.lossyScale.sqrMagnitude < .00001f) continue;
                 // Solid envelopes retain contact after damage opens holes. Only vehicles
                 // widen to cover edge-running missiles; props keep their actual bounds.
                 Bounds hitBounds = t.localBounds;
@@ -124,16 +135,28 @@ namespace VoxelRacer
             {
                 if (directTarget == null) return;
                 directTarget.Prepare();
-                if (directTarget.enemy != null) directTarget.enemy.TakeProjectileHit(directVoxel, damage, point, direction);
+                if (directTarget.hopper != null) directTarget.hopper.TakeMissileBlast(point, 0, damage, direction, true);
+                else if (directTarget.enemy != null) directTarget.enemy.TakeProjectileHit(directVoxel, damage, point, direction);
                 else if (directTarget.traffic != null) directTarget.traffic.TakeProjectileHit(directVoxel, damage, point, direction);
                 else directTarget.DamageObstacle(point, 0f, damage, direction, true);
                 return;
+            }
+            // Snapshot shields before any hopper is hit. A single blast cannot spill its
+            // damage into the body merely because it destroys the last hopper first.
+            List<VoxelEnemyCar> shielded = null;
+            foreach (var candidate in Active)
+            {
+                if (candidate == null || !candidate.isActiveAndEnabled) continue;
+                candidate.Prepare();
+                if (candidate.enemy != null && candidate.enemy.IsBodyShielded)
+                    (shielded ??= new List<VoxelEnemyCar>()).Add(candidate.enemy);
             }
             for (int i = Active.Count - 1; i >= 0; i--)
             {
                 var t = Active[i]; if (t == null || !t.isActiveAndEnabled) continue;
                 t.Prepare(); if (!t.Alive) continue;
-                if (t.enemy != null) t.enemy.TakeMissileBlast(point, radius, damage, direction, t.pieces, t == directTarget);
+                if (t.hopper != null) t.hopper.TakeMissileBlast(point, radius, damage, direction, t == directTarget);
+                else if (t.enemy != null && (shielded == null || !shielded.Contains(t.enemy))) t.enemy.TakeMissileBlast(point, radius, damage, direction, t.pieces, t == directTarget);
                 else if (t.traffic != null) t.traffic.TakeMissileBlast(point, radius, damage, direction, t.pieces, t == directTarget);
                 else t.DamageObstacle(point, radius, damage, direction, t == directTarget);
             }

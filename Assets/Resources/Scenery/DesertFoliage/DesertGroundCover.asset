@@ -39,7 +39,7 @@ MonoBehaviour:
   scaleRange: {x: 0.75, y: 1.35}
   seed: 28571
   patchSize: 24
-  patchCoverage: 0.55
+  patchCoverage: 0.4
   patchContrast: 0.95
   distantClumpsPerTile: 28
   horizonGroundCoverEnabled: 1

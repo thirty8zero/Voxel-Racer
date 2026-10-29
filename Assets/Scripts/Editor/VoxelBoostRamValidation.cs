@@ -71,7 +71,7 @@ namespace VoxelRacer.Editor
             var spikeSelection = typeof(VoxelWheelSpikeUpgradeState).GetField("installedTuning", Static);
             var savedSpikeSelection = spikeSelection.GetValue(null);
             spikeSelection.SetValue(null,null); // This matrix validates the original spike bonus.
-            Type[] globalTypes = { typeof(VoxelMissionProgress), typeof(VoxelStartCountdown), typeof(VoxelPauseMenu) };
+            Type[] globalTypes = { typeof(VoxelMissionProgress), typeof(VoxelStartCountdown), typeof(VoxelPauseMenu), typeof(VoxelLoadingScreen) };
             var globalFields = globalTypes.Select(t => t.GetField("<Active>k__BackingField", Static)).ToArray();
             var globals = globalFields.Select(f => f.GetValue(null)).ToArray();
             foreach (var field in globalFields) field.SetValue(null, null);
@@ -115,6 +115,15 @@ namespace VoxelRacer.Editor
                     Collision(true, true, 0, Mathf.RoundToInt(23 * p), protectedPlayer, enemyTraffic: true);
                     Collision(true, false, 0, 20, 4, civilian: true);
                     Collision(true, true, 0, Mathf.RoundToInt(20 * p), protectedPlayer, civilian: true);
+                    foreach (float yaw in new[] { 0f, 63f, 180f })
+                    foreach (Vector3 side in new[] { Vector3.left, Vector3.right })
+                    {
+                        Collision(false, false, 20, 20, 4, side, yaw: yaw);
+                        Collision(true, false, 22, 22, 4, side, yaw: yaw);
+                        Collision(false, false, 0, 20, 4, side, enemyTraffic: true, yaw: yaw);
+                        Collision(false, false, 0, 20, 4, side, civilian: true, yaw: yaw);
+                        Collision(false, false, 1, 55, 4, side, yaw: yaw, lethal: true);
+                    }
                     tuning.boostRamDamageBonusPercent = 0; tuning.boostRamDamageWithPloughBonusPercent = 0;
                     Collision(true, false, 20, 20, 4);
                     Collision(true, true, 20 * p, Mathf.RoundToInt(20 * p), protectedPlayer);
@@ -123,15 +132,18 @@ namespace VoxelRacer.Editor
                     Collision(true, true, 35 * p, Mathf.RoundToInt(35 * p), protectedPlayer);
                     Object.DestroyImmediate(tuning); tuning = null;
                 }
-                report = "PASS (Play Mode): " + checks + " real enemy/boss/Radar/civilian ram cases across default and upgraded boost; active 10%/15% health and voxel bonuses, front-plough and side-spike stacking, inactive/unowned plough fallback, disabled/expired boost and residual speed, configurable zero/custom percentages, boss voxel cap, unchanged player damage and civilian/one-hit traffic behavior. Both assets expose percentage fields once in Boost Ram Damage; authored tuning, ownership, gameplay references, random state and user scene restored.";
+                report = "PASS (Play Mode): " + checks + " real enemy/boss/Radar/civilian ram cases across default and upgraded boost; active 10%/15% health and voxel bonuses, front-plough and side-spike stacking, inactive/unowned plough fallback, disabled/expired boost and residual speed, configurable zero/custom percentages, boss voxel cap, unchanged player damage and civilian/one-hit traffic behavior. Every detached piece launches away from the rammer, with outward spawn offsets; both sides at 0/63/180-degree headings, boosted/surviving/lethal hits, rear and front impacts passed. Both assets expose percentage fields once in Boost Ram Damage; authored tuning, ownership, gameplay references, random state and user scene restored.";
 
                 void Collision(bool boosting, bool fitted, float expectedHealth, int expectedVoxels, int expectedPlayer,
                     Vector3? direction = null, bool isBoss = false, bool enemyTraffic = false, bool civilian = false,
-                    bool disableBoost = false, bool expire = false, bool inactivePlough = false, bool owned = true, bool spikes = false)
+                    bool disableBoost = false, bool expire = false, bool inactivePlough = false, bool owned = true, bool spikes = false,
+                    float yaw = 0f, bool lethal = false)
                 {
                     var root = new GameObject("Temporary ram case");
+                    var existingDebris = Object.FindObjectsByType<VoxelDebris>(FindObjectsSortMode.None).ToHashSet();
                     try
                     {
+                        root.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
                         ploughOwned.SetValue(null, fitted && owned); spikesOwned.SetValue(null, spikes);
                         var playerObject = new GameObject("Player"); playerObject.transform.SetParent(root.transform, false);
                         Voxels(playerObject.transform);
@@ -153,8 +165,13 @@ namespace VoxelRacer.Editor
                             Check(!boost.IsBoosting, "Boost did not expire");
                         }
                         var targetObject = new GameObject("Enemy"); targetObject.transform.SetParent(root.transform, false);
-                        targetObject.transform.position = Vector3.forward * 4;
+                        Vector3 localDirection = direction ?? Vector3.forward;
+                        targetObject.transform.localPosition = localDirection * 4;
+                        Check(VoxelVehicleCollision.Sweep(new Vector2(-localDirection.x, -localDirection.z) * 8,
+                            Vector2.zero, new Vector2(2, 4), out var contact), "Missing swept ram contact");
+                        Vector3 hitDirection = VoxelVehicleCollision.ImpactDirection(contact, player.transform);
                         Voxels(targetObject.transform);
+                        var originalPieces = targetObject.GetComponentsInChildren<MeshRenderer>();
                         int playerBefore = player.RemainingIntegrityVoxels;
                         if (enemyTraffic || civilian)
                         {
@@ -163,7 +180,7 @@ namespace VoxelRacer.Editor
                             typeof(VoxelObstacleCar).GetProperty("EnemyTuning").SetValue(enemy, vehicle);
                             typeof(VoxelObstacleCar).GetProperty("IsEnemyTraffic").SetValue(enemy, enemyTraffic);
                             typeof(VoxelObstacleCar).GetProperty("CurrentHealth").SetValue(enemy, 1000f);
-                            Call(enemy, "HitCar", (Vector3?)(direction ?? Vector3.forward));
+                            Call(enemy, "HitCar", (Vector3?)hitDirection);
                             Equal(enemy.CurrentHealth, 0, "Traffic must retain one-hit wreck rule");
                         }
                         else
@@ -171,15 +188,35 @@ namespace VoxelRacer.Editor
                             var enemy = targetObject.AddComponent<VoxelEnemyCar>(); enemy.enabled = false;
                             Set(enemy, "target", player); Set(enemy, "trafficTuning", traffic); Set(enemy, "bossSettings", isBoss ? boss : null);
                             typeof(VoxelEnemyCar).GetProperty("Tuning").SetValue(enemy, vehicle);
-                            typeof(VoxelEnemyCar).GetProperty("CurrentHealth").SetValue(enemy, 1000f);
-                            Call(enemy, "RamByPlayer", (Vector3?)(direction ?? Vector3.forward));
-                            Equal(1000f - enemy.CurrentHealth, expectedHealth, "Health damage");
+                            float startingHealth = lethal ? 1f : 1000f;
+                            typeof(VoxelEnemyCar).GetProperty("CurrentHealth").SetValue(enemy, startingHealth);
+                            Call(enemy, "RamByPlayer", (Vector3?)hitDirection);
+                            Equal(startingHealth - enemy.CurrentHealth, expectedHealth, "Health damage");
                         }
-                        Equal(60 - targetObject.GetComponentsInChildren<MeshRenderer>().Length, expectedVoxels, "Enemy voxel removal");
+                        int expectedDetached = enemyTraffic ? 55 : expectedVoxels;
+                        Equal(60 - targetObject.GetComponentsInChildren<MeshRenderer>().Length, expectedDetached, "Enemy voxel removal");
                         Equal(playerBefore - player.RemainingIntegrityVoxels, expectedPlayer, "Player damage must not change with boost");
+                        var debris = Object.FindObjectsByType<VoxelDebris>(FindObjectsSortMode.None)
+                            .Where(d => !existingDebris.Contains(d)).ToArray();
+                        Equal(debris.Length, expectedDetached, "One debris piece per detached voxel within the debris budget");
+                        foreach (var piece in debris)
+                        {
+                            Vector3 velocity = (Vector3)typeof(VoxelDebris).GetField("velocity", Private).GetValue(piece);
+                            Check(Vector3.Dot(velocity, hitDirection) > 0f,
+                                "Ram debris travelled toward the player: " + hitDirection + ", velocity=" + velocity);
+                        }
+                        float debrisCentre = debris.Average(d => Vector3.Dot(d.transform.position, hitDirection));
+                        float sourceCentre = originalPieces.Where(r => !r.gameObject.activeSelf)
+                            .Average(r => Vector3.Dot(r.transform.position, hitDirection));
+                        Check(debrisCentre > sourceCentre, "Ram debris spawned toward the player");
                         checks++;
                     }
-                    finally { Object.DestroyImmediate(root); }
+                    finally
+                    {
+                        foreach (var debris in Object.FindObjectsByType<VoxelDebris>(FindObjectsSortMode.None))
+                            if (!existingDebris.Contains(debris)) Object.DestroyImmediate(debris.gameObject);
+                        Object.DestroyImmediate(root);
+                    }
                 }
                 void Voxels(Transform parent)
                 {

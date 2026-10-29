@@ -14,3 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelPostProcessingSettings
   effectsEnabled: 1
   profile: {fileID: 11400000, guid: 14dd67ef005d9944986138ac4814fd7a, type: 2}
+  debriefDepthOfField: 1
+  debriefSharpMargin: 4
+  debriefBlurRange: 40
+  debriefBlurRadius: 0.7

@@ -41,11 +41,14 @@ MonoBehaviour:
   shootingPositioningTimeout: 2
   sideRamEnabled: 1
   sideRamChance: 1
+  initialRamChance: 0.5
+  initialRamDelay: 3
   ramOnPassingAlignment: 1
   minimumRamSpeed: 6
   minimumAlignmentSpeed: 14
   fastRamReturn: 1
-  ramReturnClosingSpeed: 80
+  ramReturnClosingSpeed: 60
+  ramReturnSlowdownDistance: 50
   ramReturnClosingResponse: 8
   ramReturnAcceleration: 100
   ramReturnSpeedFraction: 0.2

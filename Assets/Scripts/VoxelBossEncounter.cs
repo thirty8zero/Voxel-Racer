@@ -3,7 +3,7 @@ namespace VoxelRacer
 {
     public sealed class VoxelBossEncounter : MonoBehaviour
     {
-        public enum Stage { Traffic, Clearing, Boss, Complete, Failed }
+        public enum Stage { Traffic, Clearing, Boss, Complete, Failed, Introduction }
         public Stage CurrentStage { get; private set; }
         public VoxelEnemyCar Boss { get; private set; }
         public float BossDistance => Boss != null && player != null
@@ -23,11 +23,15 @@ namespace VoxelRacer
         private VoxelMineLayerTuning mines;
         private VoxelBossRoadHazardSpawner roadHazardSpawner;
         private float elapsed;
+        private VoxelBossIntroduction introduction;
+        private bool introductionPlayed;
 
         public void Configure(VoxelBossDefinition bossDefinition, VoxelBossEncounterSettings trackEncounterSettings,
             VoxelCarController target, EndlessVoxelRoad path, VoxelObstacleSpawner trafficSpawner,
             VoxelMissionProgress progress, VoxelStartCountdown start)
         {
+            introduction?.Cancel();
+            introductionPlayed = false;
             boss = bossDefinition;
             encounterSettings = trackEncounterSettings ?? new VoxelBossEncounterSettings();
             player = target;
@@ -112,20 +116,20 @@ namespace VoxelRacer
             if (CurrentStage != Stage.Clearing) return;
             // Never remove vehicles to make room, including when an editor command requests a spawn.
             if (HasRemainingTraffic()) return;
+            if (!introductionPlayed && boss.introductionPoster != null)
+            {
+                introduction = GetComponent<VoxelBossIntroduction>();
+                if (introduction == null) introduction = gameObject.AddComponent<VoxelBossIntroduction>();
+                CurrentStage = Stage.Introduction;
+                introductionPlayed = true;
+                if (introduction.Begin(boss, player, mission, IntroductionComplete)) return;
+                CurrentStage = Stage.Clearing;
+            }
             spawner.StopSpawning();
-            enemy = Instantiate(Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning"));
-            enemy.displayName = boss.bossName;
-            enemy.modelPrefab = boss.bossPrefab;
-            enemy.vehicleHealth = Mathf.Max(1, boss.health);
-            enemy.voxelHealth = Mathf.Max(.01f, boss.voxelHealth);
-            enemy.playerDamageVoxelsMin = boss.playerCollisionDamageMin;
-            enemy.playerDamageVoxelsMax = boss.playerCollisionDamageMax;
-            enemy.playerRamDamage = boss.playerRamDamage;
-            enemy.laneChangeChance = 0;
-            enemy.destructionScore = 0;
+            enemy = boss.CreateRuntimeVehicleTuning();
             float width = spawner.laneWidth;
             enemy.collisionHalfWidth = width * .9f + 1f;
-            enemy.collisionHalfLength = 2.65f * (width * 1.8f / 2.23f);
+            enemy.collisionHalfLength = boss.bodyCollisionHalfLength * (width * 1.8f / Mathf.Max(.1f, boss.referenceBodyWidth));
             var mineAttack = boss.GetAttack<VoxelBossMineAttackTuning>();
             if (mineAttack != null)
             {
@@ -162,6 +166,24 @@ namespace VoxelRacer
             CurrentStage = Stage.Boss;
         }
 
+        private void IntroductionComplete()
+        {
+            if (!isActiveAndEnabled || CurrentStage != Stage.Introduction || player == null || player.IsDestroyed ||
+                mission == null || mission.IsComplete || mission.IsFailed || VoxelLoadingScreen.IsLoading) return;
+            CurrentStage = Stage.Clearing;
+            SpawnBoss();
+        }
+
+        private void OnDisable()
+        {
+            introduction?.Cancel();
+            if (CurrentStage == Stage.Introduction)
+            {
+                CurrentStage = Stage.Clearing;
+                introductionPlayed = false;
+            }
+        }
+
         private void BossDefeated(VoxelEnemyCar defeated)
         {
             if (defeated != Boss || CurrentStage != Stage.Boss) return;
@@ -171,6 +193,7 @@ namespace VoxelRacer
 
         private void OnDestroy()
         {
+            introduction?.Cancel();
             if (Boss != null) Boss.Defeated -= BossDefeated;
             foreach (var asset in new Object[] { traffic, enemy, mines })
                 if (asset != null) { if (Application.isPlaying) Destroy(asset); else DestroyImmediate(asset); }

@@ -106,7 +106,8 @@ namespace VoxelRacer
 
         private bool CanUseBoost()
         {
-            return isActiveAndEnabled && !VoxelLoadingScreen.IsLoading && !VoxelPauseMenu.IsPaused && Target != null && Tuning != null && !Target.IsDestroyed && IsReady &&
+            return isActiveAndEnabled && !VoxelLoadingScreen.IsLoading && !VoxelPauseMenu.IsPaused &&
+                !VoxelBossIntroduction.BlocksControls(Target) && Target != null && Tuning != null && !Target.IsDestroyed && IsReady &&
                 (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete) &&
                 (VoxelMissionProgress.Active == null || !VoxelMissionProgress.Active.IsComplete);
         }

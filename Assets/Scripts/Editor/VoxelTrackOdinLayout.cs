@@ -80,6 +80,16 @@ namespace VoxelRacer.Editor
             string group=VoxelTrackOdinLayout.Section(typeof(VoxelBossDefinition),member.Name);
             attributes.Add(new FoldoutGroupAttribute(group));
             VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBossDefinition),member.Name,group,attributes);
+            if (member.Name.StartsWith("introduction") && member.Name != "introductionPoster")
+                attributes.Add(new ShowIfAttribute("@introductionPoster != null"));
+            if (member.Name == "weaponDebris" || member.Name == "ramDebris" || member.Name == "destructionDebris")
+            { attributes.Add(new InlinePropertyAttribute()); attributes.Add(new HideLabelAttribute()); }
+            if (member.Name == "missileVoxelsRemoved") attributes.Add(new ShowIfAttribute("useFixedMissileVoxelDamage"));
+            if (member.Name == "completionSlowMotionDuration" || member.Name == "completionSlowMotionTimeScale")
+                attributes.Add(new ShowIfAttribute("overrideCompletionSlowMotion"));
+            if (member.Name.StartsWith("spike")) attributes.Add(new ShowIfAttribute("detachSpikesOnDestruction"));
+            if (member.Name == "finishStopDuration") attributes.Add(new ShowIfAttribute("overrideFinishStopDuration"));
+            if (member.Name.StartsWith("destructionCamera")) attributes.Add(new ShowIfAttribute("focusCameraOnDestruction"));
             if(member.Name=="catchUpDistance")
             {
                 attributes.Add(new InfoBoxAttribute("Catch-up starts inside the preferred combat range, so it interrupts the full distance cycle.",InfoMessageType.Warning,"@catchUpDistance < maximumDistanceAhead"));
@@ -100,6 +110,24 @@ namespace VoxelRacer.Editor
             attributes.Add(new FoldoutGroupAttribute(group));
             VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBossSpikeAttackTuning),member.Name,group,attributes);
             if(member.Name=="retreatDistance") attributes.Add(new InfoBoxAttribute("Retreat distance is capped 5m below the boss escape warning distance.",InfoMessageType.Info));
+        }
+    }
+
+    public sealed class VoxelBichoLocoOdinLayout : OdinAttributeProcessor<VoxelBichoLocoTuning>
+    {
+        public override void ProcessChildMemberAttributes(InspectorProperty parent, MemberInfo member, List<Attribute> attributes)
+        {
+            if (!(member is FieldInfo)) return;
+            attributes.RemoveAll(a => a is HeaderAttribute);
+            string group = VoxelTrackOdinLayout.Section(typeof(VoxelBichoLocoTuning), member.Name);
+            attributes.Add(new FoldoutGroupAttribute(group));
+            VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBichoLocoTuning), member.Name, group, attributes);
+            if (member.Name == "mineTuning") attributes.Add(new InlineEditorAttribute());
+            if (member.Name == "bodyPhaseBehaviour")
+            {
+                attributes.Add(new ShowIfAttribute("usePsychoBehaviourAfterHoppers"));
+                attributes.Add(new InlineEditorAttribute());
+            }
         }
     }
 

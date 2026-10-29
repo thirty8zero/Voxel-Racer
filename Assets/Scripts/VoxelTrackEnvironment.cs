@@ -19,15 +19,15 @@ namespace VoxelRacer
             bool night = track != null && track.nightTime;
             light.transform.rotation = Quaternion.Euler(48f, -32f, 0f);
             light.intensity = night ? track.nightLightIntensity : 1.3f;
-            light.color = night ? track.nightLightColour : new Color(1f, .88f, .72f);
+            light.color = night ? track.nightLightColour : new Color(1f, .94f, .86f);
             // Gradient ambient uses the existing SH lighting path: no extra lights,
             // geometry, reflection captures or screen-space effects.
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = night ? track.nightAmbientColour : new Color(.65f, .72f, .86f);
+            RenderSettings.ambientSkyColor = night ? track.nightAmbientColour : new Color(.60f, .70f, .86f);
             RenderSettings.ambientEquatorColor = night
-                ? track.nightAmbientColour * new Color(.80f, .78f, .80f) : new Color(.52f, .51f, .54f);
+                ? track.nightAmbientColour * new Color(.85f, .86f, .92f) : new Color(.46f, .49f, .56f);
             RenderSettings.ambientGroundColor = night
-                ? track.nightAmbientColour * new Color(.42f, .40f, .42f) : new Color(.28f, .22f, .20f);
+                ? track.nightAmbientColour * new Color(.36f, .38f, .44f) : new Color(.24f, .20f, .18f);
         }
 
         public static void ApplyFog(VoxelTrackDefinition track)

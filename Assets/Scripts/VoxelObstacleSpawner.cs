@@ -41,6 +41,9 @@ namespace VoxelRacer
         private VoxelEnemyVehicleTuning radarTuning;
         private VoxelObstacleCar activeRadar;
         private float radarChance;
+        // The boss approach owns its traffic composition. A zero random enemy
+        // chance alone cannot suppress the independent drought fallback.
+        private bool OrdinaryEnemiesAllowed => radarEncounter == null;
         public void ConfigureRadarObjective(VoxelBossEncounter encounter, float chance)
         {
             radarEncounter = encounter;
@@ -218,7 +221,7 @@ namespace VoxelRacer
 
         private bool TrySpawnDroughtEnemy(EndlessVoxelRoad path, float distance)
         {
-            if (obstacleCarTuning.enemyVehicleSpawns == null) return false;
+            if (!OrdinaryEnemiesAllowed || obstacleCarTuning.enemyVehicleSpawns == null) return false;
             RefreshLaneOccupants();
             VoxelEnemyVehicleTuning selected = null;
             float selectedOffset = 0f;
@@ -292,7 +295,7 @@ namespace VoxelRacer
             bool spawnTrafficCar = obstacleCarTuning != null && Random.value < obstacleCarTuning.obstacleCarSpawnChance;
             if (spawnTrafficCar)
             {
-                if (Random.value < obstacleCarTuning.enemyCarSpawnChance)
+                if (OrdinaryEnemiesAllowed && Random.value < obstacleCarTuning.enemyCarSpawnChance)
                 {
                     var selected = obstacleCarTuning.ChooseEnemyVehicle();
                     if (selected != null)

@@ -62,3 +62,5 @@ MonoBehaviour:
   civilianNearMissPopupDuration: 2
   civilianVoxelDamagePoints: -2
   civilianVehicleDestroyedPoints: -30
+  completionSlowMotionDuration: 1.5
+  completionSlowMotionTimeScale: 0.25

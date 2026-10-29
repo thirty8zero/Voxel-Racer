@@ -74,6 +74,12 @@ namespace VoxelRacer
             EnsurePanel(root, tuning, VoxelArmorSide.Left, leftPurchased);
         }
 
+        internal static void GrantForDevelopment(VoxelArmorTuning tuning, VoxelCarDefinition car)
+        {
+            if (tuning == null || tuning.panelPrefab == null || !tuning.Fits(car)) return;
+            rightPurchased = leftPurchased = true;
+        }
+
         /// <summary>Also used by the fit preview; creates both panels without changing purchases or currency.</summary>
         public static Transform CreatePair(Transform car, VoxelArmorTuning tuning)
             => CreatePanels(car, tuning, true, true);

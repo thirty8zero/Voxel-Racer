@@ -14,6 +14,10 @@ namespace VoxelRacer
             return true;
         }
         public static string MountName(bool right) => right ? "Right Roof Missile Launcher" : "Left Roof Missile Launcher";
+        internal static void GrantForDevelopment(VoxelMissileLauncherTuning tuning, VoxelCarDefinition car)
+        {
+            if (tuning != null && tuning.Fits(car)) leftPurchased = rightPurchased = true;
+        }
         public static void ApplyTo(Transform car, VoxelCarDefinition definition)
         {
             var tuning = VoxelMissileLauncherTuning.Load();

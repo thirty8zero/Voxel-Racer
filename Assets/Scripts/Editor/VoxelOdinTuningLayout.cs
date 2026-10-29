@@ -114,7 +114,7 @@ namespace VoxelRacer.Editor
                 if(group=="Damage Evasion" && name!="damageEvasion") attributes.Add(new ShowIfAttribute("damageEvasion"));
                 if(name=="maximumReverseSpeed") attributes.Add(new ShowIfAttribute("allowReverse"));
                 if(name=="ramReturnSpeedFraction") attributes.Add(new HideIfAttribute("fastRamReturn"));
-                if(name=="ramReturnClosingSpeed" || name=="ramReturnClosingResponse" || name=="ramReturnAcceleration")
+                if(name=="ramReturnClosingSpeed" || name=="ramReturnSlowdownDistance" || name=="ramReturnClosingResponse" || name=="ramReturnAcceleration")
                     attributes.Add(new ShowIfAttribute("fastRamReturn"));
             }
             attributes.RemoveAll(a=>a is HeaderAttribute);

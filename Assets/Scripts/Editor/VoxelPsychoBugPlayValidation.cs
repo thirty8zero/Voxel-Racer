@@ -24,6 +24,7 @@ namespace VoxelRacer.Editor
         private static VoxelEnemyVehicleTuning blackTuning;
         private static float blackStartDistance;
         private static bool fastReturnReversed;
+        private static float fastReturnStarted;
         private static Vector2 previousTrafficRelative;
         private static VoxelGarageUpgradeDockValidation.SavedState saved;
         private static Scene scene,previousScene;
@@ -209,7 +210,10 @@ namespace VoxelRacer.Editor
                             "Actual frame-driven oncoming civilian passed through the Bug");
                         previousTrafficRelative=trafficRelative;
                         if(Time.realtimeSinceStartup-phaseStarted<2.5f)break;
-                        f.Enemy.enabled=false; oncoming.enabled=false;
+                        f.Enemy.enabled=false;
+                        // A disabled controller is still an active road occupant. Remove
+                        // this completed scenario's car from later return-route scans.
+                        oncoming.gameObject.SetActive(false);
                         blackTuning=Object.Instantiate(Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning"));
                         var blackObject=new GameObject("Live Black Interceptor minimum-speed QA");blackObject.transform.SetParent(f.Root.transform,false);
                         blackInterceptor=blackObject.AddComponent<VoxelEnemyCar>();
@@ -243,10 +247,12 @@ namespace VoxelRacer.Editor
                         f.Player.SetEnginePerformance(0f,0f); f.Player.topSpeed=35f; Property(f.Player,"CurrentSpeed",20f);
                         f.Behaviour.fastRamReturn=true;f.Behaviour.sideRamEnabled=true;f.Behaviour.weaveThroughTraffic=true;
                         f.Spawn(3f,200f);Set(f.Enemy,"currentSpeed",20f);Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);f.Enemy.enabled=true;
-                        fastReturnReversed=false;integrity=f.Player.RemainingIntegrityVoxels;Next();break;
+                        fastReturnReversed=false;fastReturnStarted=Time.time;integrity=f.Player.RemainingIntegrityVoxels;Next();break;
                     case 19:
                         fastReturnReversed|=f.Enemy.DriveSpeed<0;
-                        Check(Time.realtimeSinceStartup-phaseStarted<5.5f,"Live 200m fast ram return took too long");
+                        Check(Time.time-fastReturnStarted<6.5f,"Live 200m fast ram return took too long; phase="+f.Enemy.PsychoPhase+
+                            ", gap="+(f.Enemy.TrackDistance-f.Player.CollisionTrackPosition.y)+", speed="+f.Enemy.DriveSpeed+
+                            ", game seconds="+(Time.time-fastReturnStarted)+", wall seconds="+(Time.realtimeSinceStartup-phaseStarted));
                         if(f.Enemy.PsychoPhase!=PsychoBugPhase.Warning)break;
                         Check(fastReturnReversed && Mathf.Abs(f.Enemy.DriveSpeed-f.Player.CurrentSpeed)<=f.Behaviour.ramSpeedTolerance,
                             "Live fast return skipped attack-only reverse or failed to settle to player speed");
@@ -255,7 +261,7 @@ namespace VoxelRacer.Editor
                         if(f.Enemy.PsychoPhase!=PsychoBugPhase.Recovering)break;
                         Check(Time.time-warningStarted>=.98f && f.Player.RemainingIntegrityVoxels==integrity-3,
                             "Live fast return lost the full warning or actual side-ram damage");
-                        Finish("PASS (Play Mode): actual frame-driven exposure, bullet escape, left/right side rams, full one-second warning, single swept damage, recovery, player counter-ram, pause, mission completion, stopped/slow-player breakaway, and blocked head-on traffic safety. Black Interceptor rear ram accelerates to 110% of engine-adjusted top speed, ignores player braking, updates for changed engine maximum and expires to ordinary minimum-limited driving. Psycho Bug returns from a 200m lead in under 5.5s using attack-only reverse, matches player speed, then completes a full warning and real damaging ram. Temporary scenes/objects/tuning, clocks, preferences, mission/campaign/currency/purchases and random state restored.");return;
+                        Finish("PASS (Play Mode): actual frame-driven exposure, bullet escape, left/right side rams, full one-second warning, single swept damage, recovery, player counter-ram, pause, mission completion, stopped/slow-player breakaway, and blocked head-on traffic safety. Black Interceptor rear ram accelerates to 110% of engine-adjusted top speed, ignores player braking, updates for changed engine maximum and expires to ordinary minimum-limited driving. Psycho Bug returns from a 200m lead in under 6.5s using attack-only reverse, matches player speed, then completes a full warning and real damaging ram. Temporary scenes/objects/tuning, clocks, preferences, mission/campaign/currency/purchases and random state restored.");return;
                 }
             }
             catch(Exception e){Finish("FAIL: "+e);}

@@ -56,10 +56,14 @@ namespace VoxelRacer.Editor
                     canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
                 }
                 foreach (var item in root.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
-                foreach (var size in new[] { new Vector2Int(1920, 1080), new Vector2Int(2400, 1080), new Vector2Int(1280, 960) })
-                    Capture(camera, root, size, folder);
+                foreach (bool dev in new[] { false, true })
+                {
+                    typeof(VoxelPauseMenu).GetMethod("ShowDevPage", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(pause, new object[] { dev });
+                    foreach (var size in new[] { new Vector2Int(1920, 1080), new Vector2Int(2400, 1080), new Vector2Int(1280, 960) })
+                        Capture(camera, root, size, folder, dev);
+                }
                 if (Time.timeScale != scale || AudioListener.pause != audio) throw new InvalidOperationException("Preview changed pause state.");
-                File.WriteAllText(folder + "Validation.txt", "PASS: actual runtime pause card rendered at 16:9, 20:9 and 4:3; card and interactive targets in bounds; settings rows and action buttons separated; enlarged row-wide toggle input; prior pause/audio state retained. Preview does not invoke reset, resume or preference changes.");
+                File.WriteAllText(folder + "Validation.txt", "PASS: actual runtime settings and DEV pages rendered at 16:9, 20:9 and 4:3; card and interactive targets in bounds; settings rows and action buttons separated; enlarged row-wide toggle input; prior pause/audio state retained. Preview does not invoke developer actions, reset, resume or preference changes.");
                 Debug.Log("Pause menu preview and layout checks saved to " + folder);
             }
             finally
@@ -71,7 +75,7 @@ namespace VoxelRacer.Editor
             }
         }
 
-        private static void Capture(Camera camera, GameObject root, Vector2Int size, string folder)
+        private static void Capture(Camera camera, GameObject root, Vector2Int size, string folder, bool dev)
         {
             var rt = new RenderTexture(size.x, size.y, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
             var image = new Texture2D(size.x, size.y, TextureFormat.RGB24, false);
@@ -95,7 +99,7 @@ namespace VoxelRacer.Editor
                     for (int j = i + 1; j < rectangles.Length; j++)
                         if (rectangles[i].Intersects(rectangles[j])) throw new InvalidOperationException("Pause targets overlap.");
                 RenderTexture.active = rt; image.ReadPixels(new Rect(0, 0, size.x, size.y), 0, 0); image.Apply();
-                File.WriteAllBytes(folder + "Pause_" + size.x + "x" + size.y + ".png", image.EncodeToPNG());
+                File.WriteAllBytes(folder + (dev ? "DEV_" : "Pause_") + size.x + "x" + size.y + ".png", image.EncodeToPNG());
             }
             finally
             {

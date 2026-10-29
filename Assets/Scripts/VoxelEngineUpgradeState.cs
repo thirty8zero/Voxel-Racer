@@ -18,6 +18,10 @@ namespace VoxelRacer
             if(CreateVisual(car,tuning)!=null)
                 car.GetComponent<VoxelCarController>()?.SetEnginePerformance(tuning.topSpeedBonusPercent,tuning.accelerationBonusPercent);
         }
+        internal static void GrantForDevelopment(VoxelEngineUpgradeTuning tuning, VoxelCarDefinition car)
+        {
+            if (tuning != null && tuning.Fits(car)) IsPurchased = true;
+        }
         // Preserve the old engine and sibling indices so existing damage paths remain valid.
         // Called by both runtime and isolated preview; never modifies purchase state or source assets.
         public static GameObject CreateVisual(Transform car,VoxelEngineUpgradeTuning tuning)

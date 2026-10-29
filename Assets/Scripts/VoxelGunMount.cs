@@ -37,7 +37,8 @@ namespace VoxelRacer
                 // Workshop cars disable that controller; menu displays have none.
                 if (owningCar == null)
                     owningCar = GetComponentInParent<VoxelCarController>();
-                return owningCar != null && owningCar.isActiveAndEnabled && !owningCar.IsDestroyed;
+                return owningCar != null && owningCar.isActiveAndEnabled && !owningCar.IsDestroyed &&
+                    !VoxelBossIntroduction.BlocksControls(owningCar);
             }
         }
 

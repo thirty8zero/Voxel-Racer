@@ -39,7 +39,7 @@ MonoBehaviour:
   useVanImpactSettings: 0
   playerDamageVoxelsMin: 50
   playerDamageVoxelsMax: 100
-  playerRamDamage: 20
+  playerRamDamage: 30
   playerRamSpeedMatchDuration: 2
   rearRamEscapeSpeedMultiplier: 0
   rearRamEscapeAcceleration: 60
@@ -66,8 +66,8 @@ MonoBehaviour:
   ramDebrisScale: 0.8
   ramDebrisForwardForceMin: 20
   ramDebrisForwardForceMax: 30
-  ramDebrisUpwardForce: 20
-  ramDebrisSpreadForce: 10
+  ramDebrisUpwardForce: 30
+  ramDebrisSpreadForce: 15
   ramDebrisLifetime: 4
   healthBarWidth: 2.4
   healthBarHeight: 0.22

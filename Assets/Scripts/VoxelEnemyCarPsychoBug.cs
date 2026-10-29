@@ -7,11 +7,11 @@ namespace VoxelRacer
 
     public sealed partial class VoxelEnemyCar
     {
-        public bool IsPsychoBug => !IsBoss && Tuning != null && Tuning.psychoBug != null;
+        public bool IsPsychoBug => (!IsBoss && Tuning != null && Tuning.psychoBug != null) || IsBichoPsychoPhase;
         public PsychoBugPhase PsychoPhase { get; private set; }
         public float DriveSpeed => currentSpeed;
         public bool IsDrivingEnemy => Tuning != null && !hasBeenRammed && CurrentHealth > 0;
-        private VoxelPsychoBugTuning Psycho => Tuning.psychoBug;
+        private VoxelPsychoBugTuning Psycho => IsBichoPsychoPhase ? bichoBodyBehaviour : Tuning.psychoBug;
         private float psychoClock, psychoPhaseTime, psychoNextDecision, psychoNextScan, psychoNextAttack;
         private float psychoExposureDeadline, psychoExposureDuration, psychoAlignedTime;
         private float psychoWarningLane, psychoAttackLane, psychoAttackSpeed, psychoRecoveryLane;
@@ -26,10 +26,16 @@ namespace VoxelRacer
             if (!IsPsychoBug) return;
             psychoClock = psychoNextDecision = psychoNextScan = 0;
             psychoNextAttack = Mathf.Max(0, Psycho.minimumAttackCooldown);
+            // Roll once, rather than retrying the opening chance on every decision tick.
+            // Both deliberate and opportunistic attacks share this deadline.
+            bool openingRam = Psycho.initialRamChance >= 1 ||
+                (Psycho.initialRamChance > 0 && Random.value < Psycho.initialRamChance);
+            if (!openingRam)
+                psychoNextAttack = Mathf.Max(psychoNextAttack, Mathf.Max(0, Psycho.initialRamDelay));
             psychoEvasionAt = float.PositiveInfinity; psychoNextEvasion = psychoEscapeUntil = 0;
             psychoLaneOrigin = NearestPsychoLane(laneOffset); psychoClearingLane = false;
             ResetPsychoExposureDeadline();
-            // Reach the player for an attack first; exposure windows are periodic, not a spawn prerequisite.
+            // A non-ram opening keeps normal independent cruising and traffic reactions.
             SetPsychoPhase(PsychoBugPhase.Hunting);
         }
 
@@ -42,21 +48,25 @@ namespace VoxelRacer
         }
         private void FinishPsychoAttack(bool staggered = false)
         {
-            psychoNextAttack = psychoClock + Random.Range(Mathf.Max(0, Psycho.minimumAttackCooldown),
-                Mathf.Max(Psycho.minimumAttackCooldown, Psycho.maximumAttackCooldown));
+            psychoNextAttack = Mathf.Max(psychoNextAttack, psychoClock + Random.Range(Mathf.Max(0, Psycho.minimumAttackCooldown),
+                Mathf.Max(Psycho.minimumAttackCooldown, Psycho.maximumAttackCooldown)));
             // Recover to the lane occupied before the attack, never to the player's live lane.
             targetLaneOffset = psychoRecoveryLane = PsychoAttacking ? psychoRecoveryLane : NearestPsychoLane(laneOffset);
             SetPsychoPhase(staggered ? PsychoBugPhase.Staggered : PsychoBugPhase.Recovering);
         }
 
         private float PsychoLaneWidth => path != null ? path.roadWidth / Mathf.Max(1, path.laneCount) : 3f;
-        private int PsychoLaneCount => path != null ? Mathf.Max(1, path.laneCount) : 4;
+        private int PsychoRoadLaneCount => path != null ? Mathf.Max(1, path.laneCount) : 4;
+        // The large boss uses centres of two-lane pairs, while ordinary Bugs use single lanes.
+        private int PsychoLaneCount => IsBichoPsychoPhase ? Mathf.Max(1, PsychoRoadLaneCount - 1) : PsychoRoadLaneCount;
         private float PsychoLane(int index) => (index - (PsychoLaneCount - 1) * .5f) * PsychoLaneWidth;
         private float NearestPsychoLane(float offset) => PsychoLane(Mathf.Clamp(
             Mathf.RoundToInt(offset / PsychoLaneWidth + (PsychoLaneCount - 1) * .5f), 0, PsychoLaneCount - 1));
         private bool PsychoSettled => Mathf.Abs(laneOffset - targetLaneOffset) < .04f && Mathf.Abs(sideRamOffset) < .04f;
         private bool PsychoAttacking => PsychoPhase == PsychoBugPhase.Warning || PsychoPhase == PsychoBugPhase.Slamming;
-        private Vector2 PsychoCollisionSize => new(Tuning.collisionHalfWidth + Psycho.playerCollisionHalfWidth,
+        // Boss tuning's generic width already includes a player margin. Use the model's
+        // actual half-width here before adding the Psycho controller's player envelope.
+        private Vector2 PsychoCollisionSize => new((IsBichoPsychoPhase ? bossLaneWidth * .9f : Tuning.collisionHalfWidth) + Psycho.playerCollisionHalfWidth,
             Tuning.collisionHalfLength + Psycho.playerCollisionHalfLength);
         private float PsychoAlignmentMinimum => Mathf.Max(0, Mathf.Max(Psycho.minimumRamSpeed, Psycho.minimumAlignmentSpeed));
         private bool PsychoFastRamReturn => Psycho.fastRamReturn && PsychoPhase == PsychoBugPhase.Aligning &&
@@ -77,8 +87,8 @@ namespace VoxelRacer
             RotateWheels();
             UpdateMineLayer();
             CheckVehicleContact();
-            if (TrackDistance < target.TrackDistance - Mathf.Max(0, Psycho.maximumDistanceBehind) ||
-                TrackDistance > target.TrackDistance + GetMaximumDistanceAhead()) Destroy(gameObject);
+            if (!IsBoss && (TrackDistance < target.TrackDistance - Mathf.Max(0, Psycho.maximumDistanceBehind) ||
+                TrackDistance > target.TrackDistance + GetMaximumDistanceAhead())) Destroy(gameObject);
         }
 
         private void AdvancePsychoBug(float seconds)
@@ -136,7 +146,7 @@ namespace VoxelRacer
                     desiredGap = Mathf.Max(PsychoCollisionSize.y + Psycho.trafficClearance, Psycho.shootingDistanceAhead);
                     if (psychoClock >= psychoNextDecision && PsychoSettled)
                         ChoosePsychoLane(NearestPsychoLane(player.x), false);
-                    if (Mathf.Abs(player.x - laneOffset) < .15f && PsychoSettled &&
+                    if (Mathf.Abs(player.x - laneOffset) < (IsBichoPsychoPhase ? PsychoLaneWidth * .5f + .15f : .15f) && PsychoSettled &&
                         Mathf.Abs(TrackDistance - player.y - desiredGap) < 2f)
                     {
                         psychoExposureDuration = Random.Range(Mathf.Max(0, Psycho.minimumShootingDuration),
@@ -195,7 +205,8 @@ namespace VoxelRacer
                     desiredGap = 0;
                     // Fixed lane target and launch speed make a boost/lane escape meaningful.
                     float away = Mathf.Sign(psychoWarningLane - psychoAttackLane);
-                    float boundary = Mathf.Max(0, (PsychoLaneCount * PsychoLaneWidth) * .5f - Tuning.collisionHalfWidth);
+                    float boundary = IsBichoPsychoPhase ? Mathf.Abs(PsychoLane(PsychoLaneCount - 1)) :
+                        Mathf.Max(0, (PsychoLaneCount * PsychoLaneWidth) * .5f - Tuning.collisionHalfWidth);
                     float warningEnd = Mathf.Clamp(psychoWarningLane + away * Mathf.Max(0, Psycho.pullAwayDistance), -boundary, boundary);
                     float progress = Mathf.Clamp01(psychoPhaseTime / Mathf.Max(.05f, Psycho.warningDuration));
                     laneOffset = Mathf.Lerp(psychoWarningLane, warningEnd, Mathf.SmoothStep(0, 1, progress));
@@ -286,7 +297,7 @@ namespace VoxelRacer
         {
             float sideDistance = Mathf.Abs(laneOffset - player.x);
             return Mathf.Abs(TrackDistance - player.y) <= Mathf.Max(.1f, Psycho.alignmentTolerance) &&
-                sideDistance >= PsychoCollisionSize.x && sideDistance <= PsychoLaneWidth * 1.3f;
+                sideDistance >= PsychoCollisionSize.x && sideDistance <= PsychoLaneWidth * (IsBichoPsychoPhase ? 1.6f : 1.3f);
         }
 
         private float GetPsychoPositioningSpeed(float desiredGap, float playerDistance)
@@ -309,7 +320,14 @@ namespace VoxelRacer
                 // Reserve both the current step and the distance needed to regain matched speed.
                 float recovery = Mathf.Max(.1f, gap >= 0 ? Psycho.ramReturnAcceleration : Psycho.ramReturnBraking);
                 float step = recovery * seconds;
-                float closing = Mathf.Min(Mathf.Max(.1f, Psycho.ramReturnClosingSpeed),
+                float closingLimit = Mathf.Max(.1f, Psycho.ramReturnClosingSpeed);
+                // Ease off over the authored distance, before the emergency stopping
+                // envelope takes over. A square-root profile reaches alignment without
+                // a long crawl, and is symmetric for approaches from either direction.
+                float slowdownLimit = Psycho.ramReturnSlowdownDistance > 0
+                    ? closingLimit * Mathf.Sqrt(Mathf.Clamp01(Mathf.Abs(gap) / Psycho.ramReturnSlowdownDistance))
+                    : closingLimit;
+                float closing = Mathf.Min(slowdownLimit,
                     Mathf.Abs(gap) * Mathf.Max(.1f, Psycho.ramReturnClosingResponse),
                     Mathf.Sqrt(step * step + 2f * recovery * Mathf.Abs(gap)) - step);
                 return Mathf.Clamp(target.CurrentSpeed - Mathf.Sign(gap) * closing, -PsychoReverseLimit,
@@ -350,7 +368,9 @@ namespace VoxelRacer
 
         private void BeginPsychoRam()
         {
-            psychoWarningLane = laneOffset; psychoAttackLane = target.CollisionTrackPosition.x;
+            psychoWarningLane = laneOffset; psychoAttackLane = IsBichoPsychoPhase
+                ? Mathf.Clamp(target.CollisionTrackPosition.x, PsychoLane(0), PsychoLane(PsychoLaneCount - 1))
+                : target.CollisionTrackPosition.x;
             psychoRecoveryLane = targetLaneOffset = NearestPsychoLane(laneOffset);
             // Once the alignment guard admits a near match, remove the last small
             // relative drift before the fixed-speed warning and lateral slam.
@@ -371,6 +391,19 @@ namespace VoxelRacer
         }
         private bool TryChoosePsychoSide(float playerLane)
         {
+            if (IsBichoPsychoPhase)
+            {
+                float best = float.PositiveInfinity; bool found = false;
+                for (int lane = 0; lane < PsychoLaneCount; lane++)
+                {
+                    float candidate = PsychoLane(lane), separation = Mathf.Abs(candidate - playerLane);
+                    if (separation < PsychoCollisionSize.x || !PsychoRouteSafe(candidate, true)) continue;
+                    float score = separation + Mathf.Abs(candidate - laneOffset) * .01f;
+                    if (score >= best) continue;
+                    best = score; targetLaneOffset = candidate; found = true;
+                }
+                return found;
+            }
             float left = NearestPsychoLane(playerLane) - PsychoLaneWidth, right = NearestPsychoLane(playerLane) + PsychoLaneWidth;
             float first = Mathf.Abs(laneOffset - left) < Mathf.Abs(laneOffset - right) ? left : right;
             float second = first == left ? right : left;
@@ -432,7 +465,7 @@ namespace VoxelRacer
                 target.damageVoxelsPerHit = Random.Range(minimum, Mathf.Max(minimum, Psycho.sideRamDamageMax) + 1);
                 if (target.damageVoxelsPerHit > 0)
                     target.ApplyCollisionDamage(target.GetDamageSurfacePoint(transform.position), -enemyDirection,
-                        "Psycho Bug side ram", enemyDirection);
+                        IsBichoPsychoPhase ? bossSettings.bossName + " side ram" : "Psycho Bug side ram", enemyDirection);
                 target.ApplyRamResponse(false, enemyDirection, Tuning);
             }
             finally { target.damageVoxelsPerHit = original; }
@@ -572,7 +605,8 @@ namespace VoxelRacer
                 case VoxelFuelDrumObstacle drums when drums.IsRoadHazard: offset = drums.LaneOffset; distance = drums.TrackDistance; width = 2; length = 2; return true;
                 case VoxelPotholeObstacle pothole: offset = pothole.LaneOffset; distance = pothole.TrackDistance; width = PsychoLaneWidth * .42f; length = 1.35f; return true;
                 case VoxelOilSlickObstacle oil when !oil.HasTriggered: offset = oil.LaneOffset; distance = oil.TrackDistance; width = PsychoLaneWidth * .4f; length = 1.5f; return true;
-                case VoxelRoadMine mine: offset = mine.LaneOffset; distance = mine.TrackDistance; width = .6f; length = .6f; return true;
+                // The boss cannot be hurt by its leftover mines; they must not prevent its body phase closing in.
+                case VoxelRoadMine mine when !IsBichoPsychoPhase: offset = mine.LaneOffset; distance = mine.TrackDistance; width = .6f; length = .6f; return true;
                 default: return false;
             }
         }

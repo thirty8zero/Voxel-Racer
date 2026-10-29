@@ -1,0 +1,108 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c24848a0fd24910a5fb80888bb021a4, type: 3}
+  m_Name: ElBichoLocoBoss
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBossDefinition
+  bossName: El Bicho Loco
+  bossPrefab: {fileID: 2808260858082282301, guid: 7b324f1a85610754fa493620b4757de0, type: 3}
+  referenceBodyWidth: 2.98
+  bodyCollisionHalfLength: 2.23
+  entranceDuration: 2
+  entranceApproachDistance: 100
+  introductionPoster: {fileID: 2800000, guid: e9583a3304a8f9d448cc4221549ec622, type: 3}
+  introductionSlideInDuration: 0.55
+  introductionHoldDuration: 1.5
+  introductionSlideOutDuration: 0.45
+  introductionShakeDuration: 0.5
+  introductionShakePixels: 20
+  health: 2000
+  voxelHealth: 8
+  playerCollisionDamageMin: 30
+  playerCollisionDamageMax: 50
+  playerRamDamage: 100
+  maximumVoxelsRemovedPerRam: 100
+  gunHealthDamageMultiplier: 1
+  rearSurfaceHitRandomness: 3
+  ramDamageVoxelsMin: 100
+  ramDamageVoxelsMax: 200
+  useFixedMissileVoxelDamage: 0
+  missileVoxelsRemoved: 50
+  missileHealthDamageMultiplier: 1
+  missileBlastRadiusMultiplier: 1
+  maximumMissileDebris: 24
+  onDestroyVoxelsRemoved: 200
+  maximumDestructionRemovalFraction: 0.65
+  maximumDestructionDebris: 200
+  destructionExplosionScale: 2
+  useWorldScaleForDestructionExplosion: 0
+  destroyedLifetime: 4
+  weaponDebris:
+    scale: 0.8
+    forwardForceMin: 20
+    forwardForceMax: 30
+    upwardForce: 20
+    spreadForce: 10
+    lifetime: 4
+  ramDebris:
+    scale: 0.8
+    forwardForceMin: 20
+    forwardForceMax: 30
+    upwardForce: 30
+    spreadForce: 15
+    lifetime: 4
+  destructionDebris:
+    scale: 0.8
+    forwardForceMin: 20
+    forwardForceMax: 30
+    upwardForce: 20
+    spreadForce: 10
+    lifetime: 4
+  detachSpikesOnDestruction: 0
+  spikeLaunchForce: 20
+  spikeUpwardForce: 12
+  spikeSideForce: 6
+  spikeSpreadForce: 3
+  spikeSpinSpeed: 120
+  spikeVelocityInheritance: 0.35
+  spikeDebrisLifetime: 6
+  spikeFireSmokeDuration: 2
+  spikeFireSmokeScale: 1
+  spikeExplosionScale: 0.8
+  overrideCompletionSlowMotion: 1
+  completionSlowMotionDuration: 1.5
+  completionSlowMotionTimeScale: 0.25
+  overrideFinishStopDuration: 0
+  finishStopDuration: 3
+  focusCameraOnDestruction: 0
+  destructionCameraDuration: 3
+  destructionCameraBlendDuration: 0.5
+  destructionCameraOffset: {x: 24, y: 14, z: -30}
+  destructionCameraLookHeight: 4
+  destructionCameraFieldOfView: 50
+  minimumDistanceAhead: 28
+  maximumDistanceAhead: 120
+  escapeWarningDistance: 200
+  escapeFailureDistance: 250
+  minimumCruiseSpeedFraction: 0.6
+  catchUpDistance: 180
+  catchUpResumeDistance: 50
+  catchUpSpeedFraction: 0.95
+  distanceAdjustmentSpeed: 16
+  acceleration: 60
+  braking: 80
+  minimumLaneChangeInterval: 1
+  maximumLaneChangeInterval: 2
+  laneChangeSpeed: 12
+  attacks:
+  - {fileID: 11400000, guid: b45b5287b82cfbe48abc9842cafe7217, type: 2}
+  smokeDamageThreshold: 0.25
+  fireDamageThreshold: 0.5

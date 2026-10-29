@@ -41,6 +41,12 @@ namespace VoxelRacer
             return true;
         }
 
+        internal static void GrantForDevelopment(VoxelGunTuning tuning)
+        {
+            if (tuning == null || tuning.visualPrefab == null) return;
+            purchasedLongGunCount = Mathf.Max(purchasedLongGunCount, Mathf.Clamp(tuning.maximumPurchases, 1, SlotCount));
+        }
+
         /// <summary>Installs the purchased pair symmetrically beside the starter hood gun.</summary>
         public static void ApplyTo(Transform carRoot, VoxelGunTuning tuning)
         {

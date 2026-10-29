@@ -702,7 +702,7 @@ namespace VoxelRacer
             var countdown = environment.GetComponent<VoxelStartCountdown>();
             if (countdown == null)
                 countdown = environment.gameObject.AddComponent<VoxelStartCountdown>();
-            countdown.Prepare(car.GetComponent<VoxelCarController>());
+            countdown.Prepare(car.GetComponent<VoxelCarController>(), activeTrack?.displayName);
             spawner.SetStartCountdown(countdown);
             missionProgress.SetStartCountdown(countdown);
             if(activeTrack!=null && activeTrack.boss!=null)

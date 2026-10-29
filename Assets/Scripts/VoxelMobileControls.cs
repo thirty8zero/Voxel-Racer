@@ -24,9 +24,9 @@ namespace VoxelRacer
             VoxelMissileUpgradeState.IsPurchased(true);
 
         /// <summary>Read by all mounted guns in addition to the keyboard Ctrl binding.</summary>
-        public static bool IsFireHeld => fireHeld && !VoxelPauseMenu.IsPaused;
-        public static bool IsMissileHeld => missileHeld && !VoxelPauseMenu.IsPaused;
-        public static bool IsBrakeHeld => brakeHeld && !VoxelPauseMenu.IsPaused;
+        public static bool IsFireHeld => fireHeld && !VoxelPauseMenu.IsPaused && !VoxelBossIntroduction.IsShowing;
+        public static bool IsMissileHeld => missileHeld && !VoxelPauseMenu.IsPaused && !VoxelBossIntroduction.IsShowing;
+        public static bool IsBrakeHeld => brakeHeld && !VoxelPauseMenu.IsPaused && !VoxelBossIntroduction.IsShowing;
         public static void ClearHeldInput() { fireHeld = missileHeld = brakeHeld = false; }
 
         public static void SetControlSchemeB(bool enabled)
@@ -80,7 +80,8 @@ namespace VoxelRacer
 
             UpdateMissileVisibility();
             bool hidden = !Application.isPlaying || target == null || target.IsDestroyed ||
-                VoxelPauseMenu.IsPaused || VoxelPlayerDeathScreen.IsShowing || VoxelMissionProgress.Active?.IsComplete == true;
+                VoxelPauseMenu.IsPaused || VoxelBossIntroduction.BlocksControls(target) ||
+                VoxelPlayerDeathScreen.IsShowing || VoxelMissionProgress.Active?.IsComplete == true;
             canvasGroup.alpha = hidden ? 0f : VoxelStartCountdown.CurrentGameplayHudAlpha;
             canvasGroup.blocksRaycasts = canvasGroup.alpha > 0.01f;
             if (hidden)
@@ -96,19 +97,19 @@ namespace VoxelRacer
 
         internal void SetFireHeld(bool value)
         {
-            fireHeld = value && !VoxelPauseMenu.IsPaused && target != null && !target.IsDestroyed &&
+            fireHeld = value && !VoxelPauseMenu.IsPaused && !VoxelBossIntroduction.BlocksControls(target) && target != null && !target.IsDestroyed &&
                 VoxelMissionProgress.Active?.IsComplete != true;
         }
 
         internal void SetMissileHeld(bool value)
         {
-            missileHeld = value && !VoxelPauseMenu.IsPaused && HasMissileUpgrade && target != null && !target.IsDestroyed &&
+            missileHeld = value && !VoxelPauseMenu.IsPaused && !VoxelBossIntroduction.BlocksControls(target) && HasMissileUpgrade && target != null && !target.IsDestroyed &&
                 VoxelMissionProgress.Active?.IsComplete != true;
         }
 
         internal void SetBrakeHeld(bool value)
         {
-            brakeHeld = value && !VoxelPauseMenu.IsPaused && target != null && !target.IsDestroyed &&
+            brakeHeld = value && !VoxelPauseMenu.IsPaused && !VoxelBossIntroduction.BlocksControls(target) && target != null && !target.IsDestroyed &&
                 !VoxelPlayerDeathScreen.IsShowing && VoxelMissionProgress.Active?.IsComplete != true;
         }
 

@@ -67,6 +67,8 @@ namespace VoxelRacer.Editor
                 traffic.obstacleCarSpawnChance = traffic.enemyCarSpawnChance = 0;
                 Wave(10); Check(Count() == 0, "Natural spawn did not reset drought."); Wave(11); Check(Count() == 1, "Drought after natural spawn failed."); ClearEnemies();
 
+                CheckRadarIsolation(spawner, traffic, root, wave => Wave(wave));
+
                 // Real controller types with controlled positions, without building unrelated models.
                 foreach (var type in new[] { typeof(VoxelObstacle), typeof(VoxelFuelDrumObstacle), typeof(VoxelPotholeObstacle), typeof(VoxelOilSlickObstacle) })
                 {
@@ -127,13 +129,62 @@ namespace VoxelRacer.Editor
                     Check(property.Attributes.OfType<FoldoutGroupAttribute>().Any(a => a.GroupName == "Enemy Vehicles"), "Drought setting missing Enemy Vehicles foldout.");
                 }
                 Directory.CreateDirectory("Temp/EnemyDrought");
-                File.WriteAllText("Temp/EnemyDrought/Validation.txt", "PASS: seventh-wave default, custom threshold, disabled fallback, natural/forced success reset, one forced enemy per wave, blocked slot retry, passed/overlapping/ahead crates, drums, potholes and oil, unchanged ordinary lane exclusions, rear civilian phase-speed safety, oncoming separation, wreck rejection, disabled enemy merge reservations, safe eligible weighted pool members, empty/disabled pools, all track defaults and Odin Inspector integration. Temporary preview only; source assets and RNG preserved.");
+                File.WriteAllText("Temp/EnemyDrought/Validation.txt", "PASS: seventh-wave default, custom threshold, disabled fallback, natural/forced success reset, one forced enemy per wave, blocked slot retry, passed/overlapping/ahead crates, drums, potholes and oil, unchanged ordinary lane exclusions, rear civilian phase-speed safety, oncoming separation, wreck rejection, disabled enemy merge reservations, safe eligible weighted pool members, empty/disabled pools, all track defaults and Odin Inspector integration. Boss/radar isolation covers every encounter stage, ordinary chance 0/1, ordinary and overdue queued-wave paths, actual Radar Interceptor spawning and one active objective at a time; ordinary drought spawning resumes when the objective is removed. Temporary preview only; source assets and RNG preserved.");
                 Debug.Log("PASS Enemy Drought Spawning: wave accounting, safe local clearance, traffic forecasts and track Inspector integration.");
             }
             finally
             {
                 Remove(root); Object.DestroyImmediate(traffic); Object.DestroyImmediate(vehicle); Object.DestroyImmediate(large);
                 EditorSceneManager.ClosePreviewScene(scene); UnityEngine.Random.state = random;
+            }
+        }
+
+        private static void CheckRadarIsolation(VoxelObstacleSpawner spawner, VoxelObstacleCarTuning traffic,
+            GameObject root, Action<int> wave)
+        {
+            using var civilianScope = new VoxelCivilianTrafficSetScope(traffic);
+            traffic.civilianTrafficSet.civilianVehiclePool = new[] { Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning") };
+            var encounter = root.AddComponent<VoxelBossEncounter>(); encounter.enabled = false;
+            spawner.ConfigureRadarObjective(encounter, 100);
+            traffic.obstacleCarSpawnChance = 1;
+            void ClearTraffic()
+            {
+                foreach (var car in root.GetComponentsInChildren<VoxelObstacleCar>())
+                { Call(car, "OnDisable"); Remove(car.gameObject); }
+            }
+            try
+            {
+                foreach (VoxelBossEncounter.Stage stage in Enum.GetValues(typeof(VoxelBossEncounter.Stage)))
+                foreach (float chance in new[] { 0f, 1f })
+                foreach (int queuedWave in new[] { 1, 7, 70 })
+                {
+                    typeof(VoxelBossEncounter).GetProperty("CurrentStage").SetValue(encounter, stage);
+                    traffic.enemyCarSpawnChance = chance; Set(spawner, "lastEnemySpawnWave", 0);
+                    wave(queuedWave);
+                    Check(root.GetComponentsInChildren<VoxelEnemyCar>().Length == 0,
+                        "Ordinary enemy entered boss/radar stage " + stage + ", chance=" + chance + ", queued wave=" + queuedWave);
+                    var cars = root.GetComponentsInChildren<VoxelObstacleCar>();
+                    Check(cars.Length == 1 && cars[0].IsEnemyTraffic == (stage == VoxelBossEncounter.Stage.Traffic),
+                        "Radar/civilian traffic was suppressed or misclassified in " + stage);
+                    ClearTraffic();
+                }
+                typeof(VoxelBossEncounter).GetProperty("CurrentStage").SetValue(encounter, VoxelBossEncounter.Stage.Traffic);
+                spawner.laneCount = 2; Set(spawner, "lastEnemySpawnWave", 0);
+                wave(70); wave(71);
+                Check(root.GetComponentsInChildren<VoxelObstacleCar>().Count(c => c.IsEnemyTraffic) == 1,
+                    "Boss approach did not preserve the one-active-radar limit.");
+                Check(root.GetComponentsInChildren<VoxelEnemyCar>().Length == 0, "Later radar waves leaked an ordinary enemy.");
+                ClearTraffic();
+                spawner.ConfigureRadarObjective(null, 10); traffic.enemyCarSpawnChance = traffic.obstacleCarSpawnChance = 0;
+                Set(spawner, "lastEnemySpawnWave", 0); wave(7);
+                Check(root.GetComponentsInChildren<VoxelEnemyCar>().Length == 1, "Removing radar objective did not restore normal drought spawning.");
+                foreach (var enemy in root.GetComponentsInChildren<VoxelEnemyCar>()) Remove(enemy.gameObject);
+            }
+            finally
+            {
+                ClearTraffic(); spawner.ConfigureRadarObjective(null, 10); spawner.laneCount = 1;
+                traffic.enemyCarSpawnChance = traffic.obstacleCarSpawnChance = 0;
+                Set(spawner, "lastEnemySpawnWave", 0); Object.DestroyImmediate(encounter);
             }
         }
     }

@@ -204,9 +204,12 @@ namespace VoxelRacer
                 Mathf.Max(tuning.obstacleDamageVoxelsMin, tuning.obstacleDamageVoxelsMax) + 1);
             float enemyBoostDamage = obstacleDamageCount * (IsEnemyTraffic ? target.BoostRamDamageMultiplier : 1f);
             obstacleDamageCount = Mathf.RoundToInt(VoxelPloughUpgradeState.ImpactDamage(enemyBoostDamage, target.transform, hitDirection));
-            int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, -hitDirection, obstacleDamageCount, DebrisStyle.Ram);
+            int damagedVoxelCount = ApplyVoxelDamage(obstacleImpactPoint, hitDirection, obstacleDamageCount, DebrisStyle.Ram);
             ReportVoxelDamage(damagedVoxelCount);
             ReportVoxelDestroyed(damagedVoxelCount, transform.position);
+            if (IsEnemyTraffic)
+                DamageParts.StripEnemyWreck(obstacleImpactPoint, EnemyTuning.explosionVoxelCount,
+                    voxel => SpawnDebris(voxel, hitDirection, DebrisStyle.Explosion));
             ReportDestroyed(true);
             CurrentHealth = 0f;
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
@@ -301,10 +304,14 @@ namespace VoxelRacer
         private void DestroyFromWeaponHit(Vector3 hitPoint, Vector3 impactDirection, bool awardMissionPoints = true)
         {
             hasBeenHit = true;
+            if (IsEnemyTraffic)
+                DamageParts.StripEnemyWreck(hitPoint, EnemyTuning.explosionVoxelCount,
+                    voxel => SpawnDebris(voxel, impactDirection, DebrisStyle.Explosion));
             ReportDestroyed(awardMissionPoints);
             VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f,
                 EnemyTuning != null ? EnemyTuning.explosionEffectScale : 1f);
-            ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount, DebrisStyle.Explosion);
+            if (!IsEnemyTraffic)
+                ApplyVoxelDamage(hitPoint, impactDirection, EnemyTuning.explosionVoxelCount, DebrisStyle.Explosion);
             velocity = impactDirection.normalized * tuning.launchForce + Vector3.up * tuning.launchUpwardForce;
             destroyTime = Time.time + EnemyTuning.destroyedLifetime;
         }

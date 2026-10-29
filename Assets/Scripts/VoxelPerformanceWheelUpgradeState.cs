@@ -23,6 +23,11 @@ namespace VoxelRacer
             car.GetComponent<VoxelCarController>()?.SetWheelPerformance(tuning.accelerationBonusPercent, tuning.laneChangeBonusPercent, tuning.brakingBonusPercent);
         }
 
+        internal static void GrantForDevelopment(VoxelPerformanceWheelTuning tuning, VoxelCarDefinition car)
+        {
+            if (tuning != null && tuning.Fits(car)) IsPurchased = true;
+        }
+
         /// <summary>Retains wheel transforms, steering, protected chassis and existing spike children.</summary>
         public static void CreateVisuals(Transform car, VoxelPerformanceWheelTuning tuning)
         {

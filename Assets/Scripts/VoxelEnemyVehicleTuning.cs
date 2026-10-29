@@ -123,8 +123,9 @@ namespace VoxelRacer
         [Header("Explosion")]
         [Tooltip("Size multiplier applied to the shared VoxelDestructionExplosion effect.")]
         [Min(0.1f)] public float explosionEffectScale = 1f;
+        [Tooltip("Maximum physical debris pieces spawned by a destruction explosion. Non-boss enemies shed excess bodywork down to 9.5% even after this budget is reached. Civilians also use this as their removal limit. Bosses use their independent Boss Definition settings.")]
         [Min(1)] public int explosionVoxelCount = 40;
-        [Tooltip("Maximum portion of the active body that can detach during a weapon explosion, preserving a visible flying wreck.")]
+        [HideInInspector, Tooltip("Legacy serialized data. Bosses now use Maximum Destruction Removal Fraction on their Boss Definition; ordinary enemy wrecks retain up to 9.5% of their original destructible voxels.")]
         [Range(0f, 0.95f)] public float maximumExplosionVoxelRemovalPercent = 0.65f;
         [Min(0f)] public float explosionForwardForceMin = 7f;
         [Min(0f)] public float explosionForwardForceMax = 10f;

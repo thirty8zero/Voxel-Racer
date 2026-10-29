@@ -193,7 +193,13 @@ namespace VoxelRacer
         /// <summary>Stops naturally according to this car's braking performance.</summary>
         public void BeginFinishStop()
         {
-            PlannedFinishStopDuration = CalculateFinishStopDuration(CurrentSpeed, EffectiveBrakingForce);
+            BeginFinishStop(-1f);
+        }
+
+        public void BeginFinishStop(float durationOverride)
+        {
+            PlannedFinishStopDuration = durationOverride >= 0 ? Mathf.Max(.01f, durationOverride) :
+                CalculateFinishStopDuration(CurrentSpeed, EffectiveBrakingForce);
             finishDeceleration = PlannedFinishStopDuration > 0.001f
                 ? CurrentSpeed / PlannedFinishStopDuration
                 : Mathf.Max(0.1f, EffectiveBrakingForce);
@@ -236,7 +242,8 @@ namespace VoxelRacer
             }
 
             var keyboard = Keyboard.current;
-            bool braking = VoxelMobileControls.IsBrakeHeld || (keyboard != null && keyboard.spaceKey.isPressed);
+            bool braking = !VoxelBossIntroduction.BlocksControls(this) &&
+                (VoxelMobileControls.IsBrakeHeld || (keyboard != null && keyboard.spaceKey.isPressed));
             SetBrakeLights(drivingEnabled && (braking || (finishingRun && CurrentSpeed > 0.05f)));
             CurrentSpeed = CalculateNextDriveSpeed(CurrentSpeed, braking, Time.deltaTime);
             UpdateRamResponse();
@@ -385,6 +392,7 @@ namespace VoxelRacer
         {
             if (CurrentSpeed <= 0f) return;
             if (VoxelPauseMenu.IsPaused) return;
+            if (VoxelBossIntroduction.BlocksControls(this)) return;
             if (IsOilSpinning) return;
             requestedLane = Mathf.Clamp(requestedLane, 0, laneCount - 1);
             if (requestedLane == currentLane)

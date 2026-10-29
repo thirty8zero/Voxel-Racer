@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
@@ -185,7 +186,29 @@ namespace VoxelRacer.Editor
                     Step();
                     Check(EnemyCount() == (request >= 61 ? 1 : 0), "Drought lost queued request wave identity: " + request);
                 }
-                report = "PASS (Play Mode simulation): real spawner Update at stopped/normal/boosted speeds, boost below maximum, residual speed, engine upgrades, zero maximum, opening/pause/death gates, earlier boosted wave, normal due wave, interval reset, one queued object per update, forced first wave and finish cleanup. Enemy drought forces exactly one on wave seven after six missed waves, replaces an existing slot, preserves one-object-per-frame pacing and retains correct wave identity with 64 overlapping queued requests. Temporary objects removed; assets, purchases and random state preserved.";
+                foreach (var enemy in root.GetComponentsInChildren<VoxelEnemyCar>(true)) Object.DestroyImmediate(enemy.gameObject);
+                // The same real Update/dequeue path must not force ordinary enemies
+                // into a boss objective, even with overdue queued requests.
+                var encounter = root.AddComponent<VoxelBossEncounter>();
+                spawner.ConfigureRadarObjective(encounter, 100);
+                using (var civilianScope = new VoxelCivilianTrafficSetScope(tuning))
+                {
+                    tuning.civilianTrafficSet.civilianVehiclePool = new[] { Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/TrafficCarTuning") };
+                    tuning.obstacleCarSpawnChance = tuning.enemyCarSpawnChance = 1;
+                    tuning.minimumObjectsPerWave = tuning.maximumObjectsPerWave = 3;
+                    Set(spawner, "<WavesSpawned>k__BackingField", 69); Set(spawner, "lastEnemySpawnWave", 0);
+                    Set(spawner, "spawnTimeRemaining", 0f); Step();
+                    Check(queue.Count == 3, "Radar scenario did not queue its wave.");
+                    Set(spawner, "spawnTimeRemaining", 100f);
+                    for (int slot = 0; slot < 3; slot++)
+                    {
+                        Step();
+                        Check(EnemyCount() == 0 && queue.Count == 2 - slot, "Real radar queue leaked an ordinary enemy or lost pacing.");
+                    }
+                    Check(root.GetComponentsInChildren<VoxelObstacleCar>(true).Count(c => c.IsEnemyTraffic) == 1,
+                        "Real radar queue suppressed the objective or spawned multiple Radar Interceptors.");
+                }
+                report = "PASS (Play Mode simulation): real spawner Update at stopped/normal/boosted speeds, boost below maximum, residual speed, engine upgrades, zero maximum, opening/pause/death gates, earlier boosted wave, normal due wave, interval reset, one queued object per update, forced first wave and finish cleanup. Enemy drought forces exactly one on wave seven after six missed waves, replaces an existing slot, preserves one-object-per-frame pacing and retains correct wave identity with 64 overlapping queued requests. An overdue boss/radar wave suppresses ordinary enemies despite 100% ordinary chance, preserves queue pacing and spawns exactly one Radar Interceptor. Temporary objects removed; assets, purchases and random state preserved.";
             }
             catch (Exception e) { report = "FAIL: " + e; }
             finally

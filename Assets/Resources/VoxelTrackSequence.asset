@@ -13,12 +13,13 @@ MonoBehaviour:
   m_Name: VoxelTrackSequence
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackSequence
   tracks:
+  - {fileID: 11400000, guid: b60b849b86322de4ca25ec9771eea6c0, type: 2}
+  - {fileID: 11400000, guid: de88e44beaad9724ab2b2f884882d79e, type: 2}
   - {fileID: 11400000, guid: 17cd5398c4a9ce149890972317035ab6, type: 2}
   - {fileID: 11400000, guid: d9704478790f6b64db568c79dd75f1d9, type: 2}
   - {fileID: 11400000, guid: b1d4f1cbed3f74d41bce84c85cc49d9d, type: 2}
   - {fileID: 11400000, guid: 847004ac1e623124c9981b94dcccb92e, type: 2}
   - {fileID: 11400000, guid: 9de2c5fbda2207c4fbecfef21a7d29a1, type: 2}
-  - {fileID: 11400000, guid: de88e44beaad9724ab2b2f884882d79e, type: 2}
   - {fileID: 11400000, guid: 6e30f56a0293bd547b19889ac990b39e, type: 2}
   - {fileID: 11400000, guid: 1104706559cd01a4ca65a0fcae532150, type: 2}
   - {fileID: 11400000, guid: 43188f7b7eded8146986f717817c7678, type: 2}

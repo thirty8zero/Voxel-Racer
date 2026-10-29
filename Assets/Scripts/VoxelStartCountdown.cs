@@ -19,6 +19,9 @@ namespace VoxelRacer
         private bool prepared;
         private bool waitingForLoadingScreen;
         private CanvasGroup openingFade;
+        private string trackDisplayName;
+        private GUIStyle numberStyle;
+        private GUIStyle trackStyle;
 
         public bool IsComplete => started && Time.time - countdownStartedAt >= 3f;
 
@@ -40,9 +43,10 @@ namespace VoxelRacer
                 Active = null;
         }
 
-        public void Prepare(VoxelCarController player)
+        public void Prepare(VoxelCarController player, string trackName = null)
         {
             target = player;
+            trackDisplayName = trackName ?? VoxelRacerBootstrap.ActiveTrack?.displayName ?? string.Empty;
             target.SetDrivingEnabled(false);
             prepared = true;
             started = false;
@@ -166,15 +170,46 @@ namespace VoxelRacer
                 return;
 
             string text = elapsed < 1f ? "3" : elapsed < 2f ? "2" : elapsed < 3f ? "1" : "GO!";
-            var style = new GUIStyle(GUI.skin.label)
+            numberStyle ??= new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
                 font = VoxelHudStyles.HudFont,
-                fontSize = text == "GO!" ? 114 : 144,
                 fontStyle = FontStyle.Normal,
                 normal = { textColor = Color.white }
             };
-            GUI.Label(new Rect(0f, Screen.height * 0.22f, Screen.width, 120f), text, style);
+            trackStyle ??= new GUIStyle(numberStyle);
+            float scale = Screen.height / 1080f;
+            float numberTop = Screen.height * 0.22f;
+            numberStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt((text == "GO!" ? 114f : 144f) * scale));
+            DrawOutlinedLabel(new Rect(0f, numberTop, Screen.width, 160f * scale), text,
+                numberStyle, 4f * scale, 1f, Color.white);
+
+            // Fade up throughout "3", peak at "2", and disappear as "1" begins.
+            float nameAlpha = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Min(elapsed, 2f - elapsed)));
+            if (nameAlpha > 0f && !string.IsNullOrWhiteSpace(trackDisplayName))
+            {
+                trackStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt(numberStyle.fontSize * 1.2f));
+                float availableWidth = Screen.width * .9f;
+                float textWidth = trackStyle.CalcSize(new GUIContent(trackDisplayName)).x;
+                if (textWidth > availableWidth)
+                    trackStyle.fontSize = Mathf.Max(1, Mathf.FloorToInt(trackStyle.fontSize * availableWidth / textWidth));
+                DrawOutlinedLabel(new Rect(Screen.width * .05f, numberTop - 224f * scale,
+                    availableWidth, 240f * scale), trackDisplayName, trackStyle, 2f * scale, nameAlpha, Color.yellow);
+            }
+        }
+
+        private static void DrawOutlinedLabel(Rect rect, string text, GUIStyle style, float width, float alpha, Color color)
+        {
+            style.normal.textColor = new Color(.015f, .025f, .04f, alpha);
+            for (int y = -1; y <= 1; y++)
+                for (int x = -1; x <= 1; x++)
+                {
+                    if (x == 0 && y == 0) continue;
+                    GUI.Label(new Rect(rect.x + x * width, rect.y + y * width, rect.width, rect.height), text, style);
+                }
+            color.a *= alpha;
+            style.normal.textColor = color;
+            GUI.Label(rect, text, style);
         }
     }
 }

@@ -14,14 +14,80 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBossDefinition
   bossName: The Vandito
   bossPrefab: {fileID: 8721871037261989453, guid: 93ff97f93c087374e958c785242c963d, type: 3}
+  referenceBodyWidth: 2.23
+  bodyCollisionHalfLength: 2.65
   entranceDuration: 2
   entranceApproachDistance: 100
+  introductionPoster: {fileID: 2800000, guid: 592e8506732ecc943a45660bb9afdca2, type: 3}
+  introductionSlideInDuration: 0.55
+  introductionHoldDuration: 1.5
+  introductionSlideOutDuration: 0.45
+  introductionShakeDuration: 0.5
+  introductionShakePixels: 20
   health: 1000
   voxelHealth: 8
   playerCollisionDamageMin: 30
   playerCollisionDamageMax: 50
   playerRamDamage: 100
-  maximumVoxelsRemovedPerRam: 30
+  maximumVoxelsRemovedPerRam: 100
+  gunHealthDamageMultiplier: 1
+  rearSurfaceHitRandomness: 3
+  ramDamageVoxelsMin: 100
+  ramDamageVoxelsMax: 200
+  useFixedMissileVoxelDamage: 0
+  missileVoxelsRemoved: 50
+  missileHealthDamageMultiplier: 1
+  missileBlastRadiusMultiplier: 1
+  maximumMissileDebris: 24
+  onDestroyVoxelsRemoved: 200
+  maximumDestructionRemovalFraction: 0.65
+  maximumDestructionDebris: 200
+  destructionExplosionScale: 2
+  useWorldScaleForDestructionExplosion: 0
+  destroyedLifetime: 4
+  weaponDebris:
+    scale: 0.8
+    forwardForceMin: 20
+    forwardForceMax: 30
+    upwardForce: 20
+    spreadForce: 10
+    lifetime: 4
+  ramDebris:
+    scale: 0.8
+    forwardForceMin: 20
+    forwardForceMax: 30
+    upwardForce: 30
+    spreadForce: 15
+    lifetime: 4
+  destructionDebris:
+    scale: 0.8
+    forwardForceMin: 20
+    forwardForceMax: 30
+    upwardForce: 20
+    spreadForce: 10
+    lifetime: 4
+  detachSpikesOnDestruction: 1
+  spikeLaunchForce: 20
+  spikeUpwardForce: 12
+  spikeSideForce: 6
+  spikeSpreadForce: 3
+  spikeSpinSpeed: 120
+  spikeVelocityInheritance: 0.35
+  spikeDebrisLifetime: 6
+  spikeFireSmokeDuration: 2
+  spikeFireSmokeScale: 1
+  spikeExplosionScale: 0.8
+  overrideCompletionSlowMotion: 1
+  completionSlowMotionDuration: 1.5
+  completionSlowMotionTimeScale: 0.25
+  overrideFinishStopDuration: 0
+  finishStopDuration: 3
+  focusCameraOnDestruction: 0
+  destructionCameraDuration: 3
+  destructionCameraBlendDuration: 0.5
+  destructionCameraOffset: {x: 24, y: 14, z: -30}
+  destructionCameraLookHeight: 4
+  destructionCameraFieldOfView: 50
   minimumDistanceAhead: 30
   maximumDistanceAhead: 210
   escapeWarningDistance: 150

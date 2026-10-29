@@ -296,7 +296,7 @@ namespace VoxelRacer
 
         private void OnGUI()
         {
-            if (VoxelLoadingScreen.IsLoading) return;
+            if (VoxelLoadingScreen.IsLoading || VoxelBossIntroduction.IsShowing) return;
             // These are absolute-position IMGUI labels, so calculating and drawing
             // only during repaint prevents Layout/Repaint from registering a popup
             // twice in the overlap list.

@@ -66,6 +66,13 @@ namespace VoxelRacer
             }
         }
 
+        internal static void GrantForDevelopment(VoxelWheelSpikeTuning tuning, VoxelCarDefinition car)
+        {
+            if (tuning == null || !tuning.Fits(car) || IsEquipped(tuning)) return;
+            purchased = true;
+            installedTuning = tuning;
+        }
+
         /// <summary>Shared mounting geometry without changing purchases or currency.</summary>
         public static GameObject CreateVisual(Transform car, Transform wheel, VoxelWheelSpikeTuning tuning)
         {

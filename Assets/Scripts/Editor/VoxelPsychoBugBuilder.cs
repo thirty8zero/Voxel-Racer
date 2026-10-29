@@ -136,12 +136,12 @@ namespace VoxelRacer.Editor
             {
                 int start=vertices.Count;vertices.Add(new Vector3(side*halfWidth,0,0));
                 for(int i=0;i<8;i++){float a=i*Mathf.PI/4;vertices.Add(new Vector3(side*halfWidth,Mathf.Sin(a)*radius,Mathf.Cos(a)*radius));}
-                for(int i=0;i<8;i++){triangles.Add(start);triangles.Add(start+1+(side>0?i:(i+1)%8));triangles.Add(start+1+(side>0?(i+1)%8:i));}
+                for(int i=0;i<8;i++){triangles.Add(start);triangles.Add(start+1+(side>0?(i+1)%8:i));triangles.Add(start+1+(side>0?i:(i+1)%8));}
             }
             for(int i=0;i<8;i++)
             {
                 int next=(i+1)%8,first=vertices.Count;vertices.Add(vertices[1+i]);vertices.Add(vertices[1+next]);vertices.Add(vertices[10+next]);vertices.Add(vertices[10+i]);
-                triangles.AddRange(new[]{first,first+1,first+2,first,first+2,first+3});
+                triangles.AddRange(new[]{first,first+2,first+1,first,first+3,first+2});
             }
             mesh.SetVertices(vertices);mesh.SetTriangles(triangles,0);mesh.RecalculateNormals();mesh.RecalculateBounds();return mesh;
         }

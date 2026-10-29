@@ -8,6 +8,9 @@ namespace VoxelRacer
     {
         private readonly HashSet<Transform> wheels = new();
         private readonly List<MeshRenderer> body = new();
+        private readonly List<MeshRenderer> pieces = new();
+        public int OriginalDestructibleCount { get; }
+        private const float EnemyWreckRemainingFraction = .095f;
 
         public VoxelVehicleDamageParts(Transform root)
         {
@@ -15,6 +18,8 @@ namespace VoxelRacer
             {
                 if (renderer.transform == root || renderer.GetComponentInParent<VoxelIndestructiblePart>() != null ||
                     renderer.GetComponentInParent<VoxelEnemyHealthBar>() != null) continue;
+                pieces.Add(renderer);
+                if (Active(renderer)) OriginalDestructibleCount++;
                 bool wheel = false;
                 for (var parent = renderer.transform; parent != null && parent != root; parent = parent.parent)
                     if (parent.name == VoxelVehicleDriveline.WheelName) { wheel = true; break; }
@@ -35,6 +40,38 @@ namespace VoxelRacer
             int priority = IsWheel(a).CompareTo(IsWheel(b));
             return priority != 0 ? priority : (a.position - hitPoint).sqrMagnitude.CompareTo((b.position - hitPoint).sqrMagnitude);
         });
+
+        /// <summary>Finish a non-boss enemy wreck without restoring damage or awarding extra combat points.</summary>
+        public int StripEnemyWreck(Vector3 hitPoint, int maximumDebrisCount, System.Action<Transform> spawnDebris)
+        {
+            var remaining = new List<Transform>();
+            foreach (var piece in pieces)
+                if (Active(piece)) remaining.Add(piece.transform);
+            int target = Mathf.FloorToInt(OriginalDestructibleCount * EnemyWreckRemainingFraction);
+            int removeCount = Mathf.Max(0, remaining.Count - target);
+            if (removeCount == 0) return 0;
+
+            Sort(remaining, hitPoint);
+            return DetachSorted(remaining, removeCount, maximumDebrisCount, spawnDebris);
+        }
+
+        public static int DetachSorted(List<Transform> remaining, int requestedCount, int maximumDebrisCount, System.Action<Transform> spawnDebris)
+        {
+            int removeCount = Mathf.Clamp(requestedCount, 0, remaining.Count);
+            int debrisCount = Mathf.Clamp(maximumDebrisCount, 0, removeCount);
+            int emitted = 0;
+            for (int index = 0; index < removeCount; index++)
+            {
+                // Sample the whole removed area while keeping the existing physical-debris budget.
+                if (emitted < debrisCount && index == (long)emitted * removeCount / debrisCount)
+                {
+                    spawnDebris(remaining[index]);
+                    emitted++;
+                }
+                remaining[index].gameObject.SetActive(false);
+            }
+            return removeCount;
+        }
 
         // A direct tyre shot still deals the normal vehicle health damage, but peels nearby
         // bodywork until it is stripped. Wheel pieces become eligible after the last body piece.

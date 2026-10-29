@@ -103,6 +103,11 @@ namespace VoxelRacer
         [Tooltip("Use a negative value to reduce mission progress.")]
         public int civilianVehicleDestroyedPoints = -30;
 
+        [Header("Mission Completion")]
+        [Tooltip("Real-time seconds of slow motion after mission completion. Zero disables the effect. A boss can override this on its definition.")]
+        [Min(0)] public float completionSlowMotionDuration = 1.5f;
+        [Range(.01f, 1)] public float completionSlowMotionTimeScale = .25f;
+
         public static VoxelMissionTuning Load() => Resources.Load<VoxelMissionTuning>("Missions/DefaultMissionTuning");
 
 #if UNITY_EDITOR
