@@ -19,6 +19,8 @@ namespace VoxelRacer
         [Min(0f)] public float entranceApproachDistance = 100f;
 
         [Header("Introduction Poster")]
+        [Tooltip("Optional independent layered introduction. Takes priority over the single-poster settings below when it contains valid panels.")]
+        public VoxelBossIntroductionSequence introductionSequence;
         [Tooltip("Optional reveal after the radar objective and natural traffic clearance, before spawning this boss. Empty skips the poster.")]
         public Texture2D introductionPoster;
         [Min(.01f)] public float introductionSlideInDuration = .55f;
@@ -28,6 +30,12 @@ namespace VoxelRacer
         [Min(0)] public float introductionShakeDuration = .2f;
         [Tooltip("Landing shake strength in 1080p reference pixels. Zero disables shake.")]
         [Min(0)] public float introductionShakePixels = 10f;
+
+        public bool HasIntroduction => (introductionSequence != null && introductionSequence.HasPanels) || introductionPoster != null;
+        public float IntroductionAssembledAt => introductionSequence != null && introductionSequence.HasPanels
+            ? introductionSequence.AssembledAt : Mathf.Max(.01f, introductionSlideInDuration);
+        public float IntroductionDuration => introductionSequence != null && introductionSequence.HasPanels
+            ? introductionSequence.Duration : IntroductionAssembledAt + Mathf.Max(0, introductionHoldDuration) + Mathf.Max(.01f, introductionSlideOutDuration);
 
         [Header("Health & Ram Damage")]
         [Min(1)] public float health = 2000;

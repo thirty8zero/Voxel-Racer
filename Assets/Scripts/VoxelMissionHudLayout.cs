@@ -38,6 +38,9 @@ namespace VoxelRacer
             // On narrow layouts the multiplier wraps beneath the progress panel.
             if (multiplier.yMin >= area.yMax && multiplier.xMax > x - 280f && multiplier.xMin < x + 280f)
                 bottom = multiplier.yMax;
+            // Keep the shared score reading slot beside the newly right-hand combo.
+            if (IsKillChainAnnouncementShowing)
+                x = Mathf.Min(x, GetKillChainArea(area).xMin - 280f - 6f * HeaderScale);
             return new Vector2(Mathf.Clamp(x, 280f, Mathf.Max(280f, Screen.width - 280f)),
                 bottom + 6f * HeaderScale + topExtent);
         }

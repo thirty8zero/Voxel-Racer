@@ -25,6 +25,7 @@ namespace VoxelRacer.Editor
             VoxelGunUpgradeState.BeginNewRun(); VoxelArmorUpgradeState.BeginNewRun(); VoxelMissileUpgradeState.BeginNewRun();
             VoxelPerformanceWheelUpgradeState.BeginNewRun(); VoxelWheelSpikeUpgradeState.BeginNewRun();
             VoxelBoostUpgradeState.BeginNewRun(); VoxelEngineUpgradeState.BeginNewRun(); VoxelPloughUpgradeState.BeginNewRun();
+            VoxelUnderbodyArmorUpgradeState.BeginNewRun();
             VoxelCurrencyState.Reset(); VoxelCurrencyState.Add(100000);
         }
 
@@ -117,7 +118,7 @@ namespace VoxelRacer.Editor
                         "Purchase did not restore Next Mission");
                     confirm.onClick.Invoke(); Check(VoxelCurrencyState.Balance == cash - price, "Double confirmation charged twice");
                     Check(!damaged.gameObject.activeSelf, "Purchase repaired body damage");
-                    if (kind == VoxelGarageUpgradeKind.Armour)
+                    if (VoxelGarageUpgradePlacement.IsArmour(kind))
                         Check(VoxelArmorUpgradeState.IsRightPurchased && !VoxelArmorUpgradeState.IsLeftPurchased, "Armour side incorrect");
                     if (kind == VoxelGarageUpgradeKind.Missiles)
                         Check(VoxelMissileUpgradeState.IsPurchased(true) && !VoxelMissileUpgradeState.IsPurchased(false), "Missile side incorrect");
@@ -143,7 +144,7 @@ namespace VoxelRacer.Editor
                 }
                 CheckCart(scene, definition, carObjects);
                 Directory.CreateDirectory("Temp");
-                string report = "PASS (Edit Mode): all eight upgrade types; shared transparent green ghosts and mesh picking; remaining free side stays selectable; eleven pending parts across eight types, exact combined-cost confirmation, budget reservation and single-gun capacity; grouped summary and pending cards; replacement wheels fit previously selected spikes; cancel restores rendering and damage; stale funds/prices reject the entire cart; integrity stable; double confirmation guarded; right-first guns survive rebuilding; preview scene ownership and scene-close cleanup. Cash, purchases, damage, campaign and random state restored.";
+                string report = "PASS (Edit Mode): all twelve upgrade types; shared transparent green ghosts and mesh picking; remaining free side stays selectable; eleven pending parts across eight types, exact combined-cost confirmation, budget reservation and single-gun capacity; grouped summary and pending cards; replacement wheels fit previously selected spikes; cancel restores rendering and damage; stale funds/prices reject the entire cart; integrity stable; double confirmation guarded; right-first guns survive rebuilding; preview scene ownership and scene-close cleanup. Cash, purchases, damage, campaign and random state restored.";
                 File.WriteAllText("Temp/GaragePlacementValidation.txt", report); Debug.Log(report);
                 File.AppendAllText("Temp/GaragePlacementValidation.txt", "\nPASS: repeated settings overlay open/close preserves all eleven pending parts, preview instance, summary/quote, confirmation, scroll, cash and damage; underlying home/repair/upgrade screens retained.");
             }
@@ -253,7 +254,8 @@ namespace VoxelRacer.Editor
             shop.repairTuning = VoxelRepairTuning.Load(); Call(shop, "BuildUi"); Call(shop, "RefreshUi");
             root.GetComponentsInChildren<Button>(true).First(b => b.name == "Upgrade Menu Button").onClick.Invoke();
             int total = 0;
-            foreach (VoxelGarageUpgradeKind kind in Enum.GetValues(typeof(VoxelGarageUpgradeKind)).Cast<VoxelGarageUpgradeKind>().Where(k=>k!=VoxelGarageUpgradeKind.StarSpikes))
+            foreach (VoxelGarageUpgradeKind kind in Enum.GetValues(typeof(VoxelGarageUpgradeKind)).Cast<VoxelGarageUpgradeKind>()
+                .Where(k=>k!=VoxelGarageUpgradeKind.StarSpikes && k!=VoxelGarageUpgradeKind.DualBoost && k!=VoxelGarageUpgradeKind.ExtendedArmour && k!=VoxelGarageUpgradeKind.UnderbodyArmour))
                 total += Price(kind, shop) * (kind == VoxelGarageUpgradeKind.Armour || kind == VoxelGarageUpgradeKind.Guns || kind == VoxelGarageUpgradeKind.Missiles ? 2 : 1);
 
             AddAll(shop);
@@ -270,11 +272,12 @@ namespace VoxelRacer.Editor
                 root.transform.Find("Repair Upgrade UI/Upgrade Purchase Confirmation").gameObject.activeSelf,"Go Back discarded the cart");
             VoxelGarageUpgradeDockValidation.CheckPurchaseGrowth(shop);
             var cards=root.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
-            // Basic and star spikes are alternatives; this combined cart selects basics.
-            Check(cards.Where(c=>c.name!="Star Wheel Spike Purchase Button").Count()==8 &&
-                cards.Where(c=>c.name!="Star Wheel Spike Purchase Button").All(c=>c.State==VoxelGarageUpgradeState.Pending) &&
-                cards.Single(c=>c.name=="Star Wheel Spike Purchase Button").State==VoxelGarageUpgradeState.Incompatible,
-                "Pending cards or the mutually exclusive star-spike alternative have incorrect states");
+            // This cart selects basic armour/spikes and single boost; alternatives stay incompatible.
+            var alternatives=cards.Where(c=>c.UpgradeKind==VoxelGarageUpgradeKind.StarSpikes || c.UpgradeKind==VoxelGarageUpgradeKind.DualBoost || c.UpgradeKind==VoxelGarageUpgradeKind.ExtendedArmour).ToArray();
+            Check(cards.Except(alternatives).Count(c=>c.UpgradeKind!=VoxelGarageUpgradeKind.UnderbodyArmour)==8 &&
+                cards.Except(alternatives).Where(c=>c.UpgradeKind!=VoxelGarageUpgradeKind.UnderbodyArmour).All(c=>c.State==VoxelGarageUpgradeState.Pending) &&
+                alternatives.Length==3 && alternatives.All(c=>c.State==VoxelGarageUpgradeState.Incompatible),
+                "Pending cards or mutually exclusive spike/boost alternatives have incorrect states");
             var label = root.GetComponentsInChildren<Text>().First(t => t.name == "Purchase Description");
             Check(label.text.Contains("LEFT + RIGHT") && label.text.Contains("DOOR ARMOUR") && label.text.Contains("MISSILE") && label.text.Contains("ENGINE"), "Cart summary omitted selected parts or sides");
             Check(root.GetComponentsInChildren<Button>().First(b => b.name == "Confirm Upgrade Purchase").GetComponentInChildren<Text>().text.Contains(total.ToString("N0")), "Cart confirmation does not show the combined cost");

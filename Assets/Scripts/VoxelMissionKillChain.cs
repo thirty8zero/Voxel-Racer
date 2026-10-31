@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace VoxelRacer
 {
@@ -11,6 +12,8 @@ namespace VoxelRacer
         private const float KillChainMaximumShake = 8f;
         private const float KillChainOutlinePadding = 3f;
         private const float KillChainFeedbackPadding = KillChainOutlinePadding + KillChainMaximumShake;
+        private const float KillChainHudGap = 4f;
+        private static readonly Vector2 KillChainXAxis = new(.8660254f, .5f), KillChainYAxis = new(-.5f, .8660254f);
         public int KillChainCount { get; private set; }
         public float KillChainSecondsRemaining { get; private set; }
         public int KillChainDisplayCount => IsKillChainAnnouncementShowing ? KillChainCount : 0;
@@ -20,6 +23,9 @@ namespace VoxelRacer
         private float killChainFeedbackAge;
         private Rect killChainLayoutMission, killChainLayoutArea;
         private int killChainLayoutCount = -1, killChainLayoutWidth, killChainLayoutHeight;
+        private RectTransform[] killChainHudControls;
+        private int killChainLayoutVisibility;
+        private bool killChainLayoutSchemeB;
 
         private bool CanTrackKillChain => Tuning != null && !IsComplete && !IsFailed &&
             !VoxelPauseMenu.IsPaused && (startCountdown == null || startCountdown.IsComplete);
@@ -81,38 +87,62 @@ namespace VoxelRacer
 
         private Rect GetKillChainArea(Rect missionArea)
         {
+            if (killChainHudControls == null)
+            {
+                var controls = new List<RectTransform>();
+                foreach (var rect in Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                    if (rect.name == "Integrity Dial Backplate" || rect.name == "Timer Ring Background" ||
+                        rect.name == "Move Left Button" || rect.name == "Move Right Button" || rect.name == "Brake Button" ||
+                        rect.name == "Boost Button" || rect.name == "Fire Button" || rect.name == "Missile Button") controls.Add(rect);
+                killChainHudControls = controls.ToArray();
+            }
+            int visibility = 0;
+            foreach (var control in killChainHudControls)
+                visibility = unchecked(visibility * 31 + (control != null && control.gameObject.activeInHierarchy ? 1 : 0));
             if (killChainLayoutCount == KillChainHudCount && killChainLayoutWidth == Screen.width &&
-                killChainLayoutHeight == Screen.height && killChainLayoutMission == missionArea)
+                killChainLayoutHeight == Screen.height && killChainLayoutMission == missionArea &&
+                killChainLayoutVisibility == visibility && killChainLayoutSchemeB == VoxelMobileControls.UseControlSchemeB)
                 return killChainLayoutArea;
             float scale = HeaderScale;
             Rect multiplier = GetMultiplierArea(missionArea);
-            float y = missionArea.yMax + 12f * scale;
             // Measure the compact lettering, then reserve its full rotated bounds at peak pulse.
             Vector2 textSize = KillChainTextSize(1f, out var words, out var count);
-            Vector2 size = KillChainRotatedBounds(textSize, words, count).size;
-            // The angled left edge fits above the boost's top-right corner. Keep the
-            // actual rotated lines clear rather than reserving their empty bounding-box corner.
-            // Halve the previous x3 gap beside the dial: 361 - 307 = 54px becomes 27px.
-            float x = 334f * scale;
-            float width = Mathf.Min(size.x * scale, Mathf.Max(1f, missionArea.xMax - x));
-            float height = width * size.y / size.x;
-            if (multiplier.yMax > y && multiplier.yMin < y + height &&
-                multiplier.xMin < x + width)
+            Vector2 size = KillChainRotatedBounds(textSize, words, count).size * scale;
+            float gap = KillChainHudGap * scale;
+            // Start at the right edge, then tuck the three-line group beside the timer.
+            Rect area = new Rect(Screen.width - gap - size.x,
+                multiplier.yMax + gap, size.x, size.y);
+            var obstacles = new List<Rect> { missionArea, multiplier };
+            var circles = new List<Rect>();
+            foreach (var control in killChainHudControls)
             {
-                float freeWidth = multiplier.xMin - x - 16f * scale;
-                if (freeWidth >= 260f * scale) width = Mathf.Min(width, freeWidth);
-                else y = multiplier.yMax + 16f * scale;
+                if (control == null || !control.gameObject.activeInHierarchy) continue;
+                var corners = new Vector3[4]; control.GetWorldCorners(corners);
+                var bounds = new Rect(corners[0].x, Screen.height - corners[1].y,
+                    corners[2].x - corners[0].x, corners[1].y - corners[0].y);
+                if (control.name == "Timer Ring Background") circles.Add(bounds);
+                else obstacles.Add(bounds);
             }
-            Rect area = new Rect(x, y, width, width * size.y / size.x);
-            Rect integrity = new Rect(-3f * scale, 7f * scale, 316f * scale, 316f * scale);
-            Vector2 boostCentre = new Vector2(260f * scale, Screen.height - 630f * scale);
-            // Check the circular button's visible boundary with a small margin.
-            // Cache the result: no repeated placement search during ordinary HUD draws.
-            for (int step = 0; step < 100 && (KillChainOverlaps(area, integrity) ||
-                KillChainOverlapsCircle(area, boostCentre, 116f * scale)); step++)
-                area.x += scale;
+            // Pull left only as far as needed on narrow screens, keeping a tiny gap
+            // from right-hand weapon controls. Bounds include maximum shake/pulse/outline.
+            for (int step = 0; step < Screen.width && area.x > gap; step++)
+            {
+                bool overlaps = false;
+                foreach (var obstacle in obstacles)
+                {
+                    Rect padded = Rect.MinMaxRect(obstacle.xMin - gap, obstacle.yMin - gap, obstacle.xMax + gap, obstacle.yMax + gap);
+                    if (!area.Overlaps(padded)) continue;
+                    if (KillChainOverlaps(area, padded)) { overlaps = true; break; }
+                }
+                foreach (var circle in circles)
+                    if (KillChainOverlapsCircle(area, circle.center, Mathf.Max(circle.width, circle.height) * .5f + gap))
+                    { overlaps = true; break; }
+                if (!overlaps) break;
+                area.x -= scale;
+            }
             killChainLayoutCount = KillChainHudCount; killChainLayoutWidth = Screen.width;
             killChainLayoutHeight = Screen.height; killChainLayoutMission = missionArea;
+            killChainLayoutVisibility = visibility; killChainLayoutSchemeB = VoxelMobileControls.UseControlSchemeB;
             return killChainLayoutArea = area;
         }
 
@@ -127,18 +157,15 @@ namespace VoxelRacer
             Vector2 textSize = KillChainTextSize(scale, out var wordStyle, out var countStyle);
             float age = killChainFeedbackAge;
             float pulse = 1f + Mathf.Sin(Mathf.Clamp01(age / .3f) * Mathf.PI) * KillChainPulseGrowth;
-            string countText = "x" + KillChainDisplayCount;
-            float countWidth = countStyle.CalcSize(new GUIContent(countText)).x;
-            Rect words = new Rect(pivot - textSize * .5f,
-                new Vector2(textSize.x - countWidth - 6f * scale, textSize.y));
-            Rect count = new Rect(words.xMax + 6f * scale, words.y, countWidth, words.height);
+            Rect[] lines = KillChainTextRects(textSize, wordStyle, countStyle);
+            for (int i = 0; i < lines.Length; i++) lines[i].position += pivot;
             var matrix = GUI.matrix;
-            GUIUtility.RotateAroundPivot(-30f, pivot);
+            GUIUtility.RotateAroundPivot(30f, pivot);
             GUIUtility.ScaleAroundPivot(Vector2.one * pulse, pivot);
             GUI.color = new Color(1, 1, 1, alpha);
-            DrawKillChainOutlinedText(new Rect(words.x, words.y, words.width, words.height * .5f), "Kill Chain", wordStyle, scale);
-            DrawKillChainOutlinedText(new Rect(words.x, words.center.y, words.width, words.height * .5f), "Combo!", wordStyle, scale);
-            DrawKillChainOutlinedText(count, countText, countStyle, scale);
+            DrawKillChainOutlinedText(lines[0], "Kill Chain", wordStyle, scale);
+            DrawKillChainOutlinedText(lines[1], "Combo!", wordStyle, scale);
+            DrawKillChainOutlinedText(lines[2], "x" + KillChainDisplayCount, countStyle, scale);
             GUI.matrix = matrix;
             GUI.color = new Color(1, 1, 1, alpha);
         }
@@ -163,7 +190,7 @@ namespace VoxelRacer
             float wordWidth = Mathf.Max(words.CalcSize(new GUIContent("Kill Chain")).x,
                 words.CalcSize(new GUIContent("Combo!")).x);
             float countWidth = count.CalcSize(new GUIContent("x" + KillChainHudCount)).x;
-            return new Vector2(wordWidth + 6f * scale + countWidth, 164f * scale);
+            return new Vector2(Mathf.Max(wordWidth, countWidth), 258f * scale);
         }
 
         private static GUIStyle KillChainTextStyle(int size) => new GUIStyle
@@ -182,8 +209,7 @@ namespace VoxelRacer
                 {
                     Vector2 p = new Vector2((corner & 1) == 0 ? text.xMin : text.xMax,
                         (corner & 2) == 0 ? text.yMin : text.yMax);
-                    Vector2 rotated = new Vector2(p.x * .8660254f + p.y * .5f,
-                        -p.x * .5f + p.y * .8660254f) * KillChainPeakScale;
+                    Vector2 rotated = (KillChainXAxis * p.x + KillChainYAxis * p.y) * KillChainPeakScale;
                     minimum = Vector2.Min(minimum, rotated); maximum = Vector2.Max(maximum, rotated);
                 }
             return Rect.MinMaxRect(minimum.x - KillChainFeedbackPadding, minimum.y - KillChainFeedbackPadding,
@@ -193,14 +219,13 @@ namespace VoxelRacer
         private Rect[] KillChainTextRects(Vector2 size, GUIStyle words, GUIStyle count)
         {
             Vector2 countSize = count.CalcSize(new GUIContent("x" + KillChainHudCount));
-            float wordWidth = size.x - countSize.x - 6f;
             Vector2 killSize = words.CalcSize(new GUIContent("Kill Chain"));
             Vector2 comboSize = words.CalcSize(new GUIContent("Combo!"));
-            // Measure each line separately: the unused upper-right/lower-left corners of the
-            // old enclosing rectangle should not push the visible lettering down and right.
-            Rect first = new Rect(new Vector2(-size.x * .5f + wordWidth * .5f, -size.y * .25f) - killSize * .5f, killSize);
-            Rect second = new Rect(new Vector2(-size.x * .5f + wordWidth * .5f, size.y * .25f) - comboSize * .5f, comboSize);
-            Rect number = new Rect(new Vector2(size.x * .5f - countSize.x * .5f, 0) - countSize * .5f, countSize);
+            float scale = size.y / 258f;
+            // Centre the count beneath Combo! and use these same measured lines for drawing/clearance.
+            Rect first = new Rect(new Vector2(0, -88f * scale) - killSize * .5f, killSize);
+            Rect second = new Rect(new Vector2(0, -6f * scale) - comboSize * .5f, comboSize);
+            Rect number = new Rect(new Vector2(0, 82f * scale) - countSize * .5f, countSize);
             return new[] { first, second, number };
         }
 
@@ -215,8 +240,8 @@ namespace VoxelRacer
             float padding = KillChainFeedbackPadding * scale;
             obstacle = Rect.MinMaxRect(obstacle.xMin - padding, obstacle.yMin - padding,
                 obstacle.xMax + padding, obstacle.yMax + padding);
-            Vector2 xAxis = new Vector2(.8660254f, -.5f);
-            Vector2 yAxis = new Vector2(.5f, .8660254f);
+            Vector2 xAxis = KillChainXAxis;
+            Vector2 yAxis = KillChainYAxis;
             foreach (Rect line in KillChainTextRects(size, words, count))
             {
                 Vector2 centre = pivot + (xAxis * line.center.x + yAxis * line.center.y) * (scale * KillChainPeakScale);
@@ -240,8 +265,8 @@ namespace VoxelRacer
             float scale = area.width / bounds.width;
             Vector2 pivot = area.position - bounds.position * scale;
             radius += KillChainFeedbackPadding * scale; // Includes the outline and maximum shake.
-            Vector2 xAxis = new Vector2(.8660254f, -.5f);
-            Vector2 yAxis = new Vector2(.5f, .8660254f);
+            Vector2 xAxis = KillChainXAxis;
+            Vector2 yAxis = KillChainYAxis;
             foreach (Rect line in KillChainTextRects(size, words, count))
             {
                 Vector2 centre = pivot + (xAxis * line.center.x + yAxis * line.center.y) * (scale * KillChainPeakScale);

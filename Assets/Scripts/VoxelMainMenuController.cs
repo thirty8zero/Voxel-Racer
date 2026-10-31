@@ -36,13 +36,25 @@ namespace VoxelRacer
             RectTransform canvas = existing != null ? existing : VoxelMenuUi.CreateCanvas(transform, "Main Menu UI");
             BuildTitle(canvas);
             var existingButton = canvas.Find("Start Button");
-            if (existingButton != null) { startButtonTransform = existingButton; return; }
+            if (existingButton != null)
+            {
+                startButtonTransform = existingButton;
+                PositionStartButton((RectTransform)existingButton);
+                return;
+            }
             var startButton = VoxelMenuUi.CreateButton(canvas, "Start Button", "START", 132,
-                new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(780f, 204f), StartMission);
+                new Vector2(1f, 0f), new Vector2(-210f, 110f), new Vector2(780f, 204f), StartMission);
             // Keep the label's existing layout so the large font stays unclipped.
             ((RectTransform)startButton.transform).sizeDelta = new Vector2(340f, 124f);
             startButton.image.color = new Color(0f, 0f, 0f, .7f);
             startButtonTransform = startButton.transform;
+        }
+
+        private static void PositionStartButton(RectTransform rect)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(.5f, .5f);
+            rect.anchoredPosition = new Vector2(-210f, 110f);
         }
 
         private void BuildTitle(RectTransform canvas)
@@ -373,8 +385,14 @@ namespace VoxelRacer
 
         public void StartMission()
         {
-            if (isLoading || VoxelLoadingScreen.IsLoading)
+            if (isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing)
                 return;
+            VoxelMissionBriefing.Present(transform, VoxelTrackProgressState.CurrentTrack, LaunchMission);
+        }
+
+        private void LaunchMission()
+        {
+            if (isLoading || VoxelLoadingScreen.IsLoading) return;
             VoxelCarDefinition selectedCar = VoxelCarSelectionState.GetSelectedOrDefault();
             if (selectedCar == null)
             {
@@ -392,6 +410,7 @@ namespace VoxelRacer
                 return;
             }
             isLoading = true;
+            VoxelMissionBriefing.ApproveLaunch(VoxelTrackProgressState.CurrentTrack);
             VoxelLoadingScreen.LoadScene(buildIndex);
         }
     }

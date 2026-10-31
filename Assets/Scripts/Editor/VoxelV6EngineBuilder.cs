@@ -7,8 +7,7 @@ namespace VoxelRacer.Editor
     public static class VoxelV6EngineBuilder
     {
         public const string PrefabPath="Assets/Prefabs/Upgrades/V6Engine.prefab";
-        public const string SpoilerName="V6 Rear Spoiler";
-        private const string SpoilerMeshPath="Assets/Prefabs/Upgrades/V6RearSpoilerMesh.asset";
+        public const string SpoilerName=VoxelEngineUpgradeState.SpoilerName;
 
         [MenuItem("Tools/Voxel Racer/Update V6 Rear Spoiler")]
         public static void UpdateSpoiler()
@@ -32,7 +31,11 @@ namespace VoxelRacer.Editor
             if(paint==null) throw new System.InvalidOperationException("Missing player body paint for V6 spoiler.");
             var root=new GameObject(SpoilerName).transform;root.SetParent(engine,false);
             // Half the original height above the 1.05m deck, with two slim supports and gently drooping tips.
-            B(root,"Wing centre",new Vector3(0,1.185f,-2.30f),new Vector3(1.68f,.05f,.26f),paint);
+            // Keep separate voxel renderers: body damage removes and repairs one piece at a time.
+            for(int x=0;x<14;x++)
+            for(int z=0;z<2;z++)
+                B(root,"Wing centre "+x+"-"+z,new Vector3((x-6.5f)*.12f,1.185f,-2.30f+(z-.5f)*.13f),
+                    new Vector3(.12f,.05f,.13f),paint);
             foreach(int side in new[]{-1,1})
             {
                 var shoulder=B(root,"Wing shoulder",new Vector3(side*.91f,1.175f,-2.30f),new Vector3(.14f,.05f,.25f),paint);
@@ -46,16 +49,6 @@ namespace VoxelRacer.Editor
                 var support=B(root,"Short wing pedestal",new Vector3(x,1.114f,-2.275f),new Vector3(.09f,.098f,.115f),paint);
                 support.localRotation=Quaternion.Euler(-12f,0,0);
             }
-            // One shared material/mesh keeps the bundled accessory to one additional draw call.
-            var filters=root.GetComponentsInChildren<MeshFilter>();
-            var combined=filters.Select(f=>new CombineInstance {
-                mesh=f.sharedMesh,transform=root.worldToLocalMatrix*f.transform.localToWorldMatrix }).ToArray();
-            var mesh=AssetDatabase.LoadAssetAtPath<Mesh>(SpoilerMeshPath);
-            if(mesh==null) {mesh=new Mesh {name="V6 rear spoiler"};AssetDatabase.CreateAsset(mesh,SpoilerMeshPath);}
-            mesh.Clear();mesh.CombineMeshes(combined,true,true);mesh.RecalculateBounds();EditorUtility.SetDirty(mesh);
-            foreach(Transform piece in root.Cast<Transform>().ToArray()) Object.DestroyImmediate(piece.gameObject);
-            root.gameObject.AddComponent<MeshFilter>().sharedMesh=mesh;
-            root.gameObject.AddComponent<MeshRenderer>().sharedMaterial=paint;
         }
         [MenuItem("Tools/Voxel Racer/Build V6 Engine Upgrade")]
         public static void Build()

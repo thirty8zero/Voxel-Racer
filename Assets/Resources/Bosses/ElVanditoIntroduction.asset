@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 724a0418dffdcbc439d25b89440457c6, type: 3}
+  m_Name: ElVanditoIntroduction
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBossIntroductionSequence
+  panels:
+  - label: Dark Background
+    texture: {fileID: 2800000, guid: 26b3d5cb09dbf0d4192b7ea1c8dd31d1, type: 3}
+    drawOrder: 0
+    fillScreen: 1
+    scale: 1
+    position: {x: 0, y: 0}
+  - label: Scenery Strip
+    texture: {fileID: 2800000, guid: 5ebf2121eb81df54b9aa8c8b4646e7a0, type: 3}
+    drawOrder: 1
+    fillScreen: 0
+    scale: 1
+    position: {x: 0, y: 0}
+  - label: Boss Model
+    texture: {fileID: 2800000, guid: 5e61c51898a75b443ab52071c54f90fe, type: 3}
+    drawOrder: 2
+    fillScreen: 0
+    scale: 0.9
+    position: {x: 70, y: -10}
+  - label: Title
+    texture: {fileID: 2800000, guid: 15017e243db83ec4e8a8a88a29559a5a, type: 3}
+    drawOrder: 3
+    fillScreen: 0
+    scale: 0.72
+    position: {x: -222, y: 114}
+  firstEntrySide: 1
+  slideInDuration: 0.55
+  delayBetweenPanels: 0.2
+  holdDuration: 1.5
+  slideOutDuration: 0.45
+  shakeDuration: 0.5
+  shakePixels: 20
+  referenceResolution: {x: 1672, y: 941}

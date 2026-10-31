@@ -9,6 +9,8 @@ namespace VoxelRacer
         [Header("Identity")]
         public string displayName = "Desert Track";
         public string raceSceneName = "SampleScene";
+        [Tooltip("Optional independent pre-mission background. Empty uses MissionBriefingSettings' day/night image.")]
+        public Texture2D briefingBackgroundOverride;
 
         public static string ResolveDisplayName(VoxelTrackDefinition track, VoxelMissionTuning mission = null)
         {

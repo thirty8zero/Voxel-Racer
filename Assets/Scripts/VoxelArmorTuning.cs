@@ -12,6 +12,8 @@ namespace VoxelRacer
         [Min(0)] public int panelPurchasePrice = 100;
         [Tooltip("Damage points needed to remove one armour voxel. A normal body voxel costs one point.")]
         [Min(1)] public int voxelHitPoints = 2;
+        [Tooltip("Higher levels replace lower-level armour on the same door; panels never stack.")]
+        [Min(1)] public int upgradeLevel = 1;
         [Tooltip("The car this panel was fitted to. Other cars cannot purchase it.")]
         public GameObject compatibleCarPrefab;
         [Tooltip("Right panel position relative to the car visual. Left mirrors X and rotates 180 degrees.")]
@@ -21,5 +23,6 @@ namespace VoxelRacer
             car.visualPrefab == compatibleCarPrefab;
 
         public static VoxelArmorTuning Load() => Resources.Load<VoxelArmorTuning>("Armor/DoorArmorTuning");
+        public static VoxelArmorTuning LoadExtended() => Resources.Load<VoxelArmorTuning>("Armor/ExtendedDoorArmorTuning");
     }
 }

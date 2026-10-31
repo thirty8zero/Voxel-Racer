@@ -18,7 +18,7 @@ namespace VoxelRacer.Editor
             string name=member.Name;
             string group=name=="roadTuning"?"Road":name=="obstacleCarTuning"?"Traffic":
                 name=="missionTuning"?"Mission":name=="boss"||name=="bossEncounter"?"Boss":
-                name=="displayName"||name=="raceSceneName"?"General":"Environment";
+                name=="briefingBackgroundOverride"?"Mission Briefing":name=="displayName"||name=="raceSceneName"?"General":"Environment";
             attributes.Add(new FoldoutGroupAttribute(group));
             if(group=="Environment")
                 attributes.Add(new FoldoutGroupAttribute("Environment/"+Section(typeof(VoxelTrackDefinition),name)));
@@ -80,8 +80,12 @@ namespace VoxelRacer.Editor
             string group=VoxelTrackOdinLayout.Section(typeof(VoxelBossDefinition),member.Name);
             attributes.Add(new FoldoutGroupAttribute(group));
             VoxelOdinTuningLayout.AddRangeAndUnits(typeof(VoxelBossDefinition),member.Name,group,attributes);
-            if (member.Name.StartsWith("introduction") && member.Name != "introductionPoster")
-                attributes.Add(new ShowIfAttribute("@introductionPoster != null"));
+            if (member.Name == "introductionSequence") attributes.Add(new InlineEditorAttribute());
+            else if (member.Name.StartsWith("introduction"))
+            {
+                attributes.Add(new HideIfAttribute("@introductionSequence != null && introductionSequence.HasPanels"));
+                if (member.Name != "introductionPoster") attributes.Add(new ShowIfAttribute("@introductionPoster != null"));
+            }
             if (member.Name == "weaponDebris" || member.Name == "ramDebris" || member.Name == "destructionDebris")
             { attributes.Add(new InlinePropertyAttribute()); attributes.Add(new HideLabelAttribute()); }
             if (member.Name == "missileVoxelsRemoved") attributes.Add(new ShowIfAttribute("useFixedMissileVoxelDamage"));

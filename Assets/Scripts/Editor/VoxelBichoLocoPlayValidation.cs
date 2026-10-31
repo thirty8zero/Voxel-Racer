@@ -147,7 +147,7 @@ namespace VoxelRacer.Editor
                     player.RequestLaneChangeDirection(1); Equal(player.TargetLaneOffset, lane, "Mobile steering during poster");
                     var boost = Object.FindFirstObjectByType<VoxelBoostController>();
                     Check(boost == null || !boost.TryActivateBoost(), "Boost activated during poster.");
-                    if (introduction.Elapsed < track.boss.introductionSlideInDuration + .3f) return;
+                    if (introduction.Elapsed < introduction.AssembledAt + .3f) return;
                     CheckIntroductionInputs();
                     Directory.CreateDirectory("Temp/BossIntroduction"); ScreenCapture.CaptureScreenshot("Temp/BossIntroduction/LivePoster.png");
                     Next(23);
@@ -176,8 +176,7 @@ namespace VoxelRacer.Editor
                     }
                     Check(encounter.CurrentStage == VoxelBossEncounter.Stage.Boss && encounter.Boss != null,
                         "Slide-out did not trigger normal boss spawn.");
-                    Equal(introduction.Elapsed, track.boss.introductionSlideInDuration + track.boss.introductionHoldDuration +
-                        track.boss.introductionSlideOutDuration, "Poster total duration");
+                    Equal(introduction.Elapsed, introduction.Duration, "Poster total duration");
                     Check(!VoxelBossIntroduction.BlocksControls(player) && !VoxelBossIntroduction.PausesMission(VoxelMissionProgress.Active),
                         "Poster retained gates after slide-out.");
                     Next(3);
@@ -264,7 +263,7 @@ namespace VoxelRacer.Editor
                 {
                     Check(EditorJsonUtility.ToJson(track) == trackBefore && EditorJsonUtility.ToJson(track.boss) == bossBefore &&
                         EditorJsonUtility.ToJson(track.boss.GetAttack<VoxelBichoLocoTuning>()) == attackBefore, "Play validation edited source tuning.");
-                    Finish(true, "PASS (Play Mode): real TrackBoss02 loads four lanes; radar defeat and natural traffic clearance; poster slides in/shakes/holds for three seconds/slides out before boss exists; steering/boost blocked and countdown held throughout; pause suspends poster and resume continues it; slide-out releases input/timer before centred boss entrance; four health bars and sequential mine drops; pause freezes movement/lamps/drop clock; independent hopper explosion and legal freed-lane movement; final hopper splash preserves body health; optional Psycho body phase completes an actual warning/side-ram while keeping boss identity and two-lane bounds; only body defeat completes the mission; duplicate death does not pay twice; normal results/Continue loads garage with position/rewards retained; source tuning, run state, clocks/audio/RNG restored; MainMenu restored. Captures: Temp/BossIntroduction/LivePoster.png and Temp/BichoLoco/LiveEncounter.png.");
+                    Finish(true, "PASS (Play Mode): real TrackBoss02 loads four lanes; radar defeat and natural traffic clearance; layered introduction assembles/shakes/holds for its configured duration/slides out before boss exists; steering/boost blocked and countdown held throughout; pause suspends intro and resume continues it; slide-out releases input/timer before centred boss entrance; four health bars and sequential mine drops; pause freezes movement/lamps/drop clock; independent hopper explosion and legal freed-lane movement; final hopper splash preserves body health; optional Psycho body phase completes an actual warning/side-ram while keeping boss identity and two-lane bounds; only body defeat completes the mission; duplicate death does not pay twice; normal results/Continue loads garage with position/rewards retained; source tuning, run state, clocks/audio/RNG restored; MainMenu restored. Captures: Temp/BossIntroduction/LivePoster.png and Temp/BichoLoco/LiveEncounter.png.");
                 }
             }
             catch (Exception error) { Finish(false, "FAIL: " + error); }

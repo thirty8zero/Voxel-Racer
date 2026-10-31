@@ -13,7 +13,7 @@ namespace VoxelRacer.Editor
         private const BindingFlags Instance=BindingFlags.Instance|BindingFlags.NonPublic;
         private const BindingFlags Static=BindingFlags.Static|BindingFlags.NonPublic;
         private static readonly Type[] States={typeof(VoxelGunUpgradeState),typeof(VoxelArmorUpgradeState),typeof(VoxelWheelSpikeUpgradeState),
-            typeof(VoxelPerformanceWheelUpgradeState),typeof(VoxelBoostUpgradeState),typeof(VoxelEngineUpgradeState),typeof(VoxelPloughUpgradeState),typeof(VoxelMissileUpgradeState)};
+            typeof(VoxelPerformanceWheelUpgradeState),typeof(VoxelBoostUpgradeState),typeof(VoxelEngineUpgradeState),typeof(VoxelPloughUpgradeState),typeof(VoxelMissileUpgradeState),typeof(VoxelUnderbodyArmorUpgradeState)};
         private static void Check(bool value,string message){if(!value)throw new InvalidOperationException(message);}
         private static void Refresh(VoxelRepairUpgradeSceneController shop)
         {
@@ -39,7 +39,7 @@ namespace VoxelRacer.Editor
         {
             var cards=shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
             var expected=new[] {
-                new[]{"Left Door Armor Purchase Button","Plough Purchase Button"},
+                new[]{"Left Door Armor Purchase Button","Extended Door Armor Purchase Button","Underbody Armor Purchase Button","Plough Purchase Button"},
                 new[]{"Performance Wheel Purchase Button","Wheel Spike Purchase Button","Star Wheel Spike Purchase Button"},
                 new[]{"Long Gun Purchase Button"},new[]{"Left Missile Purchase Button"},
                 new[]{"Boost Bottle Purchase Button","Dual Boost Bottle Purchase Button"},new[]{"V6 Engine Purchase Button"} };
@@ -57,13 +57,13 @@ namespace VoxelRacer.Editor
                 modeTuning.showUpgradeSectionTabs = false;
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("LayoutGarageDock",Instance).Invoke(shop,null);
                 var allVisible = cards.Where(c=>c.gameObject.activeSelf).OrderBy(c=>((RectTransform)c.transform).anchoredPosition.x).ToArray();
-                Check(allVisible.Length == 10, "Continuous row must show all ten upgrades");
+                Check(allVisible.Length == 12, "Continuous row must show all twelve upgrades");
                 Check(shop.GetComponentsInChildren<Button>(true).Where(b=>b.name.StartsWith("Category ")).All(b=>!b.gameObject.activeSelf), "Continuous row still shows section tabs");
                 Check(allVisible.SequenceEqual(cards.OrderBy(c=>c.FullyPurchased).ThenBy(c=>c.Cost).ThenBy(c=>c.CatalogueOrder)), "Continuous row lost stable price/purchase ordering");
                 for (int i=0;i<allVisible.Length;i++)
                     Check(Mathf.Abs(((RectTransform)allVisible[i].transform).anchoredPosition.x-(105+i*224))<.1f, "Continuous row contains category gaps");
                 var allScroll=(ScrollRect)typeof(VoxelRepairUpgradeSceneController).GetField("upgradeCategoryScroll",Instance).GetValue(shop);
-                Check(Mathf.Abs(allScroll.content.rect.width-(10*224-14))<.1f, "Continuous row cannot scroll through the full catalogue");
+                Check(Mathf.Abs(allScroll.content.rect.width-(12*224-14))<.1f, "Continuous row cannot scroll through the full catalogue");
                 modeTuning.showUpgradeSectionTabs = true;
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("LayoutGarageDock",Instance).Invoke(shop,null);
                 for(int i=0;i<expected.Length;i++)
@@ -115,7 +115,7 @@ namespace VoxelRacer.Editor
         public static void CheckShop(VoxelRepairUpgradeSceneController shop,VoxelCarController car,VoxelCarDefinition definition)
         {
             var cards=shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
-            Check(cards.Length==10,"Some upgrade types are missing or side cards were not combined");
+            Check(cards.Length==12,"Some upgrade types are missing or side cards were not combined");
             CheckCategories(shop);
             ResetPurchases();VoxelCurrencyState.Reset();Refresh(shop);
             Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Unaffordable && !c.GetComponent<Button>().interactable),"Unaffordable cards must be disabled");
@@ -129,6 +129,8 @@ namespace VoxelRacer.Editor
             typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount",Static).SetValue(null,VoxelGunUpgradeState.LongGunTuning.maximumPurchases);
             typeof(VoxelWheelSpikeUpgradeState).GetField("installedTuning",Static).SetValue(null,VoxelWheelSpikeTuning.LoadStar());
             typeof(VoxelBoostUpgradeState).GetField("installedTuning",Static).SetValue(null,VoxelBoostUpgradeTuning.LoadDualUpgrade());
+            typeof(VoxelArmorUpgradeState).GetField("rightTuning",Static).SetValue(null,VoxelArmorTuning.LoadExtended());
+            typeof(VoxelArmorUpgradeState).GetField("leftTuning",Static).SetValue(null,VoxelArmorTuning.LoadExtended());
             VoxelCurrencyState.Reset();Refresh(shop);
             Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Equipped && !c.GetComponent<Button>().interactable),"Equipped state must persist with an empty wallet");
             ResetPurchases();typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount",Static).SetValue(null,1);
@@ -225,7 +227,7 @@ namespace VoxelRacer.Editor
             Check(a.max.x+10<b.min.x,"Upgrade strip overlaps next mission button");
             Check(a.min.y>=canvas.rect.yMin && b.min.y>=canvas.rect.yMin && b.max.x<=canvas.rect.xMax+.1f,"Dock escapes screen bounds");
             var scroll=panel.GetComponentInChildren<ScrollRect>(true);
-            Check(scroll.horizontal && !scroll.vertical && scroll.content.GetComponentsInChildren<VoxelGarageUpgradeCard>(true).Length==10,
+            Check(scroll.horizontal && !scroll.vertical && scroll.content.GetComponentsInChildren<VoxelGarageUpgradeCard>(true).Length==12,
                 "Horizontal catalogue missing");
             var tabs=panel.GetComponentsInChildren<Button>(true).Where(t=>t.name.StartsWith("Category ")).ToArray();
             Check(tabs.Length==6 && tabs.All(t=>t.gameObject.activeSelf == shop.UpgradeSectionTabsEnabled),"Garage section-tab visibility mismatch");

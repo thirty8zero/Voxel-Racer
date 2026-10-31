@@ -165,6 +165,7 @@ namespace VoxelRacer
             VoxelEngineUpgradeState.ApplyTo(car, selectedCar);
             VoxelPloughUpgradeState.ApplyTo(car, selectedCar);
             VoxelMissileUpgradeState.ApplyTo(car, selectedCar);
+            VoxelUnderbodyArmorUpgradeState.ApplyTo(car, selectedCar);
             car.GetComponent<VoxelCarController>().ResetIntegrityBaseline();
             VoxelCarRunState.Apply(car.GetComponent<VoxelCarController>(), selectedCar);
             var damageEffects=car.GetComponent<VoxelVehicleDamageEffects>() ?? car.gameObject.AddComponent<VoxelVehicleDamageEffects>();
@@ -702,7 +703,7 @@ namespace VoxelRacer
             var countdown = environment.GetComponent<VoxelStartCountdown>();
             if (countdown == null)
                 countdown = environment.gameObject.AddComponent<VoxelStartCountdown>();
-            countdown.Prepare(car.GetComponent<VoxelCarController>(), activeTrack?.displayName);
+            countdown.Prepare(car.GetComponent<VoxelCarController>(), activeTrack?.displayName, activeTrack?.isBossLevel ?? false);
             spawner.SetStartCountdown(countdown);
             missionProgress.SetStartCountdown(countdown);
             if(activeTrack!=null && activeTrack.boss!=null)
@@ -726,7 +727,14 @@ namespace VoxelRacer
                     Object.DestroyImmediate(selectionScreen);
             }
             if (Application.isPlaying)
-                countdown.BeginCountdown();
+            {
+                if (VoxelMissionBriefing.ConsumeLaunch(activeTrack)) countdown.BeginCountdown();
+                else VoxelMissionBriefing.Present(environment, activeTrack, countdown.BeginCountdown, () =>
+                {
+                    int menuIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/MainMenu.unity");
+                    if (menuIndex >= 0) VoxelLoadingScreen.LoadScene(menuIndex);
+                });
+            }
 
         }
 

@@ -48,6 +48,7 @@ namespace VoxelRacer.Editor
         public string Category => Asset switch
         {
             VoxelArmorTuning => "Armour",
+            VoxelUnderbodyArmorTuning => "Armour",
             VoxelGunTuning => "Guns",
             VoxelMissileLauncherTuning => "Missiles",
             VoxelBoostUpgradeTuning => "Boost",
@@ -58,6 +59,7 @@ namespace VoxelRacer.Editor
         };
         public string PriceUnit => Asset switch
         {
+            VoxelUnderbodyArmorTuning => "per kit",
             VoxelArmorTuning => "per door panel",
             VoxelGunTuning => "per gun",
             VoxelMissileLauncherTuning => "per launcher",
@@ -78,8 +80,10 @@ namespace VoxelRacer.Editor
         }
         public string Description => Asset switch
         {
+            VoxelUnderbodyArmorTuning underbody => N(underbody.mineDamageReductionPercent) + "% less damage from mines. Complete underbody skid-plate kit.",
             VoxelArmorTuning armor => "Protects each door with " + armor.voxelHitPoints +
-                " HP per armour voxel. Each panel is purchased separately.",
+                " HP per armour voxel. Each panel is purchased separately." +
+                (armor.upgradeLevel > 1 ? " Extended coverage; replaces lower-level panels on the selected door." : ""),
             VoxelGunTuning gun => Weapon(gun),
             VoxelMissileLauncherTuning missile => "Independent left/right roof launchers. " + Weapon(missile.weapon),
             VoxelBoostUpgradeTuning boost => boost.bottleCount + " independently recharging boost charge(s); +" +

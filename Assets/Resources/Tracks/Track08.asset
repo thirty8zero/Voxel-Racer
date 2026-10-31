@@ -23,7 +23,7 @@ MonoBehaviour:
   - vehicle: {fileID: 11400000, guid: b799f945fae40c141bbfd08a7f1f51a4, type: 2}
     spawnWeight: 1
   - vehicle: {fileID: 11400000, guid: 7ef7c7942375e48449e654ec812ee807, type: 2}
-    spawnWeight: 0.5
+    spawnWeight: 0.6
   legacyEnemyVehiclePool: []
   minimumWaveInterval: 1
   maximumWaveInterval: 2
@@ -130,6 +130,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
   displayName: Tequila Plains 8
   raceSceneName: SampleScene
+  briefingBackgroundOverride: {fileID: 0}
   roadTuning: {fileID: -4439660758796297234}
   obstacleCarTuning: {fileID: -8029312130423065911}
   missionTuning: {fileID: 11400000, guid: 678272fc872647f428c02a4995273d77, type: 2}
@@ -198,7 +199,7 @@ MonoBehaviour:
   sunDistanceAhead: 220
   sunAzimuthDegrees: 45
   sunHorizontalOffset: 0
-  sunHorizonHeight: 6
+  sunHorizonHeight: 10
   sunDiameter: 24
   sunColour: {r: 1, g: 0.84, b: 0.12, a: 1}
   horizonMountainsEnabled: 1

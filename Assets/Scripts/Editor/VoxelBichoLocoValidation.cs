@@ -142,7 +142,7 @@ namespace VoxelRacer.Editor
             foreach (var hopper in rig.hoppers)
             {
                 Check(Mathf.Sign(hopper.wheel.localPosition.x) == (hopper.slot < 2 ? -1 : 1), "Wrong side-mounted wheel on " + hopper.slot);
-                Check(hopper.wheel.childCount == 2 && hopper.mineOutlet != null && hopper.roofLamp != null && hopper.lampOn != hopper.lampOff,
+                Check(hopper.wheel.childCount == 3 && hopper.mineOutlet != null && hopper.roofLamp != null && hopper.lampOn != hopper.lampOff,
                     "Hopper wheel/outlet/beacon is incomplete.");
                 Check(hopper.transform.GetComponentsInChildren<Transform>().Count(t => t.name == "Black roof") == 1, "Hopper has no black roof.");
                 var lid = hopper.transform.Find("Black roof");

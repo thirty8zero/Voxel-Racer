@@ -18,6 +18,7 @@ namespace VoxelRacer
         private const string PanelInstanceName = "Door Armor Panel";
         private static bool rightPurchased;
         private static bool leftPurchased;
+        private static VoxelArmorTuning rightTuning, leftTuning;
 
         public static bool IsRightPurchased => rightPurchased;
         public static bool IsLeftPurchased => leftPurchased;
@@ -30,6 +31,7 @@ namespace VoxelRacer
         {
             rightPurchased = false;
             leftPurchased = false;
+            rightTuning = leftTuning = null;
         }
 
         public static bool IsPurchasedFor(VoxelArmorSide side) => side == VoxelArmorSide.Right
@@ -39,8 +41,16 @@ namespace VoxelRacer
         public static bool CanPurchase(VoxelArmorTuning tuning, VoxelCarDefinition car,
             VoxelArmorSide side)
         {
-            return !IsPurchasedFor(side) && tuning != null && tuning.panelPrefab != null && tuning.Fits(car);
+            var installed = InstalledTuning(side);
+            return tuning != null && tuning.panelPrefab != null && tuning.Fits(car) &&
+                (installed == null || tuning.upgradeLevel > installed.upgradeLevel);
         }
+
+        public static VoxelArmorTuning InstalledTuning(VoxelArmorSide side) => !IsPurchasedFor(side) ? null :
+            (side == VoxelArmorSide.Right ? rightTuning : leftTuning) ?? VoxelArmorTuning.Load();
+
+        public static bool IsEquipped(VoxelArmorTuning tuning, VoxelArmorSide side) => tuning != null &&
+            InstalledTuning(side) is VoxelArmorTuning installed && installed.upgradeLevel >= tuning.upgradeLevel;
 
         public static bool TryPurchase(VoxelArmorTuning tuning, VoxelCarDefinition car,
             VoxelArmorSide side)
@@ -49,16 +59,21 @@ namespace VoxelRacer
                 return false;
 
             if (side == VoxelArmorSide.Right)
+            {
                 rightPurchased = true;
+                rightTuning = tuning;
+            }
             else
+            {
                 leftPurchased = true;
+                leftTuning = tuning;
+            }
             return true;
         }
 
         public static void ApplyTo(Transform car, VoxelCarDefinition definition)
         {
-            VoxelArmorTuning tuning = VoxelArmorTuning.Load();
-            if (car == null || tuning == null || !tuning.Fits(definition) || tuning.panelPrefab == null)
+            if (car == null)
                 return;
 
             Transform root = car.Find(UpgradeRootName);
@@ -70,14 +85,18 @@ namespace VoxelRacer
             }
 
             root = EnsureUpgradeRoot(car);
-            EnsurePanel(root, tuning, VoxelArmorSide.Right, rightPurchased);
-            EnsurePanel(root, tuning, VoxelArmorSide.Left, leftPurchased);
+            foreach (var side in new[] { VoxelArmorSide.Right, VoxelArmorSide.Left })
+            {
+                var tuning = InstalledTuning(side);
+                EnsurePanel(root, tuning, side, tuning != null && tuning.Fits(definition) && tuning.panelPrefab != null);
+            }
         }
 
         internal static void GrantForDevelopment(VoxelArmorTuning tuning, VoxelCarDefinition car)
         {
             if (tuning == null || tuning.panelPrefab == null || !tuning.Fits(car)) return;
             rightPurchased = leftPurchased = true;
+            rightTuning = leftTuning = tuning;
         }
 
         /// <summary>Also used by the fit preview; creates both panels without changing purchases or currency.</summary>
@@ -151,7 +170,15 @@ namespace VoxelRacer
             }
 
             if (panel != null)
-                return;
+            {
+                var existing = panel.GetComponentInChildren<VoxelArmorVoxel>(true)?.tuning;
+                if (existing == tuning || existing != null && existing.upgradeLevel > tuning.upgradeLevel) return;
+                // Detach immediately so deferred Play Mode destruction cannot affect integrity,
+                // picking, sibling paths or the new panel's cache during this purchase.
+                panel.gameObject.SetActive(false);
+                panel.SetParent(null, true);
+                DestroyObject(panel.gameObject);
+            }
 
             GameObject instance = Object.Instantiate(tuning.panelPrefab, mount);
             instance.name = PanelInstanceName;

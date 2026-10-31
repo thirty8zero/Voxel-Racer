@@ -24,6 +24,8 @@ namespace VoxelRacer
         private Button rightArmorUpgradeButton;
         private Text leftArmorUpgradeButtonLabel;
         private Button leftArmorUpgradeButton;
+        private Button extendedArmorUpgradeButton;
+        private Button underbodyArmorUpgradeButton;
         private Text wheelSpikeUpgradeButtonLabel;
         private Button wheelSpikeUpgradeButton;
         private Button starWheelSpikeUpgradeButton;
@@ -64,7 +66,7 @@ namespace VoxelRacer
 
         private void Update()
         {
-            if (VoxelLoadingScreen.IsLoading) return;
+            if (VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing) return;
             LayoutGarageDock();
             UpdateUpgradePlacementInput();
             UpdateCarRotationInput();
@@ -115,6 +117,7 @@ namespace VoxelRacer
             VoxelEngineUpgradeState.ApplyTo(car, definition);
             VoxelPloughUpgradeState.ApplyTo(car, definition);
             VoxelMissileUpgradeState.ApplyTo(car, definition);
+            VoxelUnderbodyArmorUpgradeState.ApplyTo(car, definition);
             DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(DisplayedCar, definition);
             var damageEffects=car.GetComponent<VoxelVehicleDamageEffects>() ?? car.gameObject.AddComponent<VoxelVehicleDamageEffects>();
@@ -252,6 +255,10 @@ namespace VoxelRacer
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -50f), new Vector2(560f, 100f),
                 () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Armour));
             leftArmorUpgradeButtonLabel = leftArmorUpgradeButton.GetComponentInChildren<Text>();
+            extendedArmorUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Extended Door Armor Purchase Button", string.Empty, 30,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.ExtendedArmour));
+            underbodyArmorUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Underbody Armor Purchase Button", string.Empty, 30,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.UnderbodyArmour));
             wheelSpikeUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Wheel Spike Purchase Button", string.Empty, 30,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -165f), new Vector2(560f, 100f), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Spikes));
             wheelSpikeUpgradeButtonLabel = wheelSpikeUpgradeButton.GetComponentInChildren<Text>();
@@ -350,9 +357,9 @@ namespace VoxelRacer
             RefreshUi();
         }
 
-        private void TryPurchaseDoorArmor(VoxelArmorSide side)
+        private void TryPurchaseDoorArmor(VoxelArmorSide side, bool extended = false)
         {
-            VoxelArmorTuning armor = VoxelArmorTuning.Load();
+            VoxelArmorTuning armor = extended ? VoxelArmorTuning.LoadExtended() : VoxelArmorTuning.Load();
             if (DisplayedCar == null || !VoxelArmorUpgradeState.TryPurchase(armor, definition, side))
             {
                 feedbackText.text = (side == VoxelArmorSide.Right ? "RIGHT" : "LEFT") + " DOOR ARMOUR UNAVAILABLE";
@@ -474,6 +481,7 @@ namespace VoxelRacer
             var tuning=VoxelEngineUpgradeTuning.Load();
             if(DisplayedCar==null || !VoxelEngineUpgradeState.TryPurchase(tuning,definition)) return;
             VoxelEngineUpgradeState.ApplyTo(DisplayedCar.transform,definition);
+            DisplayedCar.ResetIntegrityBaseline();
             VoxelCarRunState.Capture(DisplayedCar,definition);
             feedbackText.text="V6 + SPOILER INSTALLED"; RefreshUi();
         }
@@ -590,7 +598,7 @@ namespace VoxelRacer
 
         public void StartNextRace()
         {
-            if (isLoading || VoxelLoadingScreen.IsLoading || DisplayedCar == null)
+            if (isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing || DisplayedCar == null)
                 return;
 
             if (pendingUpgrades.Count > 0)
@@ -602,6 +610,12 @@ namespace VoxelRacer
         }
 
         private void StartNextRaceConfirmed()
+        {
+            if (isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing || DisplayedCar == null) return;
+            VoxelMissionBriefing.Present(transform, VoxelTrackProgressState.NextTrack, LaunchNextRace);
+        }
+
+        private void LaunchNextRace()
         {
             if (isLoading || VoxelLoadingScreen.IsLoading || DisplayedCar == null) return;
             CancelUpgradePlacement();
@@ -619,6 +633,7 @@ namespace VoxelRacer
 
             VoxelCarRunState.Capture(DisplayedCar, definition);
             isLoading = true;
+            VoxelMissionBriefing.ApproveLaunch(nextTrack);
             VoxelLoadingScreen.LoadScene(buildIndex);
         }
 

@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 78d549a8906c4333be28abc54485f71d, type: 3}
-  m_Name: RedVanRoadHazardAttack
+  m_Name: ElBichoLocoRoadHazardAttack
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBossRoadHazardAttackTuning
   turretTuning: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
   turretSpawnCheckInterval: 3
-  turretSpawnChance: 0.5
+  turretSpawnChance: 0
   turretSpawnDistanceAhead: 250
   maximumActiveTurrets: 1
   oilSlickSpawns:
   - obstacle: {fileID: 11400000, guid: 19611ab95d5ae8444b5f57946cd9c1a3, type: 2}
     spawnWeight: 1
-  oilSlickSpawnCheckInterval: 2
+  oilSlickSpawnCheckInterval: 3
   oilSlickSpawnChance: 0.35
   oilSlickSpawnDistanceAhead: 250
   maximumActiveOilSlicks: 2

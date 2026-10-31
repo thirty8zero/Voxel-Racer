@@ -43,6 +43,7 @@ namespace VoxelRacer.Editor
                     body.Encapsulate(renderer.bounds);
                     string material = renderer.sharedMaterial != null ? renderer.sharedMaterial.name : string.Empty;
                     if (renderer.name == "Headlight lens" && headlamp != null) renderer.sharedMaterial = headlamp;
+                    else if (renderer.name == "Steel wheel spoke") renderer.sharedMaterial = black;
                     else if (material.Contains("SpikeSteel") || material.Contains("GunmetalRim") || material.Contains("HubRed")) renderer.sharedMaterial = red;
                     else if (material.Contains("BlackPaint"))
                     {
@@ -105,6 +106,7 @@ namespace VoxelRacer.Editor
                         var size = surface.localScale; size.y *= heightScale; size.z *= heightScale; surface.localScale = size;
                     }
                 }
+                ConfigureHopperDetails(root);
                 ConfigureBeacons(root);
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             }
@@ -139,7 +141,7 @@ namespace VoxelRacer.Editor
                 boss.catchUpDistance = 180; boss.catchUpResumeDistance = 50;
                 boss.attacks = new VoxelBossAttackDefinition[] { attack };
                 boss.detachSpikesOnDestruction = false;
-                boss.introductionPoster = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Images/El Bicho Loco Boss Introduction.png");
+                boss.introductionPoster = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Images/El Bicho Loco Boss Introduction v3.png");
                 AssetDatabase.CreateAsset(boss, DefinitionPath);
             }
             boss.bossPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath); EditorUtility.SetDirty(boss);
@@ -170,6 +172,102 @@ namespace VoxelRacer.Editor
             var material = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "Bicho " + name, color = color };
             material.SetFloat("_Metallic", metallic); material.SetFloat("_Smoothness", .35f);
             AssetDatabase.CreateAsset(material, path); return material;
+        }
+
+        [MenuItem("Tools/Voxel Racer/Bosses/Update El Bicho Loco Hopper Details")]
+        public static void UpdateHopperDetails()
+        {
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Update the boss prefab in Edit Mode.");
+            var root = PrefabUtility.LoadPrefabContents(PrefabPath);
+            try { ConfigureHopperDetails(root); PrefabUtility.SaveAsPrefabAsset(root, PrefabPath); }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
+            Debug.Log("El Bicho Loco hopper wheel stars, trim, rivets and hinges updated; gameplay tuning preserved.");
+        }
+
+        // Combine small fittings by material, rather than adding a renderer for every rivet.
+        public static void ConfigureHopperDetails(GameObject root)
+        {
+            var black = Material("Black", new Color(.022f, .025f, .03f), .25f);
+            var red = Material("Red", new Color(.8f, .012f, .018f), .5f);
+            var steel = Material("HopperSteel", new Color(.16f, .175f, .19f), .65f);
+            var redParts = new List<CombineInstance>();
+            var steelParts = new List<CombineInstance>();
+            var starParts = new List<CombineInstance>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var cubeMesh = cube.GetComponent<MeshFilter>().sharedMesh;
+            Object.DestroyImmediate(cube);
+            void Box(List<CombineInstance> parts, Vector3 position, Vector3 size, float angle = 0)
+                => parts.Add(new CombineInstance { mesh = cubeMesh,
+                    transform = Matrix4x4.TRS(position, Quaternion.Euler(angle, 0, 0), size) });
+            // Normalised to the original hopper lane spacing, including its low .6-height casing.
+            for (int row = 0; row < 4; row++)
+            {
+                float width = .36f + row * .09f, depth = .31f + row * .08f;
+                float y = (.3f + row * .14f) * .6f;
+                Box(redParts, new Vector3(0, y - .032f, -depth * .5f - .004f), new Vector3(width + .012f, .012f, .014f));
+                foreach (int side in new[] { -1, 1 })
+                {
+                    // A pair of strapped, bolted edges follows the stepped rear casing.
+                    float x = side * (width * .5f - .027f);
+                    Box(steelParts, new Vector3(x, y, -depth * .5f - .009f), new Vector3(.027f, .074f, .015f));
+                    foreach (float dy in new[] { -.022f, .022f })
+                        Box(redParts, new Vector3(x, y + dy, -depth * .5f - .019f), new Vector3(.014f, .014f, .009f));
+                    Box(steelParts, new Vector3(side * (width * .5f + .004f), y, 0), new Vector3(.012f, .024f, depth * .7f));
+                }
+            }
+            foreach (int side in new[] { -1, 1 })
+            {
+                // Roof perimeter rails, corner bolts and two rear hinge barrels.
+                Box(redParts, new Vector3(side * .338f, .54f, 0), new Vector3(.018f, .018f, .62f));
+                foreach (int end in new[] { -1, 1 })
+                    Box(steelParts, new Vector3(side * .303f, .550f, end * .275f), new Vector3(.023f, .009f, .023f));
+                Box(steelParts, new Vector3(side * .20f, .520f, -.326f), new Vector3(.09f, .032f, .032f));
+                Box(redParts, new Vector3(side * .20f, .520f, -.345f), new Vector3(.018f, .040f, .012f));
+            }
+            // Reinforced outlet collar and a central service hatch latch above it.
+            foreach (int side in new[] { -1, 1 })
+                Box(steelParts, new Vector3(side * .118f, .096f, -.25f), new Vector3(.018f, .068f, .25f));
+            Box(steelParts, new Vector3(0, .285f, -.231f), new Vector3(.07f, .044f, .02f));
+            Box(redParts, new Vector3(0, .285f, -.248f), new Vector3(.021f, .025f, .018f));
+            for (int spoke = 0; spoke < 6; spoke++)
+                Box(starParts, Vector3.zero, new Vector3(1, .145f, 1), spoke * 30f);
+
+            var redMesh = DetailMesh("HopperRedFittings", redParts);
+            var steelMesh = DetailMesh("HopperSteelFittings", steelParts);
+            var starMesh = DetailMesh("HopperWheelStar", starParts);
+            foreach (var hopper in root.GetComponentsInChildren<VoxelBichoHopper>(true))
+            {
+                float lane = hopper.transform.Find("Black roof").localScale.x / .70f;
+                Fit(hopper.transform, "Red mechanical trim", Vector3.zero, Vector3.one * lane, redMesh, red);
+                Fit(hopper.transform, "Bolted mechanical fittings", Vector3.zero, Vector3.one * lane, steelMesh, steel);
+                float side = hopper.slot < 2 ? -1 : 1;
+                // Recess the red hub slightly so the raised star keeps the original wheel envelope.
+                var hub = hopper.wheel.Find("Red wheel hub");
+                var hubPosition = hub.localPosition; hubPosition.x = side * .08f * lane; hub.localPosition = hubPosition;
+                Fit(hopper.wheel, "Black wheel star", new Vector3(side * .1035f * lane, 0, 0),
+                    new Vector3(.013f, .195f, .195f) * lane, starMesh, black);
+            }
+        }
+
+        private static void Fit(Transform parent, string name, Vector3 position, Vector3 scale, UnityEngine.Mesh mesh, Material material)
+        {
+            var existing = parent.Find(name);
+            if (existing == null) { Mesh(parent, name, position, scale, mesh, material); return; }
+            existing.localPosition = position; existing.localRotation = Quaternion.identity; existing.localScale = scale;
+            existing.GetComponent<MeshFilter>().sharedMesh = mesh;
+            existing.GetComponent<MeshRenderer>().sharedMaterial = material;
+        }
+
+        private static UnityEngine.Mesh DetailMesh(string name, List<CombineInstance> parts)
+        {
+            string path = Art + "/" + name + ".asset";
+            var mesh = AssetDatabase.LoadAssetAtPath<UnityEngine.Mesh>(path);
+            bool created = mesh == null;
+            if (created) mesh = new UnityEngine.Mesh { name = name }; else mesh.Clear();
+            mesh.CombineMeshes(parts.ToArray(), true, true); mesh.RecalculateBounds();
+            if (created) AssetDatabase.CreateAsset(mesh, path);
+            else { EditorUtility.SetDirty(mesh); AssetDatabase.SaveAssetIfDirty(mesh); }
+            return mesh;
         }
 
         private static Material BrakeLightGlow()

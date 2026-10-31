@@ -87,6 +87,7 @@ namespace VoxelRacer.Editor
                 foreach (var go in SceneManager.GetActiveScene().GetRootGameObjects()) go.SetActive(false);
                 var scene = SceneManager.CreateScene("Temporary Kill Chain Live QA"); SceneManager.SetActiveScene(scene);
                 root = new GameObject("Temporary Kill Chain Live QA"); VoxelRacerBootstrap.BuildPrototype(root.transform);
+                root.GetComponentInChildren<VoxelMissionBriefing>()?.Close();
                 player = root.GetComponentInChildren<VoxelCarController>();
                 foreach (var fade in root.GetComponentsInChildren<VoxelFadeIn>())
                 { Call(fade, "RestoreOpaqueMaterials"); fade.enabled = false; }
@@ -163,7 +164,13 @@ namespace VoxelRacer.Editor
                     case 5:
                         if (Time.realtimeSinceStartup - stageStarted < .6f) return;
                         Check(File.Exists("Temp/KillChain/KillChainHUD.png"), "HUD capture missing");
-                        for (int i = 0; i < 7; i++) VoxelMissionProgress.ReportEnemyVehicleDestroyed();
+                        if (mission.KillChainDisplayCount == 3)
+                        {
+                            for (int i = 0; i < 3; i++) VoxelMissionProgress.ReportEnemyVehicleDestroyed();
+                            ValidateLayout(); ScreenCapture.CaptureScreenshot("Temp/KillChain/KillChainHUD-x6.png");
+                            Next(5); break;
+                        }
+                        for (int i = mission.KillChainDisplayCount; i < 10; i++) VoxelMissionProgress.ReportEnemyVehicleDestroyed();
                         Equal(mission.KillChainDisplayCount, 10, "Long chain updates to two-digit count");
                         ValidateLayout();
                         SetCaptureSize(2400, 1080, false); Next(6); break;
@@ -207,7 +214,7 @@ namespace VoxelRacer.Editor
                 Check(rect != null, "Missing HUD element " + name);
                 var corners = new Vector3[4]; rect.GetWorldCorners(corners);
                 Rect bounds = new Rect(corners[0].x, Screen.height - corners[1].y, corners[2].x - corners[0].x, corners[1].y - corners[0].y);
-                bool overlaps = name == "Boost Button"
+                bool overlaps = name == "Boost Button" || name == "Timer Ring Background"
                     ? (bool)Call(mission, "KillChainOverlapsCircle", combo, bounds.center, bounds.width * .5f)
                     : (bool)Call(mission, "KillChainOverlaps", combo, bounds);
                 Check(!overlaps, "Angled combo text overlaps visible " + name);

@@ -4,6 +4,7 @@ namespace VoxelRacer
     public static class VoxelEngineUpgradeState
     {
         public const string InstanceName="Purchased V6 Engine";
+        public const string SpoilerName="V6 Rear Spoiler";
         public static bool IsPurchased {get;private set;}
         public static void BeginNewRun() => IsPurchased=false;
         public static bool TryPurchase(VoxelEngineUpgradeTuning tuning,VoxelCarDefinition car)
@@ -39,6 +40,13 @@ namespace VoxelRacer
             engine.transform.localPosition=original.localPosition;
             engine.transform.localRotation=original.localRotation;
             engine.transform.localScale=original.localScale;
+            // The engine lives beneath the protected chassis. Append the bundled body
+            // accessory outside that entire protected branch without moving existing
+            // car children: their sibling-index damage paths must stay unchanged.
+            var spoiler=engine.transform.Find(SpoilerName);
+            var body=original.parent;
+            while(body!=null && body.GetComponentInParent<VoxelIndestructiblePart>()!=null) body=body.parent;
+            if(spoiler!=null && body!=null) spoiler.SetParent(body,true);
             original.gameObject.SetActive(false);
             return engine;
         }

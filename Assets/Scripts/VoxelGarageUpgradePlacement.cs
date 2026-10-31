@@ -7,7 +7,7 @@ using Object = UnityEngine.Object;
 
 namespace VoxelRacer
 {
-    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough, StarSpikes, DualBoost }
+    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough, StarSpikes, DualBoost, ExtendedArmour, UnderbodyArmour }
 
     public readonly struct VoxelGarageUpgradeSelection
     {
@@ -23,7 +23,10 @@ namespace VoxelRacer
         public VoxelGarageUpgradeKind Kind { get; private set; }
         public IReadOnlyList<VoxelGarageUpgradeSelection> Selections => selections;
         public int SelectedSlot { get; private set; } = -1;
-        public bool RequiresPlacement => Kind == VoxelGarageUpgradeKind.Armour ||
+        public static bool IsArmour(VoxelGarageUpgradeKind kind) => kind == VoxelGarageUpgradeKind.Armour || kind == VoxelGarageUpgradeKind.ExtendedArmour;
+        public static VoxelArmorTuning ArmorTuning(VoxelGarageUpgradeKind kind) => kind == VoxelGarageUpgradeKind.ExtendedArmour
+            ? VoxelArmorTuning.LoadExtended() : VoxelArmorTuning.Load();
+        public bool RequiresPlacement => IsArmour(Kind) ||
             Kind == VoxelGarageUpgradeKind.Guns || Kind == VoxelGarageUpgradeKind.Missiles;
         public int AvailableSpotCount => spots.Count;
         private readonly GameObject original;
@@ -89,7 +92,8 @@ namespace VoxelRacer
                         ? VoxelGunUpgradeState.CanPurchase(VoxelGunUpgradeState.LongGunTuning, slot) &&
                             VoxelGunUpgradeState.PurchasedLongGunCount + PendingCount(Kind) < Mathf.Clamp(VoxelGunUpgradeState.LongGunTuning.maximumPurchases, 1, 2)
                         : Kind == VoxelGarageUpgradeKind.Missiles ? !VoxelMissileUpgradeState.IsPurchased(slot == 1)
-                        : !VoxelArmorUpgradeState.IsPurchasedFor(slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right);
+                        : !VoxelArmorUpgradeState.IsEquipped(ArmorTuning(Kind), slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right) &&
+                            !selections.Exists(part => IsArmour(part.Kind) && part.Slot == slot);
                     if (!available) continue;
                     var before = new HashSet<MeshRenderer>(Car.GetComponentsInChildren<MeshRenderer>(true));
                     BuildPart(Kind, slot);
@@ -158,7 +162,8 @@ namespace VoxelRacer
             switch (kind)
             {
                 case VoxelGarageUpgradeKind.Armour:
-                    VoxelArmorUpgradeState.CreatePanel(car, VoxelArmorTuning.Load(), slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right); break;
+                case VoxelGarageUpgradeKind.ExtendedArmour:
+                    VoxelArmorUpgradeState.CreatePanel(car, ArmorTuning(kind), slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right); break;
                 case VoxelGarageUpgradeKind.Guns:
                     VoxelGunUpgradeState.CreateVisual(car, VoxelGunUpgradeState.LongGunTuning, slot); break;
                 case VoxelGarageUpgradeKind.Missiles:
@@ -179,6 +184,8 @@ namespace VoxelRacer
                     VoxelEngineUpgradeState.CreateVisual(car, VoxelEngineUpgradeTuning.Load()); break;
                 case VoxelGarageUpgradeKind.Plough:
                     VoxelPloughUpgradeState.CreateVisual(car, VoxelPloughTuning.Load()); break;
+                case VoxelGarageUpgradeKind.UnderbodyArmour:
+                    VoxelUnderbodyArmorUpgradeState.CreateVisual(car, VoxelUnderbodyArmorTuning.Load()); break;
             }
             DisableBehaviour();
         }

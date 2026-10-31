@@ -49,7 +49,7 @@ MonoBehaviour:
   fuelDrumDestroyedPopupDuration: 2
   roadsideTurretTuning: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
   roadsideTurretSpawnCheckInterval: 2
-  roadsideTurretSpawnChance: 0.6
+  roadsideTurretSpawnChance: 0.5
   roadsideTurretSpawnDistanceAhead: 250
   maximumActiveRoadsideTurrets: 1
   civilianNearMissDistance: 1

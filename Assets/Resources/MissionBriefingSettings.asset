@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 226a16ec4a4cb604eb184d6d4f12a9e3, type: 3}
+  m_Name: MissionBriefingSettings
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionBriefingSettings
+  dayBackground: {fileID: 2800000, guid: 3cf4920a4d55f524d9771c07c7edc870, type: 3}
+  nightBackground: {fileID: 2800000, guid: e8e8a46dca1236d409327d7f9d2706df, type: 3}
+  backgroundDim: 0.12
+  previews:
+  - source: {fileID: 11400000, guid: 1087bbf5e34c42dfad117821fdcd87a6, type: 2}
+    image: {fileID: 2800000, guid: 3ed1afdd5f8b5a3419cd9b3b7b6b8ec5, type: 3}
+  - source: {fileID: 11400000, guid: b799f945fae40c141bbfd08a7f1f51a4, type: 2}
+    image: {fileID: 2800000, guid: 742d37b07d4b4244fb243e787d163099, type: 3}
+  - source: {fileID: 11400000, guid: 3b49795d5d0455d4281ae83f02c86bc1, type: 2}
+    image: {fileID: 2800000, guid: 5cfd6a31b469f8d428162eae1a455c45, type: 3}
+  - source: {fileID: 11400000, guid: 7ef7c7942375e48449e654ec812ee807, type: 2}
+    image: {fileID: 2800000, guid: c8c0f99fa238d1444b5c23788a106b5f, type: 3}
+  - source: {fileID: 11400000, guid: d81cf75819818194ea7549629c369c74, type: 2}
+    image: {fileID: 2800000, guid: 417cadc93d4e74b4cb37b1fab02ea418, type: 3}
+  - source: {fileID: 11400000, guid: 679ab5612dc6433b8b69fc0420a5d5bd, type: 2}
+    image: {fileID: 2800000, guid: db2511a550f50274c89a85472bba98d2, type: 3}
+  - source: {fileID: 11400000, guid: da187bf62999dab47a4230658c163986, type: 2}
+    image: {fileID: 2800000, guid: 340c9e0453fea70489e276d796af8a3c, type: 3}

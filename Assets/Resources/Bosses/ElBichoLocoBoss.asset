@@ -18,7 +18,8 @@ MonoBehaviour:
   bodyCollisionHalfLength: 2.23
   entranceDuration: 2
   entranceApproachDistance: 100
-  introductionPoster: {fileID: 2800000, guid: e9583a3304a8f9d448cc4221549ec622, type: 3}
+  introductionSequence: {fileID: 11400000, guid: 08fcb98bc3de8064591e35c8ea1a31f8, type: 2}
+  introductionPoster: {fileID: 2800000, guid: f924e712a77c11f43839f142a7083e5d, type: 3}
   introductionSlideInDuration: 0.55
   introductionHoldDuration: 1.5
   introductionSlideOutDuration: 0.45
@@ -104,5 +105,6 @@ MonoBehaviour:
   laneChangeSpeed: 12
   attacks:
   - {fileID: 11400000, guid: b45b5287b82cfbe48abc9842cafe7217, type: 2}
+  - {fileID: 11400000, guid: 667622e5da254c348a0bb1234e028aed, type: 2}
   smokeDamageThreshold: 0.25
   fireDamageThreshold: 0.5

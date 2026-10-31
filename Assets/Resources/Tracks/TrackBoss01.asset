@@ -47,16 +47,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6997a3a6ac6a8a24da582b5cbc898ccb, type: 3}
   m_Name: TrackBoss01
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
-  displayName: Find The Radar...
+  displayName: El Vandito
   raceSceneName: SampleScene
+  briefingBackgroundOverride: {fileID: 0}
   roadTuning: {fileID: -2389841375544596361}
   obstacleCarTuning: {fileID: 2345100223370931295}
   missionTuning: {fileID: 7251224122306998669}
   boss: {fileID: 11400000, guid: 679ab5612dc6433b8b69fc0420a5d5bd, type: 2}
   bossEncounter:
-    radarInterceptorSpawnChance: 10
-    minimumWaveInterval: 0.8
-    maximumWaveInterval: 1.4
+    radarInterceptorSpawnChance: 20
+    minimumWaveInterval: 1
+    maximumWaveInterval: 1.6
     minimumVehiclesPerWave: 2
     maximumVehiclesPerWave: 4
     minimumVehicleSpacing: 10

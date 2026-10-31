@@ -66,6 +66,18 @@ namespace VoxelRacer
                     from.y = Mathf.Max(missionArea.yMax + 24f,
                         from.y - Mathf.Max(60f, Screen.height * .12f));
                 Vector2 point = Vector2.Lerp(from, target.center, travel);
+                if (flight.reason == "KILL CHAIN COMBO" && IsKillChainAnnouncementShowing)
+                {
+                    // A new chain can appear while the previous reward is still flying.
+                    // Route that reward up the left of the live lettering, then into MULT.
+                    Rect combo = GetKillChainArea(missionArea);
+                    string reward = (flight.amount > 0 ? "+" : "") + flight.amount.ToString("0.00") + "x";
+                    float halfWidth = BonusStyle(96, GainColour).CalcSize(new GUIContent(reward)).x * .5f + 3f;
+                    from.x = Mathf.Min(from.x, combo.xMin - halfWidth - 4f * HeaderScale);
+                    var corner = new Vector2(from.x, target.center.y);
+                    point = travel < .65f ? Vector2.Lerp(from, corner, travel / .65f)
+                        : Vector2.Lerp(corner, target.center, (travel - .65f) / .35f);
+                }
                 Color colour = flight.amount < 0 ? LossColour : GainColour;
                 for (int dot = 1; dot <= 5; dot++)
                 {
@@ -86,26 +98,6 @@ namespace VoxelRacer
 
         private static float MultiplierPopupScale(string reason) => IsVoxelMultiplier(reason)
             ? 1f : reason == "KILL CHAIN COMBO" ? 4f : 2f;
-
-        private void DrawTimeExtension(Rect panel, float alpha)
-        {
-            float age = Time.unscaledTime - timeExtensionStartedAt;
-            if (age < 0 || age > 2f || IsComplete || IsFailed) return;
-            float scale = panel.width / 280f;
-            float opacity = alpha * (1f - Mathf.Clamp01((age - 1.5f) / .5f));
-            // Stay below even the enlarged urgency/extension pulse, without covering the digits.
-            float width = 300f * scale;
-            var area = new Rect(Mathf.Clamp(panel.center.x - width * .5f, 0f, Mathf.Max(0f, Screen.width - width)),
-                panel.yMax + 66f * scale, width, 76f * scale);
-            var cyan = new Color(.2f, .95f, 1f);
-            Fill(area, new Color(.01f, .12f, .18f, .95f), opacity);
-            Fill(new Rect(area.x, area.y, area.width, 2f * scale), cyan, opacity);
-            GUI.color = new Color(1f, 1f, 1f, opacity);
-            GUI.Label(new Rect(area.x, area.y + 3f * scale, area.width, 43f * scale),
-                "+" + timeExtensionAmount + " SEC", BonusStyle(Mathf.Max(1, Mathf.RoundToInt(38f * scale)), cyan));
-            GUI.Label(new Rect(area.x, area.y + 46f * scale, area.width, 26f * scale),
-                "TIME EXTENDED!", BonusStyle(Mathf.Max(1, Mathf.RoundToInt(21f * scale)), Color.white));
-        }
 
         private static void OutlinedBonusLabel(Rect rect, string text, GUIStyle style)
         {

@@ -49,6 +49,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
   displayName: Tequila Plains 1
   raceSceneName: SampleScene
+  briefingBackgroundOverride: {fileID: 0}
   roadTuning: {fileID: -2389841375544596361}
   obstacleCarTuning: {fileID: 2345100223370931295}
   missionTuning: {fileID: 11400000, guid: 26987ec217816ce4783cd37932f33bd9, type: 2}

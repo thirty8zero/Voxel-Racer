@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e93cb221e5d4ec5458e4220133c50eed, type: 3}
+  m_Name: UnderbodyArmorTuning
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelUnderbodyArmorTuning
+  displayName: UNDERBODY ARMOUR
+  armorPrefab: {fileID: 1153112803155386207, guid: 190c77ec96711c44fa5756e95d6c9c76, type: 3}
+  compatibleCarPrefab: {fileID: 7422917196529361028, guid: c4b2b884ffbd2ca4884642c912e47ce8, type: 3}
+  purchasePrice: 700
+  mineDamageReductionPercent: 30
+  mountPosition: {x: 0, y: 0, z: 0}
+  mountRotation: {x: 0, y: 0, z: 0}
+  mountScale: {x: 1, y: 1, z: 1}

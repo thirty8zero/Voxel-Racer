@@ -25,6 +25,7 @@ namespace VoxelRacer.Editor
         [MenuItem("Tools/Voxel Racer/Validate Door Armour")]
         public static void Run()
         {
+            using var allState = new VoxelGarageUpgradeDockValidation.SavedState();
             if (Application.isPlaying)
                 throw new InvalidOperationException("Run armour validation outside Play Mode.");
 

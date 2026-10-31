@@ -26,7 +26,9 @@ namespace VoxelRacer.Editor
                 Check(entries.Any(e => e.Asset is VoxelGunTuning), "Guns undiscovered");
                 Check(entries.Any(e => e.Asset is VoxelWheelSpikeTuning), "Spikes undiscovered");
                 foreach (var entry in entries.Where(e => e.Fits(definition))) entry.Build(car.transform);
-                Check(car.GetComponentsInChildren<VoxelArmorVoxel>().Length == 60, "Both armour panels must coexist");
+                int expectedArmour = entries.Where(e => e.Asset is VoxelArmorTuning && e.Fits(definition))
+                    .Max(e => ((VoxelArmorTuning)e.Asset).panelPrefab.GetComponentsInChildren<VoxelArmorVoxel>(true).Length) * 2;
+                Check(car.GetComponentsInChildren<VoxelArmorVoxel>().Length == expectedArmour, "Both highest-level armour panels must coexist without stacking");
                 var spikeRoots = car.GetComponentsInChildren<Transform>().Where(t => t.name == VoxelWheelSpikeUpgradeState.SpikeInstanceName).ToArray();
                 Check(spikeRoots.Length == 4, "Expected four spike mounts");
                 foreach (var spike in spikeRoots)
@@ -35,7 +37,7 @@ namespace VoxelRacer.Editor
                     left == VoxelArmorUpgradeState.IsLeftPurchased && spikes == VoxelWheelSpikeUpgradeState.IsPurchased &&
                     guns == VoxelGunUpgradeState.PurchasedLongGunCount && missing == VoxelCarRunState.MissingVoxelCount,
                     "Preview modified run state");
-                File.WriteAllText(report, "PASS: automatic discovery, combined armour/guns/spikes, 60 armour voxels, four outward spikes, unchanged cash/ownership/damage. Entries: " + entries.Count);
+                File.WriteAllText(report, "PASS: automatic discovery, combined armour/guns/spikes, " + expectedArmour + " armour voxels, four outward spikes, unchanged cash/ownership/damage. Entries: " + entries.Count);
                 VoxelUpgradeFitPreview.OpenDefault();
                 Debug.Log(File.ReadAllText(report));
             }

@@ -113,7 +113,16 @@ namespace VoxelRacer.Editor
                 new Vector3(x, y0 + corner, z1), new Vector3(x, y0, z1 - corner) };
         }
 
-        private static Mesh CellMesh(Transform root, Transform piece, List<Vector3[]> front)
+        internal static Mesh CreatePanelCellMesh(Transform root, Transform piece, float widthScale)
+        {
+            var front = FrontFacets();
+            foreach (var face in front)
+                for (int i = 0; i < face.Length; i++) face[i].z *= widthScale;
+            return root.InverseTransformPoint(piece.position).x < 0
+                ? ReturnFootMesh(root, piece) : CellMesh(root, piece, front, widthScale);
+        }
+
+        private static Mesh CellMesh(Transform root, Transform piece, List<Vector3[]> front, float widthScale = 1f)
         {
             var centre = root.InverseTransformPoint(piece.position);
             float y0 = centre.y - Size / 2, y1 = centre.y + Size / 2;
@@ -122,6 +131,7 @@ namespace VoxelRacer.Editor
             var triangles = new List<int>();
             var matrix = piece.worldToLocalMatrix * root.localToWorldMatrix;
             var outline = Ring(0, 0);
+            for (int i = 0; i < outline.Length; i++) outline[i].z *= widthScale;
             foreach (var face in front)
             {
                 var polygon = new List<Vector3>(face);
@@ -145,7 +155,7 @@ namespace VoxelRacer.Editor
             // Small chamfered hex fasteners belong to their original voxel renderer. They
             // disappear with that piece and add no integrity, colliders or draw calls.
             foreach (float y in new[] { .088f, .472f })
-                foreach (float z in new[] { -.315f, .315f })
+                foreach (float z in new[] { -.315f * widthScale, .315f * widthScale })
                     if (y > y0 && y < y1 && z > z0 && z < z1)
                     {
                         var seat = Hex(.120f, .024f, y, z);

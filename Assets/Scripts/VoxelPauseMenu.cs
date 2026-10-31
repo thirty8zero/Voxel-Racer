@@ -33,7 +33,7 @@ namespace VoxelRacer
 
         private void Update()
         {
-            if (VoxelLoadingScreen.IsLoading) return;
+            if (VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing) return;
             if (!Application.isPlaying) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
                 SetPaused(!paused);
@@ -44,6 +44,7 @@ namespace VoxelRacer
             if (value == paused) return;
             if (value)
             {
+                if (VoxelMissionBriefing.IsShowing) return;
                 if (!Application.isPlaying || target == null || !target.isActiveAndEnabled || target.IsDestroyed ||
                     VoxelPlayerDeathScreen.IsShowing || VoxelMissionProgress.Active?.IsComplete == true ||
                     VoxelMissionProgress.Active?.IsFailed == true || Time.timeScale <= 0f)

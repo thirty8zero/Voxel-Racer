@@ -32,6 +32,7 @@ namespace VoxelRacer
             VoxelPerformanceWheelUpgradeState.GrantForDevelopment(VoxelPerformanceWheelTuning.Load(), definition);
             VoxelEngineUpgradeState.GrantForDevelopment(VoxelEngineUpgradeTuning.Load(), definition);
             VoxelPloughUpgradeState.GrantForDevelopment(VoxelPloughTuning.Load(), definition);
+            VoxelUnderbodyArmorUpgradeState.GrantForDevelopment(VoxelUnderbodyArmorTuning.Load(), definition);
             VoxelMissileUpgradeState.GrantForDevelopment(VoxelMissileLauncherTuning.Load(), definition);
 
             // Use each family's replacement rank, rather than stacking variants or
@@ -59,6 +60,7 @@ namespace VoxelRacer
             VoxelEngineUpgradeState.ApplyTo(car.transform, definition);
             VoxelPloughUpgradeState.ApplyTo(car.transform, definition);
             VoxelMissileUpgradeState.ApplyTo(car.transform, definition);
+            VoxelUnderbodyArmorUpgradeState.ApplyTo(car.transform, definition);
             car.ResetIntegrityBaseline();
             if (previousBoost != VoxelBoostUpgradeState.InstalledTuning)
             {

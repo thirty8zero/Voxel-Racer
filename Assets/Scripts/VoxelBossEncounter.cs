@@ -116,7 +116,7 @@ namespace VoxelRacer
             if (CurrentStage != Stage.Clearing) return;
             // Never remove vehicles to make room, including when an editor command requests a spawn.
             if (HasRemainingTraffic()) return;
-            if (!introductionPlayed && boss.introductionPoster != null)
+            if (!introductionPlayed && boss.HasIntroduction)
             {
                 introduction = GetComponent<VoxelBossIntroduction>();
                 if (introduction == null) introduction = gameObject.AddComponent<VoxelBossIntroduction>();

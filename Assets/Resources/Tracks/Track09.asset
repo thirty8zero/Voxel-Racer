@@ -130,6 +130,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
   displayName: Tequila Plains 9
   raceSceneName: SampleScene
+  briefingBackgroundOverride: {fileID: 0}
   roadTuning: {fileID: -4439660758796297234}
   obstacleCarTuning: {fileID: -8029312130423065911}
   missionTuning: {fileID: 11400000, guid: fa86285ffea7cee44a1d84c1fa5bfc05, type: 2}
@@ -198,7 +199,7 @@ MonoBehaviour:
   sunDistanceAhead: 220
   sunAzimuthDegrees: 45
   sunHorizontalOffset: 0
-  sunHorizonHeight: 6
+  sunHorizonHeight: 12
   sunDiameter: 24
   sunColour: {r: 1, g: 0.84, b: 0.12, a: 1}
   horizonMountainsEnabled: 1

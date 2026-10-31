@@ -47,14 +47,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6997a3a6ac6a8a24da582b5cbc898ccb, type: 3}
   m_Name: TrackBoss02
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
-  displayName: Find The Radar...
+  displayName: El Bicho Loco
   raceSceneName: SampleScene
+  briefingBackgroundOverride: {fileID: 0}
   roadTuning: {fileID: -2389841375544596361}
   obstacleCarTuning: {fileID: 2345100223370931295}
   missionTuning: {fileID: 7251224122306998669}
   boss: {fileID: 11400000, guid: da187bf62999dab47a4230658c163986, type: 2}
   bossEncounter:
-    radarInterceptorSpawnChance: 10
+    radarInterceptorSpawnChance: 20
     minimumWaveInterval: 0.8
     maximumWaveInterval: 1.4
     minimumVehiclesPerWave: 2
@@ -117,7 +118,7 @@ MonoBehaviour:
   sunDistanceAhead: 220
   sunAzimuthDegrees: 45
   sunHorizontalOffset: 0
-  sunHorizonHeight: 4
+  sunHorizonHeight: 16
   sunDiameter: 24
   sunColour: {r: 1, g: 0.84, b: 0.12, a: 1}
   horizonMountainsEnabled: 1

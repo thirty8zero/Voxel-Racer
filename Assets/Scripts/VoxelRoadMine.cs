@@ -42,7 +42,7 @@ namespace VoxelRacer
                 {
                     target.damageVoxelsPerHit = Random.Range(Mathf.Min(tuning.playerDamageVoxelsMin, tuning.playerDamageVoxelsMax),
                         Mathf.Max(tuning.playerDamageVoxelsMin, tuning.playerDamageVoxelsMax) + 1);
-                    target.ApplyDamage(target.GetDamageSurfacePoint(transform.position), Vector3.up, "Enemy mines");
+                    target.ApplyMineDamage(target.GetDamageSurfacePoint(transform.position), Vector3.up, "Enemy mines");
                 }
                 finally { target.damageVoxelsPerHit = saved; }
                 Destroy(gameObject);

@@ -43,6 +43,7 @@ namespace VoxelRacer
             VoxelBoostUpgradeState.BeginNewRun();
             VoxelEngineUpgradeState.BeginNewRun();
             VoxelPloughUpgradeState.BeginNewRun();
+            VoxelUnderbodyArmorUpgradeState.BeginNewRun();
             VoxelMissileUpgradeState.BeginNewRun();
         }
 

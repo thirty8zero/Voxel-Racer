@@ -23,7 +23,7 @@ MonoBehaviour:
   - vehicle: {fileID: 11400000, guid: b799f945fae40c141bbfd08a7f1f51a4, type: 2}
     spawnWeight: 1
   - vehicle: {fileID: 11400000, guid: 7ef7c7942375e48449e654ec812ee807, type: 2}
-    spawnWeight: 0.1
+    spawnWeight: 0.2
   legacyEnemyVehiclePool: []
   minimumWaveInterval: 1.5
   maximumWaveInterval: 2.5
@@ -130,6 +130,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelTrackDefinition
   displayName: Tequila Plains 4
   raceSceneName: SampleScene
+  briefingBackgroundOverride: {fileID: 0}
   roadTuning: {fileID: -4439660758796297234}
   obstacleCarTuning: {fileID: -8029312130423065911}
   missionTuning: {fileID: 11400000, guid: 1d946b800bac67d47a5f7230e18af871, type: 2}
