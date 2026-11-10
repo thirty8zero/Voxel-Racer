@@ -47,22 +47,28 @@ namespace VoxelRacer
             float stagesDuration = RecoveryAngles.Length * TransitionDuration;
             float duration = stagesDuration + SettleDuration;
             elapsed = Mathf.Min(duration, elapsed + seconds * playbackSpeed);
-            int stage = Mathf.FloorToInt(elapsed / TransitionDuration);
-            float yaw;
-            if (stage < RecoveryAngles.Length)
-            {
-                float from = stage == 0 ? 0f : RecoveryAngles[stage - 1];
-                float stageElapsed = elapsed - stage * TransitionDuration;
-                yaw = Mathf.Lerp(from, RecoveryAngles[stage], EaseArc(stageElapsed / TransitionDuration));
-            }
-            else
-                yaw = Mathf.Lerp(RecoveryAngles[RecoveryAngles.Length - 1], 0f,
-                    EaseArc((elapsed - stagesDuration) / SettleDuration));
+            float yaw = SampleYaw(elapsed, RecoveryAngles.Length);
             body.localRotation = restRotation * Quaternion.Euler(0f, yaw, -yaw * .25f);
             // Steering pivots own yaw; the original child wheels retain their independent axle spin.
             foreach (var pivot in steeringPivots)
                 if (pivot != null) pivot.localRotation = Quaternion.Euler(0f, -yaw * 1.5f, 0f);
             if (elapsed >= duration) { RestorePose(); enabled = false; }
+        }
+
+        internal static float SampleSideRecoveryYaw(float progress)
+        {
+            const int arcs = 3;
+            return SampleYaw(progress * (arcs * TransitionDuration + SettleDuration), arcs);
+        }
+
+        private static float SampleYaw(float seconds, int arcs)
+        {
+            int stage = Mathf.FloorToInt(seconds / TransitionDuration);
+            if (stage >= arcs)
+                return Mathf.Lerp(RecoveryAngles[arcs - 1], 0f, EaseArc((seconds - arcs * TransitionDuration) / SettleDuration));
+
+            float from = stage == 0 ? 0f : RecoveryAngles[stage - 1];
+            return Mathf.Lerp(from, RecoveryAngles[stage], EaseArc((seconds - stage * TransitionDuration) / TransitionDuration));
         }
 
         // Slow naturally into each reversal, then flow straight into the next arc without a hold.

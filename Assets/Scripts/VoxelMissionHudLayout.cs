@@ -10,22 +10,21 @@ namespace VoxelRacer
         {
             float scale = HeaderScale;
             float left = 310f * scale;
-            float right = GetCountdownRect().xMin - 36f * scale;
+            Rect multiplier = VoxelMissionInstrumentCluster.MultiplierArea(GetCountdownRect());
+            float right = multiplier.xMin - 24f * scale;
             float available = Mathf.Max(1f, right - left);
-            bool inlineMultiplier = available >= 1272f * scale;
-            float width = Mathf.Min(990f * scale, available - (inlineMultiplier ? 282f * scale : 0));
+            if (available < 320f * scale)
+                return new Rect(24f * scale, Mathf.Max(330f * scale, GetCountdownRect().yMax + 24f * scale),
+                    Mathf.Max(1f, Screen.width - 48f * scale), (compactBoss ? 90f : 105f) * scale);
+            float width = Mathf.Min(990f * scale, available);
             float x = Mathf.Clamp((Screen.width - 810f * scale) * .5f, left,
-                Mathf.Max(left, right - width - (inlineMultiplier ? 282f * scale : 0)));
+                Mathf.Max(left, right - width));
             return new Rect(x, 18f * scale, width, (compactBoss ? 90f : 105f) * scale);
         }
 
         private Rect GetMultiplierArea(Rect missionArea)
         {
-            float scale = HeaderScale;
-            float width = Mathf.Min(270f * scale, missionArea.width);
-            bool fitsBeside = missionArea.xMax + 12f * scale + width <= GetCountdownRect().xMin - 36f * scale;
-            return new Rect(fitsBeside ? missionArea.xMax + 12f * scale : missionArea.xMax - width,
-                fitsBeside ? missionArea.y : missionArea.yMax + 12f * scale, width, 105f * scale);
+            return VoxelMissionInstrumentCluster.MultiplierArea(GetCountdownRect());
         }
 
         public Vector2 GetNonVoxelDamagePopupOrigin(float topExtent)

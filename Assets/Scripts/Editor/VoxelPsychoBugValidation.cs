@@ -236,6 +236,7 @@ namespace VoxelRacer.Editor
                 CheckRamAlignment();
                 CheckLowSpeedAndBarrels();
                 CheckBlockedMergeAndReturn();
+                CheckBreakawayAndTrafficEscape();
                 // Explicit opt-out retains optional stationary/reverse positioning.
                 f.Behaviour.fastRamReturn=false;
                 f.Behaviour.minimumAlignmentSpeed=f.Behaviour.minimumRamSpeed=f.Behaviour.minimumDrivingSpeed=0;
@@ -251,6 +252,7 @@ namespace VoxelRacer.Editor
                 File.AppendAllText("Temp/PsychoBug/Validation.txt", " Ordinary enemy minimum speed passed at spawn/approach/engagement, post-ram stopped/slow/fast player matching, editable/zero floors and lane-change burst; Psycho Bug follows a floor-limited Black Interceptor without crawling when the player is stopped. See Temp/EnemyMinimumSpeed/Validation.txt.");
                 File.AppendAllText("Temp/PsychoBug/Validation.txt", " Blocked player-lane merges return to a centre with weaving disabled; blocked original lanes select the next clear centre; emergency-buffer contact permits separation without crossing through traffic. Aggressive authored 200m approaches reach real warning/slam/damage at 35, 20 and 14.1m/s, including progress beyond the former timeout.");
                 File.AppendAllText("Temp/PsychoBug/Validation.txt", " Opening ram chance is rolled once per spawn, with 0%/50%/100% checks and delayed deliberate/passing attacks. Editable 50m slowdown range and player braking/acceleration approaches pass from ahead/behind on both sides at 30/120 FPS and 250ms steps. See RamOpeningAndSlowdown.txt.");
+                File.AppendAllText("Temp/PsychoBug/Validation.txt", " Braking alongside and two-lane pacing break away and return for a damaging ram. Clear cruising stays in lane. A stopped civilian triggers a safe pass, a clipped diagonal can escape sideways, and ram recovery respects an occupied launch lane.");
                 Debug.Log("PASS Psycho Bug " + (validateAssets ? "model, integration and " : "") + "behaviour checks (Edit Mode).");
             }
             catch(Exception e){Directory.CreateDirectory("Temp/PsychoBug");File.WriteAllText("Temp/PsychoBug/Validation.txt","FAIL: "+e);throw;}
@@ -771,6 +773,102 @@ namespace VoxelRacer.Editor
                 Check(f.Player.RemainingIntegrityVoxels==integrity-3,"Natural 200m approach failed to deliver a ram at player speed "+speed);
                 File.AppendAllText("Temp/PsychoBug/RamApproachMetrics.txt","Player "+speed+"m/s, 200m lead: warning in "+approachSeconds.ToString("0.00")+"s; minimum return speed "+minimum.ToString("0.00")+"m/s; ram removed 3 integrity voxels.\n");
             }
+        }
+
+        private static void CheckBreakawayAndTrafficEscape()
+        {
+            using var f = new Fixture();
+            f.Behaviour.shootingWindows = f.Behaviour.damageEvasion = false;
+            float initialLane = 3f;
+            foreach (var (phase, braking) in new[]
+                { (PsychoBugPhase.Aligning, true), (PsychoBugPhase.Aligning, false), (PsychoBugPhase.Hunting, false) })
+            foreach (float side in new[] { -1f, 1f })
+            {
+                Property(f.Player, "CurrentSpeed", 18f);
+                Property(f.Player, "CurrentLaneOffset", 0f);
+                f.Spawn(side * initialLane, phase == PsychoBugPhase.Hunting ? 3f : 0f);
+                Call(f.Enemy, "SetPsychoPhase", phase);
+                Set(f.Enemy, "psychoNextAttack", 0f);
+                Set(f.Enemy, "currentSpeed", 18f);
+                // Brake while beside the Bug, or move two lanes away while it's approaching or cruising.
+                Set(f.Player, "<IsBraking>k__BackingField", braking);
+                if (!braking) Property(f.Player, "CurrentLaneOffset", -side * initialLane);
+                f.Behaviour.shootingWindows = !braking;
+                Set(f.Enemy, "psychoExposureDeadline", 0f);
+                f.Step(.02f, false);
+                Check(f.Enemy.PsychoPhase == PsychoBugPhase.Repositioning && f.Enemy.DriveSpeed > 18f &&
+                    Mathf.Approximately(f.Enemy.LaneOffset, side * initialLane), "Pacing Bug did not accelerate out of its lane first");
+                Set(f.Player, "<IsBraking>k__BackingField", false);
+                int integrity = f.Player.RemainingIntegrityVoxels;
+                f.Wait(PsychoBugPhase.Warning, 6f);
+                f.Wait(PsychoBugPhase.Slamming, 1.2f);
+                Set(f.Player, "nextDamageTime", -1f);
+                f.Wait(PsychoBugPhase.Recovering, 1f);
+                Check(f.Player.RemainingIntegrityVoxels == integrity - 3, "Breakaway did not yield a damaging ram");
+            }
+
+            Property(f.Player, "CurrentLaneOffset", 0f);
+            f.Behaviour.shootingWindows = false;
+            f.Behaviour.sideRamEnabled = false;
+            f.Spawn(initialLane, 25f);
+            for (int i = 0; i < 100; i++) f.Step(.02f, false);
+            Check(Mathf.Approximately(f.Enemy.LaneOffset, initialLane), "Clear-road cruising changed lanes");
+
+            var civilianObject = new GameObject("Psycho Bug civilian escape QA");
+            civilianObject.transform.SetParent(f.Root.transform, false);
+            var civilian = civilianObject.AddComponent<VoxelObstacleCar>();
+            civilian.enabled = false;
+            try
+            {
+                f.Spawn(initialLane, 30f);
+                Check(civilian.Configure(f.Player, f.Traffic, true, f.Road, f.Enemy.TrackDistance + 10f, initialLane, 0f),
+                    "Could not configure the stopped civilian");
+                Vector2 bodySize = new(f.EnemyTuning.collisionHalfWidth + civilian.TrafficHalfWidth,
+                    f.EnemyTuning.collisionHalfLength + civilian.TrafficHalfLength);
+                Set(civilian, "trackDistance", f.Enemy.TrackDistance + bodySize.y + f.Behaviour.trafficClearance + .05f);
+                Set(f.Enemy, "currentSpeed", 0f);
+                Vector2 civilianPosition = new(civilian.LaneOffset, civilian.TrackDistance);
+                for (int i = 0; i < 30; i++)
+                {
+                    Vector2 before = new(f.Enemy.LaneOffset, f.Enemy.TrackDistance);
+                    f.Step(i == 0 ? .25f : .02f, false);
+                    Vector2 after = new(f.Enemy.LaneOffset, f.Enemy.TrackDistance);
+                    Check(!VoxelVehicleCollision.Sweep(before - civilianPosition, after - civilianPosition, bodySize, out _),
+                        "Passing a stopped civilian crossed its body");
+                }
+                Check(Mathf.Abs(f.Enemy.LaneOffset - initialLane) > bodySize.x && f.Enemy.DriveSpeed > 0f,
+                    "Bug stayed behind a stopped civilian with a clear exit");
+
+                f.Spawn(initialLane);
+                Set(civilian, "trackDistance", f.Enemy.TrackDistance + bodySize.y + f.Behaviour.trafficClearance + .05f);
+                Set(civilian, "travelSpeed", 20f);
+                Call(f.Enemy, "SetPsychoPhase", PsychoBugPhase.Repositioning);
+                Set(civilian, "trackDistance", civilian.TrackDistance + .4f); // Civilian Update runs before the Bug.
+                f.Step(.02f, false);
+                Check(!Mathf.Approximately(f.Enemy.LaneOffset, initialLane),
+                    "A civilian pacing at cruise speed blocked a clear repositioning pass");
+                Set(civilian, "travelSpeed", 0f);
+
+                // Start just inside the emergency margin but outside the physical body.
+                // The diagonal is blocked immediately, while a sideways-only move is safe.
+                Vector2 start = new(initialLane, civilian.TrackDistance - bodySize.y - .015f);
+                Set(f.Enemy, "trackDistance", start.y + 1f);
+                Set(f.Enemy, "laneOffset", start.x + initialLane);
+                Call(f.Enemy, "ResolvePsychoTrafficStep", start, .25f);
+                Check(Mathf.Approximately(f.Enemy.TrackDistance, start.y) && f.Enemy.LaneOffset >= start.x + initialLane - .01f,
+                    "Forward clipping pinned the Bug instead of permitting a sideways exit");
+
+                f.Spawn(initialLane, 30f);
+                f.Step(.001f, false); // Refresh the Bug's traffic snapshot.
+                Call(f.Enemy, "BeginPsychoRam");
+                Set(civilian, "trackDistance", f.Enemy.TrackDistance);
+                float slamLane = initialLane - bodySize.x - .15f;
+                Set(f.Enemy, "laneOffset", slamLane);
+                Call(f.Enemy, "ApplyPsychoRam", new Vector2(-2f, 0f));
+                Check(Mathf.Approximately(f.Enemy.LaneOffset, slamLane) && f.Enemy.PsychoPhase == PsychoBugPhase.Recovering,
+                    "Ram recoil snapped the Bug into an occupied launch lane");
+            }
+            finally { Object.DestroyImmediate(civilianObject); }
         }
 
         private static void ValidateAssets()

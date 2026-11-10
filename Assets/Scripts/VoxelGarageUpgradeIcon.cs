@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace VoxelRacer
 {
-    public enum VoxelGarageIconKind { Armour, Engine, Guns, Missile, Wheels, Spikes, Boost, Plough, Next, Settings, StarSpikes, Underbody }
+    public enum VoxelGarageIconKind { Armour, Engine, Guns, Missile, Wheels, Spikes, Boost, Plough, Next, Settings, StarSpikes, Underbody, GoldWheels }
 
     /// <summary>Small native UI meshes, without texture assets or per-icon materials.</summary>
     [RequireComponent(typeof(CanvasRenderer))]
@@ -55,13 +55,15 @@ namespace VoxelRacer
                         new Vector2(.08f,-.19f),new Vector2(.17f,-.59f),new Vector2(-.29f,-.57f),new Vector2(-.68f,-.81f)});
                     break;
                 case VoxelGarageIconKind.Wheels:
+                case VoxelGarageIconKind.GoldWheels:
                 case VoxelGarageIconKind.Spikes:
                     Ring(vh,.85f,.59f,20);
-                    for(int i=0;i<5;i++)
+                    int spokeCount = kind == VoxelGarageIconKind.GoldWheels ? 10 : 5;
+                    for(int i=0;i<spokeCount;i++)
                     {
-                        float a=i*Mathf.PI*2/5;
+                        float a=i*Mathf.PI*2/spokeCount;
                         Vector2 end=new Vector2(Mathf.Cos(a),Mathf.Sin(a))*.65f;
-                        Line(vh,Vector2.zero,end,.14f);
+                        Line(vh,Vector2.zero,end,spokeCount == 10 ? .09f : .14f);
                         if(kind==VoxelGarageIconKind.Spikes) Line(vh,end,end*1.5f,.17f);
                     }
                     break;

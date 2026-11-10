@@ -35,9 +35,10 @@ namespace VoxelRacer.Editor
         private static VoxelGarageUpgradeDockValidation.SavedState savedState;
         private static Dictionary<Object, string> snapshots;
         private static float previousScale, previousStep;
-        private static bool previousBackground, captured, pictured, verifiedSlowMotion, verifiedHandback;
+        private static bool previousBackground, captured, pictured, verifiedSlowMotion, verifiedHandback, verifiedSpikeTrails;
         private static UnityEngine.Random.State random;
         private static double startedAt;
+        private static float spikesSpawnedAt;
         private static int warmupFrame;
         private static Case live;
 
@@ -114,7 +115,7 @@ namespace VoxelRacer.Editor
                 previousRoots = previousScene.GetRootGameObjects(); previousRootActive = previousRoots.Select(go => go.activeSelf).ToArray();
                 foreach (var go in previousRoots) go.SetActive(false);
                 captured = true; Application.runInBackground = true; Time.timeScale = .8f; Time.fixedDeltaTime = .03f;
-                report.Clear(); pictured = verifiedSlowMotion = verifiedHandback = false;
+                report.Clear(); pictured = verifiedSlowMotion = verifiedHandback = verifiedSpikeTrails = false;
                 snapshots = Resources.LoadAll<VoxelEnemyVehicleTuning>("EnemyVehicles").Cast<Object>()
                     .Concat(new Object[] { Resources.Load<VoxelBossDefinition>("Bosses/RedVanBoss") }).ToDictionary(a => a, a => EditorJsonUtility.ToJson(a));
                 scene = SceneManager.CreateScene("Temporary boss destruction QA"); SceneManager.SetActiveScene(scene);
@@ -258,7 +259,7 @@ namespace VoxelRacer.Editor
             live.Settings.useWorldScaleForDestructionExplosion = true;
             live.Settings.destructionExplosionScale = live.Tuning.explosionEffectScale = 3f;
             live.Settings.destroyedLifetime = live.Tuning.destroyedLifetime = 1.3f;
-            live.Settings.spikeDebrisLifetime = .6f; live.Settings.spikeFireSmokeDuration = .15f;
+            live.Settings.spikeDebrisLifetime = 3f;
             live.Settings.overrideCompletionSlowMotion = true; live.Settings.completionSlowMotionDuration = .35f; live.Settings.completionSlowMotionTimeScale = .2f;
             live.Settings.overrideFinishStopDuration = true; live.Settings.finishStopDuration = .6f;
             live.Settings.focusCameraOnDestruction = true; live.Settings.destructionCameraDuration = 2; live.Settings.destructionCameraBlendDuration = .15f;
@@ -297,6 +298,7 @@ namespace VoxelRacer.Editor
                     "Spike bursts inherited the shared explosion's global scale");
                 live.Enemy.enabled = true; player.enabled = true;
                 startedAt = Time.realtimeSinceStartupAsDouble;
+                spikesSpawnedAt = Time.time;
                 EditorApplication.update += Tick;
             }
             catch (Exception error) { Complete(false, error.ToString()); }
@@ -325,10 +327,23 @@ namespace VoxelRacer.Editor
                     Check(live.Enemy == null, "Expired boss wreck was kept alive for the focus camera");
                     verifiedHandback = true;
                 }
-                if (elapsed < 4.2) return;
+                float spikeAge = Time.time - spikesSpawnedAt;
+                if (!verifiedSpikeTrails && spikeAge >= live.Settings.spikeDebrisLifetime - .55f)
+                {
+                    var spikes = Object.FindObjectsByType<VoxelBossSpikeDebris>(FindObjectsSortMode.None)
+                        .Where(s => s.gameObject.scene == scene).ToArray();
+                    Check(spikes.Length == 3 && spikes.All(s =>
+                    {
+                        var emitters = s.GetComponentsInChildren<ParticleSystem>();
+                        return emitters.Length == 2 && emitters.All(ps => ps.isEmitting && ps.particleCount > 0);
+                    }), "All three drills must still emit smoke and flame late in their lifetime, after the wreck expires");
+                    verifiedSpikeTrails = true;
+                }
+                Check(elapsed < 12, "Boss destruction validation timed out");
+                if (!verifiedHandback || spikeAge < live.Settings.spikeDebrisLifetime + .1f) return;
                 Check(Object.FindObjectsByType<VoxelBossSpikeDebris>(FindObjectsSortMode.None).All(s => s.gameObject.scene != scene), "Detached spike/effects lifetime leaked");
                 foreach (var pair in snapshots) Check(pair.Value == EditorJsonUtility.ToJson(pair.Key), "Source tuning changed: " + pair.Key.name);
-                report.Add("PASS live three-spike physics and fire/smoke, realtime boss slowdown/restoration, independent coast duration, camera focus/expired-target fallback/player handback, reward gating and fragment/particle cleanup.");
+                report.Add("PASS all three drills emit smoke and fire near the end of their lifetime and clean up with their particles. Live physics, boss slowdown/restoration, independent coast duration, camera handback after wreck expiry and reward gating passed.");
                 Complete(true, "All boss destruction checks passed.");
             }
             catch (Exception error) { Complete(false, error.ToString()); }

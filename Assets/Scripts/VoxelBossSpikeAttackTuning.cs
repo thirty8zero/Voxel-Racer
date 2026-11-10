@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace VoxelRacer
 {
@@ -11,8 +12,11 @@ namespace VoxelRacer
         [Tooltip("Doors open, then spikes extend, before braking begins.")]
         [Min(.5f)] public float warningDuration = 2;
         [Min(.1f)] public float holdDuration = 2;
-        [Tooltip("Delay after a player side ram before the current spike attack enters its retreat phase.")]
-        [Min(0f)] public float sideRamRetreatDelay = .1f;
+        [Tooltip("Seconds the impact throws sparks while the cars separate.")]
+        [FormerlySerializedAs("sideRamContactDuration")]
+        [Range(.08f, .35f)] public float sideRamSparkDuration = .22f;
+        [Tooltip("Seconds of lateral rebound while Vandito starts pulling away.")]
+        [Range(.12f, .5f)] public float sideRamReboundDuration = .30f;
         [Min(1)] public float braking = 180;
         [Tooltip("How quickly the attack closes its remaining gap.")]
         [Min(.1f)] public float closingResponse = 6;
@@ -20,7 +24,7 @@ namespace VoxelRacer
         [Min(1)] public float closingSpeed = 60;
         [Tooltip("Distance ahead to reach when the player dodges. Zero brings the boss alongside the player.")]
         [Min(0)] public float missDistance;
-        [Tooltip("Player lane-center separation, as a fraction of one lane width, that counts as a successful dodge. The van collision footprint narrows to this half-width and any remaining corner contact is ignored.")]
+        [Tooltip("Player lane-center separation, as a fraction of one lane width, that counts as a successful dodge. Body clearance is checked separately.")]
         [Range(.5f, 1.2f)] public float dodgeLaneFraction = .85f;
         [Min(1)] public float acceleration = 100;
         [Min(1)] public float pullAwaySpeed = 55;

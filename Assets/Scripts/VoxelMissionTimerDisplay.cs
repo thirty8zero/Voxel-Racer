@@ -6,6 +6,9 @@ namespace VoxelRacer
     /// <summary>Upper-right radial mission timer with colour-coded remaining time.</summary>
     public sealed class VoxelMissionTimerDisplay : MonoBehaviour
     {
+        public const int CountdownFontSize = 100;
+
+        public static VoxelMissionTimerDisplay Active { get; private set; }
         private VoxelMissionProgress mission;
         private CanvasGroup canvasGroup;
         private Image backgroundRing;
@@ -13,8 +16,11 @@ namespace VoxelRacer
         private Text timerText;
         private Texture2D ringTexture;
         private Font voxelFont;
+        private VoxelMissionInstrumentCluster instrumentCluster;
 
         public void Configure(VoxelMissionProgress progress) => mission = progress;
+        private void OnEnable() => Active = this;
+        private void OnDisable() { if (Active == this) Active = null; }
         public bool TryGetScreenRect(out Rect rect)
         {
             rect = default;
@@ -64,8 +70,8 @@ namespace VoxelRacer
             bool timeIsUp = mission.RemainingTime <= 0f;
             dialScale += .25f * extensionPulse * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 12f));
             SetDialScale(dialScale, timeIsUp);
-            timerText.fontSize = timeIsUp ? 44 : 76;
-            timerText.resizeTextMaxSize = timeIsUp ? 44 : 76;
+            mission.RefreshInstrumentCluster(instrumentCluster);
+            timerText.fontSize = timerText.resizeTextMaxSize = timeIsUp ? 44 : CountdownFontSize;
             int remainingSeconds = Mathf.CeilToInt(mission.RemainingTime);
             timerText.text = timeIsUp
                 ? "TIME'S\nUP!"
@@ -83,6 +89,15 @@ namespace VoxelRacer
             canvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
             canvasGroup.alpha = 0f;
 
+            var clusterObject = new GameObject("Timer Multiplier Cluster", typeof(RectTransform), typeof(CanvasRenderer), typeof(VoxelMissionInstrumentCluster));
+            clusterObject.transform.SetParent(canvas, false);
+            var clusterRect = (RectTransform)clusterObject.transform;
+            clusterRect.anchorMin = clusterRect.anchorMax = new Vector2(1f, 1f);
+            clusterRect.anchoredPosition = new Vector2(-155f, -165f);
+            clusterRect.sizeDelta = new Vector2(1000f, 500f);
+            instrumentCluster = clusterObject.GetComponent<VoxelMissionInstrumentCluster>();
+            instrumentCluster.Build();
+
             Sprite ringSprite = CreateRingSprite();
             backgroundRing = CreateRingImage(canvas, ringSprite);
             backgroundRing.name = "Timer Ring Background";
@@ -92,12 +107,12 @@ namespace VoxelRacer
             timerRing = CreateRingImage(canvas, ringSprite);
             timerRing.name = "Timer Ring";
 
-            timerText = VoxelMenuUi.CreateText(canvas, "Timer Text", string.Empty, 76,
+            timerText = VoxelMenuUi.CreateText(canvas, "Timer Text", string.Empty, CountdownFontSize,
                 TextAnchor.MiddleCenter, new Vector2(1f, 1f), new Vector2(-155f, -165f), new Vector2(195f, 110f));
             timerText.font = voxelFont;
             timerText.resizeTextForBestFit = true;
             timerText.resizeTextMinSize = 12;
-            timerText.resizeTextMaxSize = 76;
+            timerText.resizeTextMaxSize = CountdownFontSize;
         }
 
         private static Color GetTimerColour(float remainingPercent)
@@ -114,6 +129,7 @@ namespace VoxelRacer
 
         private void SetDialScale(float scale, bool timeIsUp)
         {
+            instrumentCluster?.SetDialScale(scale);
             Vector3 dialScale = Vector3.one * scale;
             backgroundRing.transform.localScale = dialScale;
             timerRing.transform.localScale = dialScale;

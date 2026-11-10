@@ -30,12 +30,18 @@ namespace VoxelRacer
         private void ApplyGarageCameraProjection(Matrix4x4 target)
         {
             garageCameraTargetProjection = target;
-            if (!garageCameraTransitionActive) { workshopCamera.projectionMatrix = target; return; }
+            if (!garageCameraTransitionActive)
+            {
+                workshopCamera.projectionMatrix = target;
+                ApplyUpgradeDetailClearance();
+                return;
+            }
             float t = VoxelEasing.Evaluate(garageCameraTransitionEasing, garageCameraTransitionElapsed / garageCameraTransitionDuration);
             var blended = new Matrix4x4();
             for (int i = 0; i < 4; i++)
                 blended.SetColumn(i, Vector4.Lerp(garageCameraTransitionFrom.GetColumn(i), target.GetColumn(i), t));
             workshopCamera.projectionMatrix = blended;
+            ApplyUpgradeDetailClearance();
         }
 
         private void AdvanceGarageCameraTransition(float unscaledDeltaTime)

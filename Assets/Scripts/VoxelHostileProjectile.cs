@@ -5,36 +5,76 @@ namespace VoxelRacer
     /// <summary>Lightweight hostile projectile. It uses raycasts rather than rigidbodies and never reports mission score.</summary>
     public sealed class VoxelHostileProjectile : MonoBehaviour
     {
+        private const float BulletLength = .38f;
+        private const float TracerLength = 1.2f;
         private Vector3 direction;
+        private Vector3 launchPosition;
         private float speed;
         private float remainingLifetime;
         private VoxelRoadsideTurretTuning tuning;
         private VoxelCarController target;
+        private LineRenderer tracer;
+        private static Mesh bulletMesh;
+        private static Material tracerMaterial;
         private static RaycastHit[] hitBuffer = new RaycastHit[64];
 
         public static VoxelHostileProjectile Create(Vector3 position, Vector3 firingDirection,
             VoxelRoadsideTurretTuning value, VoxelCarController player)
         {
-            GameObject projectileObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            projectileObject.name = "Turret Projectile";
+            var projectileObject = new GameObject("Turret Projectile");
             projectileObject.transform.SetPositionAndRotation(position, Quaternion.LookRotation(firingDirection));
-            projectileObject.transform.localScale = new Vector3(0.13f, 0.13f, 0.38f);
-            var collider = projectileObject.GetComponent<BoxCollider>();
-            collider.enabled = false;
-            Object.Destroy(collider);
+            projectileObject.transform.localScale = new Vector3(0.13f, 0.13f, BulletLength);
+            if (bulletMesh == null)
+                bulletMesh = Resources.Load<Mesh>("EnemyTurrets/Model/RoadsideTurretBulletMesh");
+            projectileObject.AddComponent<MeshFilter>().sharedMesh = bulletMesh;
+            var renderer = projectileObject.AddComponent<MeshRenderer>();
 
             Material material = Resources.Load<Material>("CarMaterials/FormulaWhite");
             if (material == null)
                 material = VoxelRacerBootstrap.ObstacleCarPaintMaterial;
             if (material != null)
-                projectileObject.GetComponent<MeshRenderer>().sharedMaterial = material;
+                renderer.sharedMaterial = material;
             var projectile = projectileObject.AddComponent<VoxelHostileProjectile>();
             projectile.direction = firingDirection.normalized;
+            projectile.launchPosition = position;
             projectile.speed = value.projectileSpeed;
             projectile.remainingLifetime = value.projectileLifetime;
             projectile.tuning = value;
             projectile.target = player;
+            projectile.CreateTracer();
             return projectile;
+        }
+
+        private void CreateTracer()
+        {
+            if (tracerMaterial == null)
+                tracerMaterial = Resources.Load<Material>("Effects/YellowVoxelImpactSpark");
+            if (tracerMaterial == null)
+                return;
+
+            var visual = new GameObject("Yellow Tracer");
+            visual.transform.SetParent(transform, false);
+            tracer = visual.AddComponent<LineRenderer>();
+            tracer.sharedMaterial = tracerMaterial;
+            tracer.useWorldSpace = true;
+            tracer.startWidth = .08f;
+            tracer.endWidth = 0f;
+            tracer.positionCount = 2;
+            tracer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            tracer.receiveShadows = false;
+            UpdateTracer();
+        }
+
+        private void UpdateTracer()
+        {
+            if (tracer == null)
+                return;
+
+            // Straight shots only need the last stretch of their path. Grow it from the muzzle.
+            Vector3 rear = transform.position - direction * (BulletLength * .5f);
+            float length = Mathf.Clamp(Vector3.Dot(rear - launchPosition, direction), 0f, TracerLength);
+            tracer.SetPosition(0, rear);
+            tracer.SetPosition(1, rear - direction * length);
         }
 
         private void Update()
@@ -81,6 +121,7 @@ namespace VoxelRacer
             }
 
             transform.position += direction * distance;
+            UpdateTracer();
             remainingLifetime -= Time.deltaTime;
             if (remainingLifetime <= 0f)
                 Destroy(gameObject);

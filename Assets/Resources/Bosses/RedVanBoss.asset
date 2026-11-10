@@ -45,7 +45,7 @@ MonoBehaviour:
   maximumDestructionDebris: 200
   destructionExplosionScale: 2
   useWorldScaleForDestructionExplosion: 0
-  destroyedLifetime: 4
+  destroyedLifetime: 6
   weaponDebris:
     scale: 0.8
     forwardForceMin: 20
@@ -79,16 +79,16 @@ MonoBehaviour:
   spikeFireSmokeScale: 1
   spikeExplosionScale: 0.8
   overrideCompletionSlowMotion: 1
-  completionSlowMotionDuration: 1.5
+  completionSlowMotionDuration: 5
   completionSlowMotionTimeScale: 0.25
   overrideFinishStopDuration: 0
   finishStopDuration: 3
-  focusCameraOnDestruction: 0
+  focusCameraOnDestruction: 1
   destructionCameraDuration: 3
-  destructionCameraBlendDuration: 0.5
+  destructionCameraBlendDuration: 2
   destructionCameraOffset: {x: 24, y: 14, z: -30}
   destructionCameraLookHeight: 4
-  destructionCameraFieldOfView: 50
+  destructionCameraFieldOfView: 40
   minimumDistanceAhead: 30
   maximumDistanceAhead: 210
   escapeWarningDistance: 150

@@ -6,6 +6,7 @@ namespace VoxelRacer
     public sealed partial class VoxelRepairUpgradeSceneController
     {
         private GameObject missionStartWarning;
+        private Button startWithoutPartsButton;
         private bool MissionStartWarningVisible => missionStartWarning != null && missionStartWarning.activeSelf;
 
         private void ShowMissionStartWarning()
@@ -32,9 +33,9 @@ namespace VoxelRacer
                 var back = VoxelMenuUi.CreateButton(panel.transform, "Go Back to Upgrades", "GO BACK", 30,
                     new Vector2(.5f, .5f), new Vector2(-180, -125), new Vector2(320, 76), HideMissionStartWarning);
                 Frame(back.gameObject, new Color(.48f, .55f, .63f), new Color(.07f, .09f, .12f));
-                var start = VoxelMenuUi.CreateButton(panel.transform, "Start Mission Without Parts", "START MISSION", 30,
+                startWithoutPartsButton = VoxelMenuUi.CreateButton(panel.transform, "Start Mission Without Parts", "START MISSION", 30,
                     new Vector2(.5f, .5f), new Vector2(180, -125), new Vector2(320, 76), StartNextRaceConfirmed);
-                Frame(start.gameObject, GoldAccent, new Color(.26f, .17f, .045f));
+                Frame(startWithoutPartsButton.gameObject, GoldAccent, new Color(.26f, .17f, .045f));
                 foreach (var label in panel.GetComponentsInChildren<Text>()) label.font = GarageMono;
             }
             placementPointerHeld = rotatingCar = pinching = false;

@@ -50,7 +50,7 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("BuildUi",flags).Invoke(shop,null);
                 VoxelCurrencyState.Add(3000);
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("RefreshUi",flags).Invoke(shop,null);
-                var button=root.GetComponentsInChildren<Button>(true).First(b=>b.name=="V6 Engine Purchase Button");
+                var button=VoxelGarageUpgradeDockValidation.InspectUpgrade(root.GetComponentsInChildren<Button>(true).First(b=>b.name=="V6 Engine Purchase Button"));
                 Check(button.interactable,"Shop engine unavailable");button.onClick.Invoke();
                 Check(!VoxelEngineUpgradeState.IsPurchased && VoxelCurrencyState.Balance==3000,"Engine preview charged before confirmation");
                 var placement=(VoxelGarageUpgradePlacement)typeof(VoxelRepairUpgradeSceneController).GetField("upgradePlacement",flags).GetValue(shop);

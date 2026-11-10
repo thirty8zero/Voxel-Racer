@@ -20,6 +20,8 @@ namespace VoxelRacer
         private Button startButton, backButton, previousButton, nextButton;
         private VoxelMissionBriefingSettings settings;
         private List<VoxelMissionBriefingEnemy> enemies;
+        private readonly List<(RawImage image, VoxelMissionBriefingPreview preview)> animatedPreviews = new();
+        private float previewsStartedAt;
         private Action launch, back;
         private bool shown;
         private int page, openedFrame;
@@ -87,11 +89,13 @@ namespace VoxelRacer
         {
             if (!shown) return;
             Layout();
+            AnimatePreviews(Time.unscaledTime - previewsStartedAt);
             if (VoxelLoadingScreen.IsLoading || Time.frameCount <= openedFrame + 1) return;
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
             if (keyboard.escapeKey.wasPressedThisFrame) GoBack();
             else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame) Accept();
+            else VoxelEditorNavigation.Activate(startButton);
         }
         private void Layout()
         {
@@ -134,6 +138,8 @@ namespace VoxelRacer
         }
         private void RebuildCards()
         {
+            animatedPreviews.Clear();
+            previewsStartedAt = Time.unscaledTime;
             for (int i = cards.childCount - 1; i >= 0; i--)
             { var child = cards.GetChild(i).gameObject; child.SetActive(false); if (Application.isPlaying) Destroy(child); else DestroyImmediate(child); }
             int pages = Mathf.Max(1, Mathf.CeilToInt(enemies.Count / 4f)); page = Mathf.Clamp(page, 0, pages - 1);
@@ -156,15 +162,22 @@ namespace VoxelRacer
                 var frame = new GameObject("Model Frame", typeof(RectTransform)).GetComponent<RectTransform>(); frame.SetParent(card.transform, false);
                 SetRect(frame, 8, 12, width - 16, 280);
                 var model = Stretch("Three Quarter Model", frame).gameObject.AddComponent<RawImage>(); model.raycastTarget = false;
-                model.texture = settings != null ? settings.PreviewFor(enemy.Source) : null;
+                var preview = settings != null ? settings.PreviewRecordFor(enemy.Source) : null;
+                model.texture = preview != null ? preview.IsAnimated ? preview.animation : preview.image : null;
                 model.enabled = model.texture != null;
-                if (model.texture != null) { var fit = model.gameObject.AddComponent<AspectRatioFitter>(); fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent; fit.aspectRatio = model.texture.width / (float)model.texture.height; }
+                if (preview != null && preview.IsAnimated)
+                { model.uvRect = preview.FrameUv(0); animatedPreviews.Add((model, preview)); }
+                if (model.texture != null) { var fit = model.gameObject.AddComponent<AspectRatioFitter>(); fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent; fit.aspectRatio = preview.AspectRatio; }
                 else Label(card.transform, "Missing Preview", "MODEL PREVIEW", 25, 20, 125, width - 40, 65, TextAnchor.MiddleCenter).color = Silver;
                 Label(card.transform, "Enemy Name", enemy.Name.ToUpperInvariant(), 39, 28, 296, width - 56, 56);
                 var line = Panel(card.transform, "Card Rule", 28, 358, width - 56, 1, Silver); line.edgeColor = Silver;
                 Label(card.transform, "Threat", enemy.Trait, 27, 28, 366, width - 56, 38).color = new Color(.65f, .71f, .79f);
             }
             if (count == 0) Label(cards, "No Enemies", "NO HOSTILE VEHICLES REPORTED", 44, 160, 580, 1600, 120, TextAnchor.MiddleCenter);
+        }
+        private void AnimatePreviews(float elapsed)
+        {
+            foreach (var entry in animatedPreviews) entry.image.uvRect = entry.preview.FrameUv(elapsed);
         }
         private static VoxelGaragePanel Panel(Transform parent, string name, float x, float y, float w, float h, Color color)
         {

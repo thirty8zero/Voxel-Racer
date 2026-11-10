@@ -255,20 +255,21 @@ namespace VoxelRacer.Editor
                 .First(button => button.name == "Right Door Armor Purchase Button");
             var leftButton = shopObject.GetComponentsInChildren<Button>(true)
                 .First(button => button.name == "Left Door Armor Purchase Button");
-            Check(leftButton.interactable && !rightButton.gameObject.activeSelf, "combined armour card unavailable or duplicate side card visible");
-            leftButton.onClick.Invoke();
+            var action = VoxelGarageUpgradeDockValidation.InspectUpgrade(leftButton);
+            Check(action.interactable && !rightButton.gameObject.activeSelf, "combined armour card unavailable or duplicate side card visible");
+            action.onClick.Invoke();
             Check(!VoxelArmorUpgradeState.IsPurchased, "placement preview purchased armour immediately");
             shopType.GetMethod("SelectUpgradePlacement", instance).Invoke(shop, new object[] { 1 });
             shopType.GetMethod("ConfirmUpgradePurchase", instance).Invoke(shop, null);
             Check(VoxelArmorUpgradeState.IsRightPurchased && !VoxelArmorUpgradeState.IsLeftPurchased &&
-                !rightButton.interactable && leftButton.interactable &&
+                !rightButton.interactable && action.interactable &&
                 car.TotalIntegrityVoxels == baseCount + 30 && car.MissingIntegrityVoxels == 8 &&
                 rightButton.GetComponentInChildren<Text>().text.Contains("INSTALLED"),
                 "right shop purchase did not install independently");
-            leftButton.onClick.Invoke();
+            action.onClick.Invoke();
             shopType.GetMethod("SelectUpgradePlacement", instance).Invoke(shop, new object[] { 0 });
             shopType.GetMethod("ConfirmUpgradePurchase", instance).Invoke(shop, null);
-            Check(VoxelArmorUpgradeState.IsLeftPurchased && !leftButton.interactable &&
+            Check(VoxelArmorUpgradeState.IsLeftPurchased && !action.interactable &&
                 car.TotalIntegrityVoxels == baseCount + 60 && car.MissingIntegrityVoxels == 8 &&
                 leftButton.GetComponentInChildren<Text>().text.Contains("INSTALLED"),
                 "left shop purchase did not preserve damage or integrity");

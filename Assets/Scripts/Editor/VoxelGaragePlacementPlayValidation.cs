@@ -32,6 +32,7 @@ namespace VoxelRacer.Editor
         private static float savedTimeScale;
         private static int missionIndex, departureBalance;
         private static string missionScene;
+        private static VoxelRepairUpgradeTuning sectionTuning;
         private static float carriedIntegrity;
         private static int carriedMissingVoxels;
         private static float swipeDistance;
@@ -45,6 +46,7 @@ namespace VoxelRacer.Editor
         }
         private static VoxelGarageUpgradePlacement Preview() => (VoxelGarageUpgradePlacement)
             typeof(VoxelRepairUpgradeSceneController).GetField("upgradePlacement", Private).GetValue(shop);
+        private static void UseUpgradeAction(string card) => VoxelGarageUpgradeDockValidation.InspectUpgrade(Button(card)).onClick.Invoke();
         private static void Call(string method, params object[] args) =>
             typeof(VoxelRepairUpgradeSceneController).GetMethod(method, Private).Invoke(shop, args);
         private static void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
@@ -100,6 +102,9 @@ namespace VoxelRacer.Editor
                 root = new GameObject("Temporary live garage placement QA");
                 SeedIntegrityDamage();
                 shop = root.AddComponent<VoxelRepairUpgradeSceneController>();
+                sectionTuning = Object.Instantiate(shop.cameraTuning);
+                sectionTuning.showUpgradeSectionTabs = true;
+                shop.cameraTuning = sectionTuning;
                 rotation = shop.DisplayedCar.transform.rotation;
                 Time.timeScale = 0; // Menu and garage display motion must not inherit a paused race clock.
                 mouse = InputSystem.AddDevice<Mouse>();
@@ -228,7 +233,7 @@ namespace VoxelRacer.Editor
             if (Time.realtimeSinceStartup - started > 30) { Finish("FAIL: input validation timed out."); return; }
             if (Time.frameCount < frame + 3) return;
             // Model taps need settled screen positions after navigating between garage panels.
-            if (phase>=0 && (bool)typeof(VoxelRepairUpgradeSceneController).GetField("garageCameraTransitionActive", Private).GetValue(shop)) return;
+            if (phase >= 0 && shop != null && (bool)typeof(VoxelRepairUpgradeSceneController).GetField("garageCameraTransitionActive", Private).GetValue(shop)) return;
             try
             {
                 switch (phase)
@@ -288,7 +293,7 @@ namespace VoxelRacer.Editor
                         TouchEvent(UnityEngine.InputSystem.TouchPhase.Began);break;
                     case -7: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended);break;
                     case -6:
-                        Check(shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().Length==3 &&
+                        Check(shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().Length==4 &&
                             shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().All(c=>c.Category==VoxelGarageUpgradeCategory.WheelsAndTires),
                             "Touch input did not open Wheels & Tires category.");
                         point=RectTransformUtility.WorldToScreenPoint(null,Button("Category Engines").transform.position);
@@ -297,9 +302,18 @@ namespace VoxelRacer.Editor
                     case -4:
                         Check(shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().Single().Category==VoxelGarageUpgradeCategory.Engines,
                             "Touch input did not open Engines category.");
-                        phase=-1;break;
+                        point = RectTransformUtility.WorldToScreenPoint(null, Button("Long Gun Purchase Button").transform.position);
+                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Began); break;
+                    case -3: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
+                    case -2:
+                        Check(Preview() == null && VoxelCurrencyState.Balance == balance &&
+                            Button("Selected Upgrade Action").GetComponentInChildren<Text>().text.StartsWith("PLACE +"),
+                            "Touch inspection started a preview or failed to show the place action");
+                        point = RectTransformUtility.WorldToScreenPoint(null, Button("Selected Upgrade Action").transform.position);
+                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Began); break;
+                    case -1: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
                     case 0:
-                        Button("Long Gun Purchase Button").onClick.Invoke();
+                        Check(Preview()?.Kind == VoxelGarageUpgradeKind.Guns, "Touch on the detail action did not open gun placement");
                         Call("ApplyGaragePreviewViewport"); point = Spot(1); MouseEvent(true, point); break;
                     case 1: MouseEvent(false, point); break;
                     case 2:
@@ -307,7 +321,7 @@ namespace VoxelRacer.Editor
                             "Mouse tap did not select right ghost without spending");
                         Button("Cancel Upgrade Purchase").onClick.Invoke();
                         Check(Preview() == null && !VoxelGunUpgradeState.IsPurchased(1), "Cancel bought the preview");
-                        Button("Long Gun Purchase Button").onClick.Invoke(); point = Spot(1);
+                        UseUpgradeAction("Long Gun Purchase Button"); point = Spot(1);
                         TouchEvent(UnityEngine.InputSystem.TouchPhase.Began); break;
                     case 3: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
                     case 4:
@@ -318,9 +332,12 @@ namespace VoxelRacer.Editor
                     case 6:
                         Check(Preview().PendingCount(VoxelGarageUpgradeKind.Guns) == 2 && VoxelCurrencyState.Balance == balance,
                             "Open confirmation blocked selection of a second gun");
-                        Button("Wheel Spike Purchase Button").onClick.Invoke();
-                        Button("Performance Wheel Purchase Button").onClick.Invoke();
-                        Button("Boost Bottle Purchase Button").onClick.Invoke();
+                        UseUpgradeAction("Wheel Spike Purchase Button");
+                        UseUpgradeAction("Performance Wheel Purchase Button");
+                        UseUpgradeAction("Gold Track Wheel Purchase Button");
+                        Check(Preview().PendingCount(VoxelGarageUpgradeKind.GoldWheels) == 0,
+                            "Conflicting wheel sets entered the same basket");
+                        UseUpgradeAction("Boost Bottle Purchase Button");
                         Check(Preview().Selections.Count == 5, "Switching cards discarded the pending gun pair");
                         VoxelGarageUpgradeDockValidation.CheckCategories(shop);
                         point = EmptySwipeSpot();
@@ -345,34 +362,34 @@ namespace VoxelRacer.Editor
                         Check(Preview() == null && VoxelGunUpgradeState.PurchasedLongGunCount == 2 && VoxelWheelSpikeUpgradeState.IsPurchased &&
                             VoxelPerformanceWheelUpgradeState.IsPurchased && VoxelBoostUpgradeState.IsPurchased && VoxelCurrencyState.Balance == balance - cost,
                             "Combined confirmation lost parts or charged the wrong total");
-                        Button("Left Door Armor Purchase Button").onClick.Invoke();
+                        UseUpgradeAction("Left Door Armor Purchase Button");
                         Call("SelectUpgradePlacement", 1); shop.enabled = false;
                         Check(Preview() == null && !VoxelArmorUpgradeState.IsPurchased, "Disabling the shop did not cancel its pending parts");
                         shop.enabled = true;
                         Check(Button("Left Door Armor Purchase Button").GetComponent<VoxelGarageUpgradeCard>().State == VoxelGarageUpgradeState.Affordable,
                             "Re-enabling the shop left its canceled card marked pending");
-                        Button("Left Door Armor Purchase Button").onClick.Invoke();
+                        UseUpgradeAction("Left Door Armor Purchase Button");
                         shop.transform.Find("Repair Upgrade UI/Car Upgrade Panel/Close Panel").GetComponent<Button>().onClick.Invoke();
                         Check(Preview() == null, "Closing upgrades left a preview");
                         shop.garageAutoRotationDegreesPerSecond = 0;
                         shop.DisplayedCar.transform.rotation = Quaternion.Euler(0, -15, 0);
                         Button("Upgrade Menu Button").onClick.Invoke();
-                        Button("Left Door Armor Purchase Button").onClick.Invoke();
+                        UseUpgradeAction("Left Door Armor Purchase Button");
                         Call("SelectUpgradePlacement", 1); Call("SelectUpgradePlacement", 0);
-                        Button("Plough Purchase Button").onClick.Invoke();
+                        UseUpgradeAction("Plough Purchase Button");
                         point = PendingSpot(VoxelGarageUpgradeKind.Armour, 1); MouseEvent(true, point); break;
                     case 11: MouseEvent(false, point); break;
                     case 12:
                         Check(Preview().PendingCount(VoxelGarageUpgradeKind.Armour) == 1 && Preview().IsPending(VoxelGarageUpgradeKind.Armour, 0) &&
                             !Preview().IsPending(VoxelGarageUpgradeKind.Armour, 1) && Preview().PendingCount(VoxelGarageUpgradeKind.Plough) == 1,
                             "Mouse tap on a fitted model removed the wrong type/side or failed across tabs");
-                        Button("Left Door Armor Purchase Button").onClick.Invoke();
+                        UseUpgradeAction("Left Door Armor Purchase Button");
                         Check(Preview().PendingCount(VoxelGarageUpgradeKind.Armour) == 0 && Preview().PendingCount(VoxelGarageUpgradeKind.Plough) == 1,
-                            "Retapping an armour tab did not remove its remaining pending side");
-                        Button("Plough Purchase Button").onClick.Invoke();
+                            "The armour detail action did not remove its remaining pending side");
+                        UseUpgradeAction("Plough Purchase Button");
                         Check(Preview() == null && !shop.transform.Find("Repair Upgrade UI/Upgrade Purchase Confirmation").gameObject.activeSelf,
-                            "Retapping the last pending tab did not hide confirmation");
-                        Button("Left Missile Purchase Button").onClick.Invoke(); Call("SelectUpgradePlacement", 1);
+                            "Removing the last pending upgrade did not hide confirmation");
+                        UseUpgradeAction("Left Missile Purchase Button"); Call("SelectUpgradePlacement", 1);
                         point = PendingSpot(VoxelGarageUpgradeKind.Missiles, 1);
                         TouchEvent(UnityEngine.InputSystem.TouchPhase.Began); break;
                     case 13: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
@@ -383,7 +400,8 @@ namespace VoxelRacer.Editor
                         int confirmedCost = 2 * VoxelGunUpgradeState.LongGunTuning.purchasePrice + VoxelWheelSpikeTuning.Load().purchasePrice +
                             VoxelPerformanceWheelTuning.Load().purchasePrice + VoxelBoostUpgradeTuning.LoadUpgrade().purchasePrice;
                         Check(VoxelCurrencyState.Balance == balance - confirmedCost, "Removing pending parts changed cash");
-                        Button("Plough Purchase Button").onClick.Invoke();
+                        CheckGoldWheelReplacement();
+                        UseUpgradeAction("Plough Purchase Button");
                         shop.NextRaceButton.onClick.Invoke();
                         var warning=shop.transform.Find("Repair Upgrade UI/Unfitted Parts Warning");
                         Check(warning.gameObject.activeSelf && Preview().PendingCount(VoxelGarageUpgradeKind.Plough)==1,"Starting with pending parts did not warn");
@@ -396,19 +414,62 @@ namespace VoxelRacer.Editor
                         warning.GetComponentsInChildren<Button>().First(b=>b.name=="Start Mission Without Parts").onClick.Invoke();
                         break;
                     case 15:
+                        Check(VoxelMissionBriefing.IsShowing, "Starting without pending parts did not open the mission briefing");
+                        VoxelMissionBriefing.Active.GetComponentsInChildren<Button>().First(b => b.name == "Start Mission").onClick.Invoke();
+                        break;
+                    case 16:
+                        if (VoxelLoadingScreen.IsLoading) return;
                         Check(SceneManager.GetActiveScene().name==missionScene && VoxelTrackProgressState.CurrentTrackIndex==missionIndex,"Start Mission did not advance and load the mission");
                         Check(!VoxelPloughUpgradeState.IsPurchased && VoxelCurrencyState.Balance==departureBalance,"Starting without pending parts bought them or spent cash");
                         Check(Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).All(t=>t.name!="Temporary Upgrade Placement"),"Unpurchased preview leaked into the mission");
-                        Finish("PASS (Play Mode): six category tabs, correct nine-card grouping, real touch category selection, per-category sorting, pending cart and wallet preserved across tabs; empty-background touch swipes right/left, mouse background drag beside repairs, repair UI drag blocking, background rotation with pending upgrades and confirmation open; garage integrity visible with disabled controller and paused clock, race damage carry-over, partial/full repair refresh and persistence, home/repair/upgrades, no pause input, inactive/disabled visibility and retained race gate; immediate menu/garage spin, real mouse/touch placement and removal, multiple selections, combined purchase, disable/close cleanup; starting with pending parts warns, Go Back retains the cart, Start Mission advances/loads the real race without spending or purchasing pending parts. Temporary input devices and cash/purchase/campaign/clock state restored."); return;
+                        var raceCar = Object.FindObjectsByType<VoxelCarController>(FindObjectsSortMode.None)
+                            .Single(car => car.gameObject.scene == SceneManager.GetActiveScene());
+                        var gold = VoxelPerformanceWheelTuning.LoadGold();
+                        VoxelGoldTrackWheelValidation.VerifyMounts(raceCar.gameObject, gold);
+                        Check(Mathf.Approximately(raceCar.EffectiveAcceleration, raceCar.acceleration * (1 + gold.accelerationBonusPercent / 100)) &&
+                            Mathf.Approximately(raceCar.EffectiveLaneChangeSpeed, raceCar.laneChangeSpeed * (1 + gold.laneChangeBonusPercent / 100)) &&
+                            Mathf.Approximately(raceCar.EffectiveBrakingForce, raceCar.brakingForce * (1 + gold.brakingBonusPercent / 100)),
+                            "The next race lost or stacked the installed wheel bonuses");
+                        Finish("PASS (Play Mode): real touch category selection, upgrade inspection and separate Place action, per-category sorting, pending cart and wallet preserved across tabs; empty-background touch swipes right/left, mouse background drag beside repairs, repair UI drag blocking, background rotation with pending upgrades and confirmation open; garage integrity visible with disabled controller and paused clock, race damage carry-over, partial/full repair refresh and persistence, home/repair/upgrades, no pause input, inactive/disabled visibility and retained race gate; immediate menu/garage spin, real mouse/touch placement and removal, multiple selections, combined purchase, disable/close cleanup; Gold Track Wheels preview/cancel and exclusive Sports Wheel replacement with exact cost, preserved damage/spikes and installed gold wheels and tuning in the next race; starting with pending parts warns, Go Back retains the cart, the mission briefing launches the real race without spending or purchasing pending parts. Temporary input devices and cash/purchase/campaign/clock state restored."); return;
                 }
                 phase++; frame = Time.frameCount;
             }
             catch (Exception e) { Finish("FAIL: " + e); }
         }
+        private static void CheckGoldWheelReplacement()
+        {
+            var gold = VoxelPerformanceWheelTuning.LoadGold();
+            var sports = VoxelPerformanceWheelTuning.Load();
+            var original = shop.DisplayedCar;
+            int wallet = VoxelCurrencyState.Balance;
+            int missing = original.MissingIntegrityVoxels;
+            var spikes = original.GetComponentsInChildren<VoxelWheelSpikeMount>();
+            var outgoing = VoxelGoldTrackWheelValidation.VerifyMounts(original.gameObject, sports);
+            UseUpgradeAction("Gold Track Wheel Purchase Button");
+            Check(Preview() != null && Preview().PendingCount(VoxelGarageUpgradeKind.GoldWheels) == 1, "Gold wheel preview failed");
+            VoxelGoldTrackWheelValidation.VerifyMounts(Preview().Car, gold);
+            Check(VoxelPerformanceWheelUpgradeState.InstalledTuning == sports && VoxelCurrencyState.Balance == wallet,
+                "Gold wheel preview changed ownership or balance");
+            Button("Cancel Upgrade Purchase").onClick.Invoke();
+            Check(Preview() == null && outgoing.SequenceEqual(VoxelGoldTrackWheelValidation.VerifyMounts(original.gameObject, sports)) &&
+                VoxelCurrencyState.Balance == wallet, "Cancel replaced or charged for the wheel set");
+            UseUpgradeAction("Gold Track Wheel Purchase Button");
+            Button("Confirm Upgrade Purchase").onClick.Invoke();
+            VoxelGoldTrackWheelValidation.VerifyMounts(original.gameObject, gold);
+            Check(outgoing.All(wheel => !wheel.gameObject.activeSelf && wheel.transform.parent == null) &&
+                original.MissingIntegrityVoxels == missing && spikes.SequenceEqual(original.GetComponentsInChildren<VoxelWheelSpikeMount>()) &&
+                VoxelCurrencyState.Balance == wallet - gold.purchasePrice && VoxelPerformanceWheelUpgradeState.InstalledTuning == gold,
+                "Confirmed gold wheel replacement retained an old wheel or changed damage, spikes or the wrong amount of cash");
+            var definition = VoxelCarSelectionState.GetSelectedOrDefault();
+            Check(!VoxelPerformanceWheelUpgradeState.TryPurchase(gold, definition) &&
+                !VoxelPerformanceWheelUpgradeState.TryPurchase(sports, definition), "Duplicate or downgrade wheel purchase was allowed");
+        }
+
         private static void Cleanup()
         {
             if (shop != null) Call("CancelUpgradePlacement");
             if (root != null) Object.Destroy(root); root = null; shop = null;
+            if (sectionTuning != null) Object.Destroy(sectionTuning); sectionTuning = null;
             if (temporaryMenu != null) Object.Destroy(temporaryMenu); temporaryMenu = null; menu = null;
             if (mouse != null) InputSystem.RemoveDevice(mouse); mouse = null;
             if (touchscreen != null) InputSystem.RemoveDevice(touchscreen); touchscreen = null;

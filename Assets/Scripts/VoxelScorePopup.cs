@@ -51,6 +51,9 @@ namespace VoxelRacer
         private VoxelEnemyHealthBar sourceHealthBar;
         private bool usesHealthBarOrigin, healthBarOriginReady, hasInitialHealthBarRect;
         private Rect initialHealthBarRect;
+        private Rect destructionSlot;
+        private Vector2 destructionOffset;
+        private bool hasDestructionSlot;
         private const float HealthBarGapPixels = 6f;
         private static GUIStyle weaponStyle;
         private static GUIStyle cashStyle;
@@ -61,8 +64,16 @@ namespace VoxelRacer
         private static Font penaltyFont;
         private static readonly Dictionary<Style, GUIStyle> PenaltyStyles = new();
         private static readonly Dictionary<int, float> HudTopExtents = new();
+        private static readonly List<VoxelScorePopup> ActiveMissionPopups = new();
+        private static readonly List<Rect> DestructionObstacles = new();
         private static readonly List<Rect> DrawnPopupRects = new();
         private static int popupLayoutFrame = -1;
+        private static float HudScale => Mathf.Max(.1f, Screen.height / 1080f);
+        private static float DestructionScale => Mathf.Min(1f, HudScale);
+        private static float DestructionOutline => Mathf.Max(1f, 2f * DestructionScale);
+        private static int DestructionFontSize => Mathf.RoundToInt(192f * DestructionScale);
+        private static bool IsDestruction(Style style) => style == Style.EnemyDestroyed || style == Style.FuelDrumDestroyed;
+        private float FlightOutline => IsDestruction(displayStyle) ? DestructionOutline : 2f;
         private bool FliesToMission => displayStyle == Style.WeaponDamage || displayStyle == Style.RamDamage ||
             displayStyle == Style.EnemyDestroyed || displayStyle == Style.FuelDrumDestroyed ||
             displayStyle == Style.NearMiss;
@@ -117,6 +128,9 @@ namespace VoxelRacer
             VoxelEnemyHealthBar healthBar)
         {
             ReleaseHeldSlot();
+            ActiveMissionPopups.Remove(this);
+            hasDestructionSlot = false;
+            destructionOffset = Vector2.zero;
             sourceHealthBar = healthBar;
             usesHealthBarOrigin = healthBar != null;
             healthBarOriginReady = hasInitialHealthBarRect = false;
@@ -191,6 +205,7 @@ namespace VoxelRacer
             gameObject.SetActive(true);
             if (FliesToMission)
             {
+                if (Application.isPlaying) ActiveMissionPopups.Add(this);
                 var tuning = VoxelMissionProgress.Active?.Tuning;
                 holdDuration = Mathf.Max(0f, tuning == null ? .12f : style == Style.WeaponDamage
                     ? tuning.voxelDamagePopupHoldSeconds : tuning.damagePopupHoldSeconds);
@@ -216,18 +231,20 @@ namespace VoxelRacer
         private static float GetHudPopupTopExtent(Style style, bool negative)
         {
             if (style == Style.NearMiss) return 100f; // Title above its score line.
-            int size = style == Style.WeaponDamage ? 60 : style == Style.RamDamage ? 152 : 192;
+            bool destruction = IsDestruction(style);
+            float outline = destruction ? DestructionOutline : 2f;
+            int size = destruction ? DestructionFontSize : style == Style.WeaponDamage ? 60 : 152;
             int key = size * 2 + (negative ? 1 : 0);
-            if (HudTopExtents.TryGetValue(key, out float extent)) return extent;
+            if (HudTopExtents.TryGetValue(key, out float extent)) return extent + outline;
             Font font = negative ? PenaltyFont : VoxelHudStyles.HudFont;
             font.RequestCharactersInTexture("0123456789", size, FontStyle.Normal);
             float height = 0f;
             foreach (char digit in "0123456789")
                 if (font.GetCharacterInfo(digit, out CharacterInfo glyph, size, FontStyle.Normal))
                     height = Mathf.Max(height, glyph.glyphHeight);
-            extent = (height > 0f ? height : size) * .5f + 2f;
+            extent = (height > 0f ? height : size) * .5f;
             HudTopExtents[key] = extent;
-            return extent;
+            return extent + outline;
         }
 
         private void LaunchEarly()
@@ -246,6 +263,7 @@ namespace VoxelRacer
         private void OnDisable()
         {
             ReleaseHeldSlot();
+            ActiveMissionPopups.Remove(this);
             sourceHealthBar = null;
             usesHealthBarOrigin = healthBarOriginReady = hasInitialHealthBarRect = false;
         }
@@ -297,9 +315,7 @@ namespace VoxelRacer
         private void OnGUI()
         {
             if (VoxelLoadingScreen.IsLoading || VoxelBossIntroduction.IsShowing) return;
-            // These are absolute-position IMGUI labels, so calculating and drawing
-            // only during repaint prevents Layout/Repaint from registering a popup
-            // twice in the overlap list.
+            // Absolute-position labels only need to run on repaint.
             if (Event.current.type != EventType.Repaint)
                 return;
 
@@ -321,6 +337,8 @@ namespace VoxelRacer
                 if (scale <= .0001f) return;
                 GUIStyle numberStyle = GetStyle(displayStyle, isNegativeScore);
                 Vector2 numberSize = numberStyle.CalcSize(new GUIContent(displayText));
+                if (IsDestruction(displayStyle) && !hasDestructionSlot)
+                    PlaceDestructionLabel(screenPosition, numberSize);
                 Vector2 center = GetMissionFlightCenter(screenPosition, numberSize.y, progress);
                 var matrix = GUI.matrix;
                 try
@@ -333,11 +351,10 @@ namespace VoxelRacer
                         DrawOutlinedLabel(new Rect(center.x - 260f, center.y - 58f, 520f, 156f), displayText,
                             nearMissPointsStyle ??= CreateStyle(152, new Color(1f, .86f, .08f)));
                     }
-                    else if (usesHealthBarOrigin)
-                        DrawOutlinedLabel(new Rect(center.x - numberSize.x * .5f, center.y - numberSize.y * .5f,
-                            numberSize.x, numberSize.y), displayText, numberStyle);
+                    else if (usesHealthBarOrigin || IsDestruction(displayStyle))
+                        DrawOutlinedLabel(new Rect(center - numberSize * .5f, numberSize), displayText, numberStyle, FlightOutline);
                     else
-                        DrawOutlinedLabel(new Rect(center.x - 280f, center.y - 120f, 560f, 240f), displayText, GetStyle(displayStyle, isNegativeScore));
+                        DrawOutlinedLabel(new Rect(center.x - 280f, center.y - 120f, 560f, 240f), displayText, numberStyle);
                 }
                 finally { GUI.matrix = matrix; }
                 return;
@@ -377,7 +394,7 @@ namespace VoxelRacer
             if (screenPositionLocked) screenPosition = lockedScreenPosition;
             Vector2 destination = VoxelMissionProgress.Active != null
                 ? VoxelMissionProgress.Active.ScoreScreenPosition : new Vector2(Screen.width * .5f, 39f);
-            Vector2 start = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
+            Vector2 start = new Vector2(screenPosition.x, Screen.height - screenPosition.y) + destructionOffset;
             Vector2 center = Vector2.Lerp(start, destination, progress);
             if (usesHealthBarOrigin && sourceHealthBar != null && sourceHealthBar.gameObject.activeInHierarchy &&
                 sourceHealthBar.TryGetScreenRect(viewCamera, out Rect barRect))
@@ -385,8 +402,88 @@ namespace VoxelRacer
             return center;
         }
 
-        private static float HealthBarPopupCenterY(Rect barRect, float labelHeight, float scale = 1f) =>
-            barRect.yMin - HealthBarGapPixels * Mathf.Max(.1f, Screen.height / 1080f) - (labelHeight * .5f + 2f) * scale;
+        private float HealthBarPopupCenterY(Rect barRect, float labelHeight, float scale = 1f) =>
+            barRect.yMin - HealthBarGapPixels * HudScale - (labelHeight * .5f + FlightOutline) * scale;
+
+        private void PlaceDestructionLabel(Vector3 screenPosition, Vector2 labelSize)
+        {
+            if (!screenPositionLocked)
+            {
+                lockedScreenPosition = screenPosition;
+                screenPositionLocked = true;
+            }
+            Vector2 center = GetMissionFlightCenter(screenPosition, labelSize.y, 0f);
+            healthBarOriginReady = true;
+            Vector2 size = labelSize + Vector2.one * (2f * FlightOutline + 6f * HudScale);
+            Rect desired = new Rect(center - size * .5f, size);
+            desired.x = Mathf.Clamp(desired.x, 0f, Mathf.Max(0f, Screen.width - size.x));
+
+            DestructionObstacles.Clear();
+            foreach (var popup in ActiveMissionPopups)
+            {
+                if (popup == this) continue;
+                if (popup.hasDestructionSlot)
+                    DestructionObstacles.Add(popup.destructionSlot);
+                else if (IsDestruction(popup.displayStyle))
+                    // It will make room when first drawn.
+                    continue;
+                Camera camera = popup.viewCamera != null ? popup.viewCamera : viewCamera;
+                if (!popup.screenPositionLocked && camera == null) continue;
+                Vector3 position = popup.screenPositionLocked ? popup.lockedScreenPosition : camera.WorldToScreenPoint(popup.transform.position);
+                if (position.z <= 0f) continue;
+                float progress = MissionFlightProgress(popup.elapsed, popup.lifetime, popup.holdDuration);
+                if (popup.hasDestructionSlot && progress <= 0f) continue;
+                GUIStyle style = GetStyle(popup.displayStyle, popup.isNegativeScore);
+                Vector2 otherSize = style.CalcSize(new GUIContent(popup.displayText));
+                Vector2 otherCenter = popup.GetMissionFlightCenter(position, otherSize.y, progress);
+                otherSize = (otherSize + Vector2.one * (2f * popup.FlightOutline)) * (1f - progress);
+                DestructionObstacles.Add(new Rect(otherCenter - otherSize * .5f, otherSize));
+            }
+            // Keep the selected slot until the popup is recycled, even as neighbours expire.
+            destructionSlot = FindDestructionSlot(desired, DestructionObstacles, Screen.width);
+            destructionOffset = destructionSlot.center - center;
+            hasDestructionSlot = true;
+        }
+
+        private static Rect FindDestructionSlot(Rect desired, List<Rect> obstacles, float screenWidth)
+        {
+            // Prefer a slot on the same row. Move up only when the row is full.
+            Rect row = desired;
+            do
+            {
+                if (IsDestructionSlotFree(row, obstacles)) return row;
+
+                Rect closest = row;
+                float bestDistance = float.PositiveInfinity;
+                foreach (Rect occupied in obstacles)
+                {
+                    if (row.yMin >= occupied.yMax || row.yMax <= occupied.yMin) continue;
+                    ConsiderSlot(occupied.xMin - row.width - .01f);
+                    ConsiderSlot(occupied.xMax + .01f);
+                }
+                if (bestDistance < float.PositiveInfinity) return closest;
+                row.y -= row.height;
+
+                void ConsiderSlot(float x)
+                {
+                    float distance = Mathf.Abs(x - row.x);
+                    if (distance >= bestDistance || x < 0f || x + row.width > screenWidth) return;
+                    Rect candidate = new Rect(x, row.y, row.width, row.height);
+                    if (!IsDestructionSlotFree(candidate, obstacles)) return;
+                    closest = candidate;
+                    bestDistance = distance;
+                }
+            } while (row.yMin >= 0f);
+
+            return desired;
+        }
+
+        private static bool IsDestructionSlotFree(Rect candidate, List<Rect> obstacles)
+        {
+            foreach (Rect occupied in obstacles)
+                if (candidate.Overlaps(occupied)) return false;
+            return true;
+        }
 
         private void PrepareHealthBarOrigin(float labelHeight)
         {
@@ -437,12 +534,11 @@ namespace VoxelRacer
             return resolved;
         }
 
-        private void DrawOutlinedLabel(Rect rect, string text, GUIStyle style)
+        private void DrawOutlinedLabel(Rect rect, string text, GUIStyle style, float outlinePixels = 2f)
         {
             Color originalColour = GUI.color;
             float opacity = GetOpacity();
             GUI.color = new Color(0f, 0f, 0f, originalColour.a * opacity);
-            const float outlinePixels = 2f;
             for (int horizontal = -1; horizontal <= 1; horizontal++)
             for (int vertical = -1; vertical <= 1; vertical++)
             {
@@ -469,10 +565,11 @@ namespace VoxelRacer
             {
                 if (!PenaltyStyles.TryGetValue(style, out var penalty))
                 {
-                    penalty = CreateStyle(GetStyle(style).fontSize, new Color(1f, .15f, .1f));
+                    penalty = CreateStyle(GetStyle(style).fontSize, new Color(1f, .15f, .1f), IsDestruction(style));
                     penalty.font = PenaltyFont;
                     PenaltyStyles[style] = penalty;
                 }
+                if (IsDestruction(style)) penalty.fontSize = DestructionFontSize;
                 return penalty;
             }
             switch (style)
@@ -488,13 +585,15 @@ namespace VoxelRacer
                     return ramStyle ??= CreateStyle(152, new Color(1f, 0.38f, 0.04f));
                 case Style.EnemyDestroyed:
                 case Style.FuelDrumDestroyed:
-                    return destroyedStyle ??= CreateStyle(192, new Color(0.96f, 0.08f, 0.04f));
+                    destroyedStyle ??= CreateStyle(192, new Color(0.96f, 0.08f, 0.04f), true);
+                    destroyedStyle.fontSize = DestructionFontSize;
+                    return destroyedStyle;
                 default:
                     return weaponStyle ??= CreateStyle(60, new Color(1f, 0.86f, 0.08f));
             }
         }
 
-        private static GUIStyle CreateStyle(int fontSize, Color colour)
+        private static GUIStyle CreateStyle(int fontSize, Color colour, bool singleLine = false)
         {
             var style = new GUIStyle(GUI.skin.label)
             {
@@ -504,6 +603,11 @@ namespace VoxelRacer
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = colour }
             };
+            if (singleLine)
+            {
+                style.wordWrap = false;
+                style.clipping = TextClipping.Overflow;
+            }
             // Labels can use hover/active states while a finger or mouse remains
             // over the hit. Every state must keep the same intended popup colour.
             style.hover.textColor = colour;

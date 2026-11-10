@@ -48,7 +48,7 @@ namespace VoxelRacer
         {
             target = player;
             isBossMission = bossMission ?? (VoxelRacerBootstrap.ActiveTrack?.isBossLevel ?? false);
-            trackDisplayName = isBossMission ? "Find The Radar..." : trackName ?? VoxelRacerBootstrap.ActiveTrack?.displayName ?? string.Empty;
+            trackDisplayName = isBossMission ? "Find and destroy the radar car, at all costs..." : string.Empty;
             target.SetDrivingEnabled(false);
             prepared = true;
             started = false;
@@ -186,17 +186,17 @@ namespace VoxelRacer
             DrawOutlinedLabel(new Rect(0f, numberTop, Screen.width, 160f * scale), text,
                 numberStyle, 4f * scale, 1f, Color.white);
 
-            // Fade up throughout "3", peak at "2", and disappear as "1" begins.
-            float nameAlpha = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Min(elapsed, 2f - elapsed)));
-            if (nameAlpha > 0f && !string.IsNullOrWhiteSpace(trackDisplayName))
+            // Boss instructions fade in during "3", hold through "2", and fade out during "1".
+            float nameAlpha = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Min(elapsed, 3f - elapsed)));
+            if (isBossMission && nameAlpha > 0f && !string.IsNullOrWhiteSpace(trackDisplayName))
             {
-                trackStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt(numberStyle.fontSize * (isBossMission ? 1.05f : 1.2f)));
+                trackStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt(72f * scale));
                 float availableWidth = Screen.width * .9f;
                 float textWidth = trackStyle.CalcSize(new GUIContent(trackDisplayName)).x;
                 if (textWidth > availableWidth)
                     trackStyle.fontSize = Mathf.Max(1, Mathf.FloorToInt(trackStyle.fontSize * availableWidth / textWidth));
                 DrawOutlinedLabel(new Rect(Screen.width * .05f, numberTop - 224f * scale,
-                    availableWidth, 240f * scale), trackDisplayName, trackStyle, 2f * scale, nameAlpha, isBossMission ? Color.red : Color.yellow);
+                    availableWidth, 240f * scale), trackDisplayName, trackStyle, 2f * scale, nameAlpha, new Color(.70f, .86f, .96f));
             }
         }
 

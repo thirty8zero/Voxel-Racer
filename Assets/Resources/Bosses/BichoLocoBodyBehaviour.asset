@@ -57,6 +57,7 @@ MonoBehaviour:
   ramSpeedTolerance: 1
   alignmentHoldDuration: 0.15
   positioningTimeout: 18
+  repositionDistanceAhead: 0
   warningDuration: 1
   pullAwayDistance: 0.18
   slamSpeed: 14

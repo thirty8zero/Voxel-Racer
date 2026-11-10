@@ -63,7 +63,7 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRepairUpgradeSceneController).GetField("definition", Private).SetValue(shop, definition);
                 shop.repairTuning = VoxelRepairTuning.Load(); Call(shop, "BuildUi"); Call(shop, "RefreshUi");
                 VoxelGarageUpgradeDockValidation.CheckCategories(shop);
-                var button = shop.GetComponentsInChildren<Button>(true).Single(b => b.name == "Dual Boost Bottle Purchase Button");
+                var button = VoxelGarageUpgradeDockValidation.InspectUpgrade(shop.GetComponentsInChildren<Button>(true).Single(b => b.name == "Dual Boost Bottle Purchase Button"));
                 int cash = VoxelCurrencyState.Balance;
                 Check(button.interactable, "Dual shop card unavailable after single purchase");
                 button.onClick.Invoke();
@@ -74,7 +74,7 @@ namespace VoxelRacer.Editor
                 Call(shop, "CancelUpgradePlacement");
                 Check(car.transform.Find(VoxelBoostUpgradeState.LeftInstanceName) == null && VoxelCurrencyState.Balance == cash, "Cancel installed or charged dual boost");
                 button.onClick.Invoke(); Call(shop, "ConfirmUpgradePurchase");
-                Check(VoxelBoostUpgradeState.InstalledTuning == dual && VoxelCurrencyState.Balance == cash - 1000, "Confirmed replacement failed");
+                Check(VoxelBoostUpgradeState.InstalledTuning == dual && VoxelCurrencyState.Balance == cash - dual.purchasePrice, "Confirmed replacement failed");
                 Check(!VoxelBoostUpgradeState.TryPurchase(dual, definition) && !VoxelBoostUpgradeState.TryPurchase(single, definition), "Repeat or downgrade purchase accepted");
                 VoxelBoostUpgradeState.ApplyTo(car.transform, definition); VerifyBottles(car.transform, dual);
                 Check(!damaged.gameObject.activeSelf && total == car.TotalIntegrityVoxels && missing == car.MissingIntegrityVoxels, "Upgrade changed body damage/integrity");

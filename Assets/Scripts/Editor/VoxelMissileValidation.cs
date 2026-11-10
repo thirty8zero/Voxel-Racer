@@ -189,7 +189,7 @@ namespace VoxelRacer.Editor
                 Call(shop, "BuildUi"); VoxelCurrencyState.Add(gun.purchasePrice * 2 + 20); Call(shop, "RefreshUi");
                 foreach (bool side in new[] { false, true })
                 {
-                    var button = root.GetComponentsInChildren<Button>(true).Single(b => b.name == (side ? "Right" : "Left") + " Missile Purchase Button");
+                    var button = VoxelGarageUpgradeDockValidation.InspectUpgrade(root.GetComponentsInChildren<Button>(true).Single(b => b.name == "Left Missile Purchase Button"));
                     Check(button.interactable, "Missile shop button disabled");
                     int beforePurchase = VoxelCurrencyState.Balance;
                     button.onClick.Invoke();

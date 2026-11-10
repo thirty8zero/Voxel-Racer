@@ -118,7 +118,7 @@ MonoBehaviour:
   sunDistanceAhead: 220
   sunAzimuthDegrees: 45
   sunHorizontalOffset: 0
-  sunHorizonHeight: 14
+  sunHorizonHeight: 30
   sunDiameter: 24
   sunColour: {r: 1, g: 0.84, b: 0.12, a: 1}
   horizonMountainsEnabled: 1

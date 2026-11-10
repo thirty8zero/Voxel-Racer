@@ -27,7 +27,7 @@ MonoBehaviour:
   maximumDistanceBehind: 75
   maximumDistanceAhead: 200
   weaveThroughTraffic: 1
-  weaveChance: 0.55
+  weaveChance: 0
   trafficClearance: 2
   trafficPredictionSeconds: 1.2
   oncomingPredictionSeconds: 3
@@ -41,8 +41,8 @@ MonoBehaviour:
   shootingPositioningTimeout: 2
   sideRamEnabled: 1
   sideRamChance: 1
-  initialRamChance: 0.5
-  initialRamDelay: 3
+  initialRamChance: 0.4
+  initialRamDelay: 2
   ramOnPassingAlignment: 1
   minimumRamSpeed: 6
   minimumAlignmentSpeed: 14
@@ -56,7 +56,8 @@ MonoBehaviour:
   alignmentTolerance: 0.8
   ramSpeedTolerance: 1
   alignmentHoldDuration: 0.15
-  positioningTimeout: 18
+  positioningTimeout: 3
+  repositionDistanceAhead: 14
   warningDuration: 1
   pullAwayDistance: 0.18
   slamSpeed: 14

@@ -37,6 +37,8 @@ namespace VoxelRacer
             if (!Application.isPlaying) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
                 SetPaused(!paused);
+            else if (paused)
+                VoxelEditorNavigation.Activate(devPage != null && devPage.activeSelf ? devBackButton : resumeButton);
         }
 
         public void SetPaused(bool value)

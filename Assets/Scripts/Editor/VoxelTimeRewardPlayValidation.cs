@@ -103,6 +103,8 @@ namespace VoxelRacer.Editor
                 {
                     case 0:
                         Check(Screen.width == 1920 && Screen.height == 1080, "capture size did not apply");
+                        Check(root.GetComponentsInChildren<RectTransform>().Any(control => control.name == "Missile Button"),
+                            "expected the active missile control to constrain the badge");
                         Capture("Stopwatch-1920"); Next(1); break;
                     case 1:
                         for (int i = 0; i < 6; i++) VoxelMissionProgress.ReportEnemyVehicleDestroyed();
@@ -110,7 +112,11 @@ namespace VoxelRacer.Editor
                     case 2:
                         SetSize(2400, 1080, false); Next(3); break;
                     case 3:
-                        Check(Screen.width == 2400, "wide size did not apply"); Capture("Stopwatch-Combo-2400"); Next(4); break;
+                        Check(Screen.width == 2400, "wide size did not apply"); Capture("Stopwatch-Combo-2400");
+                        SetSize(1600, 720, false); Next(10); break;
+                    case 10:
+                        Check(Screen.width == 1600 && Screen.height == 720, "mobile size did not apply");
+                        Capture("Stopwatch-Combo-1600"); Next(4); break;
                     case 4:
                         SetSize(1440, 1080, false); Next(5); break;
                     case 5:
@@ -134,7 +140,7 @@ namespace VoxelRacer.Editor
                     case 9:
                         // Runtime Destroy releases the textures at the end of the frame.
                         Check(releasedTextures.All(t => t == null), "owned badge textures leaked");
-                        Finish("PASS (Play Mode): real +10/+5 time awards retain +15 grouping and timer arithmetic; stopwatch rendered at 1920/2400/1440x1080, solo and with x6 combo; full peak-pulse/lift bounds clear timer, header, multiplier, rotated combo and active touch controls; urgency clearance; large amount fits; Configure hides stale reward; owned procedural textures released. Native runtime IMGUI/canvas captures under Temp/TimeReward. Original Game View, run state, RNG, clock and background restored."); break;
+                        Finish("PASS (Play Mode): real +10/+5 time awards retain +15 grouping and timer arithmetic; stopwatch rendered beneath the timer at 1920/2400/1440x1080 and 1600x720, solo and with x6 combo; full peak-pulse/lift bounds clear timer, header, multiplier, rotated combo and active touch controls; urgency clearance; large amount fits; Configure hides stale reward; owned procedural textures released. Native runtime IMGUI/canvas captures under Temp/TimeReward. Original Game View, run state, RNG, clock and background restored."); break;
                 }
             }
             catch (Exception e) { Finish("FAIL: " + e); }
@@ -147,6 +153,9 @@ namespace VoxelRacer.Editor
             Rect area = (Rect)Call(mission, "GetTimeRewardArea", timer);
             Check(area.width >= 150 * Screen.height / 1080f, "badge became too small to read");
             Check(area.xMin >= 0 && area.yMin >= 0 && area.xMax <= Screen.width && area.yMax <= Screen.height, "badge outside screen");
+            Check(area.center.x >= timer.xMin && area.center.x <= timer.xMax, "badge moved sideways away from the timer");
+            if (Screen.width == 1920 && !mission.IsKillChainAnnouncementShowing)
+                Check(Mathf.Abs(area.center.x - timer.center.x) < 1f, "solo badge did not centre beneath the timer");
             float pulsePad = timer.height * (mission.RemainingTime <= 10 ? .215f : .125f);
             Check(area.yMin - 14 * Screen.height / 1080f > timer.yMax + pulsePad, "badge lift crosses timer pulse");
             Rect header = (Rect)Call(mission, "GetMissionHudArea", mission.IsBossEncounter);

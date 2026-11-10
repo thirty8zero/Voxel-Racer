@@ -15,6 +15,17 @@ namespace VoxelRacer.Editor
         private static readonly Type[] States={typeof(VoxelGunUpgradeState),typeof(VoxelArmorUpgradeState),typeof(VoxelWheelSpikeUpgradeState),
             typeof(VoxelPerformanceWheelUpgradeState),typeof(VoxelBoostUpgradeState),typeof(VoxelEngineUpgradeState),typeof(VoxelPloughUpgradeState),typeof(VoxelMissileUpgradeState),typeof(VoxelUnderbodyArmorUpgradeState)};
         private static void Check(bool value,string message){if(!value)throw new InvalidOperationException(message);}
+        internal static Button InspectUpgrade(Button button)
+        {
+            var card = button.GetComponent<VoxelGarageUpgradeCard>();
+            var shop = card.GetComponentInParent<VoxelRepairUpgradeSceneController>();
+            var canvas = shop.transform.Find("Repair Upgrade UI");
+            var dock = canvas.Find("Car Upgrade Panel");
+            if (!dock.gameObject.activeSelf) canvas.Find("Garage Home/Upgrade Menu Button").GetComponent<Button>().onClick.Invoke();
+            if (!button.gameObject.activeSelf) dock.Find("Category " + card.Category).GetComponent<Button>().onClick.Invoke();
+            button.onClick.Invoke();
+            return dock.Find("Upgrade Details/Selected Upgrade Action").GetComponent<Button>();
+        }
         private static void Refresh(VoxelRepairUpgradeSceneController shop)
         {
             typeof(VoxelRepairUpgradeSceneController).GetMethod("RefreshUi",Instance).Invoke(shop,null);
@@ -40,7 +51,7 @@ namespace VoxelRacer.Editor
             var cards=shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
             var expected=new[] {
                 new[]{"Left Door Armor Purchase Button","Extended Door Armor Purchase Button","Underbody Armor Purchase Button","Plough Purchase Button"},
-                new[]{"Performance Wheel Purchase Button","Wheel Spike Purchase Button","Star Wheel Spike Purchase Button"},
+                new[]{"Performance Wheel Purchase Button","Gold Track Wheel Purchase Button","Wheel Spike Purchase Button","Star Wheel Spike Purchase Button"},
                 new[]{"Long Gun Purchase Button"},new[]{"Left Missile Purchase Button"},
                 new[]{"Boost Bottle Purchase Button","Dual Boost Bottle Purchase Button"},new[]{"V6 Engine Purchase Button"} };
             var labels=new[]{"Armor","Wheels &\nTires","Guns","Missiles","Boost","Engines"};
@@ -57,13 +68,13 @@ namespace VoxelRacer.Editor
                 modeTuning.showUpgradeSectionTabs = false;
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("LayoutGarageDock",Instance).Invoke(shop,null);
                 var allVisible = cards.Where(c=>c.gameObject.activeSelf).OrderBy(c=>((RectTransform)c.transform).anchoredPosition.x).ToArray();
-                Check(allVisible.Length == 12, "Continuous row must show all twelve upgrades");
+                Check(allVisible.Length == expected.Sum(group => group.Length), "Continuous row must show every upgrade");
                 Check(shop.GetComponentsInChildren<Button>(true).Where(b=>b.name.StartsWith("Category ")).All(b=>!b.gameObject.activeSelf), "Continuous row still shows section tabs");
                 Check(allVisible.SequenceEqual(cards.OrderBy(c=>c.FullyPurchased).ThenBy(c=>c.Cost).ThenBy(c=>c.CatalogueOrder)), "Continuous row lost stable price/purchase ordering");
                 for (int i=0;i<allVisible.Length;i++)
                     Check(Mathf.Abs(((RectTransform)allVisible[i].transform).anchoredPosition.x-(105+i*224))<.1f, "Continuous row contains category gaps");
                 var allScroll=(ScrollRect)typeof(VoxelRepairUpgradeSceneController).GetField("upgradeCategoryScroll",Instance).GetValue(shop);
-                Check(Mathf.Abs(allScroll.content.rect.width-(12*224-14))<.1f, "Continuous row cannot scroll through the full catalogue");
+                Check(Mathf.Abs(allScroll.content.rect.width-(allVisible.Length*224-14))<.1f, "Continuous row cannot scroll through the full catalogue");
                 modeTuning.showUpgradeSectionTabs = true;
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("LayoutGarageDock",Instance).Invoke(shop,null);
                 for(int i=0;i<expected.Length;i++)
@@ -115,24 +126,36 @@ namespace VoxelRacer.Editor
         public static void CheckShop(VoxelRepairUpgradeSceneController shop,VoxelCarController car,VoxelCarDefinition definition)
         {
             var cards=shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
-            Check(cards.Length==12,"Some upgrade types are missing or side cards were not combined");
+            Check(cards.Length==13,"Some upgrade types are missing or side cards were not combined");
             CheckCategories(shop);
             ResetPurchases();VoxelCurrencyState.Reset();Refresh(shop);
-            Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Unaffordable && !c.GetComponent<Button>().interactable),"Unaffordable cards must be disabled");
-            foreach(var card in cards)card.GetComponent<Button>().onClick.Invoke();
+            Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Unaffordable && c.GetComponent<Button>().interactable),"Unaffordable cards must still be inspectable");
+            foreach(var card in cards)
+            {
+                var action = InspectUpgrade(card.GetComponent<Button>());
+                Check(!action.interactable && action.GetComponentInChildren<Text>().text == "NO FUNDS", "An unaffordable upgrade can be placed");
+                Check(!string.IsNullOrEmpty(action.transform.parent.Find("Upgrade Effect").GetComponent<Text>().text) &&
+                    !string.IsNullOrEmpty(action.transform.parent.Find("Upgrade Stats").GetComponent<Text>().text), "Upgrade details are incomplete");
+                action.onClick.Invoke();
+            }
             Check(VoxelCurrencyState.Balance==0 && VoxelGunUpgradeState.PurchasedLongGunCount==0 && !VoxelEngineUpgradeState.IsPurchased &&
                 !VoxelMissileUpgradeState.IsPurchased(false) && !VoxelMissileUpgradeState.IsPurchased(true),"Unaffordable callbacks spent or equipped upgrades");
             VoxelCurrencyState.Add(100000);Refresh(shop);
-            Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Affordable && c.GetComponent<Button>().interactable),"Affordable cards must allow purchase");
+            Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Affordable && InspectUpgrade(c.GetComponent<Button>()).interactable),"Affordable upgrades must allow placement");
+            Check(typeof(VoxelRepairUpgradeSceneController).GetField("upgradePlacement", Instance).GetValue(shop) == null && VoxelCurrencyState.Balance == 100000,
+                "Inspecting an affordable upgrade changed the cart or cash");
             foreach(var type in States)foreach(var f in type.GetFields(Static))
                 if(!f.IsLiteral && !f.IsInitOnly && f.FieldType==typeof(bool))f.SetValue(null,true);
             typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount",Static).SetValue(null,VoxelGunUpgradeState.LongGunTuning.maximumPurchases);
             typeof(VoxelWheelSpikeUpgradeState).GetField("installedTuning",Static).SetValue(null,VoxelWheelSpikeTuning.LoadStar());
+            typeof(VoxelPerformanceWheelUpgradeState).GetField("<InstalledTuning>k__BackingField",Static).SetValue(null,VoxelPerformanceWheelTuning.LoadGold());
             typeof(VoxelBoostUpgradeState).GetField("installedTuning",Static).SetValue(null,VoxelBoostUpgradeTuning.LoadDualUpgrade());
             typeof(VoxelArmorUpgradeState).GetField("rightTuning",Static).SetValue(null,VoxelArmorTuning.LoadExtended());
             typeof(VoxelArmorUpgradeState).GetField("leftTuning",Static).SetValue(null,VoxelArmorTuning.LoadExtended());
             VoxelCurrencyState.Reset();Refresh(shop);
-            Check(cards.All(c=>c.State==VoxelGarageUpgradeState.Equipped && !c.GetComponent<Button>().interactable),"Equipped state must persist with an empty wallet");
+            Check(cards.All(c => c.State == (c.UpgradeKind == VoxelGarageUpgradeKind.Wheels
+                ? VoxelGarageUpgradeState.Incompatible : VoxelGarageUpgradeState.Equipped) &&
+                !InspectUpgrade(c.GetComponent<Button>()).interactable), "Equipped or superseded upgrades must remain inspectable with an empty wallet");
             ResetPurchases();typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount",Static).SetValue(null,1);
             VoxelCurrencyState.Add(100000);Refresh(shop);
             Check(shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true).First(c=>c.name=="Long Gun Purchase Button").State==VoxelGarageUpgradeState.Affordable,
@@ -141,8 +164,8 @@ namespace VoxelRacer.Editor
             try
             {
                 typeof(VoxelRepairUpgradeSceneController).GetField("definition",Instance).SetValue(shop,incompatible);Refresh(shop);
-                Check(cards.Where(c=>c.name.Contains("Armor") || c.name.Contains("Missile") || c.name.Contains("Engine") || c.name.Contains("Performance"))
-                    .All(c=>c.State==VoxelGarageUpgradeState.Incompatible && !c.GetComponent<Button>().interactable),"Compatibility gates were lost");
+                Check(cards.Where(c=>c.name.Contains("Armor") || c.name.Contains("Missile") || c.name.Contains("Engine") || c.name.Contains("Performance") || c.UpgradeKind == VoxelGarageUpgradeKind.GoldWheels)
+                    .All(c=>c.State==VoxelGarageUpgradeState.Incompatible && !InspectUpgrade(c.GetComponent<Button>()).interactable),"Compatibility gates were lost");
             }
             finally{typeof(VoxelRepairUpgradeSceneController).GetField("definition",Instance).SetValue(shop,definition);Object.DestroyImmediate(incompatible);}
             CheckMissionPreview(shop);
@@ -150,10 +173,10 @@ namespace VoxelRacer.Editor
             var damaged=car.GetComponentsInChildren<MeshRenderer>().First(r=>r.GetComponentInParent<VoxelIndestructiblePart>()==null);
             damaged.gameObject.SetActive(false);int missing=car.RepairableIntegrityVoxels;
             int balance=VoxelCurrencyState.Balance;
-            cards.First(c=>c.name=="V6 Engine Purchase Button").GetComponent<Button>().onClick.Invoke();
+            InspectUpgrade(cards.First(c=>c.name=="V6 Engine Purchase Button").GetComponent<Button>()).onClick.Invoke();
             Check(VoxelCurrencyState.Balance==balance && !VoxelEngineUpgradeState.IsPurchased,"Preview purchased the engine before confirmation");
             typeof(VoxelRepairUpgradeSceneController).GetMethod("ConfirmUpgradePurchase",Instance).Invoke(shop,null);
-            cards.First(c=>c.name=="Left Missile Purchase Button").GetComponent<Button>().onClick.Invoke();
+            InspectUpgrade(cards.First(c=>c.name=="Left Missile Purchase Button").GetComponent<Button>()).onClick.Invoke();
             typeof(VoxelRepairUpgradeSceneController).GetMethod("SelectUpgradePlacement",Instance).Invoke(shop,new object[]{0});
             typeof(VoxelRepairUpgradeSceneController).GetMethod("ConfirmUpgradePurchase",Instance).Invoke(shop,null);
             Check(VoxelEngineUpgradeState.IsPurchased && VoxelMissileUpgradeState.IsPurchased(false) && !VoxelMissileUpgradeState.IsPurchased(true),"Actual callbacks failed to install independent upgrades");
@@ -180,13 +203,13 @@ namespace VoxelRacer.Editor
                     Check(VoxelTrackProgressState.NextTrackIndex==expected && VoxelTrackProgressState.NextTrack==sequence.tracks[expected] &&
                         VoxelTrackProgressState.CurrentTrackIndex==current,"Mission preview must not advance campaign");
                     Refresh(shop);
-                    Check(shop.NextRaceButton.GetComponentInChildren<Text>().text==sequence.tracks[expected].displayName.Trim(),"Continue button must show only the next track display name");
+                    Check(shop.NextRaceButton.GetComponentInChildren<Text>().text=="NEXT","Next button label changed when campaign refreshed");
                     Check(VoxelTrackProgressState.AdvanceToNextTrack()==sequence.tracks[expected],"Mission preview and next race disagree");
                 }
                 sequence.tracks=Array.Empty<VoxelTrackDefinition>();indexField.SetValue(null,0);
                 Check(VoxelTrackProgressState.NextTrack==null && VoxelTrackProgressState.NextTrackIndex==0,"Empty sequence preview failed");
                 Refresh(shop);
-                Check(shop.NextRaceButton.GetComponentInChildren<Text>().text=="Mission","Empty sequence name fallback failed");
+                Check(shop.NextRaceButton.GetComponentInChildren<Text>().text=="NEXT","Empty sequence changed the Next button label");
             }
             finally{sequenceField.SetValue(null,oldSequence);indexField.SetValue(null,oldIndex);Object.DestroyImmediate(sequence);Refresh(shop);}
         }
@@ -227,7 +250,7 @@ namespace VoxelRacer.Editor
             Check(a.max.x+10<b.min.x,"Upgrade strip overlaps next mission button");
             Check(a.min.y>=canvas.rect.yMin && b.min.y>=canvas.rect.yMin && b.max.x<=canvas.rect.xMax+.1f,"Dock escapes screen bounds");
             var scroll=panel.GetComponentInChildren<ScrollRect>(true);
-            Check(scroll.horizontal && !scroll.vertical && scroll.content.GetComponentsInChildren<VoxelGarageUpgradeCard>(true).Length==12,
+            Check(scroll.horizontal && !scroll.vertical && scroll.content.GetComponentsInChildren<VoxelGarageUpgradeCard>(true).Length==13,
                 "Horizontal catalogue missing");
             var tabs=panel.GetComponentsInChildren<Button>(true).Where(t=>t.name.StartsWith("Category ")).ToArray();
             Check(tabs.Length==6 && tabs.All(t=>t.gameObject.activeSelf == shop.UpgradeSectionTabsEnabled),"Garage section-tab visibility mismatch");
@@ -245,6 +268,18 @@ namespace VoxelRacer.Editor
             Check(camera.rect==new Rect(0,0,1,1),"Garage must render the floor behind the translucent cards");
             if(upgrades)
             {
+                var detail = (RectTransform)panel.Find("Upgrade Details");
+                Bounds details = RectBounds(canvas, detail);
+                Check(detail.gameObject.activeInHierarchy && details.size.x > 0f && details.size.x <= 434f &&
+                    details.min.x >= a.min.x && details.min.y >= a.max.y + 15f, "Upgrade details escape the space above two cards");
+                if (dial != null) Check(details.max.y + 20f <= RectBounds(canvas, dial).min.y, "Upgrade details overlap integrity meter");
+                var rim = shop.GetComponentInChildren<VoxelCarTurntable>()?.transform.Find("Stationary outer rim");
+                if (rim != null)
+                {
+                    float rimLeft = rim.GetComponent<MeshFilter>().sharedMesh.vertices
+                        .Min(vertex => camera.WorldToViewportPoint(rim.TransformPoint(vertex)).x);
+                    Check(details.max.x <= canvas.rect.xMin + rimLeft * canvas.rect.width - 15f, "Upgrade details overlap turntable");
+                }
                 var feedback=canvas.Find("Repair Feedback").GetComponent<RectTransform>();
                 Bounds f=RectBounds(canvas,feedback);
                 Check(f.min.y>a.max.y+10 && f.min.x>=a.min.x-.1f && f.max.x<=a.max.x+.1f,"Purchase feedback must sit just above the cards");

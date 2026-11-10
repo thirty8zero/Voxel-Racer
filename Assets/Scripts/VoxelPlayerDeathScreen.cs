@@ -25,6 +25,7 @@ namespace VoxelRacer
         private bool deathSequenceStarted, deathSlowMotionActive;
         private float deathPreviousTimeScale, deathPreviousFixedStep, deathSlowMotionRemaining, uiRevealElapsed;
         private CanvasGroup failureUiGroup;
+        private Button restartButton;
         private RectTransform failureHeader, failureRestart;
         private Text failureTitle, failureReason;
         private Vector2 failureCanvasSize;
@@ -86,6 +87,8 @@ namespace VoxelRacer
             if (!deathSequenceStarted && !isShown && target != null && target.IsDestroyed)
                 BeginPlayerDeath(target);
             TickDeathSequence(Time.unscaledDeltaTime);
+            if (!isLoading && !VoxelMissionBriefing.IsShowing && !VoxelPauseMenu.IsPaused)
+                VoxelEditorNavigation.Activate(restartButton);
         }
 
         private void TickDeathSequence(float unscaledDeltaTime)
@@ -163,10 +166,10 @@ namespace VoxelRacer
             failureRestart = restart.rectTransform;
             failureRestart.anchorMin = new Vector2(.28f, 0f); failureRestart.anchorMax = new Vector2(.72f, 0f);
             failureRestart.pivot = new Vector2(.5f, 0f);
-            var button = VoxelMenuUi.CreateButton(failureRestart, "Main Menu Button", "RESTART", 78,
+            restartButton = VoxelMenuUi.CreateButton(failureRestart, "Main Menu Button", "RESTART", 78,
                 new Vector2(.5f, .5f), Vector2.zero, new Vector2(0f, 110f), ReturnToMainMenu);
-            StretchTextWidth((RectTransform)button.transform,24f);
-            var label = button.GetComponentInChildren<Text>();
+            StretchTextWidth((RectTransform)restartButton.transform,24f);
+            var label = restartButton.GetComponentInChildren<Text>();
             label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
             label.rectTransform.sizeDelta = Vector2.zero;
             label.resizeTextForBestFit = true; label.resizeTextMinSize = 30; label.resizeTextMaxSize = 78;

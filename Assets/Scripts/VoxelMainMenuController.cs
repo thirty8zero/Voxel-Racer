@@ -17,7 +17,7 @@ namespace VoxelRacer
         private Transform featuredDisplayRoot;
         private Transform desertSceneryRoot;
         private bool isLoading;
-        private Transform startButtonTransform;
+        private Button startButton;
         private Tween startButtonPulse;
 
         private void Awake()
@@ -38,16 +38,15 @@ namespace VoxelRacer
             var existingButton = canvas.Find("Start Button");
             if (existingButton != null)
             {
-                startButtonTransform = existingButton;
+                startButton = existingButton.GetComponent<Button>();
                 PositionStartButton((RectTransform)existingButton);
                 return;
             }
-            var startButton = VoxelMenuUi.CreateButton(canvas, "Start Button", "START", 132,
+            startButton = VoxelMenuUi.CreateButton(canvas, "Start Button", "START", 132,
                 new Vector2(1f, 0f), new Vector2(-210f, 110f), new Vector2(780f, 204f), StartMission);
             // Keep the label's existing layout so the large font stays unclipped.
             ((RectTransform)startButton.transform).sizeDelta = new Vector2(340f, 124f);
             startButton.image.color = new Color(0f, 0f, 0f, .7f);
-            startButtonTransform = startButton.transform;
         }
 
         private static void PositionStartButton(RectTransform rect)
@@ -77,8 +76,8 @@ namespace VoxelRacer
 
         private void OnEnable()
         {
-            if (startButtonTransform == null) return;
-            startButtonPulse = startButtonTransform.DOScale(1.06f, .7f)
+            if (startButton == null) return;
+            startButtonPulse = startButton.transform.DOScale(1.06f, .7f)
                 .SetEase(Ease.InOutSine)
                 .SetLoops(-1, LoopType.Yoyo)
                 .SetUpdate(true)
@@ -89,7 +88,7 @@ namespace VoxelRacer
         {
             startButtonPulse?.Kill();
             startButtonPulse = null;
-            if (startButtonTransform != null) startButtonTransform.localScale = Vector3.one;
+            if (startButton != null) startButton.transform.localScale = Vector3.one;
         }
 
         /// <summary>Non-interactive placeholder layers between the scene and the original menu UI.</summary>
@@ -249,13 +248,16 @@ namespace VoxelRacer
             if (featuredDisplayRoot != null)
                 featuredDisplayRoot.Rotate(Vector3.up, 18f * Time.unscaledDeltaTime, Space.World);
 
-            if (isLoading || VoxelLoadingScreen.IsLoading)
+            if (isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing)
                 return;
+            if (VoxelEditorNavigation.Activate(startButton)) return;
             Keyboard keyboard = Keyboard.current;
-            if (keyboard != null &&
-                (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame ||
-                 keyboard.spaceKey.wasPressedThisFrame))
-                StartMission();
+            if (keyboard == null) return;
+            bool startPressed = keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame;
+#if !UNITY_EDITOR
+            startPressed |= keyboard.spaceKey.wasPressedThisFrame;
+#endif
+            if (startPressed) StartMission();
         }
 
         /// <summary>Rebuilds the two display slots from the persistent featured-car list.</summary>

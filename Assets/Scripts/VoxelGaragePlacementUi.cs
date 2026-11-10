@@ -44,7 +44,7 @@ namespace VoxelRacer
                 VoxelGarageUpgradeKind.UnderbodyArmour => VoxelUnderbodyArmorTuning.Load()?.displayName,
                 VoxelGarageUpgradeKind.Guns => VoxelGunUpgradeState.LongGunTuning?.displayName,
                 VoxelGarageUpgradeKind.Missiles => VoxelMissileLauncherTuning.Load()?.weapon?.displayName,
-                VoxelGarageUpgradeKind.Wheels => VoxelPerformanceWheelTuning.Load()?.displayName,
+                VoxelGarageUpgradeKind.Wheels or VoxelGarageUpgradeKind.GoldWheels => VoxelGarageUpgradePlacement.WheelTuning(kind)?.displayName,
                 VoxelGarageUpgradeKind.Spikes => VoxelWheelSpikeTuning.Load()?.displayName,
                 VoxelGarageUpgradeKind.StarSpikes => VoxelWheelSpikeTuning.LoadStar()?.displayName,
                 VoxelGarageUpgradeKind.Boost => VoxelBoostUpgradeTuning.LoadUpgrade()?.displayName,
@@ -80,10 +80,12 @@ namespace VoxelRacer
                     price = missile.weapon.purchasePrice;
                     return missile.Fits(definition) && (!VoxelMissileUpgradeState.IsPurchased(false) || !VoxelMissileUpgradeState.IsPurchased(true));
                 case VoxelGarageUpgradeKind.Wheels:
-                    var wheels = VoxelPerformanceWheelTuning.Load();
+                case VoxelGarageUpgradeKind.GoldWheels:
+                    var wheels = VoxelGarageUpgradePlacement.WheelTuning(kind);
                     if (wheels == null) return false;
                     price = wheels.purchasePrice;
-                    return wheels.Fits(definition) && !VoxelPerformanceWheelUpgradeState.IsPurchased;
+                    return VoxelPerformanceWheelUpgradeState.CanPurchase(wheels, definition) &&
+                        PendingCount(kind == VoxelGarageUpgradeKind.Wheels ? VoxelGarageUpgradeKind.GoldWheels : VoxelGarageUpgradeKind.Wheels) == 0;
                 case VoxelGarageUpgradeKind.Spikes:
                 case VoxelGarageUpgradeKind.StarSpikes:
                     var spikes = kind == VoxelGarageUpgradeKind.StarSpikes ? VoxelWheelSpikeTuning.LoadStar() : VoxelWheelSpikeTuning.Load();
@@ -328,7 +330,8 @@ namespace VoxelRacer
                 case VoxelGarageUpgradeKind.ExtendedArmour: TryPurchaseDoorArmor(part.Slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right, true); break;
                 case VoxelGarageUpgradeKind.Guns: TryPurchaseLongGun(part.Slot); break;
                 case VoxelGarageUpgradeKind.Missiles: PurchaseMissile(part.Slot == 1); break;
-                case VoxelGarageUpgradeKind.Wheels: TryPurchasePerformanceWheels(); break;
+                case VoxelGarageUpgradeKind.Wheels:
+                case VoxelGarageUpgradeKind.GoldWheels: TryPurchasePerformanceWheels(VoxelGarageUpgradePlacement.WheelTuning(part.Kind)); break;
                 case VoxelGarageUpgradeKind.Spikes: TryPurchaseWheelSpikes(); break;
                 case VoxelGarageUpgradeKind.StarSpikes: TryPurchaseStarWheelSpikes(); break;
                 case VoxelGarageUpgradeKind.Boost: TryPurchaseBoostBottle(); break;

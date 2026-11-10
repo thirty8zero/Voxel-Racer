@@ -18,7 +18,7 @@ MonoBehaviour:
   oilSpinDuration: 1.1
   oilTireMarkLifetime: 8
   playerDamageVoxelsMin: 50
-  playerDamageVoxelsMax: 500
+  playerDamageVoxelsMax: 100
   hitPoints: 1
   rearSurfaceHitRandomness: 0.8
   weaponDebrisScale: 0.65

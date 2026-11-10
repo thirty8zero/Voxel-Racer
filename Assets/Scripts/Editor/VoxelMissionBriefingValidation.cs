@@ -72,6 +72,7 @@ namespace VoxelRacer.Editor
                 foreach (var size in new[] { new Vector2Int(2400, 1080), new Vector2Int(1440, 1080), new Vector2Int(1080, 1920) })
                 { view.Show(day, null); Capture(root, view, scene, "Responsive", size.x, size.y); view.Close(); }
                 var bossTrack = tracks.First(t => t.boss != null);
+                CheckRadarAnimation(root, view, scene, bossTrack, settings);
                 foreach (var width in new[] { 2400, 1440 })
                 { view.Show(bossTrack, null); Capture(root, view, scene, "BossResponsive", width, 1080); view.Close(); }
                 CheckSyntheticContent(day, settings, view);
@@ -91,6 +92,33 @@ namespace VoxelRacer.Editor
                 foreach (var e in Object.FindObjectsByType<EventSystem>(FindObjectsSortMode.None)) if (!events.Contains(e)) Object.DestroyImmediate(e.gameObject);
                 UnityEngine.Random.state = random;
             }
+        }
+
+        private static void CheckRadarAnimation(GameObject root, VoxelMissionBriefing view,
+            Scene scene, VoxelTrackDefinition track, VoxelMissionBriefingSettings settings)
+        {
+            var radar = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/RadarInterceptorTuning");
+            var preview = settings.PreviewRecordFor(radar);
+            Check(preview != null && preview.IsAnimated, "Radar briefing animation has not been baked.");
+            float duration = preview.frameCount / preview.framesPerSecond;
+            var dish = radar.modelPrefab.GetComponentInChildren<VoxelRadarDish>(true);
+            Check(dish != null && Mathf.Abs(duration - 360f / Mathf.Abs(dish.degreesPerSecond)) < .001f,
+                "Briefing dish must match the gameplay model's spin speed.");
+            view.Show(track, null);
+            var image = view.GetComponentsInChildren<RawImage>().Single(i => i.texture == preview.animation);
+            Call(view, "AnimatePreviews", 0f); Rect first = image.uvRect;
+            foreach (int quarter in new[] { 0, 1, 2, 3 })
+            {
+                Call(view, "AnimatePreviews", duration * quarter / 4);
+                Check(quarter == 0 || image.uvRect != first, "Radar card did not advance its animation.");
+                Capture(root, view, scene, "RadarSpin-" + quarter, 1920, 1080);
+            }
+            Call(view, "AnimatePreviews", duration);
+            Check(image.uvRect == first, "Radar animation does not loop seamlessly.");
+            view.Close(); view.Show(track, null);
+            Check(view.GetComponentsInChildren<RawImage>().Single(i => i.texture == preview.animation).uvRect == first,
+                "Reopening the briefing did not reset its animation.");
+            view.Close();
         }
 
         private static void CheckSyntheticContent(VoxelTrackDefinition original, VoxelMissionBriefingSettings settings, VoxelMissionBriefing view)
@@ -159,7 +187,7 @@ namespace VoxelRacer.Editor
                     }
                 }
                 foreach (var image in view.GetComponentsInChildren<RawImage>().Where(i => i.name == "Three Quarter Model"))
-                    Check(image.texture != null && Mathf.Abs(image.rectTransform.rect.width / image.rectTransform.rect.height - image.texture.width / (float)image.texture.height) < .005f,
+                    Check(image.texture != null && Mathf.Abs(image.rectTransform.rect.width / image.rectTransform.rect.height - image.GetComponent<AspectRatioFitter>().aspectRatio) < .005f,
                         "Enemy preview missing or stretched.");
                 RenderTexture.active = rt;
                 var imageTexture = new Texture2D(width, height, TextureFormat.RGB24, false);

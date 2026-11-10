@@ -16,6 +16,9 @@ namespace VoxelRacer.Editor
         private static readonly List<Vector2> Uvs = new();
         private static readonly List<int>[] Triangles = { new(), new(), new(), new(), new(), new() };
         private const int Red = 0, DarkRed = 1, Steel = 2, LightSteel = 3, Dark = 4, White = 5;
+        private const float AntennaHeight = 3f;
+        private static readonly Vector3 AntennaMount = new(0f, 1.40f, -.60f);
+        private static readonly string[] LampNames = { "Top Lamp", "Middle Lamp", "Bottom Lamp" };
 
         [MenuItem("Tools/Voxel Racer/Build Roadside Turret Model")]
         public static void Build()
@@ -89,6 +92,20 @@ namespace VoxelRacer.Editor
             Ring(new Vector3(0,1.18f,1.48f), .18f, .103f, .30f, Steel, LightSteel);
             Disc(new Vector3(0,1.18f,1.35f), Vector3.forward, .101f, .008f, Dark);
 
+            // Rear-mounted antenna with a stepped base and protected red lenses on all four sides.
+            Box(AntennaMount + Vector3.up * .055f, new Vector3(.41f, .11f, .41f), Quaternion.identity, Dark, .055f);
+            Box(AntennaMount + Vector3.up * .20f, new Vector3(.23f, .33f, .23f), Quaternion.identity, DarkRed, .025f);
+            Box(AntennaMount + Vector3.up * .56f, new Vector3(.15f, .70f, .15f), Quaternion.identity, Steel, .018f);
+            Box(AntennaMount + Vector3.up * 1.87f, new Vector3(.105f, 2.06f, .105f), Quaternion.identity, LightSteel, .013f);
+            for (int i = 0; i < LampNames.Length; i++)
+            {
+                Vector3 centre = AntennaMount + Vector3.up * LampHeight(i);
+                Box(centre - Vector3.up * .145f, new Vector3(.44f, .08f, .44f), Quaternion.identity, Dark, .05f);
+                Box(centre + Vector3.up * .145f, new Vector3(.44f, .08f, .44f), Quaternion.identity, Dark, .05f);
+            }
+            Box(AntennaMount + Vector3.up * (AntennaHeight - .022f),
+                new Vector3(.21f, .044f, .21f), Quaternion.identity, LightSteel, .025f);
+
             var mesh = AssetDatabase.LoadAssetAtPath<UnityEngine.Mesh>(Folder + "/RoadsideTurretMesh.asset");
             if (mesh == null) { mesh = new UnityEngine.Mesh(); AssetDatabase.CreateAsset(mesh, Folder + "/RoadsideTurretMesh.asset"); }
             mesh.Clear(); mesh.name = "RoadsideTurretMesh";
@@ -103,12 +120,30 @@ namespace VoxelRacer.Editor
                 var muzzle = new GameObject("Turret Muzzle"); muzzle.transform.SetParent(root.transform, false);
                 // Matches the previous projectile origin (.93 + .70) and exactly the same firing height.
                 muzzle.transform.localPosition = new Vector3(0,1.18f,1.63f);
+                var antenna = new GameObject("Warning Antenna").transform;
+                antenna.SetParent(root.transform, false);
+                antenna.localPosition = AntennaMount;
+                var lensMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+                var dimLamp = Resources.Load<Material>("Bosses/BichoLocoArt/LampOff");
+                for (int i = 0; i < LampNames.Length; i++)
+                {
+                    var lamp = new GameObject(LampNames[i]);
+                    lamp.transform.SetParent(antenna, false);
+                    lamp.transform.localPosition = Vector3.up * LampHeight(i);
+                    lamp.transform.localScale = new Vector3(.355f, .22f, .355f);
+                    lamp.AddComponent<MeshFilter>().sharedMesh = lensMesh;
+                    var renderer = lamp.AddComponent<MeshRenderer>();
+                    renderer.sharedMaterial = dimLamp;
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
                 AssetDatabase.SaveAssets();
             }
             finally { Object.DestroyImmediate(root); }
             Validate(); Render();
         }
+
+        private static float LampHeight(int index) => 2.79f - .94f * index;
 
         private static Material Mat(string name, Color colour, float metal)
         {
@@ -164,10 +199,26 @@ namespace VoxelRacer.Editor
             if(muzzle==null || Vector3.Distance(muzzle.localPosition,new Vector3(0,1.18f,1.63f))>.0001f || muzzle.localScale!=Vector3.one || muzzle.localRotation!=Quaternion.identity)
                 throw new InvalidOperationException("Turret muzzle must preserve its original firing plane and unit scale.");
             var mesh=prefab.GetComponent<MeshFilter>().sharedMesh;
-            if(prefab.GetComponentsInChildren<Collider>(true).Length!=0 || prefab.GetComponentsInChildren<MeshRenderer>(true).Length!=1 || mesh.vertexCount>10000 || mesh.bounds.min.y<-.001f || mesh.bounds.max.y>1.50f)
-                throw new InvalidOperationException("Turret collider, geometry budget or height validation failed.");
+            var antenna = prefab.transform.Find("Warning Antenna");
+            if (prefab.GetComponentsInChildren<Collider>(true).Length != 0 ||
+                prefab.GetComponentsInChildren<MeshRenderer>(true).Length != 4 || mesh.vertexCount > 10000 ||
+                mesh.bounds.min.y < -.001f || antenna == null || antenna.childCount != LampNames.Length ||
+                Mathf.Abs(mesh.bounds.max.y - antenna.localPosition.y - AntennaHeight) > .001f)
+                throw new InvalidOperationException("Turret collider, geometry budget or three-metre antenna validation failed.");
+            var dimLamp = Resources.Load<Material>("Bosses/BichoLocoArt/LampOff");
+            var litLamp = Resources.Load<Material>("CarMaterials/CarBrakeLights");
+            if (dimLamp == null || litLamp == null || !litLamp.IsKeywordEnabled("_EMISSION"))
+                throw new InvalidOperationException("Turret warning lamp materials are missing or cannot flash.");
+            for (int i = 0; i < LampNames.Length; i++)
+            {
+                var lens = antenna.Find(LampNames[i]);
+                if (lens == null || Mathf.Abs(lens.localPosition.y - LampHeight(i)) > .001f ||
+                    lens.GetComponent<MeshFilter>()?.sharedMesh == null ||
+                    lens.GetComponent<MeshRenderer>()?.sharedMaterial != dimLamp)
+                    throw new InvalidOperationException("Turret warning lenses must be dim red and in top-to-bottom order.");
+            }
             Directory.CreateDirectory("Temp/Turret");
-            File.WriteAllText("Temp/Turret/ModelValidation.txt","PASS: saved turret prefab, one renderer/six shared materials, no colliders, muzzle (0, 1.18, 1.63) with unit scale/+Z aim; grounded feet and similar original height. Vertices: "+mesh.vertexCount+". Height: "+mesh.bounds.max.y.ToString("0.000")+"m.");
+            File.WriteAllText("Temp/Turret/ModelValidation.txt", "PASS: combined body and three-metre mast, three ordered red lenses, no colliders, muzzle (0, 1.18, 1.63) with unit scale/+Z aim. Combined mesh vertices: " + mesh.vertexCount + ".");
             Debug.Log(File.ReadAllText("Temp/Turret/ModelValidation.txt"));
         }
 
@@ -175,7 +226,7 @@ namespace VoxelRacer.Editor
         public static void Render()
         {
             Directory.CreateDirectory("Temp/Turret");
-            Vector3[] views={new(4,2.7f,5),new(-4,2.7f,-5),new(5,1.4f,0),new(0,1.4f,6)};
+            Vector3[] views={new(5,3.4f,7),new(-5,3.4f,-7),new(9,3f,0),new(0,3f,9)};
             string[] names={"Front","Rear","Side","FrontStraight"};
             for(int i=0;i<views.Length;i++)
             {
@@ -183,7 +234,7 @@ namespace VoxelRacer.Editor
                 try
                 {
                     preview.AddSingleGO(Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath)));
-                    preview.camera.transform.position=views[i];preview.camera.transform.LookAt(new Vector3(0,.72f,.18f));preview.camera.fieldOfView=30;
+                    preview.camera.transform.position=views[i];preview.camera.transform.LookAt(new Vector3(0,2.15f,.18f));preview.camera.fieldOfView=33;
                     preview.camera.nearClipPlane=.1f;preview.camera.farClipPlane=50;preview.camera.clearFlags=CameraClearFlags.SolidColor;preview.camera.backgroundColor=new Color(.11f,.14f,.17f);
                     preview.lights[0].intensity=1.8f;preview.lights[0].transform.rotation=Quaternion.Euler(40,25,0);preview.lights[1].intensity=1.3f;preview.lights[1].transform.rotation=Quaternion.Euler(30,210,0);preview.ambientColor=new Color(.45f,.45f,.45f);
                     preview.BeginStaticPreview(new Rect(0,0,1100,850));preview.Render(true);var image=preview.EndStaticPreview();File.WriteAllBytes("Temp/Turret/"+names[i]+".png",image.EncodeToPNG());Object.DestroyImmediate(image);

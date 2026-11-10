@@ -94,8 +94,11 @@ namespace VoxelRacer
         [Min(0)] public float spikeSpreadForce = 3f;
         [Min(0)] public float spikeSpinSpeed = 120f;
         [Range(0, 1)] public float spikeVelocityInheritance = .35f;
+        [Tooltip("Seconds the detached drills and their smoke and fire remain in the scene.")]
         [Min(.1f)] public float spikeDebrisLifetime = 6f;
-        [Min(0)] public float spikeFireSmokeDuration = 2f;
+        // Preserve the opt-out from older assets that used a zero duration.
+        [SerializeField, HideInInspector] private float spikeFireSmokeDuration = 2f;
+        internal bool EmitSpikeTrails => spikeFireSmokeDuration > 0f;
         [Min(.01f)] public float spikeFireSmokeScale = 1f;
         [Tooltip("Absolute world scale of each spike's one-shot burst, independent of the shared explosion prefab's global size.")]
         [Min(.1f)] public float spikeExplosionScale = .8f;

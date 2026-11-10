@@ -119,7 +119,8 @@ namespace VoxelRacer
             float chaseLookAhead = Tuning != null ? Tuning.chaseLookAhead : lookAhead;
             transform.position = cameraTargetPosition + roadHeading * chaseOffset;
             Vector3 lookForward = hasRoadHeading ? roadHeading * Vector3.forward : target.forward;
-            transform.rotation = Quaternion.LookRotation(cameraTargetPosition + lookForward * chaseLookAhead + Vector3.up * 0.3f - transform.position);
+            Vector3 chaseLook = cameraTargetPosition + lookForward * chaseLookAhead + Vector3.up * .3f;
+            transform.rotation = Quaternion.LookRotation(GetBossSideRamLookPoint(chaseLook, roadHeading) - transform.position);
             ApplyShake();
         }
 
@@ -236,6 +237,18 @@ namespace VoxelRacer
 
         /// <summary>Compatibility entry point retained for existing integrations.</summary>
         public void ShakeFromPlayerVehicleImpact() => ShakeFromPlayerDamage();
+
+        internal void ShakeFromBossSideRam()
+        {
+            VoxelCameraTuning settings = Tuning;
+            if (settings == null || settings.playerVehicleImpactShakeDuration <= 0f)
+                return;
+
+            StartShake(ref impactShake, settings.playerVehicleImpactShakeDuration * 1.55f,
+                settings.playerVehicleImpactShakePositionStrength * 1.45f,
+                settings.playerVehicleImpactShakeRotationDegrees * 1.35f,
+                settings.playerVehicleImpactShakeFrequency);
+        }
 
         public void ShakeFromObjectExplosion()
         {

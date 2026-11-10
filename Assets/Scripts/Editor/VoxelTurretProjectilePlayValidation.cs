@@ -82,10 +82,50 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRoadsideTurret).GetMethod("BuildVisuals",Private).Invoke(turret,null);
                 var muzzle=(Transform)typeof(VoxelRoadsideTurret).GetField("muzzleAnchor",Private).GetValue(turret);
                 Check(muzzle!=null && Vector3.Distance(gun.transform.InverseTransformPoint(muzzle.position),new Vector3(0,1.18f,1.63f))<.001f && muzzle.lossyScale==Vector3.one,"New turret must retain original bullet height/origin and an unscaled muzzle");
-                Check(gun.GetComponentsInChildren<MeshRenderer>().Length==1 && gun.GetComponentsInChildren<Collider>().Length==0,"Actual turret must use the combined collider-free prefab");
+                Check(gun.GetComponentsInChildren<MeshRenderer>().Length==4 && gun.GetComponentsInChildren<Collider>().Length==0,"Actual turret must use the combined collider-free prefab with three warning lenses");
+                CheckWarningCountdown();
                 phase=0;started=Time.realtimeSinceStartup;Fire(false);EditorApplication.update+=Tick;
             }
             catch(Exception e){Finish("FAIL: "+e);}
+        }
+
+        private static void CheckWarningCountdown()
+        {
+            var antenna = turret.GetComponentInChildren<MeshFilter>().transform.Find("Warning Antenna");
+            var lamps = new[]
+            {
+                antenna.Find("Top Lamp").GetComponent<MeshRenderer>(),
+                antenna.Find("Middle Lamp").GetComponent<MeshRenderer>(),
+                antenna.Find("Bottom Lamp").GetComponent<MeshRenderer>()
+            };
+            var lit = Resources.Load<Material>("CarMaterials/CarBrakeLights");
+            var dim = lamps[0].sharedMaterial;
+            var begin = typeof(VoxelRoadsideTurret).GetMethod("BeginBurstCountdown", Private);
+            var update = typeof(VoxelRoadsideTurret).GetMethod("UpdateWarningLamps", Private);
+            var shotTime = typeof(VoxelRoadsideTurret).GetField("nextBurstTime", Private);
+            float authoredPause = tuning.pauseDuration;
+            foreach (float duration in new[] { 4f, authoredPause })
+            {
+                tuning.pauseDuration = duration;
+                begin.Invoke(turret, new object[] { 0f });
+                Check(Mathf.Approximately((float)shotTime.GetValue(turret), duration), "Countdown changed the tuned pause before firing");
+                float epsilon = Mathf.Min(.01f, duration * .05f);
+                for (int index = 0; index < lamps.Length; index++)
+                {
+                    float time = duration * .25f * (index + 1);
+                    Expect(time - epsilon, -1);
+                    Expect(time + epsilon, index);
+                }
+                Expect(duration - epsilon, -1);
+            }
+            tuning.pauseDuration = authoredPause;
+
+            void Expect(float time, int active)
+            {
+                update.Invoke(turret, new object[] { time });
+                for (int i = 0; i < lamps.Length; i++)
+                    Check(lamps[i].sharedMaterial == (active == i ? lit : dim), "Incorrect warning flash at " + time + " seconds");
+            }
         }
 
         private static void Fire(bool right,float heightOffset=0,bool intactSurface=false)
@@ -170,7 +210,7 @@ namespace VoxelRacer.Editor
                     case 9:
                         Check(player.RemainingIntegrityVoxels==initialIntegrity-6,"Turret bullet damaged player after mission completion");
                         Check(root.GetComponentsInChildren<VoxelHostileProjectile>().Length==0,"Completed mission retained hostile bullets");
-                        Finish("PASS: actual turret muzzle volleys hit the collider-free player from both sides and a rotated heading, remove exactly the configured voxels, restore normal damage settings and report integrity losses without score; nearer walls block shots, farther walls do not, high shots and disabled renderers miss, cache rebuild follows model replacement, pause freezes bullets, completion cancels them. Temporary objects, tuning clones, cash, mission state, random state and clocks restored.");return;
+                        Finish("PASS: turret warning lights flash top to bottom at quarter intervals using both the authored pause and a four-second pause. Actual turret muzzle volleys hit the collider-free player from both sides and a rotated heading, remove exactly the configured voxels, restore normal damage settings and report integrity losses without score; nearer walls block shots, farther walls do not, high shots and disabled renderers miss, cache rebuild follows model replacement, pause freezes bullets, completion cancels them. Temporary objects, tuning clones, cash, mission state, random state and clocks restored.");return;
                 }
                 phase++;
             }

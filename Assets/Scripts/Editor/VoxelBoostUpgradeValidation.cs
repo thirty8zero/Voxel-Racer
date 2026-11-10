@@ -50,7 +50,7 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("BuildUi", flags).Invoke(shop, null);
                 VoxelCurrencyState.Add(tuning.purchasePrice * 2);
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("RefreshUi", flags).Invoke(shop, null);
-                var button = root.GetComponentsInChildren<Button>(true).First(b => b.name == "Boost Bottle Purchase Button");
+                var button = VoxelGarageUpgradeDockValidation.InspectUpgrade(root.GetComponentsInChildren<Button>(true).First(b => b.name == "Boost Bottle Purchase Button"));
                 Check(button.interactable, "Shop did not enable affordable upgrade");
                 button.onClick.Invoke();
                 Check(!VoxelBoostUpgradeState.IsPurchased && VoxelCurrencyState.Balance == tuning.purchasePrice * 2, "Preview spent cash before confirmation");

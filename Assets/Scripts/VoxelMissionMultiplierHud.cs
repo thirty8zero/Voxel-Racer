@@ -11,6 +11,18 @@ namespace VoxelRacer
         private int timeExtensionAmount;
         public float TimeExtensionPulse => Mathf.Clamp01(1f - (Time.unscaledTime - timeExtensionStartedAt) / 1.5f);
 
+        internal void RefreshInstrumentCluster(VoxelMissionInstrumentCluster cluster)
+        {
+            if (cluster == null || Tuning == null) return;
+            bool expired = !TimeBonusAvailable;
+            bool urgent = !IsComplete && !expired && RemainingTime <= Tuning.bonusWarningSeconds;
+            Color tone = IsComplete ? GainColour : expired || urgent ? LossColour : new Color(1f, .76f, .24f);
+            int extra = Mathf.Max(0, Mathf.RoundToInt(Tuning.completionCurrencyAward * EffectiveTimeBonusMultiplier) - Tuning.completionCurrencyAward);
+            string status = IsComplete ? "BANKED" : expired ? (EffectiveTimeBonusMultiplier > 1f ? "DECAYING" : "MINIMUM") : "AT RISK";
+            float pulse = Mathf.Clamp01((multiplierPulseUntil - Time.unscaledTime) / .32f);
+            cluster.SetReadout(displayedMultiplierBonus, extra, status, tone, lastMultiplierWasNegative ? LossColour : GainColour, pulse);
+        }
+
         public bool AddBonusTime(int seconds, Vector3? position = null)
         {
             // Extensions must be collected before the countdown expires.
@@ -31,28 +43,9 @@ namespace VoxelRacer
         private void DrawMultiplier(Rect missionArea, float alpha)
         {
             percentageSymbolFont ??= Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001");
-            bool expired = !TimeBonusAvailable;
-            bool urgent = !IsComplete && !expired && RemainingTime <= Tuning.bonusWarningSeconds;
-            Color tone = expired || urgent ? LossColour : new Color(1f, .8f, .2f);
             Rect timer = GetCountdownRect();
             var panel = GetMultiplierArea(missionArea);
-            float layoutScale = panel.height / 70f;
-            Fill(panel, new Color(.025f, .04f, .065f, .94f), alpha);
-            Fill(new Rect(panel.x, panel.y, panel.width, 2 * layoutScale), tone, alpha);
-            int numberSize = Mathf.Max(1, Mathf.FloorToInt(Mathf.Min(panel.width / 4.8f, 30 * layoutScale)));
-            var target = new Rect(panel.x + 5 * layoutScale, panel.y + 3 * layoutScale, panel.width - 10 * layoutScale, 34 * layoutScale);
-            float pulse = Mathf.Clamp01((multiplierPulseUntil - Time.unscaledTime) / .32f);
-            float scale = 1 + Mathf.Sin(pulse * Mathf.PI) * .12f;
-            var oldMatrix = GUI.matrix;
-            GUIUtility.ScaleAroundPivot(Vector2.one * scale, target.center);
-            GUI.color = new Color(1, 1, 1, alpha);
-            Color multiplierColour = pulse > 0 ? (lastMultiplierWasNegative ? LossColour : GainColour) : Color.white;
-            GUI.Label(target, FormatMultiplier(displayedMultiplierBonus), BonusStyle(numberSize, multiplierColour));
-            GUI.matrix = oldMatrix;
-            int extra = Mathf.Max(0, Mathf.RoundToInt(Tuning.completionCurrencyAward * EffectiveTimeBonusMultiplier) - Tuning.completionCurrencyAward);
-            string status = IsComplete ? "BANKED" : expired ? (EffectiveTimeBonusMultiplier > 1f ? "DECAYING" : "MINIMUM") : "AT RISK";
-            GUI.Label(new Rect(panel.x + 4 * layoutScale, panel.y + 37 * layoutScale, panel.width - 8 * layoutScale, 13 * layoutScale), status, BonusStyle(Mathf.Max(1, Mathf.RoundToInt(11 * layoutScale)), tone));
-            GUI.Label(new Rect(panel.x + 4 * layoutScale, panel.y + 49 * layoutScale, panel.width - 8 * layoutScale, 20 * layoutScale), "+$" + extra, BonusStyle(Mathf.Min(numberSize, Mathf.RoundToInt(19 * layoutScale)), tone));
+            var target = VoxelMissionInstrumentCluster.ReadoutArea(panel);
 
             foreach (var flight in multiplierFlights)
             {
@@ -111,7 +104,7 @@ namespace VoxelRacer
 
         private static Rect GetCountdownRect()
         {
-            var display = Object.FindFirstObjectByType<VoxelMissionTimerDisplay>();
+            var display = VoxelMissionTimerDisplay.Active;
             if (display != null && display.TryGetScreenRect(out Rect rect)) return rect;
             float scale = Mathf.Sqrt(Screen.width / 1920f * Screen.height / 1080f);
             return new Rect(Screen.width - 295f * scale, 25f * scale, 280f * scale, 280f * scale);

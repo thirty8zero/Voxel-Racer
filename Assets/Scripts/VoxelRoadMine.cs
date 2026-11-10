@@ -12,6 +12,11 @@ namespace VoxelRacer
         private Vector2 previousPlayer;
         private Transform visual;
         private bool detonated;
+        private MeshRenderer warningLamp;
+        private bool warningLampLit;
+        private static Material litLampMaterial, dimLampMaterial;
+        private const float WarningFlashPeriod = .6f;
+        private const float WarningFlashOnTime = .24f;
 
         public void Configure(VoxelCarController player, EndlessVoxelRoad road, VoxelMineLayerTuning settings,
             float trackDistance, float laneOffset)
@@ -21,6 +26,19 @@ namespace VoxelRacer
             var pose = road.Evaluate(distance);
             transform.SetPositionAndRotation(pose.position + pose.right * offset, pose.rotation);
             visual = Instantiate(settings.minePrefab, transform, false).transform;
+            foreach (var renderer in visual.GetComponentsInChildren<MeshRenderer>())
+            {
+                if (renderer.name != "Armed indicator") continue;
+                warningLamp = renderer;
+                if (litLampMaterial == null) litLampMaterial = Resources.Load<Material>("CarMaterials/CarBrakeLights");
+                if (dimLampMaterial == null) dimLampMaterial = Resources.Load<Material>("Bosses/BichoLocoArt/LampOff");
+                if (litLampMaterial != null && dimLampMaterial != null)
+                {
+                    warningLamp.sharedMaterial = litLampMaterial;
+                    warningLampLit = true;
+                }
+                break;
+            }
         }
 
         private void Update()
@@ -31,6 +49,7 @@ namespace VoxelRacer
             { Destroy(gameObject); return; }
             float age = Time.time - born;
             if (visual != null) visual.localPosition = Vector3.up * (.35f * (1f - Mathf.Clamp01(age / .3f)));
+            UpdateWarningLamp(age);
             var current = target.CollisionTrackPosition;
             if (!detonated && age >= tuning.armingDelay && CrossesMine(previousPlayer, current,
                 new Vector2(offset, distance), new Vector2(tuning.collisionHalfWidth, tuning.collisionHalfLength)))
@@ -48,6 +67,15 @@ namespace VoxelRacer
                 Destroy(gameObject);
             }
             previousPlayer = current;
+        }
+
+        private void UpdateWarningLamp(float age)
+        {
+            if (warningLamp == null || litLampMaterial == null || dimLampMaterial == null) return;
+            bool lit = Mathf.Repeat(age, WarningFlashPeriod) < WarningFlashOnTime;
+            if (lit == warningLampLit) return;
+            warningLamp.sharedMaterial = lit ? litLampMaterial : dimLampMaterial;
+            warningLampLit = lit;
         }
 
         // Swept lane/track bounds prevent fast or boosting players skipping a mine between frames.

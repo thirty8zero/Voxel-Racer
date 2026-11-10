@@ -7,7 +7,7 @@ using Object = UnityEngine.Object;
 
 namespace VoxelRacer
 {
-    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough, StarSpikes, DualBoost, ExtendedArmour, UnderbodyArmour }
+    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough, StarSpikes, DualBoost, ExtendedArmour, UnderbodyArmour, GoldWheels }
 
     public readonly struct VoxelGarageUpgradeSelection
     {
@@ -26,6 +26,10 @@ namespace VoxelRacer
         public static bool IsArmour(VoxelGarageUpgradeKind kind) => kind == VoxelGarageUpgradeKind.Armour || kind == VoxelGarageUpgradeKind.ExtendedArmour;
         public static VoxelArmorTuning ArmorTuning(VoxelGarageUpgradeKind kind) => kind == VoxelGarageUpgradeKind.ExtendedArmour
             ? VoxelArmorTuning.LoadExtended() : VoxelArmorTuning.Load();
+        public static VoxelPerformanceWheelTuning WheelTuning(VoxelGarageUpgradeKind kind) =>
+            kind == VoxelGarageUpgradeKind.GoldWheels ? VoxelPerformanceWheelTuning.LoadGold() : VoxelPerformanceWheelTuning.Load();
+        private static bool ReplacesBaseVisual(VoxelGarageUpgradeKind kind) =>
+            kind == VoxelGarageUpgradeKind.Wheels || kind == VoxelGarageUpgradeKind.GoldWheels || kind == VoxelGarageUpgradeKind.Engine;
         public bool RequiresPlacement => IsArmour(Kind) ||
             Kind == VoxelGarageUpgradeKind.Guns || Kind == VoxelGarageUpgradeKind.Missiles;
         public int AvailableSpotCount => spots.Count;
@@ -81,8 +85,8 @@ namespace VoxelRacer
             ghostSlots.Clear(); pendingModels.Clear(); spots.Clear(); pickMeshes = Array.Empty<MeshFilter>();
             Rebuild();
             // Replacements first, so spikes fit the preview's final wheels regardless of click order.
-            foreach (var part in selections) if (part.Kind == VoxelGarageUpgradeKind.Wheels || part.Kind == VoxelGarageUpgradeKind.Engine) BuildPendingPart(part);
-            foreach (var part in selections) if (part.Kind != VoxelGarageUpgradeKind.Wheels && part.Kind != VoxelGarageUpgradeKind.Engine) BuildPendingPart(part);
+            foreach (var part in selections) if (ReplacesBaseVisual(part.Kind)) BuildPendingPart(part);
+            foreach (var part in selections) if (!ReplacesBaseVisual(part.Kind)) BuildPendingPart(part);
             if (RequiresPlacement && canAdd)
             {
                 for (int slot = 0; slot < 2; slot++)
@@ -169,7 +173,8 @@ namespace VoxelRacer
                 case VoxelGarageUpgradeKind.Missiles:
                     VoxelMissileUpgradeState.CreateVisual(car, VoxelMissileLauncherTuning.Load(), slot == 1); break;
                 case VoxelGarageUpgradeKind.Wheels:
-                    VoxelPerformanceWheelUpgradeState.CreateVisuals(car, VoxelPerformanceWheelTuning.Load()); break;
+                case VoxelGarageUpgradeKind.GoldWheels:
+                    VoxelPerformanceWheelUpgradeState.CreateVisuals(car, WheelTuning(kind)); break;
                 case VoxelGarageUpgradeKind.Spikes:
                 case VoxelGarageUpgradeKind.StarSpikes:
                     foreach (var wheel in car.GetComponentsInChildren<Transform>(true))

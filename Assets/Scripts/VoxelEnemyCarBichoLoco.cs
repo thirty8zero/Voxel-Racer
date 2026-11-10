@@ -68,14 +68,18 @@ namespace VoxelRacer
             nextCollisionTime = Time.time + trafficTuning.collisionCooldown;
             if (direction.sqrMagnitude < .001f) direction = target.transform.forward;
             bool rear = IsRearImpact(direction);
+            Vector3 playerContact = target.GetDamageSurfacePoint(transform.position);
             int previousDamage = target.damageVoxelsPerHit;
             try
             {
                 target.damageVoxelsPerHit = Random.Range(Mathf.Min(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax),
                     Mathf.Max(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax) + 1);
-                target.ApplyCollisionDamage(target.GetDamageSurfacePoint(transform.position), direction, "Enemy collision");
+                target.ApplyCollisionDamage(playerContact, direction, "Enemy collision");
             }
             finally { target.damageVoxelsPerHit = previousDamage; }
+            Vector3 sparkContact = hopper == null ? playerContact : hopper.transform.TransformPoint(
+                hopper.LocalBounds.ClosestPoint(hopper.transform.InverseTransformPoint(playerContact)));
+            VoxelSpikeImpact.PlayVehicleRamSparks(transform, sparkContact, direction, path);
             if (hopper != null)
             {
                 float requested = VoxelPloughUpgradeState.ImpactDamage(VoxelWheelSpikeUpgradeState.CalculateRamDamage(

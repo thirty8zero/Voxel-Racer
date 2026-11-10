@@ -99,10 +99,15 @@ namespace VoxelRacer.Editor
         public IEnumerable<VoxelUpgradeFitEntry> Discover()
         {
             foreach (var tuning in VoxelUpgradeFitCatalog.Assets<VoxelPerformanceWheelTuning>())
-                yield return new VoxelUpgradeFitEntry {
-                    Asset = tuning, Label = tuning.displayName + " — Set of four", Fits = tuning.Fits,
-                    Build = car => VoxelPerformanceWheelUpgradeState.CreateVisuals(car, tuning)
-                };
+                for (int side = -1; side <= 1; side++)
+                {
+                    int chosenSide = side;
+                    yield return new VoxelUpgradeFitEntry {
+                        Asset = tuning, Label = tuning.displayName + (side < 0 ? " — Left wheels" : side > 0 ? " — Right wheels" : " — Set of four"),
+                        Fits = tuning.Fits,
+                        Build = car => VoxelPerformanceWheelUpgradeState.CreateVisuals(car, tuning, chosenSide)
+                    };
+                }
         }
     }
 

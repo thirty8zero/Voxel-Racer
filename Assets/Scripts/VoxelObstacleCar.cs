@@ -184,8 +184,10 @@ namespace VoxelRacer
             int integrityBeforeHit = target.RemainingIntegrityVoxels;
 #endif
             target.damageVoxelsPerHit = selectedPlayerDamage;
-            target.ApplyCollisionDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, IsEnemyTraffic ? EnemyTuning.displayName + " collision" : (UsesVanImpactSettings ? "Civilian van collision" : "Civilian car collision"));
+            Vector3 playerContact = target.GetDamageSurfacePoint(transform.position);
+            target.ApplyCollisionDamage(playerContact, hitDirection, IsEnemyTraffic ? EnemyTuning.displayName + " collision" : (UsesVanImpactSettings ? "Civilian van collision" : "Civilian car collision"));
             target.damageVoxelsPerHit = originalPlayerDamage;
+            VoxelSpikeImpact.PlayVehicleRamSparks(transform, playerContact, hitDirection, path);
 #if UNITY_EDITOR
             int integrityAfterHit = target.RemainingIntegrityVoxels;
             Debug.Log($"Civilian collision: tuning={tuning.name}, configured={damageMin}-{damageMax}, " +

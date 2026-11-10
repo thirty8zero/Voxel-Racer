@@ -118,9 +118,9 @@ MonoBehaviour:
   sunDistanceAhead: 220
   sunAzimuthDegrees: 45
   sunHorizontalOffset: 0
-  sunHorizonHeight: 4
+  sunHorizonHeight: 2
   sunDiameter: 24
-  sunColour: {r: 1, g: 0.84, b: 0.12, a: 1}
+  sunColour: {r: 1, g: 0.3442434, b: 0, a: 1}
   horizonMountainsEnabled: 1
   mountainCardMaterial: {fileID: 2100000, guid: 623b048a329eb854893a0a1016020954, type: 2}
   mountainCardVerticalUV: {x: 0.035, y: 0.325}

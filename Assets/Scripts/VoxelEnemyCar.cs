@@ -134,6 +134,11 @@ namespace VoxelRacer
             if(IsBoss) currentSpeed=GetBossDriveSpeed();
             else if (!IsPsychoBug) currentSpeed = Mathf.Max(currentSpeed, Mathf.Max(0f, Tuning.minimumDrivingSpeed));
             CreateModel(enemy);
+            if (spikeAttackTuning != null)
+            {
+                CacheSpikePlayerBounds();
+                CacheSpikeBossSideProfile(enemy.modelPrefab);
+            }
             if(!IsBoss) healthBar = VoxelEnemyHealthBar.Create(transform, enemy, player.transform);
             ApplyTrackPose();
             VoxelNightHeadlights.Attach(gameObject, road != null ? road.trackDefinition : VoxelRacerBootstrap.ActiveTrack);
@@ -228,44 +233,56 @@ namespace VoxelRacer
             RotateWheels();
             UpdateMineLayer();
 
-            CheckVehicleContact();
+            if (spikeAttackTuning == null) CheckVehicleContact();
             if (!IsBoss && (TrackDistance < target.TrackDistance - 30f || TrackDistance > target.TrackDistance + GetMaximumDistanceAhead()))
                 Destroy(gameObject);
         }
 
         private void CheckVehicleContact()
         {
+            if (SpikePhase == SpikeAttackPhase.SideRamImpact) return;
             var relative=target.CollisionTrackPosition-new Vector2(LaneOffset,TrackDistance);
             if (TryBichoHopperContact(relative)) { previousCollisionRelative = relative; return; }
+            if (spikeAttackDodged)
+            {
+                CheckDodgedSpikeContact(relative);
+                previousCollisionRelative = relative;
+                return;
+            }
+
+            bool spikeBodyContact = spikeAttackTuning != null && !SpikeAttackDangerous;
             float spikeReach = SpikeAttackDangerous ? SpikeHitDistance - Tuning.collisionHalfLength : 0f;
             Vector2 spikeShift = new Vector2(0, spikeReach * .5f);
+            Vector2 halfSize = IsPsychoBug ? PsychoCollisionSize : spikeBodyContact ? SpikeBodyHalfSize :
+                new Vector2(Tuning.collisionHalfWidth, Tuning.collisionHalfLength + spikeReach * .5f);
             bool contactFound=VoxelVehicleCollision.Sweep(previousCollisionRelative + spikeShift,relative + spikeShift,
-                IsPsychoBug ? PsychoCollisionSize : new Vector2(CollisionHalfWidth,Tuning.collisionHalfLength + spikeReach * .5f),out var contact);
+                halfSize,out var contact);
             Vector2 motion = relative - previousCollisionRelative;
             previousCollisionRelative=relative;
             if (contactFound)
             {
-                if(!IsSpikeDodgeCornerContact)
+                // Contact always ends the slam, even while ordinary collision damage is on cooldown.
+                if (IsPsychoBug && PsychoPhase == PsychoBugPhase.Slamming) ApplyPsychoRam(contact);
+                else if(SpikeAttackDangerous) ApplySpikeRam();
+                else if(!(SpikeAttackActive && spikeRamApplied) && Time.time >= nextCollisionTime)
                 {
-                    // Contact always ends the slam, even while ordinary collision damage is on cooldown.
-                    if (IsPsychoBug && PsychoPhase == PsychoBugPhase.Slamming) ApplyPsychoRam(contact);
-                    else if(SpikeAttackDangerous) ApplySpikeRam();
-                    else if(!(SpikeAttackActive && spikeRamApplied) && Time.time >= nextCollisionTime)
+                    if (spikeBodyContact && IsSpikeBodySide(contact, halfSize)) return;
+                    Vector3 direction = spikeBodyContact ? -Mathf.Sign(contact.y) * transform.forward :
+                        VoxelVehicleCollision.ImpactDirection(contact,target.transform);
+
+                    bool rearImpact = !IsBoss && IsRearImpact(direction);
+                    if (rearImpact)
                     {
-                        Vector3 direction = VoxelVehicleCollision.ImpactDirection(contact,target.transform);
-                        bool rearImpact = !IsBoss && IsRearImpact(direction);
-                        if (rearImpact)
-                        {
-                            float impactSpeed = currentSpeed + Mathf.Max(0f, motion.y / Mathf.Max(.0001f, Time.deltaTime));
-                            rearContact.Begin(target, transform, new Vector2(CollisionHalfWidth, Tuning.collisionHalfLength), impactSpeed);
-                            rearImpactBounceStartedAt = Time.time;
-                        }
-                        RamByPlayer(direction);
-                        if (rearImpact && rearContact.Active)
-                        {
-                            if (hasBeenRammed) AddRearImpactVelocity();
-                            else currentSpeed = Mathf.Max(currentSpeed, rearContact.BounceSpeed);
-                        }
+                        float impactSpeed = currentSpeed + Mathf.Max(0f, motion.y / Mathf.Max(.0001f, Time.deltaTime));
+                        rearContact.Begin(target, transform,
+                            new Vector2(Tuning.collisionHalfWidth, Tuning.collisionHalfLength), impactSpeed);
+                        rearImpactBounceStartedAt = Time.time;
+                    }
+                    RamByPlayer(direction);
+                    if (rearImpact && rearContact.Active)
+                    {
+                        if (hasBeenRammed) AddRearImpactVelocity();
+                        else currentSpeed = Mathf.Max(currentSpeed, rearContact.BounceSpeed);
                     }
                 }
             }
@@ -572,10 +589,15 @@ namespace VoxelRacer
             target.damageVoxelsPerHit = Random.Range(
                 Mathf.Min(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax),
                 Mathf.Max(Tuning.playerDamageVoxelsMin, Tuning.playerDamageVoxelsMax) + 1);
-            target.ApplyCollisionDamage(target.GetDamageSurfacePoint(transform.position), hitDirection, "Enemy collision");
+            Vector3 playerContact = target.GetDamageSurfacePoint(transform.position);
+            target.ApplyCollisionDamage(playerContact, hitDirection, "Enemy collision");
             target.damageVoxelsPerHit = originalPlayerDamage;
 
-            int removedVoxels = ApplyVoxelDamage(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset,
+            bool stagedSideRam = SpikePhase == SpikeAttackPhase.SideRamImpact;
+            if (!stagedSideRam) VoxelSpikeImpact.PlayVehicleRamSparks(transform, playerContact, hitDirection, path);
+            Vector3 damagePoint = stagedSideRam ? spikeSideImpactPoint :
+                transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset;
+            int removedVoxels = ApplyVoxelDamage(damagePoint,
                 hitDirection, Mathf.RoundToInt(boostRamMultiplier * VoxelPloughUpgradeState.ImpactDamage(Random.Range(
                     Mathf.Min(IsBoss ? bossSettings.ramDamageVoxelsMin : trafficTuning.obstacleDamageVoxelsMin,
                         IsBoss ? bossSettings.ramDamageVoxelsMax : trafficTuning.obstacleDamageVoxelsMax),
@@ -591,11 +613,9 @@ namespace VoxelRacer
             if(healthBar!=null) healthBar.SetHealth(HealthPercent);
             if (CurrentHealth <= 0f)
                 Explode(transform.position - hitDirection * trafficTuning.impactVoxelDamageSurfaceOffset, hitDirection);
-            else
+            else if (!stagedSideRam)
             {
                 BeginRamResponse(rearImpact, hitDirection);
-                if (IsBoss && SpikeAttackActive && IsSideImpact(hitDirection))
-                    ScheduleSpikeRetreatAfterSideRam();
                 target.ApplyRamResponse(rearImpact, hitDirection, Tuning);
             }
             VoxelMissionProgress.ReportEnemyRamDamage(ramDamage);
@@ -755,13 +775,6 @@ namespace VoxelRacer
             return forward > lateral;
         }
 
-        private bool IsSideImpact(Vector3 playerToEnemyDirection)
-        {
-            float forward = Mathf.Abs(Vector3.Dot(playerToEnemyDirection, transform.forward));
-            float lateral = Mathf.Abs(Vector3.Dot(playerToEnemyDirection, transform.right));
-            return lateral > forward;
-        }
-
         private void BeginRamResponse(bool rearImpact, Vector3 playerToEnemyDirection)
         {
             speedMatchUntil = Mathf.Max(speedMatchUntil, Time.time + Tuning.playerRamSpeedMatchDuration);
@@ -779,6 +792,12 @@ namespace VoxelRacer
 
             float side = Mathf.Sign(Vector3.Dot(playerToEnemyDirection, transform.right));
             sideRamOffsetStart = side * Tuning.sideRamEnemyLaneShiftDistance;
+            if (IsPsychoBug)
+            {
+                Vector2 start = new(LaneOffset, TrackDistance);
+                Vector2 recoil = new(laneOffset + sideRamOffsetStart, TrackDistance);
+                sideRamOffsetStart = Mathf.Lerp(sideRamOffset, sideRamOffsetStart, GetPsychoTrafficStepFraction(start, recoil, 0f));
+            }
             sideRamOffset = sideRamOffsetStart;
             sideRamDuration = Tuning.sideRamEnemyLaneShiftDuration;
             sideRamEasing = Tuning.sideRamEnemyLaneShiftEasing;
@@ -804,10 +823,9 @@ namespace VoxelRacer
             if (sideRamStartedAt < 0f)
                 return;
 
-            float sideProgress = sideRamDuration <= 0.001f ? 1f :
+            float sideProgress = sideRamDuration <= .001f ? 1f :
                 Mathf.Clamp01((Time.time - sideRamStartedAt) / sideRamDuration);
-            sideRamOffset = Mathf.Lerp(sideRamOffsetStart, 0f,
-                VoxelEasing.Evaluate(sideRamEasing, sideProgress));
+            sideRamOffset = Mathf.Lerp(sideRamOffsetStart, 0f, VoxelEasing.Evaluate(sideRamEasing, sideProgress));
             if (sideProgress >= 1f)
                 sideRamStartedAt = -1f;
         }

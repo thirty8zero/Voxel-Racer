@@ -145,6 +145,8 @@ namespace VoxelRacer
         private bool BlocksCarRotation(Vector2 position)
         {
             if (MissionStartWarningVisible) return true;
+            if (upgradeDetails != null && upgradeDetails.gameObject.activeInHierarchy &&
+                RectTransformUtility.RectangleContainsScreenPoint(upgradeDetails, position)) return true;
             if (purchaseModal != null && purchaseModal.activeInHierarchy &&
                 RectTransformUtility.RectangleContainsScreenPoint((RectTransform)purchaseModal.transform.Find("Purchase Dialog"), position)) return true;
             foreach (var panel in new[] { garageRepairPanel, garageUpgradePanel, garageSettingsPanel })

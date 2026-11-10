@@ -155,7 +155,7 @@ MonoBehaviour:
   nightTime: 1
   nightSkyboxMaterial: {fileID: 0}
   moonColour: {r: 0.65, g: 0.82, b: 1, a: 1}
-  moonHorizonHeight: 20
+  moonHorizonHeight: 12
   nightLightColour: {r: 0.55, g: 0.7, b: 1, a: 1}
   nightLightIntensity: 0.65
   nightAmbientColour: {r: 0.24, g: 0.32, b: 0.48, a: 1}
@@ -199,7 +199,7 @@ MonoBehaviour:
   sunDistanceAhead: 220
   sunAzimuthDegrees: 45
   sunHorizontalOffset: 0
-  sunHorizonHeight: 8
+  sunHorizonHeight: 12
   sunDiameter: 24
   sunColour: {r: 1, g: 0.84, b: 0.12, a: 1}
   horizonMountainsEnabled: 1

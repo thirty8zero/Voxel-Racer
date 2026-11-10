@@ -8,29 +8,43 @@ namespace VoxelRacer
         private Bounds bossCameraBounds;
         private bool bossBoundsReady, bossCameraLatched;
         private float bossCameraBlend;
+        private float bossSideRamCameraBlend;
+        private float bossCameraSide = 1f;
 
         public void SetBossCameraTarget(VoxelEnemyCar boss)
         {
             cameraBoss = boss;
             bossBoundsReady = false;
             bossCameraLatched = false;
+            bossSideRamCameraBlend = 0f;
+            bossCameraSide = 1f;
         }
 
         private Vector3 GetBossAttackCameraOffset(VoxelCarController player, Vector3 cameraTarget,
             Quaternion heading, Vector3 normalOffset, float deltaTime)
         {
             var settings = Tuning;
-            bool active = settings != null && settings.bossAttackCameraEnabled && player != null && !player.IsDestroyed &&
+            bool inRange = settings != null && settings.bossAttackCameraEnabled && player != null && !player.IsDestroyed &&
                 cameraBoss != null && cameraBoss.isActiveAndEnabled && cameraBoss.CurrentHealth > 0 &&
                 Mathf.Abs(cameraBoss.TrackDistance - player.CollisionTrackPosition.y) <= settings.bossAttackCameraTriggerDistance &&
-                player.CollisionTrackPosition.x - cameraBoss.LaneOffset >= Mathf.Max(.1f, player.laneWidth) &&
-                cameraBoss.SpikeAttackActive && cameraBoss.SpikePhase != VoxelEnemyCar.SpikeAttackPhase.Retreating &&
+                cameraBoss.SpikeAttackActive &&
                 VoxelMissionProgress.Active?.IsComplete != true && VoxelMissionProgress.Active?.IsFailed != true;
+            // Frame a committed counter on the way in, so the van cannot obscure the brief contact frame.
+            bool sideRam = inRange && (cameraBoss.SpikePhase == VoxelEnemyCar.SpikeAttackPhase.SideRamImpact ||
+                cameraBoss.IsApproachingSpikeSideCounter());
+            bool active = inRange && cameraBoss.SpikePhase != VoxelEnemyCar.SpikeAttackPhase.Retreating &&
+                player.CollisionTrackPosition.x - cameraBoss.LaneOffset >= Mathf.Max(.1f, player.laneWidth);
             // Recheck lane separation even after latching, so a left dodge releases the right view.
             // Track offsets avoid mistaking a distant van on a bend for one in a different lane.
-            if (!active) bossCameraLatched = false;
+            if (sideRam)
+            {
+                bossCameraLatched = true;
+                bossCameraSide = Mathf.Sign(player.CollisionTrackPosition.x - cameraBoss.LaneOffset);
+            }
+            else if (!active) bossCameraLatched = false;
             else if (!bossCameraLatched)
             {
+                bossCameraSide = 1f;
                 CacheBossCameraBounds();
                 Vector3 normalCamera = cameraTarget + heading * normalOffset;
                 Vector3 focus = player.transform.position + Vector3.up * .7f;
@@ -44,13 +58,25 @@ namespace VoxelRacer
                         -(heading * Vector3.forward) * relative.z, settings.bossAttackCameraClearance);
             }
 
-            float duration = settings != null ? (bossCameraLatched ? settings.bossAttackCameraSwingDuration :
+            float duration = sideRam ? .12f : settings != null ? (bossCameraLatched ? settings.bossAttackCameraSwingDuration :
                 settings.bossAttackCameraReturnDuration) : .8f;
             bossCameraBlend = Mathf.MoveTowards(bossCameraBlend, bossCameraLatched ? 1f : 0f,
                 Mathf.Max(0, deltaTime) / Mathf.Max(.01f, duration));
             float eased = Mathf.SmoothStep(0, 1, bossCameraBlend);
             Vector3 alternate = settings != null ? settings.bossAttackCameraOffset : new Vector3(8.5f, 11, -11);
+            bossSideRamCameraBlend = Mathf.MoveTowards(bossSideRamCameraBlend, sideRam ? 1f : 0f,
+                Mathf.Max(0f, deltaTime) / (sideRam ? .12f : .35f));
+            alternate.x *= bossCameraSide;
+            alternate.y += 1.5f * bossSideRamCameraBlend;
+            alternate.z -= 4f * bossSideRamCameraBlend;
             return OrbitOffset(normalOffset, alternate, eased);
+        }
+
+        private Vector3 GetBossSideRamLookPoint(Vector3 chaseLook, Quaternion heading)
+        {
+            if (bossSideRamCameraBlend <= 0f) return chaseLook;
+            Vector3 impactLook = target.position + heading * new Vector3(-bossCameraSide * 2.8f, 2.1f, 3f);
+            return Vector3.Lerp(chaseLook, impactLook, Mathf.SmoothStep(0f, 1f, bossSideRamCameraBlend));
         }
 
         private void CacheBossCameraBounds()

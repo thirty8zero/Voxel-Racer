@@ -46,8 +46,9 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("BuildUi", Fields).Invoke(shop, null);
                 VoxelCurrencyState.Add(tuning.purchasePrice + 123);
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("RefreshUi", Fields).Invoke(shop, null);
-                var button = root.GetComponentsInChildren<Button>(true).First(b => b.name == "Plough Purchase Button");
+                var button = VoxelGarageUpgradeDockValidation.InspectUpgrade(root.GetComponentsInChildren<Button>(true).First(b => b.name == "Plough Purchase Button"));
                 Check(button.interactable, "Plough shop disabled"); button.onClick.Invoke();
+                typeof(VoxelRepairUpgradeSceneController).GetMethod("ConfirmUpgradePurchase", Fields).Invoke(shop, null);
                 Check(VoxelPloughUpgradeState.IsPurchased && VoxelCurrencyState.Balance == 123 && !button.interactable, "Shop purchase failed");
                 Check(!VoxelPloughUpgradeState.TryPurchase(tuning, definition), "Duplicate purchase allowed");
                 VoxelPloughUpgradeState.ApplyTo(car.transform, definition);

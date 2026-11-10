@@ -115,6 +115,8 @@ namespace VoxelRacer.Editor
                     Collision(true, true, 0, Mathf.RoundToInt(23 * p), protectedPlayer, enemyTraffic: true);
                     Collision(true, false, 0, 20, 4, civilian: true);
                     Collision(true, true, 0, Mathf.RoundToInt(20 * p), protectedPlayer, civilian: true);
+                    Collision(false, false, 0, 20, 4, civilian: true, oncoming: true);
+                    Collision(false, false, 0, 20, 4, Vector3.right, civilian: true, oncoming: true);
                     foreach (float yaw in new[] { 0f, 63f, 180f })
                     foreach (Vector3 side in new[] { Vector3.left, Vector3.right })
                     {
@@ -132,12 +134,21 @@ namespace VoxelRacer.Editor
                     Collision(true, true, 35 * p, Mathf.RoundToInt(35 * p), protectedPlayer);
                     Object.DestroyImmediate(tuning); tuning = null;
                 }
-                report = "PASS (Play Mode): " + checks + " real enemy/boss/Radar/civilian ram cases across default and upgraded boost; active 10%/15% health and voxel bonuses, front-plough and side-spike stacking, inactive/unowned plough fallback, disabled/expired boost and residual speed, configurable zero/custom percentages, boss voxel cap, unchanged player damage and civilian/one-hit traffic behavior. Every detached piece launches away from the rammer, with outward spawn offsets; both sides at 0/63/180-degree headings, boosted/surviving/lethal hits, rear and front impacts passed. Both assets expose percentage fields once in Boost Ram Damage; authored tuning, ownership, gameplay references, random state and user scene restored.";
+                using (var bicho = new VoxelBichoLocoValidation.Fixture())
+                {
+                    var hopper = bicho.Rig.hoppers[0];
+                    Call(bicho.Enemy, "ApplyBichoRam", hopper, bicho.Enemy.transform.forward);
+                    var sparks = bicho.Road.transform.Find("Vehicle Ram Sparks");
+                    Check(sparks != null && sparks.GetComponent<ParticleSystem>().collision.enabled &&
+                        Vector3.Distance(sparks.position, hopper.transform.TransformPoint(hopper.LocalBounds.center)) < hopper.LocalBounds.size.magnitude * hopper.transform.lossyScale.x,
+                        "The hopper ram did not place a bouncing spark burst near the hopper");
+                }
+                report = "PASS (Play Mode): " + checks + " real enemy/boss/Radar/civilian ram cases across default and upgraded boost; active 10%/15% health and voxel bonuses, front-plough and side-spike stacking, inactive/unowned plough fallback, disabled/expired boost and residual speed, configurable zero/custom percentages, boss voxel cap, unchanged player damage and civilian/one-hit traffic behavior. Every detached piece launches away from the rammer, with outward spawn offsets; both sides at 0/63/180-degree headings, boosted/surviving/lethal hits, rear and front impacts passed. Each side or rear ram emitted one small burst with a road bounce plane, including a ram on El Bicho Loco's hopper. Front and head-on cases skipped the burst. Both assets expose percentage fields once in Boost Ram Damage; authored tuning, ownership, gameplay references, random state and user scene restored.";
 
                 void Collision(bool boosting, bool fitted, float expectedHealth, int expectedVoxels, int expectedPlayer,
                     Vector3? direction = null, bool isBoss = false, bool enemyTraffic = false, bool civilian = false,
                     bool disableBoost = false, bool expire = false, bool inactivePlough = false, bool owned = true, bool spikes = false,
-                    float yaw = 0f, bool lethal = false)
+                    float yaw = 0f, bool lethal = false, bool oncoming = false)
                 {
                     var root = new GameObject("Temporary ram case");
                     var existingDebris = Object.FindObjectsByType<VoxelDebris>(FindObjectsSortMode.None).ToHashSet();
@@ -155,6 +166,9 @@ namespace VoxelRacer.Editor
                             mount.SetActive(!inactivePlough);
                         }
                         var environment = new GameObject("Separate race environment"); environment.transform.SetParent(root.transform, false);
+                        var road = environment.AddComponent<EndlessVoxelRoad>(); road.enabled = false;
+                        road.segmentCount = 3; road.horizonRoadEnabled = false;
+                        road.minimumCactiPerSegment = road.maximumCactiPerSegment = 0;
                         var boost = environment.AddComponent<VoxelBoostController>(); boost.Configure(player, tuning);
                         if (boosting) Check(boost.TryActivateBoost(), "Actual boost activation failed");
                         if (disableBoost) boost.enabled = false;
@@ -165,6 +179,7 @@ namespace VoxelRacer.Editor
                             Check(!boost.IsBoosting, "Boost did not expire");
                         }
                         var targetObject = new GameObject("Enemy"); targetObject.transform.SetParent(root.transform, false);
+                        if (oncoming) targetObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
                         Vector3 localDirection = direction ?? Vector3.forward;
                         targetObject.transform.localPosition = localDirection * 4;
                         Check(VoxelVehicleCollision.Sweep(new Vector2(-localDirection.x, -localDirection.z) * 8,
@@ -176,7 +191,7 @@ namespace VoxelRacer.Editor
                         if (enemyTraffic || civilian)
                         {
                             var enemy = targetObject.AddComponent<VoxelObstacleCar>(); enemy.enabled = false;
-                            enemy.tuning = traffic; Set(enemy, "target", player);
+                            enemy.tuning = traffic; Set(enemy, "target", player); Set(enemy, "path", road);
                             typeof(VoxelObstacleCar).GetProperty("EnemyTuning").SetValue(enemy, vehicle);
                             typeof(VoxelObstacleCar).GetProperty("IsEnemyTraffic").SetValue(enemy, enemyTraffic);
                             typeof(VoxelObstacleCar).GetProperty("CurrentHealth").SetValue(enemy, 1000f);
@@ -187,11 +202,26 @@ namespace VoxelRacer.Editor
                         {
                             var enemy = targetObject.AddComponent<VoxelEnemyCar>(); enemy.enabled = false;
                             Set(enemy, "target", player); Set(enemy, "trafficTuning", traffic); Set(enemy, "bossSettings", isBoss ? boss : null);
+                            Set(enemy, "path", road);
                             typeof(VoxelEnemyCar).GetProperty("Tuning").SetValue(enemy, vehicle);
                             float startingHealth = lethal ? 1f : 1000f;
                             typeof(VoxelEnemyCar).GetProperty("CurrentHealth").SetValue(enemy, startingHealth);
                             Call(enemy, "RamByPlayer", (Vector3?)hitDirection);
                             Equal(startingHealth - enemy.CurrentHealth, expectedHealth, "Health damage");
+                        }
+                        var ramSparks = road.GetComponentsInChildren<ParticleSystem>().Where(ps => ps.name == "Vehicle Ram Sparks").ToArray();
+                        bool frontal = localDirection == (oncoming ? Vector3.forward : Vector3.back);
+                        Check(ramSparks.Length == (frontal ? 0 : 1), "Incorrect spark count for the ram direction");
+                        if (!frontal)
+                        {
+                            var sparks = ramSparks[0];
+                            Check(sparks.main.maxParticles == 24 && sparks.main.simulationSpace == ParticleSystemSimulationSpace.World &&
+                                Mathf.Approximately(sparks.emission.GetBurst(0).count.constant, 12f) && sparks.main.startSize.constantMax < .16f,
+                                "The ram did not use the small spark profile");
+                            var plane = sparks.collision.GetPlane(0);
+                            Check(sparks.collision.enabled && sparks.collision.type == ParticleSystemCollisionType.Planes &&
+                                plane != null && plane.parent == road.transform && plane.GetComponent<Collider>() == null,
+                                "Small ram sparks did not use the road plane");
                         }
                         int expectedDetached = enemyTraffic ? 55 : expectedVoxels;
                         Equal(60 - targetObject.GetComponentsInChildren<MeshRenderer>().Length, expectedDetached, "Enemy voxel removal");

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using UnityEditor;
@@ -22,6 +23,8 @@ namespace VoxelRacer.Editor
         public static void Run()
         {
             Check(!Application.isPlaying, "Run this check in Edit Mode.");
+            ValidateDestructionSpacing(1280, 720);
+            ValidateDestructionSpacing(2400, 1080);
             var active = SceneManager.GetActiveScene();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             var random = UnityEngine.Random.state;
@@ -61,8 +64,12 @@ namespace VoxelRacer.Editor
                         CheckProjectedGeometry(bar, camera, barRect);
                         foreach (var style in new[] { VoxelScorePopup.Style.WeaponDamage, VoxelScorePopup.Style.RamDamage, VoxelScorePopup.Style.EnemyDestroyed })
                         {
-                            int fontSize = style == VoxelScorePopup.Style.WeaponDamage ? 60 : style == VoxelScorePopup.Style.RamDamage ? 152 : 192;
-                            var label = new GUIStyle(EditorStyles.label) { font = VoxelHudStyles.HudFont, fontSize = fontSize };
+                            float scale = Mathf.Max(.1f, Screen.height / 1080f);
+                            bool destruction = style == VoxelScorePopup.Style.EnemyDestroyed;
+                            float destructionScale = Mathf.Min(1f, scale);
+                            int fontSize = destruction ? Mathf.RoundToInt(192f * destructionScale) : style == VoxelScorePopup.Style.WeaponDamage ? 60 : 152;
+                            float outline = destruction ? Mathf.Max(1f, 2f * destructionScale) : 2f;
+                            var label = new GUIStyle { font = VoxelHudStyles.HudFont, fontSize = fontSize };
                             float height = label.CalcSize(new GUIContent("+1250")).y;
                             Call(popup, "BeginAtHealthBar", bar.transform.position, 1250, style, -1f, bar);
                             Check(!(bool)typeof(VoxelScorePopup).GetProperty("UsesHudSlot", Private).GetValue(popup), "Enemy number took the shared HUD slot");
@@ -70,8 +77,8 @@ namespace VoxelRacer.Editor
                             {
                                 Vector3 origin = (Vector3)originField.GetValue(popup);
                                 Vector2 center = (Vector2)Call(popup, "GetMissionFlightCenter", origin, height, progress);
-                                float bottom = center.y + (height * .5f + 2f) * (1f - progress);
-                                Check(bottom <= barRect.yMin - 5.9f * Mathf.Max(.1f, Screen.height / 1080f),
+                                float bottom = center.y + (height * .5f + outline) * (1f - progress);
+                                Check(bottom <= barRect.yMin - 5.9f * scale,
                                     name + " " + style + " covered its bar during hold/flight: bottom=" + bottom + ", bar top=" + barRect.yMin + ", progress=" + progress);
                             }
                             // Moving the source/camera upward must never move a bar through a held number.
@@ -79,7 +86,7 @@ namespace VoxelRacer.Editor
                             bar.transform.position += camera.transform.up * 2f;
                             bar.TryGetScreenRect(camera, out Rect movingRect);
                             Vector2 movingCenter = (Vector2)Call(popup, "GetMissionFlightCenter", (Vector3)originField.GetValue(popup), height, .1f);
-                            Check(movingCenter.y + (height * .5f + 2f) * .9f < movingRect.yMin, "Moving source overlapped a number");
+                            Check(movingCenter.y + (height * .5f + outline) * .9f < movingRect.yMin, "Moving source overlapped a number");
                             bar.transform.position = savedPosition;
                             // Lethal hits retain a finite captured origin after the bar disappears.
                             bar.gameObject.SetActive(false);
@@ -93,7 +100,7 @@ namespace VoxelRacer.Editor
                     }
                 }
                 Directory.CreateDirectory("Temp/EnemyDamagePopups");
-                string report = "PASS (Edit Mode): " + cases + " real-bar/popup cases across Black Interceptor, mine layer and Psycho Bug; 16:9/20:9; 12/35/80/140m; full/half/critical health; weapon, ram and destruction numbers. Projected renderer corners fit the pulse/frame envelope. Actual draw centres clear bars during holds, tally flights and source movement; hidden/dead bars retain origins; pooled popups release sources. Assets/game state/RNG restored.";
+                string report = "PASS (Edit Mode): " + cases + " real-bar/popup cases across Black Interceptor, mine layer and Psycho Bug; 16:9/20:9; 12/35/80/140m; full/half/critical health; weapon, ram and destruction numbers. Projected renderer corners fit the pulse/frame envelope. Actual draw centres clear bars during holds, tally flights and source movement; hidden/dead bars retain origins; pooled popups release sources. Destruction labels find room beside mixed-width labels at 720p/1080p and use an upper row when necessary. Assets/game state/RNG restored.";
                 File.WriteAllText("Temp/EnemyDamagePopups/Validation.txt", report); Debug.Log(report);
             }
             finally
@@ -103,6 +110,34 @@ namespace VoxelRacer.Editor
                 UnityEngine.Random.state = random;
                 SceneManager.SetActiveScene(active); EditorSceneManager.CloseScene(scene, true);
             }
+        }
+
+        private static void ValidateDestructionSpacing(float width, float height)
+        {
+            var findSlot = typeof(VoxelScorePopup).GetMethod("FindDestructionSlot", BindingFlags.Static | BindingFlags.NonPublic);
+            var label = new GUIStyle
+            {
+                font = VoxelHudStyles.HudFont,
+                fontSize = Mathf.RoundToInt(192f * height / 1080f),
+                wordWrap = false,
+                clipping = TextClipping.Overflow
+            };
+            Vector2 size = label.CalcSize(new GUIContent("+75"));
+            var desired = new Rect(width - size.x, height * .5f, size.x, size.y);
+            var voxelHit = new Rect(desired.center.x - 28f, desired.yMax - 48f, 56f, 48f);
+            var occupied = new List<Rect> { voxelHit };
+            Rect first = (Rect)findSlot.Invoke(null, new object[] { desired, occupied, width });
+            Check(first.y == desired.y && first.xMin >= 0f && first.xMax <= width && !first.Overlaps(voxelHit),
+                "Destruction number did not fit beside the voxel hit at the screen edge");
+            occupied.Add(first);
+            Rect second = (Rect)findSlot.Invoke(null, new object[] { desired, occupied, width });
+            Check(second.y == desired.y && second.xMin >= 0f && second.xMax <= width &&
+                !second.Overlaps(first) && !second.Overlaps(voxelHit), "Simultaneous destruction numbers overlapped");
+
+            occupied.Clear();
+            occupied.Add(new Rect(0f, desired.y, width, desired.height));
+            Rect upper = (Rect)findSlot.Invoke(null, new object[] { desired, occupied, width });
+            Check(upper.yMin >= 0f && upper.yMax <= desired.yMin, "A full row did not move the destruction number up");
         }
 
         private static void CheckProjectedGeometry(VoxelEnemyHealthBar bar, Camera camera, Rect envelope)

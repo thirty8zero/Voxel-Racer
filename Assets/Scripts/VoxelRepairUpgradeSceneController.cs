@@ -30,7 +30,7 @@ namespace VoxelRacer
         private Button wheelSpikeUpgradeButton;
         private Button starWheelSpikeUpgradeButton;
         private Button performanceWheelButton;
-        private Text performanceWheelLabel;
+        private Button goldWheelButton;
         private Button boostUpgradeButton;
         private Button dualBoostUpgradeButton;
         private Text boostUpgradeLabel;
@@ -67,6 +67,8 @@ namespace VoxelRacer
         private void Update()
         {
             if (VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing) return;
+            if (!isLoading && !GarageSettingsVisible &&
+                VoxelEditorNavigation.Activate(MissionStartWarningVisible ? startWithoutPartsButton : NextRaceButton)) return;
             LayoutGarageDock();
             UpdateUpgradePlacementInput();
             UpdateCarRotationInput();
@@ -266,7 +268,8 @@ namespace VoxelRacer
                 new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.StarSpikes));
             performanceWheelButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Performance Wheel Purchase Button", string.Empty, 30,
                 new Vector2(.5f, .5f), new Vector2(0, -280), new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Wheels));
-            performanceWheelLabel = performanceWheelButton.GetComponentInChildren<Text>();
+            goldWheelButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Gold Track Wheel Purchase Button", string.Empty, 30,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.GoldWheels));
             boostUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Boost Bottle Purchase Button", string.Empty, 30,
                 new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Boost));
             boostUpgradeLabel = boostUpgradeButton.GetComponentInChildren<Text>();
@@ -285,7 +288,7 @@ namespace VoxelRacer
                 TextAnchor.MiddleCenter, new Vector2(1f, 0.5f), new Vector2(-230f, -370f), new Vector2(340f, 80f));
             feedbackText.color = Color.black;
 
-            NextRaceButton = VoxelMenuUi.CreateButton(canvas, "Next Race Button", "NEXT MISSION", 99,
+            NextRaceButton = VoxelMenuUi.CreateButton(canvas, "Next Race Button", "NEXT", 99,
                 new Vector2(0.5f, 0f), new Vector2(0f, 78f), new Vector2(800f, 150f), StartNextRace);
             StyleGarageUi(canvas);
         }
@@ -424,7 +427,6 @@ namespace VoxelRacer
 
             RefreshArmorShop();
             RefreshWheelSpikeShop();
-            RefreshPerformanceWheelShop();
             RefreshEngineShop();
             RefreshPloughShop();
             RefreshMissileShop();
@@ -517,26 +519,13 @@ namespace VoxelRacer
                 " SEC\nCOST <color=#FFD12A>" + tuning.purchasePrice + "</color>");
         }
 
-        private void TryPurchasePerformanceWheels()
+        private void TryPurchasePerformanceWheels(VoxelPerformanceWheelTuning tuning)
         {
-            var tuning = VoxelPerformanceWheelTuning.Load();
             if (DisplayedCar == null || !VoxelPerformanceWheelUpgradeState.TryPurchase(tuning, definition)) return;
             VoxelPerformanceWheelUpgradeState.ApplyTo(DisplayedCar.transform, definition);
             VoxelCarRunState.Capture(DisplayedCar, definition);
             feedbackText.text = "WHEELS INSTALLED";
             RefreshUi();
-        }
-
-        private void RefreshPerformanceWheelShop()
-        {
-            if (performanceWheelButton == null) return;
-            var tuning = VoxelPerformanceWheelTuning.Load();
-            bool fits = tuning != null && tuning.Fits(definition);
-            performanceWheelButton.interactable = fits && !VoxelPerformanceWheelUpgradeState.IsPurchased && VoxelCurrencyState.Balance >= tuning.purchasePrice;
-            performanceWheelLabel.text = !fits ? "PERFORMANCE WHEELS\nUNAVAILABLE FOR THIS CAR" :
-                tuning.displayName + (VoxelPerformanceWheelUpgradeState.IsPurchased ? "\nINSTALLED" :
-                " (SET OF 4)\nBONUS PCT " + tuning.accelerationBonusPercent + " ACC  " + tuning.laneChangeBonusPercent +
-                " LANE  " + tuning.brakingBonusPercent + " BRAKE\nCOST <color=#FFD12A>" + tuning.purchasePrice + "</color>");
         }
 
         private void RefreshArmorShop()

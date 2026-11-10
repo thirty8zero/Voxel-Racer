@@ -24,6 +24,7 @@ namespace VoxelRacer
         }
         public float EffectiveLaneChangeSpeed => laneChangeSpeed * wheelLaneMultiplier;
         public float EffectiveBrakingForce => brakingForce * wheelBrakingMultiplier;
+        internal bool IsBraking { get; private set; }
         public void SetWheelPerformance(float accelerationPercent, float lanePercent, float brakingPercent = 0f)
         {
             wheelAccelerationMultiplier = 1f + Mathf.Max(0, accelerationPercent) / 100f;
@@ -118,6 +119,12 @@ namespace VoxelRacer
         private float ramResponseForwardStart;
         private float ramResponseLateralStart;
         private VoxelEasingType ramResponseEasing;
+        private VoxelEnemyCar bossSideRamSource;
+        private float bossSideRamAway;
+        private float bossSideRamRecoveryElapsed = BossSideRamRecoveryDuration;
+        private float bossSideRamReboundDuration;
+        private float bossSideRamReboundSpeed;
+        private const float BossSideRamRecoveryDuration = .8f;
         private int initialIntegrityVoxels;
         private bool wreckResting;
         private const float RepairAttachmentDistance = 0.65f;
@@ -229,6 +236,7 @@ namespace VoxelRacer
 
         private void Update()
         {
+            IsBraking = false;
             if (!Application.isPlaying || VoxelPauseMenu.IsPaused)
             {
                 SetBrakeLights(false);
@@ -242,10 +250,10 @@ namespace VoxelRacer
             }
 
             var keyboard = Keyboard.current;
-            bool braking = !VoxelBossIntroduction.BlocksControls(this) &&
-                (VoxelMobileControls.IsBrakeHeld || (keyboard != null && keyboard.spaceKey.isPressed));
-            SetBrakeLights(drivingEnabled && (braking || (finishingRun && CurrentSpeed > 0.05f)));
-            CurrentSpeed = CalculateNextDriveSpeed(CurrentSpeed, braking, Time.deltaTime);
+            IsBraking = !VoxelBossIntroduction.BlocksControls(this) &&
+                (VoxelMobileControls.IsBrakeHeld || VoxelEditorNavigation.IsSpaceBrakeHeld(keyboard));
+            SetBrakeLights(drivingEnabled && (IsBraking || (finishingRun && CurrentSpeed > 0.05f)));
+            CurrentSpeed = CalculateNextDriveSpeed(CurrentSpeed, IsBraking, Time.deltaTime);
             UpdateRamResponse();
             UpdateBoostForwardOffset();
             if (TrackPath != null)
@@ -266,10 +274,13 @@ namespace VoxelRacer
             float targetLaneOffset = TargetLaneOffset;
             if (IsOilSpinning) AdvanceOilSpin(Time.deltaTime);
             else AdvanceLaneChange(Time.deltaTime);
+            AdvanceBossSideRamRecovery(Time.deltaTime);
             float laneOffset = targetLaneOffset - CurrentLaneOffset;
             float steeringTarget = Mathf.Abs(laneOffset) > 0.01f
                 ? Mathf.Sign(laneOffset) * frontWheelTurnDegrees
                 : 0f;
+            if (bossSideRamRecoveryElapsed < BossSideRamRecoveryDuration && !IsOilSpinning)
+                steeringTarget = Mathf.Clamp(-BossSideRamSkidYaw * 1.5f, -frontWheelTurnDegrees, frontWheelTurnDegrees);
 
             float laneDirection = Mathf.Abs(laneOffset) > 0.01f ? Mathf.Sign(laneOffset) : 0f;
             float targetYaw = IsOilSpinning ? 0f : laneDirection * laneChangeYawDegrees;
@@ -313,7 +324,20 @@ namespace VoxelRacer
             VoxelTrackPose pose = TrackPath.Evaluate(TrackDistance);
             transform.position = pose.position + pose.forward * (ramForwardOffset + boostForwardOffset) +
                 pose.right * (CurrentLaneOffset + ramLateralOffset);
-            transform.rotation = pose.rotation * Quaternion.Euler(0f, visualYaw + oilSpinYaw, visualRoll);
+            transform.rotation = pose.rotation * RoadVisualRotation;
+        }
+
+        private float BossSideRamSkidYaw => bossSideRamRecoveryElapsed < BossSideRamRecoveryDuration && !IsOilSpinning
+            ? bossSideRamAway * VoxelRearRamWobble.SampleSideRecoveryYaw(bossSideRamRecoveryElapsed / BossSideRamRecoveryDuration)
+            : 0f;
+
+        internal Quaternion RoadVisualRotation
+        {
+            get
+            {
+                float skidYaw = BossSideRamSkidYaw;
+                return Quaternion.Euler(0f, visualYaw + oilSpinYaw + skidYaw, visualRoll - skidYaw * .25f);
+            }
         }
 
         /// <summary>A blocked victim cannot be pushed through traffic by a continuing boost.</summary>
@@ -325,8 +349,47 @@ namespace VoxelRacer
             ApplyTrackPose();
         }
 
+        internal void ResolveBossSideContact(float laneOffset)
+        {
+            CurrentLaneOffset = laneOffset - ramLateralOffset;
+            ApplyTrackPose();
+        }
+
+        internal void SetBossSideRamPose(float laneOffset, Vector3 position, Quaternion rotation)
+        {
+            // Preserve collision distance when taking over an existing recoil.
+            TrackDistance += ramForwardOffset;
+            ramResponseStartedAt = -1f;
+            ramForwardOffset = ramLateralOffset = 0f;
+            CurrentLaneOffset = laneOffset;
+            transform.SetPositionAndRotation(position, rotation);
+        }
+
+        internal void BeginBossSideRamRecovery(VoxelEnemyCar boss, float away, float reboundDuration, float reboundDistance)
+        {
+            bossSideRamSource = boss;
+            bossSideRamAway = away;
+            bossSideRamRecoveryElapsed = 0f;
+            bossSideRamReboundDuration = reboundDuration;
+            bossSideRamReboundSpeed = reboundDistance / reboundDuration;
+            if (IsOilSpinning) return;
+
+            // Cancel the inward lane change and slide into the first lane on the safe side.
+            float lane = CurrentLaneOffset / laneWidth + (laneCount - 1) * .5f;
+            currentLane = Mathf.Clamp(away > 0f ? Mathf.CeilToInt(lane - .001f) : Mathf.FloorToInt(lane + .001f), 0, laneCount - 1);
+            previousLane = currentLane;
+        }
+
+        private void AdvanceBossSideRamRecovery(float seconds)
+        {
+            bossSideRamRecoveryElapsed = Mathf.Min(BossSideRamRecoveryDuration, bossSideRamRecoveryElapsed + seconds);
+        }
+
+        private bool BlocksBossSideRamSteering(float direction) => direction * bossSideRamAway < 0f &&
+            bossSideRamSource != null && bossSideRamSource.IsAlongsideForSideRamRecovery();
+
         /// <summary>Applies the player-side recoil after a surviving enemy ram.</summary>
-        public void ApplyRamResponse(bool rearImpact, Vector3 enemyDirection, VoxelEnemyVehicleTuning enemyTuning)
+        public void ApplyRamResponse(bool rearImpact, Vector3 enemyDirection, VoxelEnemyVehicleTuning enemyTuning, float sideBounceScale = 1f)
         {
             if (enemyTuning == null)
                 return;
@@ -347,7 +410,7 @@ namespace VoxelRacer
             {
                 ReturnToPreviousLane();
                 float side = Mathf.Sign(Vector3.Dot(enemyDirection, transform.right));
-                ramResponseLateralStart = -side * enemyTuning.playerSideRamBounceDistance;
+                ramResponseLateralStart = -side * enemyTuning.playerSideRamBounceDistance * sideBounceScale;
             }
 
             ramForwardOffset = ramResponseForwardStart;
@@ -361,7 +424,7 @@ namespace VoxelRacer
             if (ramResponseStartedAt < 0f)
                 return;
 
-            float progress = ramResponseDuration <= 0.001f ? 1f :
+            float progress = ramResponseDuration <= .001f ? 1f :
                 Mathf.Clamp01((Time.time - ramResponseStartedAt) / ramResponseDuration);
             float eased = VoxelEasing.Evaluate(ramResponseEasing, progress);
             ramForwardOffset = Mathf.Lerp(ramResponseForwardStart, 0f, eased);
@@ -384,8 +447,12 @@ namespace VoxelRacer
 
         private void AdvanceLaneChange(float seconds)
         {
-            if (CurrentSpeed <= 0f) return;
-            CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, TargetLaneOffset, EffectiveLaneChangeSpeed * seconds);
+            float laneOffset = TargetLaneOffset;
+            if (CurrentSpeed <= 0f || BlocksBossSideRamSteering(laneOffset - CurrentLaneOffset)) return;
+            float speed = EffectiveLaneChangeSpeed;
+            if (bossSideRamRecoveryElapsed < bossSideRamReboundDuration)
+                speed += bossSideRamReboundSpeed * (1f - bossSideRamRecoveryElapsed / bossSideRamReboundDuration);
+            CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, laneOffset, speed * seconds);
         }
 
         private void RequestLaneChange(int requestedLane)
@@ -395,7 +462,7 @@ namespace VoxelRacer
             if (VoxelBossIntroduction.BlocksControls(this)) return;
             if (IsOilSpinning) return;
             requestedLane = Mathf.Clamp(requestedLane, 0, laneCount - 1);
-            if (requestedLane == currentLane)
+            if (requestedLane == currentLane || BlocksBossSideRamSteering(requestedLane - currentLane))
                 return;
 
             previousLane = currentLane;

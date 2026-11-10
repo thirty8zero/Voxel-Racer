@@ -14,9 +14,14 @@ namespace VoxelRacer
         private float aimAngle;
         private float nextShotTime;
         private float firingUntil;
-        private float nextBurstTime;
+        private float nextBurstTime = -1f;
+        private float warningStep;
         private bool firing;
         private Transform muzzleAnchor;
+        private MeshRenderer[] warningLamps;
+        private Material dimLampMaterial;
+        private Material litLampMaterial;
+        private int litLamp = -1;
 
         public float TrackDistance => trackDistance;
 
@@ -35,7 +40,6 @@ namespace VoxelRacer
                 Mathf.Max(value.minimumAimAngle, value.maximumAimAngle));
             BuildVisuals();
             ApplyTrackPose();
-            nextBurstTime = Time.time + Random.Range(0.15f, value.pauseDuration);
         }
 
         private void Update()
@@ -63,30 +67,79 @@ namespace VoxelRacer
                 // Do not resume a paused burst if a future flow ever keeps this
                 // turret object alive after the completed-mission presentation.
                 firing = false;
+                SetWarningLamp(-1);
                 return;
+            }
+
+            float now = Time.time;
+            if (nextBurstTime < 0f)
+            {
+                // Both spawn paths animate the model in after configuring the turret.
+                if (GetComponent<VoxelFadeIn>()?.Opacity < 1f || GetComponent<VoxelSpawnScaleIn>()?.Growth < 1f)
+                    return;
+                BeginBurstCountdown(now);
             }
 
             if (!firing)
             {
-                if (Time.time < nextBurstTime)
+                if (now < nextBurstTime)
+                {
+                    UpdateWarningLamps(now);
                     return;
+                }
+                SetWarningLamp(-1);
                 firing = true;
-                firingUntil = Time.time + tuning.firingDuration;
-                nextShotTime = Time.time;
+                firingUntil = now + tuning.firingDuration;
+                nextShotTime = now;
             }
 
-            if (Time.time >= firingUntil)
+            if (now >= firingUntil)
             {
                 firing = false;
-                nextBurstTime = Time.time + tuning.pauseDuration;
+                BeginBurstCountdown(now);
                 return;
             }
 
-            if (Time.time >= nextShotTime)
+            if (now >= nextShotTime)
             {
                 FireVolley();
-                nextShotTime = Time.time + tuning.fireRate;
+                nextShotTime = now + tuning.fireRate;
             }
+        }
+
+        private void BeginBurstCountdown(float now)
+        {
+            float duration = Mathf.Max(.02f, tuning.pauseDuration);
+            warningStep = duration * .25f;
+            nextBurstTime = now + duration;
+        }
+
+        private void UpdateWarningLamps(float now)
+        {
+            float remaining = nextBurstTime - now;
+            float pulseDuration = Mathf.Min(.25f, warningStep * .55f);
+            int lamp = -1;
+            for (int index = 0; index < 3; index++)
+            {
+                float sincePulse = (3 - index) * warningStep - remaining;
+                if (sincePulse >= 0f && sincePulse < pulseDuration)
+                {
+                    lamp = index;
+                    break;
+                }
+            }
+            SetWarningLamp(lamp);
+        }
+
+        private void SetWarningLamp(int lamp)
+        {
+            if (lamp == litLamp || warningLamps == null || litLampMaterial == null)
+                return;
+            if (litLamp >= 0)
+                warningLamps[litLamp].sharedMaterial = dimLampMaterial;
+            litLamp = lamp;
+            if (litLamp >= 0)
+                warningLamps[litLamp].sharedMaterial = litLampMaterial;
         }
 
         private void ApplyTrackPose()
@@ -120,7 +173,25 @@ namespace VoxelRacer
             {
                 Transform model = Instantiate(prefab, transform, false).transform;
                 muzzleAnchor = model.Find("Turret Muzzle");
-                if (muzzleAnchor != null) return;
+                if (muzzleAnchor != null)
+                {
+                    Transform antenna = model.Find("Warning Antenna");
+                    if (antenna != null)
+                    {
+                        warningLamps = new[]
+                        {
+                            antenna.Find("Top Lamp")?.GetComponent<MeshRenderer>(),
+                            antenna.Find("Middle Lamp")?.GetComponent<MeshRenderer>(),
+                            antenna.Find("Bottom Lamp")?.GetComponent<MeshRenderer>()
+                        };
+                        if (warningLamps[0] != null && warningLamps[1] != null && warningLamps[2] != null)
+                        {
+                            dimLampMaterial = warningLamps[0].sharedMaterial;
+                            litLampMaterial = Resources.Load<Material>("CarMaterials/CarBrakeLights");
+                        }
+                    }
+                    return;
+                }
                 Destroy(model.gameObject);
             }
 

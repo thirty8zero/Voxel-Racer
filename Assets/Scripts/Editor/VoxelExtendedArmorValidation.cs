@@ -65,8 +65,9 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRepairUpgradeSceneController).GetField("definition", Private).SetValue(shop, definition);
                 shop.repairTuning = VoxelRepairTuning.Load(); Call(shop, "BuildUi"); Call(shop, "RefreshUi");
                 VoxelGarageUpgradeDockValidation.CheckCategories(shop);
-                Check(shop.GetComponentsInChildren<Button>(true).Single(b => b.name == "Extended Door Armor Purchase Button").interactable, "shop card unavailable");
-                Call(shop, "BeginUpgradePlacement", VoxelGarageUpgradeKind.ExtendedArmour);
+                var action = VoxelGarageUpgradeDockValidation.InspectUpgrade(shop.GetComponentsInChildren<Button>(true).Single(b => b.name == "Extended Door Armor Purchase Button"));
+                Check(action.interactable, "shop card unavailable");
+                action.onClick.Invoke();
                 Call(shop, "SelectUpgradePlacement", 0);
                 Check(VoxelCurrencyState.Balance == cash && VoxelArmorUpgradeState.InstalledTuning(VoxelArmorSide.Left) == basic && oldPiece.NeedsRepair,
                     "preview spent money, replaced purchase or healed damage");

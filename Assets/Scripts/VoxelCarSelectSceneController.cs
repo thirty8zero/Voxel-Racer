@@ -61,7 +61,7 @@ namespace VoxelRacer
             if (displayAnchor != null)
                 displayAnchor.Rotate(Vector3.up, rotationDegreesPerSecond * Time.deltaTime, Space.World);
 
-            if (isLoading || VoxelLoadingScreen.IsLoading)
+            if (isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing)
                 return;
 
             Keyboard keyboard = Keyboard.current;
@@ -71,6 +71,8 @@ namespace VoxelRacer
                 Move(-1);
             if (keyboard.rightArrowKey.wasPressedThisFrame || keyboard.dKey.wasPressedThisFrame)
                 Move(1);
+            if (VoxelEditorNavigation.Activate(selectedDefinition != null && selectedDefinition == Current ? raceButton : selectButton))
+                return;
             if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
                 SelectCurrent();
             if (keyboard.rKey.wasPressedThisFrame && selectedDefinition != null)

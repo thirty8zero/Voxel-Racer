@@ -17,8 +17,8 @@ namespace VoxelRacer.Editor
         [MenuItem("Tools/Voxel Racer/Validate Performance Wheels")]
         public static void Run()
         {
-            var ownership = typeof(VoxelPerformanceWheelUpgradeState).GetField("<IsPurchased>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
-            bool owned = VoxelPerformanceWheelUpgradeState.IsPurchased;
+            var ownership = typeof(VoxelPerformanceWheelUpgradeState).GetField("<InstalledTuning>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+            var owned = VoxelPerformanceWheelUpgradeState.InstalledTuning;
             int cash = VoxelCurrencyState.Balance;
             var prefab = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Cars/SpyCar2PlayerCar.prefab"));
             var root = new GameObject("Temporary Wheel Validation");

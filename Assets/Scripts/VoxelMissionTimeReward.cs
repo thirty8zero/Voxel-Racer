@@ -54,26 +54,30 @@ namespace VoxelRacer
                 for (int i = 0; i < obstacleCount; i++) layoutKey = layoutKey * 397 ^ timeRewardObstacles[i].GetHashCode();
             }
             if (timeRewardHasLayout && layoutKey == timeRewardLayoutKey) return timeRewardLayoutArea;
-            Rect area = default;
-            // Prefer a large badge directly under the timer. Reduce only as necessary
-            // for the right-hand controls/angled combo, preserving their existing layout.
-            for (int attempt = 0; attempt < 48; attempt++)
+            float maxWidth = Mathf.Min(288f * scale, Screen.width - 2f * gap);
+            float minWidth = Mathf.Min(150f * scale, maxWidth);
+            // Fit the badge below the dial before considering the adjacent right gutter.
+            // Trying a distant position at full size first can put the reward over the road.
+            for (int position = 0; position < 10; position++)
             {
-                float width = Mathf.Min(288f * scale * Mathf.Pow(.96f, attempt), Screen.width - 2f * gap);
-                // Wrapped MULT/Combo layouts can occupy the dial's lower-left space.
-                // Try the right gutter and a small downward offset before shrinking.
-                for (int position = 0; position < 6; position++)
+                for (float width = maxWidth; ; width = Mathf.Max(minWidth, width * .96f))
                 {
-                    float x = position == 0 ? timer.center.x - width * .5f : Screen.width - width - gap;
-                    area = new Rect(Mathf.Clamp(x, gap, Mathf.Max(gap, Screen.width - width - gap)),
-                        top + Mathf.Max(0, position - 1) * 32f * scale, width, width * TimeRewardHeight / TimeRewardWidth);
+                    Rect area = BelowTimer(width, position);
                     Rect padded = Rect.MinMaxRect(area.xMin - gap, area.yMin - gap, area.xMax + gap, area.yMax + gap);
                     bool clear = area.yMax + gap <= Screen.height;
                     for (int i = 0; i < obstacleCount && clear; i++) clear = !padded.Overlaps(timeRewardObstacles[i]);
                     if (clear && (!IsKillChainAnnouncementShowing || !KillChainOverlaps(combo, padded))) return CacheArea(area);
+                    if (width <= minWidth) break;
                 }
             }
-            return CacheArea(area);
+            return CacheArea(BelowTimer(minWidth, 0));
+
+            Rect BelowTimer(float width, int position)
+            {
+                float x = position < 5 ? timer.center.x - width * .5f : Screen.width - width - gap;
+                return new Rect(Mathf.Clamp(x, gap, Screen.width - width - gap),
+                    top + position % 5 * 32f * scale, width, width * TimeRewardHeight / TimeRewardWidth);
+            }
 
             Rect CacheArea(Rect value)
             { timeRewardHasLayout = true; timeRewardLayoutKey = layoutKey; return timeRewardLayoutArea = value; }

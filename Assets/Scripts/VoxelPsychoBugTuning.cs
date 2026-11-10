@@ -84,6 +84,8 @@ namespace VoxelRacer
         [Min(0)] public float alignmentHoldDuration = .15f;
         [Tooltip("Abandon ram positioning after this many seconds without meaningful progress toward alignment.")]
         [Min(.1f)] public float positioningTimeout = 18f;
+        [Tooltip("Lead to build before a fresh ram approach when the player brakes alongside or the Bug loses its attack lane. Zero disables this breakaway behavior.")]
+        [Min(0f)] public float repositionDistanceAhead;
         [Min(.05f)] public float warningDuration = 1f;
         [Min(0)] public float pullAwayDistance = .18f;
         [Min(.1f)] public float slamSpeed = 14f;

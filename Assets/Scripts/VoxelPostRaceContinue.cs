@@ -52,10 +52,13 @@ namespace VoxelRacer
             }
 
             UpdateRewardSequence();
-            if (ContinueButton != null || totalRewardText == null || !totalRewardText.gameObject.activeSelf)
+            if (ContinueButton == null)
+            {
+                if (totalRewardText != null && totalRewardText.gameObject.activeSelf) BuildContinueButton();
                 return;
-
-            BuildContinueButton();
+            }
+            if (!isLoading && !VoxelMissionBriefing.IsShowing && !VoxelPauseMenu.IsPaused && !VoxelPlayerDeathScreen.IsShowing)
+                VoxelEditorNavigation.Activate(ContinueButton);
         }
 
         private void BuildRewardSequence()
