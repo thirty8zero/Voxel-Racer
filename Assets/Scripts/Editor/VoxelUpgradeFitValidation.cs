@@ -16,7 +16,9 @@ namespace VoxelRacer.Editor
             int cash = VoxelCurrencyState.Balance;
             bool right = VoxelArmorUpgradeState.IsRightPurchased, left = VoxelArmorUpgradeState.IsLeftPurchased;
             bool spikes = VoxelWheelSpikeUpgradeState.IsPurchased;
-            int guns = VoxelGunUpgradeState.PurchasedLongGunCount, missing = VoxelCarRunState.MissingVoxelCount;
+            var leftGun = VoxelGunUpgradeState.InstalledTuning(0);
+            var rightGun = VoxelGunUpgradeState.InstalledTuning(1);
+            int missing = VoxelCarRunState.MissingVoxelCount;
             var car = PrefabUtility.LoadPrefabContents("Assets/Prefabs/Cars/SpyCar2PlayerCar.prefab");
             try
             {
@@ -24,8 +26,14 @@ namespace VoxelRacer.Editor
                 var entries = VoxelUpgradeFitCatalog.Discover();
                 Check(entries.Any(e => e.Asset is VoxelArmorTuning), "Armour undiscovered");
                 Check(entries.Any(e => e.Asset is VoxelGunTuning), "Guns undiscovered");
+                var minigun = VoxelGunUpgradeState.MinigunTuning;
+                Check(minigun != null && entries.Count(e => e.Asset == minigun && e.Fits(definition)) == 2,
+                    "Minigun must expose both compatible hood slots");
                 Check(entries.Any(e => e.Asset is VoxelWheelSpikeTuning), "Spikes undiscovered");
                 foreach (var entry in entries.Where(e => e.Fits(definition))) entry.Build(car.transform);
+                var fittedGuns = car.transform.Find("Purchased Gun Upgrades").GetComponentsInChildren<VoxelGunMount>();
+                Check(fittedGuns.Length == 2 && fittedGuns.All(mount => mount.tuning == minigun && mount.HasRotor),
+                    "Combined fit stacked hood upgrades or discarded the minigun");
                 int expectedArmour = entries.Where(e => e.Asset is VoxelArmorTuning && e.Fits(definition))
                     .Max(e => ((VoxelArmorTuning)e.Asset).panelPrefab.GetComponentsInChildren<VoxelArmorVoxel>(true).Length) * 2;
                 Check(car.GetComponentsInChildren<VoxelArmorVoxel>().Length == expectedArmour, "Both highest-level armour panels must coexist without stacking");
@@ -35,7 +43,8 @@ namespace VoxelRacer.Editor
                     Check(Vector3.Dot(spike.right, spike.position.x > 0 ? Vector3.right : Vector3.left) > .99f, "Spike points inward");
                 Check(cash == VoxelCurrencyState.Balance && right == VoxelArmorUpgradeState.IsRightPurchased &&
                     left == VoxelArmorUpgradeState.IsLeftPurchased && spikes == VoxelWheelSpikeUpgradeState.IsPurchased &&
-                    guns == VoxelGunUpgradeState.PurchasedLongGunCount && missing == VoxelCarRunState.MissingVoxelCount,
+                    leftGun == VoxelGunUpgradeState.InstalledTuning(0) && rightGun == VoxelGunUpgradeState.InstalledTuning(1) &&
+                    missing == VoxelCarRunState.MissingVoxelCount,
                     "Preview modified run state");
                 File.WriteAllText(report, "PASS: automatic discovery, combined armour/guns/spikes, " + expectedArmour + " armour voxels, four outward spikes, unchanged cash/ownership/damage. Entries: " + entries.Count);
                 VoxelUpgradeFitPreview.OpenDefault();

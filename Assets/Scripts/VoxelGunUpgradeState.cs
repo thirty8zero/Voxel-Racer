@@ -2,88 +2,128 @@ using UnityEngine;
 
 namespace VoxelRacer
 {
-    /// <summary>Tracks weapon upgrades purchased during the current multi-stage run.</summary>
+    /// <summary>Tracks the selected weapon in each hood slot for the current run.</summary>
     public static class VoxelGunUpgradeState
     {
         private const string UpgradeRootName = "Purchased Gun Upgrades";
-        private const string LongGunTuningPath = "Weapons/LongBarrelHoodGunTuning";
-        private static int purchasedLongGunCount;
-        private static bool firstLongGunIsRight;
         public const int SlotCount = 2;
+        private static VoxelGunTuning[] installed = new VoxelGunTuning[SlotCount];
 
-        public static int PurchasedLongGunCount => purchasedLongGunCount;
-        public static VoxelGunTuning LongGunTuning => Resources.Load<VoxelGunTuning>(LongGunTuningPath);
+        public static VoxelGunTuning LongGunTuning => Resources.Load<VoxelGunTuning>("Weapons/LongBarrelHoodGunTuning");
+        public static VoxelGunTuning MinigunTuning => Resources.Load<VoxelGunTuning>("Weapons/MinigunTuning");
+        public static int PurchasedLongGunCount => Count(LongGunTuning);
+        public static void BeginNewRun() => installed = new VoxelGunTuning[SlotCount];
+        public static VoxelGunTuning InstalledTuning(int slot) => slot >= 0 && slot < SlotCount ? installed[slot] : null;
+        public static bool IsPurchased(int slot) => InstalledTuning(slot) != null;
 
-        public static void BeginNewRun() { purchasedLongGunCount = 0; firstLongGunIsRight = false; }
-
-        public static bool IsPurchased(int slot) => slot >= 0 && slot < SlotCount &&
-            (purchasedLongGunCount >= SlotCount || purchasedLongGunCount == 1 && slot == (firstLongGunIsRight ? 1 : 0));
-
-        public static bool CanPurchase(VoxelGunTuning tuning)
+        public static int Count(VoxelGunTuning tuning)
         {
-            return tuning != null && tuning.visualPrefab != null &&
-                purchasedLongGunCount < Mathf.Clamp(tuning.maximumPurchases, 1, SlotCount);
+            if (tuning == null) return 0;
+            int count = 0;
+            foreach (var gun in installed)
+                if (gun == tuning) count++;
+            return count;
         }
 
-        public static bool CanPurchase(VoxelGunTuning tuning, int slot) =>
-            slot >= 0 && slot < SlotCount && CanPurchase(tuning) && !IsPurchased(slot);
+        public static int Capacity(VoxelGunTuning tuning) => tuning == null ? 1 : Mathf.Clamp(tuning.maximumPurchases, 1, SlotCount);
+
+        public static bool CanPurchase(VoxelGunTuning tuning, VoxelCarDefinition definition = null)
+            => CanPurchase(tuning, 0, definition) || CanPurchase(tuning, 1, definition);
+
+        public static bool CanPurchase(VoxelGunTuning tuning, int slot, VoxelCarDefinition definition = null)
+        {
+            if (slot < 0 || slot >= SlotCount || tuning == null || tuning.visualPrefab == null ||
+                tuning.projectileKind != VoxelProjectileKind.Bullet || Count(tuning) >= Capacity(tuning))
+                return false;
+            if (tuning.compatibleCarPrefab != null && !tuning.Fits(definition ?? VoxelCarSelectionState.GetSelectedOrDefault()))
+                return false;
+            var current = installed[slot];
+            return current == null || current.upgradeLevel < tuning.upgradeLevel;
+        }
 
         public static bool TryPurchase(VoxelGunTuning tuning)
-            => TryPurchase(tuning, IsPurchased(0) ? 1 : 0);
+            => TryPurchase(tuning, CanPurchase(tuning, 0) ? 0 : 1);
 
-        public static bool TryPurchase(VoxelGunTuning tuning, int slot)
+        public static bool TryPurchase(VoxelGunTuning tuning, int slot, VoxelCarDefinition definition = null)
         {
-            if (!CanPurchase(tuning, slot) || !VoxelCurrencyState.TrySpend(tuning.purchasePrice))
+            if (!CanPurchase(tuning, slot, definition) || !VoxelCurrencyState.TrySpend(tuning.purchasePrice))
                 return false;
 
-            if (purchasedLongGunCount == 0) firstLongGunIsRight = slot == 1;
-            purchasedLongGunCount++;
+            SetSlot(slot, tuning);
             return true;
         }
 
-        internal static void GrantForDevelopment(VoxelGunTuning tuning)
+        private static void SetSlot(int slot, VoxelGunTuning tuning)
         {
-            if (tuning == null || tuning.visualPrefab == null) return;
-            purchasedLongGunCount = Mathf.Max(purchasedLongGunCount, Mathf.Clamp(tuning.maximumPurchases, 1, SlotCount));
+            var updated = (VoxelGunTuning[])installed.Clone();
+            updated[slot] = tuning;
+            installed = updated;
         }
 
-        /// <summary>Installs the purchased pair symmetrically beside the starter hood gun.</summary>
-        public static void ApplyTo(Transform carRoot, VoxelGunTuning tuning)
+        internal static void GrantForDevelopment(VoxelGunTuning tuning, VoxelCarDefinition definition)
         {
-            if (carRoot == null)
-                return;
+            for (int slot = 0; slot < SlotCount; slot++)
+                if (CanPurchase(tuning, slot, definition)) SetSlot(slot, tuning);
+        }
 
-            Transform existing = carRoot.Find(UpgradeRootName);
-            if (existing != null)
+        public static void ApplyTo(Transform carRoot)
+        {
+            if (carRoot == null) return;
+            for (int slot = 0; slot < SlotCount; slot++)
             {
-                existing.gameObject.SetActive(false);
-                // Keep sibling paths stable immediately, even before deferred destruction.
-                existing.SetParent(null, true);
-                if (Application.isPlaying)
-                    Object.Destroy(existing.gameObject);
+                var tuning = installed[slot];
+                if (tuning != null && tuning.visualPrefab != null)
+                    SetVisual(carRoot, tuning, slot, false);
                 else
-                    Object.DestroyImmediate(existing.gameObject);
-            }
-
-            if (purchasedLongGunCount <= 0 || tuning == null || tuning.visualPrefab == null)
-                return;
-
-            Transform upgrades = new GameObject(UpgradeRootName).transform;
-            upgrades.SetParent(carRoot, false);
-            upgrades.SetSiblingIndex(1);
-            for (int index = 0; index < SlotCount; index++)
-            {
-                if (IsPurchased(index)) CreateVisual(upgrades, tuning, index);
+                    RemoveVisual(FindVisual(carRoot.Find(UpgradeRootName), slot));
             }
         }
 
-        /// <summary>Shared by gameplay and the isolated upgrade fit preview. Does not change ownership.</summary>
-        public static GameObject CreateVisual(Transform parent, VoxelGunTuning tuning, int index)
+        private static VoxelGunMount FindVisual(Transform parent, int slot)
         {
-            GameObject gun = Object.Instantiate(tuning.visualPrefab, parent);
-            gun.name = tuning.displayName + " " + (index + 1);
-            gun.transform.localPosition = new Vector3(index == 0 ? -0.58f : 0.58f, 1.06f, 1.08f);
+            if (parent != null)
+                foreach (Transform child in parent)
+                    if (child.TryGetComponent(out VoxelGunMount mount) && mount.upgradeSlot == slot)
+                        return mount;
+            return null;
+        }
+
+        private static void RemoveVisual(VoxelGunMount mount)
+        {
+            if (mount == null) return;
+            mount.gameObject.SetActive(false);
+            mount.transform.SetParent(null, true);
+            if (Application.isPlaying) Object.Destroy(mount.gameObject);
+            else Object.DestroyImmediate(mount.gameObject);
+        }
+
+        /// <summary>Fits into the shared hood hardpoints without changing ownership.</summary>
+        public static GameObject CreateVisual(Transform carRoot, VoxelGunTuning tuning, int slot)
+            => SetVisual(carRoot, tuning, slot, true);
+
+        private static GameObject SetVisual(Transform carRoot, VoxelGunTuning tuning, int slot, bool keepHigherLevel)
+        {
+            Transform upgrades = carRoot.Find(UpgradeRootName);
+            if (upgrades == null)
+            {
+                upgrades = new GameObject(UpgradeRootName).transform;
+                upgrades.SetParent(carRoot, false);
+                upgrades.SetSiblingIndex(1);
+            }
+            var current = FindVisual(upgrades, slot);
+            if (current != null && (current.tuning == tuning ||
+                (keepHigherLevel && current.tuning != null && current.tuning.upgradeLevel > tuning.upgradeLevel)))
+                return current.gameObject;
+
+            int sibling = current != null ? current.transform.GetSiblingIndex() : slot;
+            RemoveVisual(current);
+            GameObject gun = Object.Instantiate(tuning.visualPrefab, upgrades);
+            gun.name = tuning.displayName + " " + (slot + 1);
+            gun.transform.localPosition = new Vector3(slot == 0 ? -.58f : .58f, 1.06f, 1.08f);
             gun.transform.localRotation = Quaternion.identity;
+            gun.transform.SetSiblingIndex(sibling);
+            var mount = gun.GetComponent<VoxelGunMount>();
+            mount.upgradeSlot = slot;
             return gun;
         }
     }

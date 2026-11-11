@@ -216,8 +216,10 @@ namespace VoxelRacer
                     return ("Ram harder and take less front-impact damage.", plough != null
                         ? $"+{plough.impactDamageBonusPercent:0.#}% FRONT RAM DAMAGE\n-{plough.playerDamageReductionPercent:0.#}% FRONT DAMAGE TAKEN" : "", "FRONT MOUNT");
                 case VoxelGarageUpgradeKind.Guns:
-                    var gun = VoxelGunUpgradeState.LongGunTuning;
-                    return ("Adds a forward-firing hood cannon.", gun != null
+                case VoxelGarageUpgradeKind.Minigun:
+                    var gun = VoxelGarageUpgradePlacement.GunTuning(kind);
+                    return (kind == VoxelGarageUpgradeKind.Minigun ? "Six rotating barrels fire in sequence, each with a short tracer." :
+                        "Adds a forward-firing hood cannon.", gun != null
                         ? $"{gun.shotsPerSecond:0.#} SHOTS/S · {gun.damagePerBullet:0.#} DAMAGE/HIT" : "", "LEFT / RIGHT HOOD");
                 case VoxelGarageUpgradeKind.Missiles:
                     var weapon = VoxelMissileLauncherTuning.Load()?.weapon;

@@ -40,8 +40,11 @@ namespace VoxelRacer.Editor
                     sports.wheelPrefab.GetComponentsInChildren<MeshRenderer>().Min(r => r.bounds.min.y);
                 Check(mesh.bounds.size.y > sportsDiameter && mesh.bounds.size.y <= sportsDiameter * 1.06f,
                     "The new tyre should be slightly larger than the Sports Wheel.");
+                Check(Mathf.Abs(mesh.bounds.size.x - .302f * 1.5f) < .0001f &&
+                    Mathf.Abs(mesh.bounds.min.x + prefab.transform.localPosition.x + .151f) < .0001f,
+                    "The wheel must be 50% wider with the same inboard edge.");
                 Check(prefab.GetComponentsInChildren<MeshRenderer>().Length == 1 && mesh.subMeshCount == 4 &&
-                    mesh.triangles.Length / 3 < 2600 && prefab.GetComponentsInChildren<Collider>().Length == 0,
+                    mesh.triangles.Length / 3 < 3100 && prefab.GetComponentsInChildren<Collider>().Length == 0,
                     "Wheel exceeded its renderer, geometry or physics budget.");
                 var sportsTabs = sports.wheelPrefab.transform.Cast<Transform>()
                     .Where(child => child.name == "White Sidewall Panel").Select(child => child.localPosition).ToArray();
@@ -69,13 +72,19 @@ namespace VoxelRacer.Editor
                 Render(mounted, "Sports", new Vector3(6, 2.3f, 3.8f));
                 Render(mounted, "SportsRear", new Vector3(-6, 2.3f, -3.8f));
                 RenderFrontWheel(mounted, sportsMounts, "SportsMountedDetail");
+                var earlySpikes = sportsMounts.Select(m => VoxelWheelSpikeUpgradeState.CreateVisual(
+                    mounted.transform, m.transform.parent, VoxelWheelSpikeTuning.LoadStar())).ToArray();
                 foreach (var entry in goldEntries) entry.Build(mounted.transform);
                 var goldMounts = VerifyMounts(mounted, gold);
+                Check(earlySpikes.All(spike => spike.transform.localPosition ==
+                    spike.transform.parent.Find(VoxelPerformanceWheelUpgradeState.InstanceName).localPosition),
+                    "Replacing Sports Wheels failed to move previously fitted spikes to the new face.");
+                foreach (var spike in earlySpikes) spike.SetActive(false);
                 VoxelPerformanceWheelUpgradeState.CreateVisuals(mounted.transform, sports);
                 VoxelPerformanceWheelUpgradeState.CreateVisuals(mounted.transform, gold);
                 Check(goldMounts.SequenceEqual(VerifyMounts(mounted, gold)), "Repeated or lower-tier application replaced the wheel.");
                 float radius = mesh.vertices.Max(v => new Vector2(v.y, v.z).magnitude);
-                CheckArchClearance(mounted, goldMounts, radius);
+                CheckArchClearance(mounted, goldMounts, mesh.bounds, radius);
                 Render(mounted, "Mounted", new Vector3(6, 2.3f, 3.8f));
                 Render(mounted, "MountedRear", new Vector3(-6, 2.3f, -3.8f));
                 RenderFrontWheel(mounted, goldMounts, "MountedDetail");
@@ -83,6 +92,8 @@ namespace VoxelRacer.Editor
                 Render(prefab, "WheelInboard", new Vector3(-3, .65f, 1.1f), Vector3.zero, .56f);
 
                 foreach (var entry in entries.Where(entry => entry.Fits(definition))) entry.Build(mounted.transform);
+                foreach (var spike in mounted.GetComponentsInChildren<VoxelWheelSpikeMount>(true))
+                    spike.gameObject.SetActive(true);
                 VerifyMounts(mounted, gold);
                 var spikes = mounted.GetComponentsInChildren<VoxelWheelSpikeMount>();
                 Check(spikes.Length == 4 && spikes.All(spike =>
@@ -97,7 +108,7 @@ namespace VoxelRacer.Editor
                 Check(cash == VoxelCurrencyState.Balance && missing == VoxelCarRunState.MissingVoxelCount &&
                     owned == VoxelPerformanceWheelUpgradeState.InstalledTuning, "Fit checks changed run state.");
                 CheckDirectPurchase(definition, gold);
-                File.WriteAllText(Output + "Validation.txt", "PASS: diameter, 13-degree tab spacing on both variants, Gold white caliper, arch clearance, both wheel orientations, " +
+                File.WriteAllText(Output + "Validation.txt", "PASS: 50% wider with the same inboard edge, diameter, 13-degree tab spacing on both variants, Gold white caliper, arch clearance, both wheel orientations, " +
                     "side-specific fit, exclusive and idempotent wheel replacement, combined fit with spikes, dashboard and preview discovery, " +
                     "preview state isolation, direct purchase, affordability, and new-run reset. " +
                     $"{mesh.triangles.Length / 3} triangles, one renderer and four shared materials per wheel.");
@@ -136,10 +147,11 @@ namespace VoxelRacer.Editor
                 float side = Mathf.Sign(car.transform.InverseTransformPoint(wheel.position).x);
                 Check(wheel.name == "Voxel Wheel" && mount.GetComponentInParent<VoxelIndestructiblePart>() != null &&
                     Vector3.Dot(mount.transform.right, wheel.right * side) > .99f &&
-                    Mathf.Approximately(mount.transform.localPosition.x, side * VoxelPerformanceWheelUpgradeState.OutwardOffset),
+                    Mathf.Approximately(mount.transform.localPosition.x, side * (VoxelPerformanceWheelUpgradeState.OutwardOffset +
+                        tuning.wheelPrefab.transform.localPosition.x)),
                     "A wheel lost its protected, outward-facing axle mount.");
                 Check(wheel.GetComponentsInChildren<Renderer>(true).Where(renderer => renderer.transform != mount.transform &&
-                    renderer.transform.GetComponentInParent<VoxelWheelSpikeMount>() == null).All(renderer =>
+                    renderer.transform.GetComponentInParent<VoxelWheelSpikeMount>(true) == null).All(renderer =>
                     !renderer.enabled || renderer.transform.IsChildOf(mount.transform)), "Stock tyre rendered through its replacement.");
             }
             return mounts;
@@ -190,17 +202,19 @@ namespace VoxelRacer.Editor
             Render(car, name, front + new Vector3(3.5f, .65f, 1.1f), front, .70f);
         }
 
-        private static void CheckArchClearance(GameObject car, VoxelPerformanceWheelMount[] mounts, float radius)
+        private static void CheckArchClearance(GameObject car, VoxelPerformanceWheelMount[] mounts, Bounds meshBounds, float radius)
         {
             foreach (var mount in mounts)
             {
                 var centre = mount.transform.position;
                 Check(centre.y >= radius, "The tyre crown clips through the road in a full revolution.");
+                float a = mount.transform.TransformPoint(Vector3.right * meshBounds.min.x).x;
+                float b = mount.transform.TransformPoint(Vector3.right * meshBounds.max.x).x;
                 foreach (var renderer in car.GetComponentsInChildren<MeshRenderer>().Where(r =>
                     r.enabled && r.GetComponentInParent<VoxelIndestructiblePart>() == null))
                 {
                     Bounds bounds = renderer.bounds;
-                    if (centre.x + .146f <= bounds.min.x || centre.x - .146f >= bounds.max.x) continue;
+                    if (Mathf.Max(a, b) <= bounds.min.x || Mathf.Min(a, b) >= bounds.max.x) continue;
                     var closest = bounds.ClosestPoint(centre);
                     Check(new Vector2(closest.y - centre.y, closest.z - centre.z).magnitude > radius,
                         "A wheel intersects bodywork at its resting steering angle.");

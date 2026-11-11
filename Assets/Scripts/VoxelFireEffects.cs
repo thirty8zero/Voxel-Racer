@@ -8,10 +8,18 @@ namespace VoxelRacer
     {
         private const float MuzzleFireLifetime = 0.24f;
         private static readonly Queue<VoxelMuzzleFireInstance> MuzzlePool = new();
+        private static readonly Queue<VoxelMuzzleFireInstance> MinigunMuzzlePool = new();
         private static ParticleSystem muzzlePrefab;
+        private static Material minigunMuzzleMaterial;
         private static ParticleSystem boostExhaustPrefab;
 
         public static void PlayMuzzleFire(Transform muzzle, Vector3 direction, float forwardOffset = 0.06f)
+            => PlayMuzzleFire(muzzle, direction, forwardOffset, false);
+
+        internal static void PlayMinigunMuzzleFire(Transform muzzle, Vector3 direction)
+            => PlayMuzzleFire(muzzle, direction, .025f, true);
+
+        private static void PlayMuzzleFire(Transform muzzle, Vector3 direction, float forwardOffset, bool minigun)
         {
             if (!Application.isPlaying || muzzle == null)
                 return;
@@ -21,13 +29,16 @@ namespace VoxelRacer
             if (muzzlePrefab == null)
                 return;
 
+            var pool = minigun ? MinigunMuzzlePool : MuzzlePool;
             VoxelMuzzleFireInstance effect = null;
-            while (MuzzlePool.Count > 0 && effect == null)
-                effect = MuzzlePool.Dequeue();
+            while (pool.Count > 0 && effect == null)
+                effect = pool.Dequeue();
             if (effect == null)
             {
                 ParticleSystem particles = Object.Instantiate(muzzlePrefab);
-                particles.name = "Pooled Voxel Muzzle Fire";
+                particles.name = minigun ? "Pooled Minigun Muzzle Fire" : "Pooled Voxel Muzzle Fire";
+                if (minigun)
+                    ConfigureMinigunFlash(particles);
                 effect = particles.gameObject.AddComponent<VoxelMuzzleFireInstance>();
             }
 
@@ -42,7 +53,29 @@ namespace VoxelRacer
             // attaching to a moving muzzle so transform hierarchy changes cannot
             // accumulate scale or shear on long, turning tracks.
             effect.SetExpectedWorldScale(Vector3.one);
-            effect.PlayFor(MuzzleFireLifetime);
+            effect.PlayFor(MuzzleFireLifetime, pool);
+        }
+
+        private static void ConfigureMinigunFlash(ParticleSystem particles)
+        {
+            var main = particles.main;
+            main.startSize = new ParticleSystem.MinMaxCurve(.075f, .155f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(7.8f, 10.8f);
+            main.startColor = new Color(1f, .93f, .16f);
+
+            var shape = particles.shape;
+            shape.angle = 6f;
+            shape.radius = .022f;
+            var color = particles.colorOverLifetime;
+            color.enabled = false;
+
+            var renderer = particles.GetComponent<ParticleSystemRenderer>();
+            renderer.renderMode = ParticleSystemRenderMode.Stretch;
+            renderer.lengthScale = 2.2f;
+            if (minigunMuzzleMaterial == null)
+                minigunMuzzleMaterial = Resources.Load<Material>("Effects/YellowVoxelImpactSpark");
+            if (minigunMuzzleMaterial != null)
+                renderer.sharedMaterial = minigunMuzzleMaterial;
         }
 
         /// <summary>Creates one locally simulated exhaust flame attached to the requested point.</summary>
@@ -66,19 +99,13 @@ namespace VoxelRacer
             return effect;
         }
 
-        internal static void ReturnToPool(VoxelMuzzleFireInstance effect)
-        {
-            if (effect == null)
-                return;
-            effect.gameObject.SetActive(false);
-            MuzzlePool.Enqueue(effect);
-        }
     }
 
     /// <summary>Returns a completed muzzle-flash particle system to the shared pool.</summary>
     public sealed class VoxelMuzzleFireInstance : MonoBehaviour
     {
         private ParticleSystem particles;
+        private Queue<VoxelMuzzleFireInstance> pool;
         private float recycleAt;
         private Vector3 expectedWorldScale = Vector3.one;
 #if UNITY_EDITOR
@@ -92,20 +119,23 @@ namespace VoxelRacer
             MaintainWorldScale();
         }
 
-        public void PlayFor(float lifetime)
+        internal void PlayFor(float lifetime, Queue<VoxelMuzzleFireInstance> returnPool)
         {
             if (particles == null)
                 particles = GetComponent<ParticleSystem>();
+            pool = returnPool;
             gameObject.SetActive(true);
-            particles.Clear(true);
+            particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             particles.Play(true);
             recycleAt = Time.time + lifetime;
         }
 
         private void Update()
         {
-            if (Time.time >= recycleAt)
-                VoxelFireEffects.ReturnToPool(this);
+            if (Time.time < recycleAt)
+                return;
+            gameObject.SetActive(false);
+            pool.Enqueue(this);
         }
 
         private void LateUpdate()

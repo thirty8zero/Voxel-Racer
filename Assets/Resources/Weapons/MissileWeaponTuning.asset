@@ -14,12 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
   displayName: MISSILE LAUNCHER
   visualPrefab: {fileID: 7140078567076894838, guid: 48a4c50d2d0a9bd4eba47c31e794f165, type: 3}
+  compatibleCarPrefab: {fileID: 0}
+  upgradeLevel: 1
   purchasePrice: 800
   maximumPurchases: 2
   shotsPerSecond: 0.2
   bulletsPerShot: 1
   ammunitionPerStage: 0
   spreadDegrees: 0
+  barrelSpinDegreesPerSecond: 0
+  tracerLength: 0
   projectileSpeed: 75
   maximumRange: 150
   damagePerBullet: 35

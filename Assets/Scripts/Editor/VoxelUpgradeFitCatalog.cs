@@ -59,12 +59,12 @@ namespace VoxelRacer.Editor
         public IEnumerable<VoxelUpgradeFitEntry> Discover()
         {
             foreach (var tuning in VoxelUpgradeFitCatalog.Assets<VoxelGunTuning>().Where(t => t.visualPrefab != null && t.projectileKind != VoxelProjectileKind.Missile))
-                for (int i = 0; i < Mathf.Max(1, tuning.maximumPurchases); i++)
+                for (int i = 0; i < VoxelGunUpgradeState.SlotCount; i++)
                 {
                     int slot = i;
                     yield return new VoxelUpgradeFitEntry {
-                        Asset = tuning, Label = tuning.displayName + " — Slot " + (slot + 1),
-                        Fits = c => c != null && c.visualPrefab != null,
+                        Asset = tuning, Label = tuning.displayName + (slot == 0 ? " — Left hood" : " — Right hood"),
+                        Fits = c => c != null && c.visualPrefab != null && tuning.Fits(c),
                         Build = car => VoxelGunUpgradeState.CreateVisual(car, tuning, slot)
                     };
                 }

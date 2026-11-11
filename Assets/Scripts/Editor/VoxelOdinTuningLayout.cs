@@ -69,6 +69,10 @@ namespace VoxelRacer.Editor
             }
             if (type == typeof(VoxelGunTuning) && name == "shotsPerSecond")
                 attributes.Add(new HideIfAttribute("@projectileKind == VoxelRacer.VoxelProjectileKind.Missile && useMissileCooldown"));
+            if (type == typeof(VoxelGunTuning) && name == "barrelSpinDegreesPerSecond")
+                attributes.Add(new ShowIfAttribute("IsRotary"));
+            if (type == typeof(VoxelGunTuning) && name == "tracerLength")
+                attributes.Add(new HideIfAttribute("@projectileKind == VoxelRacer.VoxelProjectileKind.Missile"));
             if(type==typeof(VoxelBoostTuning) && group=="Settings")group="Boost Performance & Effects";
             if(typeof(VoxelBoostTuning).IsAssignableFrom(type) &&
                 (name=="boostRamDamageBonusPercent" || name=="boostRamDamageWithPloughBonusPercent"))
@@ -159,6 +163,7 @@ namespace VoxelRacer.Editor
             if(type==typeof(VoxelMissileLauncherTuning) && name=="weapon")return "Weapon Settings";
             if(type==typeof(VoxelGunTuning) && (name=="useMissileCooldown"||name=="missileCooldownSeconds"))return "Missile Cooldown";
             if(type==typeof(VoxelGunTuning) && name.StartsWith("missile"))return "Missile Flight";
+            if(type==typeof(VoxelGunTuning) && (name=="barrelSpinDegreesPerSecond"||name=="tracerLength"))return "Rotary Gun & Tracers";
             if(name.Contains("Prefab"))return "Model & Compatibility";
             if(name.IndexOf("mount",StringComparison.OrdinalIgnoreCase)>=0)return "Fit & Mounting";
             if(name.Contains("Bonus")||name.Contains("Reduction")||name=="voxelHitPoints")return "Performance & Damage";
@@ -166,18 +171,22 @@ namespace VoxelRacer.Editor
         }
         internal static bool UpgradeFieldVisible(SerializedObject serialized,string name)
         {
-            if(!(serialized.targetObject is VoxelGunTuning))return true;
+            if(!(serialized.targetObject is VoxelGunTuning gun))return true;
             bool missile=serialized.FindProperty("projectileKind").enumValueIndex==(int)VoxelProjectileKind.Missile;
             bool cooldown=serialized.FindProperty("useMissileCooldown").boolValue;
             if(name=="shotsPerSecond")return !missile||!cooldown;
             if(name=="useMissileCooldown")return missile;
             if(name=="missileCooldownSeconds")return missile&&cooldown;
             if(name.StartsWith("missile"))return missile;
+            if(name=="barrelSpinDegreesPerSecond")return gun.IsRotary;
+            if(name=="tracerLength")return !missile;
             return true;
         }
         internal static string Unit(string name)
         {
             string n=name.ToLowerInvariant();
+            if(n=="barrelspindegreespersecond")return " (°/s)";
+            if(n=="tracerlength")return " (m)";
             if(n.Contains("percent"))return " (%)";
             if(n.Contains("chance"))return " (0–1)";
             if(n.EndsWith("seconds"))return " (s)";

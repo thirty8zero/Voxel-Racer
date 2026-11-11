@@ -8,26 +8,31 @@ namespace VoxelRacer
     {
         public VoxelGunTuning tuning;
         public Transform muzzle;
+        [SerializeField] private Transform barrelRotor;
+        [SerializeField] private Transform[] rotaryMuzzles;
+        [SerializeField, HideInInspector] internal int upgradeSlot = -1;
         [Tooltip("One-shot flame from a missile launcher's rear opening.")]
         public ParticleSystem missileLaunchBurst;
 
         public Vector3 MuzzlePosition => muzzle != null ? muzzle.position : transform.position;
         public Vector3 FireDirection => muzzle != null ? muzzle.forward : transform.forward;
+        public bool HasRotor => barrelRotor != null;
         public bool HasAmmunition => tuning != null && (tuning.ammunitionPerStage == 0 ||
             remainingAmmunition >= Mathf.Max(1, tuning.bulletsPerShot));
         /// <summary>Uses the same scaled game clock and reserved interval as firing.</summary>
         public float CooldownProgress => shotInterval <= 0f ? 1f :
             Mathf.Clamp01(1f - (nextFireTime - Time.time) / shotInterval);
-        public bool IsReady => !VoxelPauseMenu.IsPaused && isActiveAndEnabled && tuning != null && DriverAllowsFire &&
+        private bool CanFire => !VoxelPauseMenu.IsPaused && isActiveAndEnabled && tuning != null && DriverAllowsFire &&
             (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete) &&
             (VoxelMissionProgress.Active == null || !VoxelMissionProgress.Active.IsComplete) &&
-            Time.time >= nextFireTime &&
             HasAmmunition;
+        public bool IsReady => CanFire && Time.time >= nextFireTime;
 
         private float nextFireTime;
         private float shotInterval;
         private int remainingAmmunition;
         private VoxelCarController owningCar;
+        private int nextMuzzle;
 
         private bool DriverAllowsFire
         {
@@ -47,13 +52,20 @@ namespace VoxelRacer
             remainingAmmunition = tuning != null ? tuning.ammunitionPerStage : 0;
         }
 
-        private void Update()
+        public void ConfigureRotor(Transform rotor, Transform[] muzzles)
         {
-            if (!Application.isPlaying ||
-                (VoxelStartCountdown.Active != null && !VoxelStartCountdown.Active.IsComplete) ||
-                !IsFireHeld())
-                return;
+            barrelRotor = rotor;
+            rotaryMuzzles = muzzles;
+        }
 
+        private void Update() => UpdateFiring(IsFireHeld(), Time.deltaTime);
+
+        internal void UpdateFiring(bool held, float seconds)
+        {
+            if (!Application.isPlaying || !held || tuning == null)
+                return;
+            if (HasRotor && CanFire)
+                barrelRotor.Rotate(Vector3.forward, tuning.barrelSpinDegreesPerSecond * seconds, Space.Self);
             if (!TryBeginShot(out int bulletCount))
                 return;
 
@@ -98,10 +110,20 @@ namespace VoxelRacer
                 }
                 return;
             }
+            Transform outlet = muzzle != null ? muzzle : transform;
+            bool rotary = rotaryMuzzles != null && rotaryMuzzles.Length > 0;
+            if (rotary)
+            {
+                outlet = rotaryMuzzles[nextMuzzle] != null ? rotaryMuzzles[nextMuzzle] : outlet;
+                nextMuzzle = (nextMuzzle + 1) % rotaryMuzzles.Length;
+            }
             Vector3 direction = Quaternion.AngleAxis(Random.Range(-tuning.spreadDegrees, tuning.spreadDegrees), Vector3.up) *
-                FireDirection;
-            VoxelFireEffects.PlayMuzzleFire(muzzle != null ? muzzle : transform, direction);
-            VoxelProjectile.Create(MuzzlePosition + direction * 0.2f, direction, tuning);
+                outlet.forward;
+            if (rotary)
+                VoxelFireEffects.PlayMinigunMuzzleFire(outlet, direction);
+            else
+                VoxelFireEffects.PlayMuzzleFire(outlet, direction);
+            VoxelProjectile.Create(outlet.position + direction * (rotary ? .028f : .2f), direction, tuning);
         }
     }
 }

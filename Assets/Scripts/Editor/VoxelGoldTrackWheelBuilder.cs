@@ -12,6 +12,9 @@ namespace VoxelRacer.Editor
         private const string MaterialPath = "Assets/Resources/CarMaterials/GoldTrackWheelAlloy.mat";
         private const string Palette = "CarMaterials/";
         private const int Rubber = 0, Alloy = 1, Hardware = 2, White = 3;
+        private const float OuterFace = .151f;
+        private const float WidthMultiplier = 1.5f;
+        private const float AddedWidth = 2f * OuterFace * (WidthMultiplier - 1f);
 
         [MenuItem("Tools/Voxel Racer/Build Gold Track Wheels")]
         public static void Build()
@@ -40,6 +43,8 @@ namespace VoxelRacer.Editor
             var root = new GameObject("GoldTrackWheel");
             try
             {
+                // The mounting helper uses this offset to keep the inboard envelope in the stock arch.
+                root.transform.localPosition = Vector3.right * AddedWidth;
                 root.AddComponent<MeshFilter>().sharedMesh = mesh;
                 root.AddComponent<MeshRenderer>().sharedMaterials = new[]
                 {
@@ -68,13 +73,25 @@ namespace VoxelRacer.Editor
             var vertices = new List<Vector3>();
             var triangles = new[] { new List<int>(), new List<int>(), new List<int>(), new List<int>() };
 
-            // Profiles travel from the inboard face to the outside along the tyre's crown.
-            Profile(Rubber, 24, (-.146f, .338f), (-.146f, .429f), (-.119f, .461f), (-.086f, .475f),
-                (-.041f, .475f), (-.030f, .467f), (-.017f, .475f), (.017f, .475f), (.030f, .467f),
-                (.041f, .475f), (.086f, .475f), (.119f, .461f), (.146f, .429f), (.146f, .338f));
+            // Step the shoulders and stagger the two rows of tread blocks around a recessed centre channel.
+            var tyre = new (float x, float radius)[]
+            {
+                (-.146f, .338f), (-.146f, .429f), (-.123f, .429f), (-.123f, .449f),
+                (-.100f, .449f), (-.100f, .461f), (-.010f, .461f), (-.010f, .451f),
+                (.010f, .451f), (.010f, .441f), (.123f, .441f), (.123f, .429f),
+                (.146f, .429f), (.146f, .338f)
+            };
+            for (int i = 0; i < tyre.Length; i++) tyre[i].x = Widen(tyre[i].x);
+            Profile(Rubber, 24, tyre);
+            for (int block = 0; block < 20; block++)
+            {
+                TreadBlock(-.103f, -.018f, block * 18f, .443f, .475f);
+                // The stepped outer shoulder leaves room for the Spy Car 2 arch at full lock.
+                TreadBlock(.018f, .103f, block * 18f + 9f, .435f, .455f);
+            }
 
             // A full-depth barrel and a stepped lip leave the ten spoke openings visible.
-            Profile(Alloy, 30, (-.136f, .313f), (-.136f, .349f), (.117f, .349f), (.143f, .350f),
+            Profile(Alloy, 30, (Widen(-.136f), .313f), (Widen(-.136f), .349f), (.117f, .349f), (.143f, .350f),
                 (.151f, .342f), (.151f, .330f), (.141f, .318f), (.109f, .311f));
             Profile(Hardware, 20, (-.074f, .084f), (-.074f, .238f), (-.065f, .253f), (-.035f, .253f),
                 (-.027f, .243f), (-.027f, .083f));
@@ -111,8 +128,8 @@ namespace VoxelRacer.Editor
                     var b = centre + halfHeight - halfWidth;
                     var c = centre + halfHeight + halfWidth;
                     var d = centre - halfHeight + halfWidth;
-                    Vector3 back = Vector3.right * (side < 0 ? -.151f : .145f);
-                    Vector3 front = Vector3.right * (side < 0 ? -.145f : .151f);
+                    Vector3 back = Vector3.right * (side < 0 ? Widen(-OuterFace) : .145f);
+                    Vector3 front = Vector3.right * (side < 0 ? Widen(-.145f) : OuterFace);
                     Quad(White, a + front, b + front, c + front, d + front);
                     Quad(White, d + back, c + back, b + back, a + back);
                     Quad(White, b + back, b + front, a + front, a + back);
@@ -145,6 +162,25 @@ namespace VoxelRacer.Editor
             for (int i = 0; i < triangles.Length; i++) mesh.SetTriangles(triangles[i], i);
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
+
+            void TreadBlock(float inboard, float outboard, float angle, float baseRadius, float treadRadius)
+            {
+                float start = angle * Mathf.Deg2Rad, end = (angle + 12f) * Mathf.Deg2Rad;
+                float x0 = Widen(inboard), x1 = Widen(outboard);
+                var a = Polar(x0, treadRadius, start);
+                var b = Polar(x0, treadRadius, end);
+                var c = Polar(x1, treadRadius, end);
+                var d = Polar(x1, treadRadius, start);
+                var e = Polar(x0, baseRadius, start);
+                var f = Polar(x0, baseRadius, end);
+                var g = Polar(x1, baseRadius, end);
+                var h = Polar(x1, baseRadius, start);
+                Quad(Rubber, a, b, c, d);
+                Quad(Rubber, e, f, b, a);
+                Quad(Rubber, d, c, g, h);
+                Quad(Rubber, a, d, h, e);
+                Quad(Rubber, b, f, g, c);
+            }
 
             void Profile(int material, int sides, params (float x, float radius)[] profile)
             {
@@ -209,5 +245,7 @@ namespace VoxelRacer.Editor
 
         private static Vector3 Polar(float x, float radius, float radians) =>
             new Vector3(x, radius * Mathf.Cos(radians), radius * Mathf.Sin(radians));
+
+        private static float Widen(float x) => OuterFace + (x - OuterFace) * WidthMultiplier;
     }
 }

@@ -18,7 +18,8 @@ namespace VoxelRacer.Editor
         private const BindingFlags Static = BindingFlags.Static | BindingFlags.NonPublic;
         private static VoxelGarageUpgradeDockValidation.SavedState saved;
         private static VoxelTrackSequence sequence;
-        private static int phase, testCase, skippedIndex, nextIndex, wallet, expectedGuns;
+        private static int phase, testCase, skippedIndex, nextIndex, wallet;
+        private static VoxelGunTuning expectedLeftGun, expectedRightGun;
         private static float scale, step;
         private static bool audio, background, captured;
         private static double phaseStarted;
@@ -79,7 +80,8 @@ namespace VoxelRacer.Editor
                 Check(VoxelBoostUpgradeState.TryPurchase(VoxelBoostUpgradeTuning.LoadUpgrade(), definition), "QA single boost failed.");
                 Check(VoxelArmorUpgradeState.TryPurchase(VoxelArmorTuning.Load(), definition, VoxelArmorSide.Right), "QA right armour failed.");
             }
-            expectedGuns = 1;
+            expectedLeftGun = null;
+            expectedRightGun = VoxelGunUpgradeState.LongGunTuning;
             VoxelCurrencyState.Reset(); VoxelCurrencyState.Add(222); wallet = VoxelCurrencyState.Balance;
             Time.timeScale = .65f; AudioListener.pause = testCase == 1;
             Load(VoxelTrackProgressState.CurrentTrack.raceSceneName);
@@ -105,6 +107,11 @@ namespace VoxelRacer.Editor
                 }
                 else if (phase == 1)
                 {
+                    if (VoxelMissionBriefing.IsShowing)
+                    {
+                        VoxelMissionBriefing.Active.Accept();
+                        return;
+                    }
                     var pause = VoxelPauseMenu.Active;
                     Check(pause != null && VoxelRacerBootstrap.ActiveTrack == sequence.tracks[skippedIndex], "Wrong race loaded.");
                     var car = (VoxelCarController)typeof(VoxelPauseMenu).GetField("target", Private).GetValue(pause);
@@ -152,15 +159,19 @@ namespace VoxelRacer.Editor
                     Check(garage != null && garage.DisplayedCar != null, "Garage failed to build.");
                     Check(garage.DisplayedCar.RepairableIntegrityVoxels == 5 && VoxelCarRunState.MissingVoxelCount == 5, "Garage lost damaged voxels.");
                     Check(VoxelCurrencyState.Balance == wallet && VoxelGunUpgradeState.IsPurchased(1), "Garage lost cash or installed right gun.");
-                    Check(VoxelGunUpgradeState.PurchasedLongGunCount == expectedGuns, "Garage lost DEV gun ownership.");
+                    Check(VoxelGunUpgradeState.InstalledTuning(0) == expectedLeftGun &&
+                        VoxelGunUpgradeState.InstalledTuning(1) == expectedRightGun, "Garage lost the fitted gun variants or sides.");
                     if (testCase == 0) CheckMaxUpgrades(garage.DisplayedCar);
                     Check(VoxelTrackProgressState.CurrentTrackIndex == skippedIndex, "Garage skipped an extra track.");
                     var cost = (int)typeof(VoxelRepairUpgradeSceneController).GetMethod("GetRepairCost", Private).Invoke(garage, new object[] { 100f });
                     Check(cost == garage.repairTuning.GetRepairCost(garage.DisplayedCar, 100,
                         sequence.tracks[skippedIndex].missionTuning.repairCostPerPixel), "Garage used the wrong mission's repair price.");
-                    Check(garage.NextRaceButton.GetComponentInChildren<Text>().text.Contains(VoxelTrackDefinition.ResolveDisplayName(sequence.tracks[nextIndex])),
-                        "Garage did not preview the correct next mission.");
                     garage.NextRaceButton.onClick.Invoke();
+                    garage.NextRaceButton.onClick.Invoke();
+                    Check(VoxelMissionBriefing.IsShowing && VoxelMissionBriefing.Active.Track == sequence.tracks[nextIndex] &&
+                        VoxelTrackProgressState.CurrentTrackIndex == skippedIndex,
+                        "Garage opened the wrong briefing or advanced before it was accepted.");
+                    VoxelMissionBriefing.Active.Accept();
                     garage.NextRaceButton.onClick.Invoke();
                     Check(VoxelLoadingScreen.IsLoading && VoxelTrackProgressState.CurrentTrackIndex == nextIndex,
                         "Garage failed to advance exactly once.");
@@ -185,7 +196,7 @@ namespace VoxelRacer.Editor
                 else if (phase == 4)
                 {
                     Check(EditorJsonUtility.ToJson(VoxelTrackSequence.Load()) == sourceBefore, "QA edited the authored sequence.");
-                    Finish(true, "PASS (Play Mode): DEV/Back navigation while paused; immediate full body/tyre/armour repair; free maximum compatible upgrades, basic-to-Star spikes and single-to-dual boost replacement, both armour/gun/missile sides, live performance/boost/missile HUD refresh, repeated actions without duplicates or healing existing damage, persistence through garage and next race; actual DEV Skip Mission -> garage -> next race for ordinary mission, final looping boss and non-looping boss; damage (5 voxels), upgrades, cash and skipped-mission repair price preserved; no completion rewards; next-mission preview; advances exactly once; invalid/repeated-click guards; prior time/audio restored; source sequence unchanged; returned to MainMenu.");
+                    Finish(true, "PASS (Play Mode): DEV/Back navigation, full repair, and free highest compatible upgrades. Verified dual miniguns, Extended Door Armour on both sides, Gold Track Wheels, Star Wheel Spikes and Dual Boost. Lower-level replacement preserved damage, repeat grants reused mounts, and garage and next-race transitions retained cash, damage, and all upgrades. Verified mission skip for an ordinary mission and looping/non-looping final boss, with no completion rewards or duplicate advance.");
                 }
             }
             catch (Exception error) { Finish(false, "FAIL: " + error); }
@@ -205,10 +216,19 @@ namespace VoxelRacer.Editor
             Check(VoxelCurrencyState.Balance == wallet && VoxelPauseMenu.IsPaused && Time.timeScale == 0, "Repair charged cash or resumed.");
             foreach (var piece in pieces) piece.gameObject.SetActive(false);
             armour.RestoreHealth(0);
+            Vector3 damagedArmorPosition = armour.transform.position;
+            var missingArmour = car.GetComponentsInChildren<VoxelArmorVoxel>().First(a => a != armour);
+            missingArmour.gameObject.SetActive(false);
             var upgrades = pause.GetComponentsInChildren<Button>().Single(b => b.name == "Give All Upgrades Button");
             upgrades.onClick.Invoke();
             CheckMaxUpgrades(car);
-            Check(pieces.All(r => !r.gameObject.activeSelf) && armour.NeedsRepair, "Giving upgrades healed existing damage.");
+            var upgradedArmor = car.GetComponentsInChildren<VoxelArmorVoxel>(true);
+            Check(pieces.All(r => !r.gameObject.activeSelf) &&
+                upgradedArmor.Count(a => !a.gameObject.activeSelf) == 1 &&
+                upgradedArmor.Count(a => a.gameObject.activeSelf && a.NeedsRepair) == 1 &&
+                upgradedArmor.Any(a => a.gameObject.activeSelf && a.RemainingHealth == 0 &&
+                    Vector3.Distance(a.transform.position, damagedArmorPosition) < .08f),
+                "Giving upgrades healed or displaced existing armour or body damage.");
             var liveGuns = car.GetComponentsInChildren<VoxelGunMount>(true);
             upgrades.onClick.Invoke();
             Check(car.GetComponentsInChildren<VoxelGunMount>(true).SequenceEqual(liveGuns), "Repeated grants rebuilt weapons.");
@@ -224,19 +244,25 @@ namespace VoxelRacer.Editor
             restore.onClick.Invoke();
             Check(car.IntegrityPercent == 100 && car.RepairableIntegrityVoxels == 0, "Full repair failed with max upgrades.");
             foreach (var piece in pieces) piece.gameObject.SetActive(false);
-            expectedGuns = VoxelGunUpgradeState.PurchasedLongGunCount;
+            expectedLeftGun = expectedRightGun = VoxelGunUpgradeState.MinigunTuning;
         }
 
         private static void CheckMaxUpgrades(VoxelCarController car)
         {
-            Check(VoxelGunUpgradeState.PurchasedLongGunCount == 2 && VoxelArmorUpgradeState.IsFullyPurchased &&
+            var minigun = VoxelGunUpgradeState.MinigunTuning;
+            var extendedArmor = VoxelArmorTuning.LoadExtended();
+            Check(VoxelGunUpgradeState.InstalledTuning(0) == minigun && VoxelGunUpgradeState.InstalledTuning(1) == minigun &&
+                VoxelArmorUpgradeState.InstalledTuning(VoxelArmorSide.Right) == extendedArmor &&
+                VoxelArmorUpgradeState.InstalledTuning(VoxelArmorSide.Left) == extendedArmor &&
                 VoxelMissileUpgradeState.IsPurchased(false) && VoxelMissileUpgradeState.IsPurchased(true) &&
-                VoxelPerformanceWheelUpgradeState.IsPurchased && VoxelEngineUpgradeState.IsPurchased && VoxelPloughUpgradeState.IsPurchased,
+                VoxelPerformanceWheelUpgradeState.InstalledTuning == VoxelPerformanceWheelTuning.LoadGold() &&
+                VoxelEngineUpgradeState.IsPurchased && VoxelPloughUpgradeState.IsPurchased && VoxelUnderbodyArmorUpgradeState.IsPurchased,
                 "DEV did not grant all compatible upgrade families/slots.");
             Check(VoxelWheelSpikeUpgradeState.InstalledTuning == VoxelWheelSpikeTuning.LoadStar() &&
                 VoxelBoostUpgradeState.InstalledTuning == VoxelBoostUpgradeTuning.LoadDualUpgrade(), "DEV did not select highest replacement levels.");
             Check(car.GetComponentsInChildren<VoxelWheelSpikeMount>(true).Count(m => m.tuning == VoxelWheelSpikeTuning.LoadStar()) == 4 &&
-                car.GetComponentsInChildren<VoxelGunMount>(true).Count(m => m.tuning.projectileKind == VoxelProjectileKind.Missile) == 2,
+                car.GetComponentsInChildren<VoxelGunMount>(true).Count(m => m.tuning.projectileKind == VoxelProjectileKind.Missile) == 2 &&
+                car.GetComponentsInChildren<VoxelGunMount>(true).Count(m => m.tuning == minigun) == 2,
                 "Maximum spike/missile visuals missing or duplicated.");
         }
 

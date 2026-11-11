@@ -60,6 +60,7 @@ namespace VoxelRacer
         {
             if (Object.FindFirstObjectByType<VoxelRacerPrototypeMarker>() != null ||
                 Object.FindFirstObjectByType<VoxelRacerShowcase>() != null ||
+                Object.FindFirstObjectByType<VoxelCarrierDrive>() != null ||
                 Object.FindFirstObjectByType<VoxelMainMenuController>() != null ||
                 Object.FindFirstObjectByType<VoxelCarSelectSceneController>() != null ||
                 Object.FindFirstObjectByType<VoxelRepairUpgradeSceneController>() != null)
@@ -157,7 +158,7 @@ namespace VoxelRacer
             }
             car.gameObject.AddComponent<VoxelCarController>();
             ConfigureCarTuning(car, selectedCar);
-            VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
+            VoxelGunUpgradeState.ApplyTo(car);
             VoxelArmorUpgradeState.ApplyTo(car, selectedCar);
             VoxelWheelSpikeUpgradeState.ApplyTo(car);
             VoxelPerformanceWheelUpgradeState.ApplyTo(car, selectedCar);

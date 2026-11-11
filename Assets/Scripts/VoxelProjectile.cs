@@ -12,6 +12,10 @@ namespace VoxelRacer
         private Vector3 direction;
         private float speed;
         private float remainingRange;
+        private LineRenderer tracer;
+        private float tracerLength;
+        private Vector3 launchPosition;
+        private static Material tracerMaterial;
         private static ParticleSystem voxelSparkPrefab;
         private static ParticleSystem voxelMissCloudPrefab;
         private static ParticleSystem voxelGroundDustPrefab;
@@ -37,7 +41,43 @@ namespace VoxelRacer
 
             var projectile = projectileObject.AddComponent<VoxelProjectile>();
             projectile.Initialize(direction, tuning);
+            if (tuning.tracerLength > 0f)
+                projectile.CreateTracer(tuning.tracerLength);
             return projectile;
+        }
+
+        private void CreateTracer(float length)
+        {
+            if (tracerMaterial == null)
+                tracerMaterial = Resources.Load<Material>("Effects/YellowVoxelImpactSpark");
+            if (tracerMaterial == null)
+                return;
+
+            transform.localScale = new Vector3(.025f, .025f, .12f);
+            launchPosition = transform.position;
+            tracerLength = length;
+            // A child renderer shares the shot lifetime and never enters collision queries.
+            var visual = new GameObject("Bullet Tracer");
+            visual.transform.SetParent(transform, false);
+            tracer = visual.AddComponent<LineRenderer>();
+            tracer.sharedMaterial = tracerMaterial;
+            tracer.useWorldSpace = true;
+            tracer.positionCount = 2;
+            tracer.startWidth = .026f;
+            tracer.endWidth = 0f;
+            tracer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            tracer.receiveShadows = false;
+            UpdateTracer();
+        }
+
+        private void UpdateTracer()
+        {
+            if (tracer == null)
+                return;
+            Vector3 rear = transform.position - direction * .06f;
+            float length = Mathf.Clamp(Vector3.Dot(rear - launchPosition, direction), 0f, tracerLength);
+            tracer.SetPosition(0, rear);
+            tracer.SetPosition(1, rear - direction * length);
         }
 
         private void Initialize(Vector3 firingDirection, VoxelGunTuning tuning)
@@ -208,6 +248,7 @@ namespace VoxelRacer
             }
 
             transform.position += direction * distance;
+            UpdateTracer();
             remainingRange -= distance;
             if (remainingRange <= 0f)
             {

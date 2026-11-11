@@ -1,4 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace VoxelRacer
 {
@@ -25,35 +29,27 @@ namespace VoxelRacer
         {
             if (car == null || car.IsDestroyed) return;
             var definition = VoxelCarSelectionState.GetSelectedOrDefault();
-            var gun = VoxelGunUpgradeState.LongGunTuning;
-            int previousGuns = VoxelGunUpgradeState.PurchasedLongGunCount;
-            VoxelGunUpgradeState.GrantForDevelopment(gun);
-            VoxelArmorUpgradeState.GrantForDevelopment(VoxelArmorTuning.Load(), definition);
-            VoxelPerformanceWheelUpgradeState.GrantForDevelopment(VoxelPerformanceWheelTuning.Load(), definition);
+            // Try higher gun tiers first so a one-per-run tuning can still leave a slot for the next tier.
+            foreach (var gun in Ranked<VoxelGunTuning>("Weapons",
+                t => t.visualPrefab != null && t.projectileKind == VoxelProjectileKind.Bullet && t.Fits(definition), t => t.upgradeLevel))
+                VoxelGunUpgradeState.GrantForDevelopment(gun, definition);
+            VoxelArmorUpgradeState.GrantForDevelopment(Ranked<VoxelArmorTuning>("Armor",
+                t => t.panelPrefab != null && t.Fits(definition), t => t.upgradeLevel).FirstOrDefault(), definition);
+            VoxelPerformanceWheelUpgradeState.GrantForDevelopment(Ranked<VoxelPerformanceWheelTuning>("Upgrades",
+                t => t.Fits(definition), t => t.upgradeLevel).FirstOrDefault(), definition);
             VoxelEngineUpgradeState.GrantForDevelopment(VoxelEngineUpgradeTuning.Load(), definition);
             VoxelPloughUpgradeState.GrantForDevelopment(VoxelPloughTuning.Load(), definition);
             VoxelUnderbodyArmorUpgradeState.GrantForDevelopment(VoxelUnderbodyArmorTuning.Load(), definition);
             VoxelMissileUpgradeState.GrantForDevelopment(VoxelMissileLauncherTuning.Load(), definition);
 
-            // Use each family's replacement rank, rather than stacking variants or
-            // assuming the most expensive tuning is the strongest one.
-            VoxelWheelSpikeTuning bestSpikes = null;
-            foreach (var tuning in Resources.LoadAll<VoxelWheelSpikeTuning>("Upgrades"))
-                if (tuning.Fits(definition) && (bestSpikes == null || tuning.upgradeLevel > bestSpikes.upgradeLevel))
-                    bestSpikes = tuning;
-            VoxelWheelSpikeUpgradeState.GrantForDevelopment(bestSpikes, definition);
-            VoxelBoostUpgradeTuning bestBoost = null;
-            foreach (var tuning in Resources.LoadAll<VoxelBoostUpgradeTuning>("Boost"))
-                if (tuning.Fits(definition) && (bestBoost == null || tuning.bottleCount > bestBoost.bottleCount))
-                    bestBoost = tuning;
+            VoxelWheelSpikeUpgradeState.GrantForDevelopment(Ranked<VoxelWheelSpikeTuning>("Upgrades",
+                t => t.Fits(definition), t => t.upgradeLevel).FirstOrDefault(), definition);
             var previousBoost = VoxelBoostUpgradeState.InstalledTuning;
-            VoxelBoostUpgradeState.GrantForDevelopment(bestBoost, definition);
+            VoxelBoostUpgradeState.GrantForDevelopment(Ranked<VoxelBoostUpgradeTuning>("Boost",
+                t => t.Fits(definition), t => t.bottleCount).FirstOrDefault(), definition);
 
-            // Avoid rebuilding existing guns (and resetting their cooldown/ammunition)
-            // on repeated clicks. All other mounts already reuse their current visuals.
-            if (previousGuns != VoxelGunUpgradeState.PurchasedLongGunCount)
-                VoxelGunUpgradeState.ApplyTo(car.transform, gun);
-            VoxelArmorUpgradeState.ApplyTo(car.transform, definition);
+            VoxelGunUpgradeState.ApplyTo(car.transform);
+            VoxelArmorUpgradeState.ApplyTo(car.transform, definition, preserveReplacementDamage: true);
             VoxelPerformanceWheelUpgradeState.ApplyTo(car.transform, definition);
             VoxelWheelSpikeUpgradeState.ApplyTo(car.transform);
             VoxelBoostUpgradeState.ApplyTo(car.transform, definition);
@@ -73,5 +69,8 @@ namespace VoxelRacer
                 controls.Configure(car);
             VoxelCarRunState.Capture(car, definition);
         }
+
+        private static IEnumerable<T> Ranked<T>(string path, Func<T, bool> fits, Func<T, int> tier) where T : ScriptableObject =>
+            Resources.LoadAll<T>(path).Where(fits).OrderByDescending(tier).ThenBy(t => t.name, StringComparer.Ordinal);
     }
 }

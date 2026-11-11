@@ -29,6 +29,12 @@ namespace VoxelRacer
             { Kind = kind; Slot = slot; Price = price; }
         }
         private int PendingCount(VoxelGarageUpgradeKind kind) => upgradePlacement?.PendingCount(kind) ?? 0;
+
+        private bool GunSlotOffered(VoxelGarageUpgradeKind kind, VoxelGunTuning tuning, int slot)
+        {
+            var other = kind == VoxelGarageUpgradeKind.Guns ? VoxelGarageUpgradeKind.Minigun : VoxelGarageUpgradeKind.Guns;
+            return upgradePlacement?.IsPending(other, slot) != true && VoxelGunUpgradeState.CanPurchase(tuning, slot, definition);
+        }
         private int AvailableUpgradeCash => Mathf.Max(0, VoxelCurrencyState.Balance - quotedUpgradePrice);
         private bool placementPointerHeld, placementPointerTouch;
         private Vector2 placementPointerStart;
@@ -42,7 +48,7 @@ namespace VoxelRacer
                 VoxelGarageUpgradeKind.Armour => VoxelArmorTuning.Load()?.displayName,
                 VoxelGarageUpgradeKind.ExtendedArmour => VoxelArmorTuning.LoadExtended()?.displayName,
                 VoxelGarageUpgradeKind.UnderbodyArmour => VoxelUnderbodyArmorTuning.Load()?.displayName,
-                VoxelGarageUpgradeKind.Guns => VoxelGunUpgradeState.LongGunTuning?.displayName,
+                VoxelGarageUpgradeKind.Guns or VoxelGarageUpgradeKind.Minigun => VoxelGarageUpgradePlacement.GunTuning(kind)?.displayName,
                 VoxelGarageUpgradeKind.Missiles => VoxelMissileLauncherTuning.Load()?.weapon?.displayName,
                 VoxelGarageUpgradeKind.Wheels or VoxelGarageUpgradeKind.GoldWheels => VoxelGarageUpgradePlacement.WheelTuning(kind)?.displayName,
                 VoxelGarageUpgradeKind.Spikes => VoxelWheelSpikeTuning.Load()?.displayName,
@@ -70,10 +76,11 @@ namespace VoxelRacer
                         (VoxelArmorUpgradeState.CanPurchase(armour, definition, VoxelArmorSide.Left) ||
                          VoxelArmorUpgradeState.CanPurchase(armour, definition, VoxelArmorSide.Right));
                 case VoxelGarageUpgradeKind.Guns:
-                    var gun = VoxelGunUpgradeState.LongGunTuning;
+                case VoxelGarageUpgradeKind.Minigun:
+                    var gun = VoxelGarageUpgradePlacement.GunTuning(kind);
                     if (gun == null) return false;
                     price = gun.purchasePrice;
-                    return VoxelGunUpgradeState.CanPurchase(gun);
+                    return GunSlotOffered(kind, gun, 0) || GunSlotOffered(kind, gun, 1);
                 case VoxelGarageUpgradeKind.Missiles:
                     var missile = VoxelMissileLauncherTuning.Load();
                     if (missile == null || missile.weapon == null) return false;
@@ -124,15 +131,16 @@ namespace VoxelRacer
             if (isLoading || DisplayedCar == null || MissionStartWarningVisible) return;
             if (PendingCount(kind) > 0) { RemovePendingUpgrade(kind, -1); return; }
             if (!UpgradeOffer(kind, out int price, out _) || AvailableUpgradeCash < price) return;
-            int capacity = kind == VoxelGarageUpgradeKind.Guns ? Mathf.Clamp(VoxelGunUpgradeState.LongGunTuning.maximumPurchases, 1, 2) :
+            var gun = VoxelGarageUpgradePlacement.IsGun(kind) ? VoxelGarageUpgradePlacement.GunTuning(kind) : null;
+            int capacity = gun != null ? VoxelGunUpgradeState.Capacity(gun) :
                 VoxelGarageUpgradePlacement.IsArmour(kind) || kind == VoxelGarageUpgradeKind.Missiles ? 2 : 1;
-            int owned = kind == VoxelGarageUpgradeKind.Guns ? VoxelGunUpgradeState.PurchasedLongGunCount :
+            int owned = gun != null ? VoxelGunUpgradeState.Count(gun) :
                 VoxelGarageUpgradePlacement.IsArmour(kind) ? ArmorOwnedCount(VoxelGarageUpgradePlacement.ArmorTuning(kind)) :
                 kind == VoxelGarageUpgradeKind.Missiles ? (VoxelMissileUpgradeState.IsPurchased(false) ? 1 : 0) + (VoxelMissileUpgradeState.IsPurchased(true) ? 1 : 0) : 0;
             if (PendingCount(kind) + owned >= capacity) return;
             try
             {
-                if (upgradePlacement == null) upgradePlacement = new VoxelGarageUpgradePlacement(DisplayedCar.gameObject, kind);
+                if (upgradePlacement == null) upgradePlacement = new VoxelGarageUpgradePlacement(DisplayedCar.gameObject, kind, definition);
                 else upgradePlacement.ShowKind(kind);
                 if (!upgradePlacement.RequiresPlacement) AddPendingUpgrade(kind, 0, price);
                 RefreshPlacementPresentation();
@@ -262,7 +270,7 @@ namespace VoxelRacer
                 { if (selected.Slot == 0) left = true; else right = true; }
                 if (text.Length > 0) text.Append("\n\n");
                 text.Append(UpgradeDisplayName(part.Kind));
-                if (VoxelGarageUpgradePlacement.IsArmour(part.Kind) || part.Kind == VoxelGarageUpgradeKind.Guns || part.Kind == VoxelGarageUpgradeKind.Missiles)
+                if (VoxelGarageUpgradePlacement.IsArmour(part.Kind) || VoxelGarageUpgradePlacement.IsGun(part.Kind) || part.Kind == VoxelGarageUpgradeKind.Missiles)
                     text.Append("\n").Append(left && right ? "LEFT + RIGHT  X2" : left ? "LEFT" : "RIGHT");
             }
             purchaseDescription.text = text.ToString();
@@ -311,8 +319,12 @@ namespace VoxelRacer
             foreach (var part in pendingUpgrades)
             {
                 available &= UpgradeOffer(part.Kind, out int price, out _) && Mathf.Max(0, price) == part.Price;
-                if (part.Kind == VoxelGarageUpgradeKind.Guns) available &= VoxelGunUpgradeState.CanPurchase(VoxelGunUpgradeState.LongGunTuning, part.Slot) &&
-                    PendingCount(part.Kind) + VoxelGunUpgradeState.PurchasedLongGunCount <= Mathf.Clamp(VoxelGunUpgradeState.LongGunTuning.maximumPurchases, 1, 2);
+                if (VoxelGarageUpgradePlacement.IsGun(part.Kind))
+                {
+                    var gun = VoxelGarageUpgradePlacement.GunTuning(part.Kind);
+                    available &= GunSlotOffered(part.Kind, gun, part.Slot) &&
+                        PendingCount(part.Kind) + VoxelGunUpgradeState.Count(gun) <= VoxelGunUpgradeState.Capacity(gun);
+                }
                 if (VoxelGarageUpgradePlacement.IsArmour(part.Kind)) available &= VoxelArmorUpgradeState.CanPurchase(
                     VoxelGarageUpgradePlacement.ArmorTuning(part.Kind), definition, part.Slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right);
                 if (part.Kind == VoxelGarageUpgradeKind.Missiles) available &= !VoxelMissileUpgradeState.IsPurchased(part.Slot == 1);
@@ -328,7 +340,8 @@ namespace VoxelRacer
             {
                 case VoxelGarageUpgradeKind.Armour: TryPurchaseDoorArmor(part.Slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right); break;
                 case VoxelGarageUpgradeKind.ExtendedArmour: TryPurchaseDoorArmor(part.Slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right, true); break;
-                case VoxelGarageUpgradeKind.Guns: TryPurchaseLongGun(part.Slot); break;
+                case VoxelGarageUpgradeKind.Guns:
+                case VoxelGarageUpgradeKind.Minigun: TryPurchaseGun(VoxelGarageUpgradePlacement.GunTuning(part.Kind), part.Slot); break;
                 case VoxelGarageUpgradeKind.Missiles: PurchaseMissile(part.Slot == 1); break;
                 case VoxelGarageUpgradeKind.Wheels:
                 case VoxelGarageUpgradeKind.GoldWheels: TryPurchasePerformanceWheels(VoxelGarageUpgradePlacement.WheelTuning(part.Kind)); break;

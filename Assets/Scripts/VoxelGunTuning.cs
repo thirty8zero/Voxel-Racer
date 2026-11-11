@@ -13,6 +13,10 @@ namespace VoxelRacer
         [Header("Shop")]
         [Tooltip("Prefab displayed and mounted when this gun is purchased as an upgrade.")]
         public GameObject visualPrefab;
+        [Tooltip("Optional restriction for fitted hood guns.")]
+        public GameObject compatibleCarPrefab;
+        [Tooltip("Higher levels can replace a lower-level gun in the same hood slot.")]
+        [Min(1)] public int upgradeLevel = 1;
         [Tooltip("Currency required for each copy purchased in the repair workshop.")]
         [Min(0)] public int purchasePrice = 50;
         [Tooltip("Maximum number of copies of this gun that can be fitted during one run.")]
@@ -25,6 +29,12 @@ namespace VoxelRacer
         [Tooltip("Available bullets at the beginning of a stage. Set to zero for unlimited ammunition.")]
         [Min(0)] public int ammunitionPerStage;
         [Min(0f)] public float spreadDegrees;
+
+        [Header("Rotary Gun")]
+        [Tooltip("Barrel cluster rotation speed in degrees per second while firing.")]
+        [Min(0f)] public float barrelSpinDegreesPerSecond;
+        [Tooltip("Maximum visible tracer length in metres. Zero uses the standard projectile visual.")]
+        [Min(0f)] public float tracerLength;
 
         [Header("Projectile")]
         [Min(0.01f)] public float projectileSpeed = 70f;
@@ -51,12 +61,18 @@ namespace VoxelRacer
         public float SecondsPerShot => projectileKind == VoxelProjectileKind.Missile && useMissileCooldown
             ? Mathf.Max(0f, missileCooldownSeconds) : 1f / Mathf.Max(0.01f, shotsPerSecond);
 
+        public bool Fits(VoxelCarDefinition car) => compatibleCarPrefab == null || car?.visualPrefab == compatibleCarPrefab;
+        public bool IsRotary => visualPrefab != null && visualPrefab.TryGetComponent(out VoxelGunMount mount) && mount.HasRotor;
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
             bulletsPerShot = Mathf.Max(1, bulletsPerShot);
             purchasePrice = Mathf.Max(0, purchasePrice);
             maximumPurchases = Mathf.Max(1, maximumPurchases);
+            upgradeLevel = Mathf.Max(1, upgradeLevel);
+            barrelSpinDegreesPerSecond = Mathf.Max(0f, barrelSpinDegreesPerSecond);
+            tracerLength = Mathf.Max(0f, tracerLength);
             VoxelAssetSaveQueue.Request(this);
         }
 #endif

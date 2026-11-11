@@ -35,9 +35,11 @@ namespace VoxelRacer.Editor
                 var tuning = VoxelArmorTuning.LoadExtended(); var basic = VoxelArmorTuning.Load();
                 var definition = AssetDatabase.LoadAssetAtPath<VoxelCarDefinition>("Assets/Resources/Cars/SpyCar2PlayerCar.asset");
                 Check(tuning != null && tuning.panelPrefab != null && tuning.Fits(definition), "missing tuning/prefab or compatibility");
-                Check(tuning.upgradeLevel > basic.upgradeLevel && tuning.voxelHitPoints == basic.voxelHitPoints, "variant level or per-voxel durability");
+                Check(tuning.upgradeLevel > basic.upgradeLevel, "variant level");
                 var pieces = tuning.panelPrefab.GetComponentsInChildren<VoxelArmorVoxel>(true);
                 Check(pieces.Length == 45 && tuning.panelPrefab.GetComponentsInChildren<MeshRenderer>(true).Length == 45, "expected 45 damage pieces and no decorative renderers");
+                Check(tuning.voxelHitPoints > 0 && pieces.All(piece => piece.tuning == tuning &&
+                    piece.MaximumHealth == tuning.voxelHitPoints), "prefab does not use its authored per-voxel durability");
                 Check(tuning.panelPrefab.GetComponentsInChildren<Collider>(true).Length == 0, "unexpected colliders");
                 float ratio = ProjectedArea(tuning.panelPrefab) / ProjectedArea(basic.panelPrefab);
                 Check(Mathf.Abs(ratio - 1.5f) < .002f, "projected door coverage ratio is " + ratio);
@@ -115,7 +117,7 @@ namespace VoxelRacer.Editor
                 Check(!VoxelArmorUpgradeState.IsPurchased && VoxelArmorUpgradeState.InstalledTuning(VoxelArmorSide.Left) == null, "new run kept armour");
                 int triangles = pieces.Sum(p => p.GetComponent<MeshFilter>().sharedMesh.triangles.Length / 3);
                 File.WriteAllText(Output + "/Validation.txt", "PASS: projected door area " + ratio.ToString("F4") + "x; mid grey; 45 pieces / " + triangles +
-                    " triangles; same per-voxel HP; no colliders; separate tuning, both fit entries and one dashboard row; incompatible/unaffordable/duplicate/downgrade checks; actual shop preview/cancel/confirm and category/all-card placement; independent doors, base-to-extended replacement without stacking/body healing; idempotence; partial/missing armour/body persistence and full repair; new-run reset; both-side isolated/combined/body-hidden/upgrades-only native Unity renders. Saved state restored.");
+                    " triangles; configured per-voxel HP; no colliders; separate tuning, both fit entries and one dashboard row; incompatible/unaffordable/duplicate/downgrade checks; actual shop preview/cancel/confirm and category/all-card placement; independent doors, base-to-extended replacement without stacking/body healing; idempotence; partial/missing armour/body persistence and full repair; new-run reset; both-side isolated/combined/body-hidden/upgrades-only native Unity renders. Saved state restored.");
                 Debug.Log(File.ReadAllText(Output + "/Validation.txt"));
             }
             catch (Exception e) { File.WriteAllText(Output + "/Validation.txt", "FAIL: " + e); throw; }

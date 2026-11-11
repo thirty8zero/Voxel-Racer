@@ -15,8 +15,8 @@ MonoBehaviour:
   displayName: SPORTS WHEELS
   wheelPrefab: {fileID: 5914890444915551436, guid: 6ffb01afd55de144c834977e62ec2b25, type: 3}
   compatibleCarPrefab: {fileID: 7422917196529361028, guid: c4b2b884ffbd2ca4884642c912e47ce8, type: 3}
-  purchasePrice: 750
-  upgradeLevel: 2
-  accelerationBonusPercent: 30
-  laneChangeBonusPercent: 20
-  brakingBonusPercent: 30
+  purchasePrice: 250
+  upgradeLevel: 1
+  accelerationBonusPercent: 10
+  laneChangeBonusPercent: 10
+  brakingBonusPercent: 10

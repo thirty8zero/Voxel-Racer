@@ -14,12 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
   displayName: BASIC HOOD GUN
   visualPrefab: {fileID: 0}
+  compatibleCarPrefab: {fileID: 0}
+  upgradeLevel: 1
   purchasePrice: 50
   maximumPurchases: 2
   shotsPerSecond: 20
   bulletsPerShot: 2
   ammunitionPerStage: 0
   spreadDegrees: 1
+  barrelSpinDegreesPerSecond: 0
+  tracerLength: 0
   projectileSpeed: 150
   maximumRange: 100
   damagePerBullet: 1

@@ -41,15 +41,15 @@ namespace VoxelRacer
             cr.pivot = new Vector2(0,.5f); cr.anchoredPosition = Vector2.zero;
             rightArmorUpgradeButton.gameObject.SetActive(false);
             rightMissileButton.gameObject.SetActive(false);
-            var buttons = new[] { leftArmorUpgradeButton, engineUpgradeButton, gunUpgradeButton,
+            var buttons = new[] { leftArmorUpgradeButton, engineUpgradeButton, gunUpgradeButton, minigunUpgradeButton,
                 leftMissileButton, performanceWheelButton, goldWheelButton, boostUpgradeButton, wheelSpikeUpgradeButton, ploughUpgradeButton, starWheelSpikeUpgradeButton, dualBoostUpgradeButton, extendedArmorUpgradeButton, underbodyArmorUpgradeButton };
-            var upgrades = new[] { VoxelGarageUpgradeKind.Armour, VoxelGarageUpgradeKind.Engine, VoxelGarageUpgradeKind.Guns,
+            var upgrades = new[] { VoxelGarageUpgradeKind.Armour, VoxelGarageUpgradeKind.Engine, VoxelGarageUpgradeKind.Guns, VoxelGarageUpgradeKind.Minigun,
                 VoxelGarageUpgradeKind.Missiles, VoxelGarageUpgradeKind.Wheels, VoxelGarageUpgradeKind.GoldWheels, VoxelGarageUpgradeKind.Boost,
                 VoxelGarageUpgradeKind.Spikes, VoxelGarageUpgradeKind.Plough, VoxelGarageUpgradeKind.StarSpikes, VoxelGarageUpgradeKind.DualBoost, VoxelGarageUpgradeKind.ExtendedArmour, VoxelGarageUpgradeKind.UnderbodyArmour };
-            var kinds = new[] { VoxelGarageIconKind.Armour, VoxelGarageIconKind.Engine, VoxelGarageIconKind.Guns,
+            var kinds = new[] { VoxelGarageIconKind.Armour, VoxelGarageIconKind.Engine, VoxelGarageIconKind.Guns, VoxelGarageIconKind.Guns,
                 VoxelGarageIconKind.Missile, VoxelGarageIconKind.Wheels, VoxelGarageIconKind.GoldWheels, VoxelGarageIconKind.Boost,
                 VoxelGarageIconKind.Spikes, VoxelGarageIconKind.Plough, VoxelGarageIconKind.StarSpikes, VoxelGarageIconKind.Boost, VoxelGarageIconKind.Armour, VoxelGarageIconKind.Underbody };
-            var categories = new[] { VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.Engines, VoxelGarageUpgradeCategory.Guns,
+            var categories = new[] { VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.Engines, VoxelGarageUpgradeCategory.Guns, VoxelGarageUpgradeCategory.Guns,
                 VoxelGarageUpgradeCategory.Missiles, VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Boost,
                 VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Boost, VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.Armor };
             cr.sizeDelta = new Vector2(buttons.Length*224-14,234);
@@ -274,6 +274,17 @@ namespace VoxelRacer
         }
         private void Card(Button button,int cost,bool compatible,bool owned,VoxelGarageUpgradeKind kind)
         { if(button!=null) button.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(cost,compatible,owned?1:0,1,PendingCount(kind),AvailableUpgradeCash); }
+        private void RefreshGunCard(Button button, VoxelGarageUpgradeKind kind)
+        {
+            var tuning = VoxelGarageUpgradePlacement.GunTuning(kind);
+            int owned = VoxelGunUpgradeState.Count(tuning);
+            int capacity = VoxelGunUpgradeState.Capacity(tuning);
+            bool fits = tuning != null && tuning.visualPrefab != null && tuning.Fits(definition);
+            bool offered = fits && (GunSlotOffered(kind, tuning, 0) || GunSlotOffered(kind, tuning, 1));
+            button?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(tuning != null ? tuning.purchasePrice : 0,
+                fits && (offered || owned >= capacity), owned, capacity, PendingCount(kind), AvailableUpgradeCash,
+                fits && !offered && owned < capacity ? "SLOTS OCCUPIED" : null);
+        }
         private void RefreshWheelCard(Button button, VoxelGarageUpgradeKind kind)
         {
             var tuning = VoxelGarageUpgradePlacement.WheelTuning(kind);
@@ -300,9 +311,8 @@ namespace VoxelRacer
                 extendedArmour!=null && extendedArmour.panelPrefab!=null && extendedArmour.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.Armour)==0,
                 ArmorOwnedCount(extendedArmour),2,PendingCount(VoxelGarageUpgradeKind.ExtendedArmour),AvailableUpgradeCash);
             var engine=VoxelEngineUpgradeTuning.Load(); Card(engineUpgradeButton,engine!=null?engine.purchasePrice:0,engine!=null && engine.Fits(definition),VoxelEngineUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Engine);
-            var gun=VoxelGunUpgradeState.LongGunTuning;
-            gunUpgradeButton?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(gun!=null?gun.purchasePrice:0,gun!=null && gun.visualPrefab!=null,
-                VoxelGunUpgradeState.PurchasedLongGunCount,gun!=null?Mathf.Clamp(gun.maximumPurchases,1,VoxelGunUpgradeState.SlotCount):1,PendingCount(VoxelGarageUpgradeKind.Guns),AvailableUpgradeCash);
+            RefreshGunCard(gunUpgradeButton, VoxelGarageUpgradeKind.Guns);
+            RefreshGunCard(minigunUpgradeButton, VoxelGarageUpgradeKind.Minigun);
             var missile=VoxelMissileLauncherTuning.Load(); fits=missile!=null && missile.Fits(definition);
             leftMissileButton?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(missile!=null && missile.weapon!=null?missile.weapon.purchasePrice:0,fits,
                 (VoxelMissileUpgradeState.IsPurchased(false)?1:0)+(VoxelMissileUpgradeState.IsPurchased(true)?1:0),2,PendingCount(VoxelGarageUpgradeKind.Missiles),AvailableUpgradeCash);

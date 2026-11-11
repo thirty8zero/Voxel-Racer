@@ -14,12 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
   displayName: THUMP CANNONS
   visualPrefab: {fileID: 4125248041604159245, guid: a424565e8cb5851408940778327aa5aa, type: 3}
+  compatibleCarPrefab: {fileID: 0}
+  upgradeLevel: 1
   purchasePrice: 500
   maximumPurchases: 2
   shotsPerSecond: 5
   bulletsPerShot: 1
   ammunitionPerStage: 0
   spreadDegrees: 1.5
+  barrelSpinDegreesPerSecond: 0
+  tracerLength: 0
   projectileSpeed: 78
   maximumRange: 120
   damagePerBullet: 2

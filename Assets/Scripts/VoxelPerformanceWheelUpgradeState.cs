@@ -71,7 +71,9 @@ namespace VoxelRacer
                 var visual = Object.Instantiate(tuning.wheelPrefab, wheel);
                 visual.name = InstanceName;
                 visual.AddComponent<VoxelPerformanceWheelMount>().tuning = tuning;
-                visual.transform.localPosition = Vector3.right * (wheelSide * OutwardOffset);
+                // A wider prefab can author an extra outward offset on its root.
+                float offset = OutwardOffset + tuning.wheelPrefab.transform.localPosition.x;
+                visual.transform.localPosition = Vector3.right * (wheelSide * offset);
                 visual.transform.localRotation = wheelSide > 0 ? Quaternion.identity : Quaternion.Euler(0, 180, 0);
                 visual.transform.localScale = Vector3.one;
                 var spike = wheel.Find(VoxelWheelSpikeUpgradeState.SpikeInstanceName);

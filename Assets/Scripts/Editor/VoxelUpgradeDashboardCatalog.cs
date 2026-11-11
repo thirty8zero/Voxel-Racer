@@ -76,6 +76,7 @@ namespace VoxelRacer.Editor
             return N(gun.damagePerBullet) + " damage/projectile; " + firing + "; " + gun.bulletsPerShot +
                 " projectile(s)/shot; " + N(gun.maximumRange) + "m range. " +
                 (gun.areaOfEffectRadius > 0 ? N(gun.areaOfEffectRadius) + "m blast radius. " : "") +
+                (gun.IsRotary ? "Six muzzles rotate at " + N(gun.barrelSpinDegreesPerSecond) + "°/s. " : "") +
                 (gun.ammunitionPerStage == 0 ? "Unlimited ammo." : gun.ammunitionPerStage + " ammo/stage.");
         }
         public string Description => Asset switch

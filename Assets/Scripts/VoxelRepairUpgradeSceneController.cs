@@ -20,6 +20,7 @@ namespace VoxelRacer
         private Text feedbackText;
         private Text gunUpgradeButtonLabel;
         private Button gunUpgradeButton;
+        private Button minigunUpgradeButton;
         private Text rightArmorUpgradeButtonLabel;
         private Button rightArmorUpgradeButton;
         private Text leftArmorUpgradeButtonLabel;
@@ -111,7 +112,7 @@ namespace VoxelRacer
             DisplayedCar = car.gameObject.AddComponent<VoxelCarController>();
             if (definition != null && definition.tuning != null)
                 DisplayedCar.SetTuning(definition.tuning);
-            VoxelGunUpgradeState.ApplyTo(car, VoxelGunUpgradeState.LongGunTuning);
+            VoxelGunUpgradeState.ApplyTo(car);
             VoxelArmorUpgradeState.ApplyTo(car, definition);
             VoxelWheelSpikeUpgradeState.ApplyTo(car);
             VoxelPerformanceWheelUpgradeState.ApplyTo(car, definition);
@@ -249,6 +250,8 @@ namespace VoxelRacer
             gunUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Long Gun Purchase Button", string.Empty, 36,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, 180f), new Vector2(560f, 100f), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Guns));
             gunUpgradeButtonLabel = gunUpgradeButton.GetComponentInChildren<Text>();
+            minigunUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Minigun Purchase Button", string.Empty, 36,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560f, 100f), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Minigun));
             rightArmorUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Right Door Armor Purchase Button", string.Empty, 30,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, 65f), new Vector2(560f, 100f),
                 () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Armour));
@@ -334,28 +337,27 @@ namespace VoxelRacer
                 ShowGaragePanel(null);
         }
 
-        private void TryPurchaseLongGun(int slot)
+        private void TryPurchaseGun(VoxelGunTuning tuning, int slot)
         {
-            VoxelGunTuning tuning = VoxelGunUpgradeState.LongGunTuning;
             if (tuning == null)
             {
                 feedbackText.text = "GUN UPGRADE NOT FOUND";
                 return;
             }
 
-            if (!VoxelGunUpgradeState.CanPurchase(tuning, slot))
+            if (!VoxelGunUpgradeState.CanPurchase(tuning, slot, definition))
             {
                 feedbackText.text = "GUN SLOTS FULL";
                 return;
             }
 
-            if (!VoxelGunUpgradeState.TryPurchase(tuning, slot))
+            if (!VoxelGunUpgradeState.TryPurchase(tuning, slot, definition))
             {
                 feedbackText.text = "NOT ENOUGH CURRENCY";
                 return;
             }
 
-            VoxelGunUpgradeState.ApplyTo(DisplayedCar.transform, tuning);
+            VoxelGunUpgradeState.ApplyTo(DisplayedCar.transform);
             feedbackText.text = tuning.displayName.ToUpperInvariant() + " INSTALLED";
             RefreshUi();
         }

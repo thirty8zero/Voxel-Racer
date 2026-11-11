@@ -32,11 +32,9 @@ namespace VoxelRacer.Editor
             var missingField = typeof(VoxelCarRunState).GetField("missingVoxelPaths", PrivateStatic);
             var healthField = typeof(VoxelCarRunState).GetField("armorHealth", PrivateStatic);
             var nameField = typeof(VoxelCarRunState).GetField("carDefinitionName", PrivateStatic);
-            var gunField = typeof(VoxelGunUpgradeState).GetField("purchasedLongGunCount", PrivateStatic);
-            var gunSideField = typeof(VoxelGunUpgradeState).GetField("firstLongGunIsRight", PrivateStatic);
             var rightField = typeof(VoxelArmorUpgradeState).GetField("rightPurchased", PrivateStatic);
             var leftField = typeof(VoxelArmorUpgradeState).GetField("leftPurchased", PrivateStatic);
-            Check(missingField != null && healthField != null && nameField != null && gunField != null &&
+            Check(missingField != null && healthField != null && nameField != null &&
                 rightField != null && leftField != null, "state fields missing");
 
             var missing = (HashSet<string>)missingField.GetValue(null);
@@ -44,8 +42,6 @@ namespace VoxelRacer.Editor
             var savedMissing = new HashSet<string>(missing);
             var savedHealth = new Dictionary<string, int>(health);
             object savedName = nameField.GetValue(null);
-            object savedGuns = gunField.GetValue(null);
-            object savedGunSide = gunSideField.GetValue(null);
             object savedRight = rightField.GetValue(null);
             object savedLeft = leftField.GetValue(null);
             int savedBalance = VoxelCurrencyState.Balance;
@@ -101,8 +97,6 @@ namespace VoxelRacer.Editor
                 foreach (var entry in savedHealth)
                     health.Add(entry.Key, entry.Value);
                 nameField.SetValue(null, savedName);
-                gunField.SetValue(null, savedGuns);
-                gunSideField.SetValue(null, savedGunSide);
                 rightField.SetValue(null, savedRight);
                 leftField.SetValue(null, savedLeft);
                 VoxelCurrencyState.Reset();
@@ -202,7 +196,7 @@ namespace VoxelRacer.Editor
             VoxelCarRunState.Capture(armorFirst, definition);
             VoxelCurrencyState.Add(gun.purchasePrice);
             Check(VoxelGunUpgradeState.TryPurchase(gun), "gun-after-armour fixture failed");
-            VoxelGunUpgradeState.ApplyTo(armorFirst.transform, gun);
+            VoxelGunUpgradeState.ApplyTo(armorFirst.transform);
             VoxelCarRunState.Capture(armorFirst, definition);
             var restoredArmorFirst = CreateCar(scene, definition);
             Check(FindPanelVoxel(restoredArmorFirst.transform, VoxelArmorSide.Right)
@@ -283,7 +277,7 @@ namespace VoxelRacer.Editor
             var car = root.AddComponent<VoxelCarController>();
             car.enabled = false;
             car.debrisVoxelsPerDamagedVoxel = 0;
-            VoxelGunUpgradeState.ApplyTo(root.transform, VoxelGunUpgradeState.LongGunTuning);
+            VoxelGunUpgradeState.ApplyTo(root.transform);
             VoxelArmorUpgradeState.ApplyTo(root.transform, definition);
             car.ResetIntegrityBaseline();
             VoxelCarRunState.Apply(car, definition);

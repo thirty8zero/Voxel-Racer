@@ -58,6 +58,12 @@ namespace VoxelRacer
             if (!CanPurchase(tuning, car, side) || !VoxelCurrencyState.TrySpend(tuning.panelPurchasePrice))
                 return false;
 
+            SetInstalled(tuning, side);
+            return true;
+        }
+
+        private static void SetInstalled(VoxelArmorTuning tuning, VoxelArmorSide side)
+        {
             if (side == VoxelArmorSide.Right)
             {
                 rightPurchased = true;
@@ -68,10 +74,9 @@ namespace VoxelRacer
                 leftPurchased = true;
                 leftTuning = tuning;
             }
-            return true;
         }
 
-        public static void ApplyTo(Transform car, VoxelCarDefinition definition)
+        public static void ApplyTo(Transform car, VoxelCarDefinition definition, bool preserveReplacementDamage = false)
         {
             if (car == null)
                 return;
@@ -88,15 +93,15 @@ namespace VoxelRacer
             foreach (var side in new[] { VoxelArmorSide.Right, VoxelArmorSide.Left })
             {
                 var tuning = InstalledTuning(side);
-                EnsurePanel(root, tuning, side, tuning != null && tuning.Fits(definition) && tuning.panelPrefab != null);
+                EnsurePanel(root, tuning, side, tuning != null && tuning.Fits(definition) && tuning.panelPrefab != null,
+                    preserveReplacementDamage);
             }
         }
 
         internal static void GrantForDevelopment(VoxelArmorTuning tuning, VoxelCarDefinition car)
         {
-            if (tuning == null || tuning.panelPrefab == null || !tuning.Fits(car)) return;
-            rightPurchased = leftPurchased = true;
-            rightTuning = leftTuning = tuning;
+            if (CanPurchase(tuning, car, VoxelArmorSide.Right)) SetInstalled(tuning, VoxelArmorSide.Right);
+            if (CanPurchase(tuning, car, VoxelArmorSide.Left)) SetInstalled(tuning, VoxelArmorSide.Left);
         }
 
         /// <summary>Also used by the fit preview; creates both panels without changing purchases or currency.</summary>
@@ -158,7 +163,7 @@ namespace VoxelRacer
         }
 
         private static void EnsurePanel(Transform root, VoxelArmorTuning tuning,
-            VoxelArmorSide side, bool installed)
+            VoxelArmorSide side, bool installed, bool preserveReplacementDamage = false)
         {
             Transform mount = EnsureMount(root, side);
             Transform panel = mount.Find(PanelInstanceName);
@@ -173,11 +178,6 @@ namespace VoxelRacer
             {
                 var existing = panel.GetComponentInChildren<VoxelArmorVoxel>(true)?.tuning;
                 if (existing == tuning || existing != null && existing.upgradeLevel > tuning.upgradeLevel) return;
-                // Detach immediately so deferred Play Mode destruction cannot affect integrity,
-                // picking, sibling paths or the new panel's cache during this purchase.
-                panel.gameObject.SetActive(false);
-                panel.SetParent(null, true);
-                DestroyObject(panel.gameObject);
             }
 
             GameObject instance = Object.Instantiate(tuning.panelPrefab, mount);
@@ -187,10 +187,44 @@ namespace VoxelRacer
                 : new Vector3(-tuning.rightMountPosition.x, tuning.rightMountPosition.y, tuning.rightMountPosition.z);
             instance.transform.localRotation = Quaternion.Euler(0f,
                 side == VoxelArmorSide.Right ? 0f : 180f, 0f);
-            foreach (VoxelArmorVoxel voxel in instance.GetComponentsInChildren<VoxelArmorVoxel>(true))
+            var replacement = instance.GetComponentsInChildren<VoxelArmorVoxel>(true);
+            foreach (VoxelArmorVoxel voxel in replacement)
             {
                 voxel.tuning = tuning;
                 voxel.RepairToFull();
+            }
+
+            if (panel == null) return;
+            if (preserveReplacementDamage) TransferDamage(panel, replacement);
+            // Detach immediately so deferred Play Mode destruction cannot affect integrity or sibling paths.
+            panel.gameObject.SetActive(false);
+            panel.SetParent(null, true);
+            DestroyObject(panel.gameObject);
+        }
+
+        private static void TransferDamage(Transform previous, VoxelArmorVoxel[] replacement)
+        {
+            // Different tiers may shift the grid. Keep each damaged cell on the closest
+            // unused cell of the replacement panel, and keep any extra coverage intact.
+            foreach (var source in previous.GetComponentsInChildren<VoxelArmorVoxel>(true))
+            {
+                if (source.gameObject.activeSelf && !source.NeedsRepair) continue;
+                int closest = -1;
+                float distance = float.PositiveInfinity;
+                for (int i = 0; i < replacement.Length; i++)
+                {
+                    var candidate = replacement[i];
+                    if (candidate == null) continue;
+                    float separation = (source.transform.position - candidate.transform.position).sqrMagnitude;
+                    if (separation >= distance) continue;
+                    closest = i;
+                    distance = separation;
+                }
+                if (closest < 0) break;
+                var target = replacement[closest];
+                target.RestoreHealth(source.RemainingHealth);
+                target.gameObject.SetActive(source.gameObject.activeSelf);
+                replacement[closest] = null;
             }
         }
 
