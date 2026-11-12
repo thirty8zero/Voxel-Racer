@@ -43,7 +43,7 @@ namespace VoxelRacer.Editor
                 Check(Mathf.Abs(mesh.bounds.size.x - .302f * 1.5f) < .0001f &&
                     Mathf.Abs(mesh.bounds.min.x + prefab.transform.localPosition.x + .151f) < .0001f,
                     "The wheel must be 50% wider with the same inboard edge.");
-                Check(prefab.GetComponentsInChildren<MeshRenderer>().Length == 1 && mesh.subMeshCount == 4 &&
+                Check(prefab.GetComponentsInChildren<MeshRenderer>().Length == 1 && mesh.subMeshCount == 5 &&
                     mesh.triangles.Length / 3 < 3100 && prefab.GetComponentsInChildren<Collider>().Length == 0,
                     "Wheel exceeded its renderer, geometry or physics budget.");
                 var sportsTabs = sports.wheelPrefab.transform.Cast<Transform>()
@@ -85,9 +85,12 @@ namespace VoxelRacer.Editor
                 Check(goldMounts.SequenceEqual(VerifyMounts(mounted, gold)), "Repeated or lower-tier application replaced the wheel.");
                 float radius = mesh.vertices.Max(v => new Vector2(v.y, v.z).magnitude);
                 CheckArchClearance(mounted, goldMounts, mesh.bounds, radius);
+                float steeringGap = CheckSteeringClearance(mounted, goldMounts, mesh, definition.tuning.frontWheelTurnDegrees);
                 Render(mounted, "Mounted", new Vector3(6, 2.3f, 3.8f));
                 Render(mounted, "MountedRear", new Vector3(-6, 2.3f, -3.8f));
                 RenderFrontWheel(mounted, goldMounts, "MountedDetail");
+                RenderBrakeDetail(mounted, goldMounts, 1, "MountedBrakeRight");
+                RenderBrakeDetail(mounted, goldMounts, -1, "MountedBrakeLeft");
                 Render(prefab, "WheelDetail", new Vector3(3, .65f, 1.1f), Vector3.zero, .56f);
                 Render(prefab, "WheelInboard", new Vector3(-3, .65f, 1.1f), Vector3.zero, .56f);
 
@@ -108,10 +111,11 @@ namespace VoxelRacer.Editor
                 Check(cash == VoxelCurrencyState.Balance && missing == VoxelCarRunState.MissingVoxelCount &&
                     owned == VoxelPerformanceWheelUpgradeState.InstalledTuning, "Fit checks changed run state.");
                 CheckDirectPurchase(definition, gold);
-                File.WriteAllText(Output + "Validation.txt", "PASS: 50% wider with the same inboard edge, diameter, 13-degree tab spacing on both variants, Gold white caliper, arch clearance, both wheel orientations, " +
+                File.WriteAllText(Output + "Validation.txt", "PASS: 50% wider with the same inboard edge, diameter, outboard-only tabs at 13-degree spacing, double-face caliper with black markings, arch clearance, both wheel orientations, " +
                     "side-specific fit, exclusive and idempotent wheel replacement, combined fit with spikes, dashboard and preview discovery, " +
                     "preview state isolation, direct purchase, affordability, and new-run reset. " +
-                    $"{mesh.triangles.Length / 3} triangles, one renderer and four shared materials per wheel.");
+                    $"{mesh.triangles.Length / 3} triangles, one renderer and five shared materials per wheel. " +
+                    $"Minimum conservative front tyre clearance at sampled steering angles: {steeringGap * 1000f:F1} mm.");
                 Debug.Log(File.ReadAllText(Output + "Validation.txt"));
             }
             catch (Exception ex) { File.WriteAllText(Output + "Validation.txt", "FAIL: " + ex); throw; }
@@ -163,9 +167,9 @@ namespace VoxelRacer.Editor
             var white = mesh.GetTriangles(3);
             Check(renderer.sharedMaterials[3] == Resources.Load<Material>("CarMaterials/PerformanceTyreWhite"),
                 "Gold tabs and caliper must use the shared white material.");
-            const int tabCount = 20, indicesPerTab = 36;
+            const int tabCount = 10, indicesPerTab = 36;
             var tabIndices = white.Where(i => Mathf.Abs(points[i].x) > .14f).ToArray();
-            Check(tabIndices.Length == tabCount * indicesPerTab, "Expected twenty white tabs across both tyre faces.");
+            Check(tabIndices.Length == tabCount * indicesPerTab, "Expected ten white tabs on the outward face only.");
             var centres = new Vector3[tabCount];
             for (int tab = 0; tab < tabCount; tab++)
             {
@@ -174,12 +178,18 @@ namespace VoxelRacer.Editor
                     box.Encapsulate(points[index]);
                 centres[tab] = box.center;
             }
-            CheckTabs(centres.Where(p => p.x > 0).ToArray(), 1, 5);
-            CheckTabs(centres.Where(p => p.x < 0).ToArray(), -1, 5);
+            CheckTabs(centres, 1, 5);
             var caliper = white.Where(i => Mathf.Abs(points[i].x) <= .14f).Select(i => points[i]).ToArray();
-            Check(caliper.Length > 0 && caliper.Max(v => v.x) < .025f && caliper.Max(v => v.z) < -.17f &&
-                caliper.Min(v => v.z) < -.28f && caliper.Min(v => v.x) < -.074f,
-                "The white caliper must straddle the rotor behind the spokes.");
+            Check(caliper.Length > 0 && Mathf.Abs(caliper.Max(v => v.y) - caliper.Min(v => v.y) - .182f * 1.6f) < .0001f &&
+                Mathf.Abs(caliper.Max(v => v.z) - caliper.Min(v => v.z) - .111f * 1.25f) < .0001f &&
+                caliper.Max(v => v.x) < .025f && caliper.Min(v => v.x) < -.074f &&
+                caliper.All(v => new Vector2(v.y, v.z).magnitude < .309f),
+                "The enlarged caliper must stay inside the barrel and straddle the rotor behind the spokes.");
+            var marks = mesh.GetTriangles(4).Select(i => points[i]).ToArray();
+            Check(renderer.sharedMaterials[4] == Resources.Load<Material>("CarMaterials/FormulaBlack") &&
+                marks.Any(v => v.y > .007f) && marks.Any(v => v.y < -.007f) &&
+                marks.All(v => v.z > -.246f && v.z < -.190f && Mathf.Abs(v.x - .0248f) < .0001f),
+                "Both black characters must sit on the flat outward face of the caliper.");
         }
 
         private static void CheckTabs(Vector3[] centres, int side, int countPerArc)
@@ -202,6 +212,12 @@ namespace VoxelRacer.Editor
             Render(car, name, front + new Vector3(3.5f, .65f, 1.1f), front, .70f);
         }
 
+        private static void RenderBrakeDetail(GameObject car, VoxelPerformanceWheelMount[] mounts, int side, string name)
+        {
+            var front = mounts.First(m => m.transform.position.x * side > 0 && m.transform.position.z > 0).transform;
+            Render(car, name, front.position + front.right * 3.5f, front.position + Vector3.up * .04f, .54f);
+        }
+
         private static void CheckArchClearance(GameObject car, VoxelPerformanceWheelMount[] mounts, Bounds meshBounds, float radius)
         {
             foreach (var mount in mounts)
@@ -219,6 +235,91 @@ namespace VoxelRacer.Editor
                     Check(new Vector2(closest.y - centre.y, closest.z - centre.z).magnitude > radius,
                         "A wheel intersects bodywork at its resting steering angle.");
                 }
+            }
+        }
+
+        private static float CheckSteeringClearance(GameObject car, VoxelPerformanceWheelMount[] mounts, Mesh mesh, float maximumSteer)
+        {
+            // Bound the spinning tread by axial sections so the stepped shoulder is measured at its own radius.
+            var points = mesh.vertices;
+            var rubber = mesh.GetTriangles(0);
+            var edges = rubber.Select(i => points[i].x).Distinct().OrderBy(x => x).ToArray();
+            var radii = new float[edges.Length - 1];
+            for (int i = 0; i < rubber.Length; i += 3)
+            {
+                Vector3 a = points[rubber[i]], b = points[rubber[i + 1]], c = points[rubber[i + 2]];
+                float lo = Mathf.Min(a.x, Mathf.Min(b.x, c.x)), hi = Mathf.Max(a.x, Mathf.Max(b.x, c.x));
+                float radius = Mathf.Max(Radius(a), Mathf.Max(Radius(b), Radius(c)));
+                for (int slice = 0; slice < radii.Length; slice++)
+                    if (edges[slice] < hi && edges[slice + 1] > lo)
+                        radii[slice] = Mathf.Max(radii[slice], radius);
+            }
+
+            var body = car.GetComponentsInChildren<MeshRenderer>().Where(r =>
+                r.enabled && r.GetComponentInParent<VoxelIndestructiblePart>() == null).Select(r => r.bounds).ToArray();
+            var corners = new Vector3[4];
+            float clearance = float.PositiveInfinity;
+            foreach (var mount in mounts)
+            {
+                var pivot = mount.transform.parent.parent;
+                if (pivot.name != "Front Wheel Steering") continue;
+                var rotation = pivot.localRotation;
+                try
+                {
+                    for (int sample = -5; sample <= 5; sample++)
+                    {
+                        pivot.localRotation = Quaternion.Euler(0f, maximumSteer * sample / 5f, 0f);
+                        Vector3 centre = mount.transform.position;
+                        foreach (var bounds in body)
+                        {
+                            if (bounds.SqrDistance(centre) > .6f) continue;
+                            float dy = Mathf.Abs(bounds.ClosestPoint(centre).y - centre.y);
+                            if (dy > .5f) continue;
+                            var min = bounds.min;
+                            var max = bounds.max;
+                            corners[0] = mount.transform.InverseTransformPoint(new Vector3(min.x, centre.y, min.z));
+                            corners[1] = mount.transform.InverseTransformPoint(new Vector3(max.x, centre.y, min.z));
+                            corners[2] = mount.transform.InverseTransformPoint(new Vector3(max.x, centre.y, max.z));
+                            corners[3] = mount.transform.InverseTransformPoint(new Vector3(min.x, centre.y, max.z));
+                            for (int slice = 0; slice < radii.Length; slice++)
+                            {
+                                float dz = ClosestZInSlab(corners, edges[slice], edges[slice + 1]);
+                                clearance = Mathf.Min(clearance, new Vector2(dy, dz).magnitude - radii[slice]);
+                            }
+                        }
+                    }
+                }
+                finally { pivot.localRotation = rotation; }
+            }
+            Check(clearance > 0f && !float.IsInfinity(clearance), "A front tyre intersects the arch within the steering range.");
+            return clearance;
+
+            static float Radius(Vector3 point) => new Vector2(point.y, point.z).magnitude;
+        }
+
+        private static float ClosestZInSlab(Vector3[] corners, float left, float right)
+        {
+            // Clip the body voxel's horizontal outline to the axle slice before measuring radial clearance.
+            float min = float.PositiveInfinity, max = float.NegativeInfinity;
+            for (int i = 0; i < corners.Length; i++)
+            {
+                Vector3 a = corners[i], b = corners[(i + 1) % corners.Length];
+                if (a.x >= left && a.x <= right) Include(a.z);
+                Intersect(left);
+                Intersect(right);
+
+                void Intersect(float x)
+                {
+                    if (x > Mathf.Min(a.x, b.x) && x < Mathf.Max(a.x, b.x))
+                        Include(Mathf.Lerp(a.z, b.z, (x - a.x) / (b.x - a.x)));
+                }
+            }
+            return Mathf.Max(0f, Mathf.Max(min, -max));
+
+            void Include(float z)
+            {
+                min = Mathf.Min(min, z);
+                max = Mathf.Max(max, z);
             }
         }
 

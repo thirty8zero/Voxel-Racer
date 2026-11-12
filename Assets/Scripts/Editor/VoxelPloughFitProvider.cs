@@ -8,7 +8,7 @@ namespace VoxelRacer.Editor
         {
             foreach (var tuning in VoxelUpgradeFitCatalog.Assets<VoxelPloughTuning>())
                 yield return new VoxelUpgradeFitEntry {
-                    Asset = tuning, Label = tuning.displayName + " — Front bumper (complete blade)",
+                    Asset = tuning, Label = tuning.displayName + " — Front bumper",
                     Fits = tuning.Fits, Build = car => VoxelPloughUpgradeState.CreateVisual(car, tuning)
                 };
         }

@@ -26,10 +26,12 @@ namespace VoxelRacer
 
         public bool IsComplete => started && Time.time - countdownStartedAt >= 3f;
 
-        /// <summary>Traffic may enter during the final displayed "1" second so it is present when driving begins.</summary>
-        public bool IsTrafficSpawnWindowOpen => started && Time.time - countdownStartedAt >= 2f;
+        public bool HasReachedFinalCount => started && Time.time - countdownStartedAt >= 2f;
 
-        /// <summary>Gameplay HUD fades in during the one-second "GO!" phase.</summary>
+        /// <summary>Traffic may enter during the final displayed "1" second so it is present when driving begins.</summary>
+        public bool IsTrafficSpawnWindowOpen => HasReachedFinalCount;
+
+        /// <summary>Gameplay HUD fades in during the one-second launch cue.</summary>
         public float GameplayHudAlpha => !started
             ? 0f
             : Mathf.Clamp01(Time.time - countdownStartedAt - 3f);
@@ -171,7 +173,7 @@ namespace VoxelRacer
             if (elapsed >= 4f)
                 return;
 
-            string text = elapsed < 1f ? "3" : elapsed < 2f ? "2" : elapsed < 3f ? "1" : "GO!";
+            string text = elapsed < 1f ? "3" : elapsed < 2f ? "2" : elapsed < 3f ? "1" : "HUNT!";
             numberStyle ??= new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
@@ -182,7 +184,7 @@ namespace VoxelRacer
             trackStyle ??= new GUIStyle(numberStyle);
             float scale = Screen.height / 1080f;
             float numberTop = Screen.height * 0.22f;
-            numberStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt((text == "GO!" ? 114f : 144f) * scale));
+            numberStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt((elapsed < 3f ? 144f : 114f) * scale));
             DrawOutlinedLabel(new Rect(0f, numberTop, Screen.width, 160f * scale), text,
                 numberStyle, 4f * scale, 1f, Color.white);
 

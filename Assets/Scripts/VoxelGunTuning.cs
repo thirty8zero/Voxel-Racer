@@ -7,8 +7,12 @@ namespace VoxelRacer
     [CreateAssetMenu(menuName = "Voxel Racer/Weapons/Gun Tuning", fileName = "VoxelGunTuning")]
     public sealed class VoxelGunTuning : ScriptableObject
     {
+        private const float DpsReferenceFrameRate = 60f;
+
         [Header("Identity")]
         public string displayName = "Basic Hood Gun";
+        [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
+        public string description;
 
         [Header("Shop")]
         [Tooltip("Prefab displayed and mounted when this gun is purchased as an upgrade.")]
@@ -60,6 +64,23 @@ namespace VoxelRacer
 
         public float SecondsPerShot => projectileKind == VoxelProjectileKind.Missile && useMissileCooldown
             ? Mathf.Max(0f, missileCooldownSeconds) : 1f / Mathf.Max(0.01f, shotsPerSecond);
+
+        public int ProjectilesPerShot => Mathf.Max(1, bulletsPerShot);
+
+        /// <summary>Nominal damage per weapon against one target while ammunition lasts and all projectiles hit.</summary>
+        public float DamagePerSecond
+        {
+            get
+            {
+                if (ammunitionPerStage > 0 && ammunitionPerStage < ProjectilesPerShot) return 0f;
+                float interval = SecondsPerShot;
+                float shotsPerSecond = interval > 0f ? 1f / interval : DpsReferenceFrameRate;
+                return Mathf.Max(0f, damagePerBullet) * ProjectilesPerShot * shotsPerSecond;
+            }
+        }
+
+        public string DamagePerSecondLabel => $"{DamagePerSecond:0.##} DPS" +
+            (SecondsPerShot <= 0f ? $" @ {DpsReferenceFrameRate:0} FPS" : "");
 
         public bool Fits(VoxelCarDefinition car) => compatibleCarPrefab == null || car?.visualPrefab == compatibleCarPrefab;
         public bool IsRotary => visualPrefab != null && visualPrefab.TryGetComponent(out VoxelGunMount mount) && mount.HasRotor;

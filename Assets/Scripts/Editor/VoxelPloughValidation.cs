@@ -21,7 +21,7 @@ namespace VoxelRacer.Editor
         {
             if (Application.isPlaying) throw new InvalidOperationException("Run in Edit Mode.");
             int cash = VoxelCurrencyState.Balance;
-            bool owned = VoxelPloughUpgradeState.IsPurchased;
+            var owned = VoxelPloughUpgradeState.InstalledTuning;
             var randomState = UnityEngine.Random.state;
             var missing = (HashSet<string>)typeof(VoxelCarRunState).GetField("missingVoxelPaths", Statics).GetValue(null);
             var armor = (Dictionary<string, int>)typeof(VoxelCarRunState).GetField("armorHealth", Statics).GetValue(null);
@@ -33,23 +33,63 @@ namespace VoxelRacer.Editor
             try
             {
                 var tuning = VoxelPloughTuning.Load();
+                var bullBar = VoxelPloughTuning.LoadBullBar();
                 var definition = AssetDatabase.LoadAssetAtPath<VoxelCarDefinition>("Assets/Resources/Cars/SpyCar2PlayerCar.asset");
                 Check(tuning != null && tuning.Fits(definition) && !tuning.Fits(incompatible) && !tuning.Fits(null), "Compatibility failed");
+                Check(bullBar != null && bullBar.Fits(definition) && !bullBar.Fits(incompatible) &&
+                    bullBar.upgradeLevel < tuning.upgradeLevel, "Bull Bar compatibility or tier failed");
                 var car = MakeCar(root.transform, definition);
                 int integrity = car.TotalIntegrityVoxels;
                 car.GetComponentsInChildren<MeshRenderer>().First(r => r.GetComponentInParent<VoxelIndestructiblePart>() == null).gameObject.SetActive(false);
                 VoxelPloughUpgradeState.BeginNewRun(); VoxelCurrencyState.Reset();
                 if (tuning.purchasePrice > 0) Check(!VoxelPloughUpgradeState.TryPurchase(tuning, definition), "Unaffordable purchase allowed");
+                if (bullBar.purchasePrice > 0) Check(!VoxelPloughUpgradeState.TryPurchase(bullBar, definition), "Unaffordable Bull Bar purchase allowed");
                 var shop = root.AddComponent<VoxelRepairUpgradeSceneController>();
                 typeof(VoxelRepairUpgradeSceneController).GetField("definition", Fields).SetValue(shop, definition);
                 typeof(VoxelRepairUpgradeSceneController).GetProperty("DisplayedCar").SetValue(shop, car);
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("BuildUi", Fields).Invoke(shop, null);
-                VoxelCurrencyState.Add(tuning.purchasePrice + 123);
+                int startingCash = bullBar.purchasePrice + tuning.purchasePrice + 123;
+                VoxelCurrencyState.Add(startingCash);
                 typeof(VoxelRepairUpgradeSceneController).GetMethod("RefreshUi", Fields).Invoke(shop, null);
-                var button = VoxelGarageUpgradeDockValidation.InspectUpgrade(root.GetComponentsInChildren<Button>(true).First(b => b.name == "Plough Purchase Button"));
+                var bullButton = root.GetComponentsInChildren<Button>(true).Single(b => b.name == "Bull Bar Purchase Button");
+                var ploughButton = root.GetComponentsInChildren<Button>(true).Single(b => b.name == "Plough Purchase Button");
+                var shopType = typeof(VoxelRepairUpgradeSceneController);
+                var confirm = shopType.GetMethod("ConfirmUpgradePurchase", Fields);
+                var placementField = shopType.GetField("upgradePlacement", Fields);
+                VoxelGarageUpgradeDockValidation.InspectUpgrade(bullButton).onClick.Invoke();
+                var placement = (VoxelGarageUpgradePlacement)placementField.GetValue(shop);
+                Check(placement != null && Mounted(placement.Car) == bullBar && Mounted(car.gameObject) == null &&
+                    !VoxelPloughUpgradeState.IsPurchased && VoxelCurrencyState.Balance == startingCash, "Bull Bar preview changed the real car or cash");
+                Check(!VoxelGarageUpgradeDockValidation.InspectUpgrade(ploughButton).interactable, "Both front rams can enter one basket");
+                shopType.GetMethod("CancelUpgradePlacement", Fields).Invoke(shop, null);
+                Check(placementField.GetValue(shop) == null && VoxelCurrencyState.Balance == startingCash, "Cancel did not clear the Bull Bar preview");
+                VoxelGarageUpgradeDockValidation.InspectUpgrade(bullButton).onClick.Invoke();
+                confirm.Invoke(shop, null);
+                Check(VoxelPloughUpgradeState.InstalledTuning == bullBar && Mounted(car.gameObject) == bullBar &&
+                    VoxelCurrencyState.Balance == startingCash - bullBar.purchasePrice &&
+                    !VoxelPloughUpgradeState.TryPurchase(bullBar, definition), "Bull Bar purchase or duplicate prevention failed");
+                Check(Mathf.Approximately(VoxelPloughUpgradeState.ImpactDamage(100f, car.transform, Vector3.forward), 100f + bullBar.impactDamageBonusPercent) &&
+                    Mathf.Approximately(VoxelPloughUpgradeState.PlayerDamage(100f, car.transform, Vector3.forward), 100f - bullBar.playerDamageReductionPercent),
+                    "Bull Bar did not apply its own front ram tuning");
+                var bullRebuild = MakeCar(root.transform, definition);
+                VoxelPloughUpgradeState.ApplyTo(bullRebuild.transform, definition);
+                VoxelCarRunState.Apply(bullRebuild, definition);
+                Check(Mounted(bullRebuild.gameObject) == bullBar && bullRebuild.MissingIntegrityVoxels == 1,
+                    "Bull Bar or body damage lost on rebuild");
+                VerifyEnemyCollisions(root.transform, definition, bullBar);
+
+                var laterSibling = new GameObject("Subsequent car part").transform;
+                laterSibling.SetParent(car.transform, false);
+                int laterSiblingIndex = laterSibling.GetSiblingIndex();
+                var button = VoxelGarageUpgradeDockValidation.InspectUpgrade(ploughButton);
                 Check(button.interactable, "Plough shop disabled"); button.onClick.Invoke();
-                typeof(VoxelRepairUpgradeSceneController).GetMethod("ConfirmUpgradePurchase", Fields).Invoke(shop, null);
-                Check(VoxelPloughUpgradeState.IsPurchased && VoxelCurrencyState.Balance == 123 && !button.interactable, "Shop purchase failed");
+                placement = (VoxelGarageUpgradePlacement)placementField.GetValue(shop);
+                Check(Mounted(placement.Car) == tuning && Mounted(car.gameObject) == bullBar, "Plough preview failed to replace the Bull Bar");
+                confirm.Invoke(shop, null);
+                Check(VoxelPloughUpgradeState.InstalledTuning == tuning && Mounted(car.gameObject) == tuning &&
+                    VoxelCurrencyState.Balance == 123 && !button.interactable &&
+                    laterSibling.GetSiblingIndex() == laterSiblingIndex, "Plough replacement purchase or sibling paths failed");
+                Check(!VoxelPloughUpgradeState.TryPurchase(bullBar, definition), "Downgrade allowed");
                 Check(!VoxelPloughUpgradeState.TryPurchase(tuning, definition), "Duplicate purchase allowed");
                 VoxelPloughUpgradeState.ApplyTo(car.transform, definition);
                 Check(car.transform.Cast<Transform>().Count(t => t.name == VoxelPloughUpgradeState.InstanceName) == 1, "Duplicate mount");
@@ -69,27 +109,63 @@ namespace VoxelRacer.Editor
                 Directory.CreateDirectory("Temp/Plough");
                 Render(preview, "FrontLeft", false); Render(preview, "FrontRight", true);
                 foreach (var other in entries.Where(e => e.Asset != tuning && e.Fits(definition))) other.Build(preview.transform);
+                Check(Mounted(preview) == tuning, "Lower-tier preview replaced the Plough");
                 Render(preview, "Combined", false);
                 foreach (var r in baseRenderers) if (r.GetComponentInParent<VoxelIndestructiblePart>() == null) r.enabled = false;
                 Render(preview, "BodyHidden", true);
                 foreach (var r in baseRenderers) r.enabled = false;
                 Render(preview, "UpgradesOnly", false);
+                RenderBullBar(root.transform, definition, bullBar, tuning, entries);
                 Check(VoxelCurrencyState.Balance == 123 && VoxelPloughUpgradeState.IsPurchased, "Preview changed purchases");
                 VoxelPloughUpgradeState.BeginNewRun();
                 Check(!VoxelPloughUpgradeState.IsPurchased && Mathf.Approximately(VoxelPloughUpgradeState.ImpactDamage(20, car.transform, Vector3.forward), 20), "New run did not reset combat bonus");
-                File.WriteAllText("Temp/Plough/Validation.txt", "PASS: shop purchase/affordability/duplicate prevention; compatibility; damage persistence; front damage and protection; side/rear exclusions; fractional protection; preview discovery; combined fit and both sides/body-hidden/upgrades-only renders; new-run reset.");
+                File.WriteAllText("Temp/Plough/Validation.txt", "PASS: Bull Bar and Plough shop preview, cancellation, exclusive basket, affordability, purchase, replacement and downgrade prevention; compatibility; damage and selected tier persistence; actual enemy/boss collision damage and protection; side/rear exclusions; fractional protection; preview and dashboard discovery; combined fit, both sides, body-hidden and upgrades-only renders; new-run reset.");
                 Debug.Log(File.ReadAllText("Temp/Plough/Validation.txt"));
             }
             finally
             {
                 Object.DestroyImmediate(root); Object.DestroyImmediate(incompatible);
-                typeof(VoxelPloughUpgradeState).GetField("purchased", Statics).SetValue(null, owned);
+                typeof(VoxelPloughUpgradeState).GetField("<InstalledTuning>k__BackingField", Statics).SetValue(null, owned);
                 VoxelCurrencyState.Reset(); VoxelCurrencyState.Add(cash);
                 missing.Clear(); foreach (var p in savedMissing) missing.Add(p);
                 armor.Clear(); foreach (var p in savedArmor) armor.Add(p.Key, p.Value); nameField.SetValue(null, savedName);
                 UnityEngine.Random.state = randomState;
                 if (oldEvent == null) { var e = Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>(); if (e != null) Object.DestroyImmediate(e.gameObject); }
             }
+        }
+
+        private static VoxelPloughTuning Mounted(GameObject car) =>
+            car.transform.Find(VoxelPloughUpgradeState.InstanceName)?.GetComponent<VoxelPloughMount>()?.Tuning;
+
+        private static void RenderBullBar(Transform root, VoxelCarDefinition definition, VoxelPloughTuning bullBar,
+            VoxelPloughTuning plough, IReadOnlyList<VoxelUpgradeFitEntry> entries)
+        {
+            var entry = entries.Single(e => e.Asset == bullBar);
+            Check(entry.Fits(definition) && VoxelUpgradeDashboardCatalog.Discover().Count(e => e.Asset == bullBar) == 1,
+                "Bull Bar is missing from Fit Preview or the Dashboard");
+            var car = Object.Instantiate(definition.visualPrefab, root);
+            var originals = car.GetComponentsInChildren<Renderer>(true);
+            entry.Build(car.transform);
+            var mount = car.transform.Find(VoxelPloughUpgradeState.InstanceName);
+            Check(Mounted(car) == bullBar && mount.GetComponent<VoxelIndestructiblePart>() != null &&
+                mount.GetComponentsInChildren<Collider>().Length == 0 && mount.GetComponentsInChildren<MeshRenderer>().Length == 1,
+                "Bull Bar must mount as one protected, collider-free renderer");
+            var bounds = mount.GetComponent<MeshRenderer>().bounds;
+            Check(bounds.min.y > .25f && bounds.max.y < .85f && bounds.size.x < 2.2f,
+                $"Bull Bar exceeds the intended clearance envelope: {bounds}");
+            Render(car, "BullBarLeft", false);
+            Render(car, "BullBarRight", true);
+            Render(car, "BullBarDetail", true, close: true);
+            foreach (var other in entries.Where(e => e.Asset != plough && e.Asset != bullBar && e.Fits(definition)))
+                other.Build(car.transform);
+            Render(car, "BullBarCombined", false);
+            foreach (var renderer in originals)
+                if (renderer.GetComponentInParent<VoxelIndestructiblePart>() == null) renderer.enabled = false;
+            Render(car, "BullBarBodyHidden", true);
+            foreach (var renderer in originals) renderer.enabled = false;
+            Render(car, "BullBarUpgradesOnly", true, close: true);
+            entries.Single(e => e.Asset == plough).Build(car.transform);
+            Check(Mounted(car) == plough, "Higher-tier preview did not replace the Bull Bar");
         }
 
         private static VoxelCarController MakeCar(Transform root, VoxelCarDefinition definition)
@@ -127,7 +203,9 @@ namespace VoxelRacer.Editor
         {
             var traffic = ScriptableObject.CreateInstance<VoxelObstacleCarTuning>();
             traffic.obstacleDamageVoxelsMin = traffic.obstacleDamageVoxelsMax = 0;
-            var boss = Resources.Load<VoxelBossDefinition>("Bosses/RedVanBoss");
+            var boss = Object.Instantiate(Resources.Load<VoxelBossDefinition>("Bosses/RedVanBoss"));
+            // The one-voxel fixture must survive so the handler reports the actual health damage.
+            boss.ramDamageVoxelsMin = boss.ramDamageVoxelsMax = 0;
             try
             {
                 foreach (bool isBoss in new[] { false, true })
@@ -158,17 +236,19 @@ namespace VoxelRacer.Editor
                     finally { Object.DestroyImmediate(tuning); }
                 }
             }
-            finally { Object.DestroyImmediate(traffic); }
+            finally { Object.DestroyImmediate(traffic); Object.DestroyImmediate(boss); }
         }
 
-        private static void Render(GameObject source, string name, bool right)
+        private static void Render(GameObject source, string name, bool right, bool close = false)
         {
             var preview = new PreviewRenderUtility();
             try
             {
                 preview.AddSingleGO(Object.Instantiate(source));
-                preview.camera.transform.position = new Vector3(right ? 6 : -6, 3.7f, 8);
-                preview.camera.transform.LookAt(new Vector3(0, .5f, .35f)); preview.camera.fieldOfView = 37;
+                preview.camera.transform.position = close ? new Vector3(right ? 2.5f : -2.5f, 1.7f, 5.8f) :
+                    new Vector3(right ? 6 : -6, 3.7f, 8);
+                preview.camera.transform.LookAt(new Vector3(0, .5f, close ? 2.4f : .35f));
+                preview.camera.fieldOfView = 37;
                 preview.camera.nearClipPlane = .1f; preview.camera.farClipPlane = 50;
                 preview.camera.clearFlags = CameraClearFlags.SolidColor; preview.camera.backgroundColor = new Color(.17f, .20f, .23f);
                 preview.ambientColor = new Color(.5f, .5f, .5f);

@@ -56,7 +56,7 @@ namespace VoxelRacer
                 VoxelGarageUpgradeKind.Boost => VoxelBoostUpgradeTuning.LoadUpgrade()?.displayName,
                 VoxelGarageUpgradeKind.DualBoost => VoxelBoostUpgradeTuning.LoadDualUpgrade()?.displayName,
                 VoxelGarageUpgradeKind.Engine => VoxelEngineUpgradeTuning.Load()?.displayName,
-                VoxelGarageUpgradeKind.Plough => VoxelPloughTuning.Load()?.displayName,
+                VoxelGarageUpgradeKind.Plough or VoxelGarageUpgradeKind.BullBar => VoxelGarageUpgradePlacement.PloughTuning(kind)?.displayName,
                 _ => null
             };
             return string.IsNullOrWhiteSpace(name)?kind.ToString().ToUpperInvariant():name.Trim().ToUpperInvariant();
@@ -113,10 +113,12 @@ namespace VoxelRacer
                     price = engine.purchasePrice;
                     return engine.Fits(definition) && !VoxelEngineUpgradeState.IsPurchased;
                 case VoxelGarageUpgradeKind.Plough:
-                    var plough = VoxelPloughTuning.Load();
+                case VoxelGarageUpgradeKind.BullBar:
+                    var plough = VoxelGarageUpgradePlacement.PloughTuning(kind);
                     if (plough == null) return false;
                     price = plough.purchasePrice;
-                    return VoxelPloughUpgradeState.CanPurchase(plough, definition);
+                    return VoxelPloughUpgradeState.CanPurchase(plough, definition) &&
+                        PendingCount(kind == VoxelGarageUpgradeKind.BullBar ? VoxelGarageUpgradeKind.Plough : VoxelGarageUpgradeKind.BullBar) == 0;
                 case VoxelGarageUpgradeKind.UnderbodyArmour:
                     var underbody = VoxelUnderbodyArmorTuning.Load();
                     if (underbody == null) return false;
@@ -350,7 +352,8 @@ namespace VoxelRacer
                 case VoxelGarageUpgradeKind.Boost: TryPurchaseBoostBottle(); break;
                 case VoxelGarageUpgradeKind.DualBoost: TryPurchaseBoostBottle(true); break;
                 case VoxelGarageUpgradeKind.Engine: TryPurchaseEngine(); break;
-                case VoxelGarageUpgradeKind.Plough: TryPurchasePlough(); break;
+                case VoxelGarageUpgradeKind.Plough:
+                case VoxelGarageUpgradeKind.BullBar: TryPurchasePlough(VoxelGarageUpgradePlacement.PloughTuning(part.Kind)); break;
                 case VoxelGarageUpgradeKind.UnderbodyArmour: TryPurchaseUnderbodyArmor(); break;
             }
             VoxelCarRunState.Capture(DisplayedCar, definition);

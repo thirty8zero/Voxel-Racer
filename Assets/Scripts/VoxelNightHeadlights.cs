@@ -5,7 +5,7 @@ using Unity.Profiling;
 
 namespace VoxelRacer
 {
-    /// <summary>Two camera-facing beam cards, batched across traffic. No lights, colliders or damage meshes.</summary>
+    /// <summary>Two camera-facing beam cards per vehicle, batched across the player and traffic.</summary>
     [DefaultExecutionOrder(1100)]
     public sealed class VoxelNightHeadlights : MonoBehaviour
     {
@@ -26,6 +26,9 @@ namespace VoxelRacer
         private static readonly ProfilerMarker submitMarker = new("VoxelNightHeadlights.SubmitDraws");
         private VoxelNightHeadlightSettings settings;
         private Material lampMaterial;
+        private VoxelCarController player;
+        private VoxelStartCountdown countdown;
+        private VoxelTrackDefinition playerTrack;
         private VoxelEnemyCar enemy;
         private VoxelObstacleCar traffic;
         private VoxelFadeIn fade;
@@ -37,28 +40,43 @@ namespace VoxelRacer
         public static int LastBeamCount { get; private set; }
         public static int LastBatchCount { get; private set; }
 
-        public static VoxelNightHeadlights Attach(GameObject vehicle, VoxelTrackDefinition track)
+        public static VoxelNightHeadlights Attach(GameObject vehicle, VoxelTrackDefinition track,
+            VoxelStartCountdown playerCountdown = null)
         {
-            if (track == null || !track.nightTime || vehicle.GetComponent<VoxelCarController>() != null) return null;
-            var tuning = VoxelNightHeadlightSettings.Load();
-            if (tuning == null || !tuning.headlightsEnabled || tuning.lampMaterial == null || tuning.beamMaterial == null) return null;
+            var player = vehicle.GetComponent<VoxelCarController>();
+            if (player != null && playerCountdown == null) return null;
             var effect = vehicle.GetComponent<VoxelNightHeadlights>();
+            if (track == null || !track.nightTime)
+            {
+                if (effect != null && player != null) effect.enabled = false;
+                return null;
+            }
+            var tuning = VoxelNightHeadlightSettings.Load();
+            if (tuning == null || !tuning.headlightsEnabled || tuning.beamMaterial == null ||
+                (player != null ? tuning.playerLampMaterial == null : tuning.lampMaterial == null)) return null;
             if (effect == null) effect = vehicle.AddComponent<VoxelNightHeadlights>();
+            effect.player = player;
+            effect.countdown = playerCountdown;
+            effect.playerTrack = player != null ? track : null;
+            effect.enabled = true;
             effect.Bind(tuning);
             return effect;
         }
 
         private void Bind(VoxelNightHeadlightSettings tuning)
         {
-            RestoreLenses(); lenses.Clear(); settings = tuning;
+            RestoreLenses(); lenses.Clear(); active.Remove(this); settings = tuning;
             enemy = GetComponent<VoxelEnemyCar>(); traffic = GetComponent<VoxelObstacleCar>();
             IsEnemyVehicle = enemy != null || traffic != null && traffic.IsEnemyTraffic;
-            lampMaterial = IsEnemyVehicle && settings.enemyLampMaterial != null ? settings.enemyLampMaterial : settings.lampMaterial;
+            lampMaterial = player != null ? settings.playerLampMaterial :
+                IsEnemyVehicle && settings.enemyLampMaterial != null ? settings.enemyLampMaterial : settings.lampMaterial;
+            powered = player == null || HasPower;
             entrance = GetComponentInChildren<VoxelBossEntrance>(true);
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>(true))
             {
                 string name = renderer.name.ToLowerInvariant();
-                bool namedLens = name.Contains("headlamp") || name.Contains("headlight") || name == "fog lamp";
+                bool namedLens = name.Contains("headlamp") || name.Contains("headlight") || name == "fog lamp" ||
+                    (player != null && name == "front driving lamp");
                 if (name.Contains("cover") || name.Contains("seam") || name.Contains("surround") ||
                     name.Contains("chrome") || name.Contains("housing") || name.Contains("recess")) continue;
                 bool fallbackLens = renderer.sharedMaterial != null && renderer.sharedMaterial.name == "CarHeadlights";
@@ -75,9 +93,8 @@ namespace VoxelRacer
                 if (local.z <= 0f || Mathf.Abs(local.x) < .1f) continue;
                 lenses.Add(new Lens { renderer = renderer, original = renderer.sharedMaterial,
                     face = face, side = local.x < 0f ? 0 : 1 });
-                renderer.sharedMaterial = lampMaterial;
+                if (powered) renderer.sharedMaterial = lampMaterial;
             }
-            powered = true;
             if (isActiveAndEnabled && lenses.Count > 0 && !active.Contains(this)) active.Add(this);
         }
 
@@ -85,7 +102,13 @@ namespace VoxelRacer
         {
             if (settings != null && lenses.Count > 0 && !active.Contains(this)) active.Add(this);
         }
-        private void OnDisable() => active.Remove(this);
+        private void OnDisable()
+        {
+            active.Remove(this);
+            if (player == null) return;
+            RestoreLenses();
+            powered = false;
+        }
         private void OnDestroy()
         {
             active.Remove(this); RestoreLenses();
@@ -98,10 +121,18 @@ namespace VoxelRacer
                     lens.renderer.sharedMaterial = lens.original;
         }
         private bool HasPower => settings != null && settings.headlightsEnabled &&
-            (enemy != null ? enemy.IsDrivingTraffic && enemy.CurrentHealth > 0f :
+            (player != null ? !player.IsDestroyed && playerTrack != null && playerTrack.nightTime &&
+                countdown != null && countdown.HasReachedFinalCount :
+                enemy != null ? enemy.IsDrivingTraffic && enemy.CurrentHealth > 0f :
                 traffic != null && traffic.IsDrivingTraffic && traffic.CurrentHealth > 0f);
 
         private void LateUpdate()
+        {
+            UpdatePower();
+            if (active.Count > 0 && active[0] == this) SubmitDraws(Camera.main);
+        }
+
+        private void UpdatePower()
         {
             bool hasPower = HasPower;
             if (powered != hasPower)
@@ -116,13 +147,15 @@ namespace VoxelRacer
                 else
                 {
                     // Restore the fade's cache first so it cannot relight a wreck later.
-                    fade ??= GetComponent<VoxelFadeIn>();
-                    if (fade != null) fade.enabled = false;
+                    if (player == null)
+                    {
+                        fade ??= GetComponent<VoxelFadeIn>();
+                        if (fade != null) fade.enabled = false;
+                    }
                     RestoreLenses();
                 }
                 powered = hasPower;
             }
-            if (active.Count > 0 && active[0] == this) SubmitDraws(Camera.main);
         }
 
         public static void SubmitDraws(Camera camera, bool submit = true)
@@ -171,7 +204,8 @@ namespace VoxelRacer
                     material = tuning.beamMaterial;
                     layer = effect.gameObject.layer;
                     matrices[count] = matrix;
-                    Color colour = effect.IsEnemyVehicle ? tuning.enemyBeamColour : tuning.beamColour;
+                    Color colour = effect.player != null ? tuning.playerBeamColour :
+                        effect.IsEnemyVehicle ? tuning.enemyBeamColour : tuning.beamColour;
                     colour.a = opacity;
                     colours[count++] = colour;
                     LastBeamCount++;

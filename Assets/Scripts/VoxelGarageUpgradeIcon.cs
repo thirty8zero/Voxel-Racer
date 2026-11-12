@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace VoxelRacer
 {
-    public enum VoxelGarageIconKind { Armour, Engine, Guns, Missile, Wheels, Spikes, Boost, Plough, Next, Settings, StarSpikes, Underbody, GoldWheels }
+    public enum VoxelGarageIconKind { Armour, Engine, Guns, Missile, Wheels, Spikes, Boost, Plough, Next, Settings, StarSpikes, Underbody, GoldWheels, BullBar }
 
     /// <summary>Small native UI meshes, without texture assets or per-icon materials.</summary>
     [RequireComponent(typeof(CanvasRenderer))]
@@ -74,6 +74,12 @@ namespace VoxelRacer
                 case VoxelGarageIconKind.Plough:
                     Polygon(vh,new[]{new Vector2(-.9f,-.64f),new Vector2(-.65f,.61f),new Vector2(.65f,.61f),new Vector2(.9f,-.64f)});
                     Box(vh,-.95f,-.85f,1.9f,.17f);
+                    break;
+                case VoxelGarageIconKind.BullBar:
+                    Box(vh, -.73f, .36f, 1.46f, .19f);
+                    Box(vh, -.94f, -.53f, 1.88f, .22f);
+                    Box(vh, -.49f, -.65f, .21f, 1.3f);
+                    Box(vh, .28f, -.65f, .21f, 1.3f);
                     break;
                 case VoxelGarageIconKind.Next:
                     for(int i=0;i<2;i++)

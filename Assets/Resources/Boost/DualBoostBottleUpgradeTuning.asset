@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 041ebae20e460c6459465f4617017207, type: 3}
   m_Name: DualBoostBottleUpgradeTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelBoostUpgradeTuning
-  exhaustEffectPrefab: {fileID: 3006793601068203571, guid: ffc4c67d942381c45846bb90d07e975d, type: 3}
+  exhaustEffectPrefab: {fileID: 3006793601068203571, guid: 444f17450c351b646944dceccb041fe7, type: 3}
   boostSpeed: 30
   boostAccelerationMultiplier: 3
   boostLength: 1.2
@@ -23,6 +23,7 @@ MonoBehaviour:
   boostForwardMovementDuration: 0.42
   boostForwardMovementEasing: 17
   displayName: DUAL BOOST BOTTLES
+  description: 
   purchasePrice: 1500
   bottleCount: 2
   bottlePrefab: {fileID: 7313572711998192552, guid: a81d4ec1b3891ae4d96f1bb2e1b84df4, type: 3}

@@ -23,6 +23,7 @@ MonoBehaviour:
   boostForwardMovementDuration: 0.42
   boostForwardMovementEasing: 17
   displayName: BOOST BOTTLE
+  description: 
   purchasePrice: 300
   bottleCount: 1
   bottlePrefab: {fileID: 7313572711998192552, guid: a81d4ec1b3891ae4d96f1bb2e1b84df4, type: 3}

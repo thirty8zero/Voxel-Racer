@@ -6,6 +6,8 @@ namespace VoxelRacer
     public sealed class VoxelUnderbodyArmorTuning : ScriptableObject
     {
         public string displayName = "UNDERBODY ARMOUR";
+        [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
+        public string description;
         public GameObject armorPrefab;
         public GameObject compatibleCarPrefab;
         [Min(0)] public int purchasePrice = 700;

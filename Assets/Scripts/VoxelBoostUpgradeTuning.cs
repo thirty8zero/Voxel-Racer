@@ -8,6 +8,8 @@ namespace VoxelRacer
     {
         [Header("Shop and Model")]
         public string displayName = "NITRO BOOST BOTTLE";
+        [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
+        public string description;
         [Min(0)] public int purchasePrice = 300;
         [Tooltip("Two bottles provide independent boost charges; a higher count replaces a lower count.")]
         [Range(1, 2)] public int bottleCount = 1;

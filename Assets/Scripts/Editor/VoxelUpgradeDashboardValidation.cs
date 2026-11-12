@@ -28,7 +28,8 @@ namespace VoxelRacer.Editor
                 using (view.Serialized)
                 {
                     view.Prepare();
-                    var paths = view.Groups.SelectMany(g => g.Fields).Select(f => f.Path).ToArray();
+                    var paths = view.Groups.SelectMany(g => g.Fields).Select(f => f.Path)
+                        .Concat(view.Description != null ? new[] { view.Description.propertyPath } : Array.Empty<string>()).ToArray();
                     var expected = new List<string>();
                     var iterator = view.Serialized.GetIterator();
                     bool children = true;
@@ -42,6 +43,10 @@ namespace VoxelRacer.Editor
                     report.Add("PASS field coverage: " + asset.name + " (" + paths.Length + ")");
                 }
             }
+            ValidateDescriptions(entries);
+            report.Add("PASS editable and searchable descriptions for every upgrade, including launcher-owned descriptions");
+            ValidateDamagePerSecond(entries);
+            report.Add("PASS live DPS for built-in guns, fitted guns and linked missile weapons, including ammo and cooldown edge cases");
             var clone = UnityEngine.Object.Instantiate(assets.OfType<VoxelPerformanceWheelTuning>().First());
             try
             {
@@ -84,6 +89,10 @@ namespace VoxelRacer.Editor
                 var categories = VoxelUpgradeDashboardCatalog.Categories(entries);
                 for (int i = 1; i < sorted.Length; i++)
                 {
+                    bool priceOrder = order == VoxelUpgradeDashboardSort.PriceAscending || order == VoxelUpgradeDashboardSort.PriceDescending;
+                    if (priceOrder && !sorted[i - 1].Price.HasValue)
+                        Check(!sorted[i].Price.HasValue, "Included or unconfigured prices should sort last");
+                    if (priceOrder && !sorted[i].Price.HasValue) continue;
                     int comparison = order == VoxelUpgradeDashboardSort.PriceAscending || order == VoxelUpgradeDashboardSort.PriceDescending
                         ? Nullable.Compare(sorted[i - 1].Price, sorted[i].Price)
                         : StringComparer.OrdinalIgnoreCase.Compare(sorted[i - 1].Name, sorted[i].Name);
@@ -104,6 +113,85 @@ namespace VoxelRacer.Editor
             File.WriteAllLines("Temp/UpgradeDashboard/InteractionValidation.txt", report);
             Debug.Log(string.Join("\n", report));
         }
+
+        private static void ValidateDescriptions(IEnumerable<VoxelUpgradeDashboardEntry> entries)
+        {
+            const string text = "Custom upgrade overview\nSecond line";
+            foreach (var original in entries)
+            {
+                var asset = UnityEngine.Object.Instantiate(original.Asset);
+                try
+                {
+                    var entry = new VoxelUpgradeDashboardEntry(asset, original.Fits);
+                    string defaultDescription = entry.Description;
+                    var view = new VoxelUpgradeDashboard.TuningView(asset);
+                    using (view.Serialized)
+                    {
+                        Check(view.Description?.propertyType == SerializedPropertyType.String,
+                            $"{entry.Name} is missing its editable description");
+                        view.Description.stringValue = text;
+                        Check(view.Serialized.ApplyModifiedProperties() && entry.Description.StartsWith(text + "\n") &&
+                            entry.Matches("Second line"), $"{entry.Name} did not show its edited description");
+                        if (entry.WeaponTuning != null)
+                            Check(entry.Description.Contains(entry.WeaponTuning.DamagePerSecondLabel), "Custom copy hid live DPS");
+                        view.Description.stringValue = "";
+                        view.Serialized.ApplyModifiedProperties();
+                        if (!defaultDescription.StartsWith(text))
+                            Check(!entry.Description.Contains(text), "Clearing the edit did not restore the default");
+                    }
+                }
+                finally { UnityEngine.Object.DestroyImmediate(asset); }
+            }
+        }
+
+        private static void ValidateDamagePerSecond(IReadOnlyList<VoxelUpgradeDashboardEntry> entries)
+        {
+            var starter = Resources.Load<VoxelGunTuning>("Weapons/BasicHoodGunTuning");
+            var definition = Resources.Load<VoxelCarDefinition>("Cars/SpyCar2PlayerCar");
+            Check(starter != null && entries.Count(e => e.Asset == starter && e.IsIncluded && !e.Price.HasValue &&
+                e.FitsCar(definition)) == 1, "The installed starter gun is missing from the dashboard");
+            foreach (var entry in entries.Where(e => e.WeaponTuning != null))
+                Check(entry.Description.Contains(entry.WeaponTuning.DamagePerSecondLabel), $"{entry.Name} is missing DPS");
+
+            var weapon = ScriptableObject.CreateInstance<VoxelGunTuning>();
+            var launcher = ScriptableObject.CreateInstance<VoxelMissileLauncherTuning>();
+            try
+            {
+                var entry = new VoxelUpgradeDashboardEntry(weapon, Array.Empty<VoxelUpgradeFitEntry>());
+                weapon.damagePerBullet = 2.5f;
+                weapon.bulletsPerShot = 3;
+                weapon.shotsPerSecond = 4f;
+                Check(weapon.DamagePerSecond == 30f && entry.Description.Contains("30 DPS"), "Projectile damage, count and rate were not combined");
+                using (var serialized = new SerializedObject(weapon))
+                {
+                    serialized.FindProperty("shotsPerSecond").floatValue = 8f;
+                    serialized.ApplyModifiedProperties();
+                    Check(weapon.DamagePerSecond == 60f && entry.Description.Contains("60 DPS"), "Serialized fire-rate edit did not refresh DPS");
+                }
+                weapon.ammunitionPerStage = 2;
+                Check(weapon.DamagePerSecond == 0f, "An ammo supply smaller than one shot should yield zero DPS");
+                weapon.ammunitionPerStage = 3;
+                Check(weapon.DamagePerSecond == 60f, "DPS should describe firing while ammunition lasts");
+                launcher.weapon = weapon;
+                var missileEntry = new VoxelUpgradeDashboardEntry(launcher, Array.Empty<VoxelUpgradeFitEntry>());
+                weapon.projectileKind = VoxelProjectileKind.Missile;
+                weapon.useMissileCooldown = true;
+                weapon.missileCooldownSeconds = 2.5f;
+                Check(Mathf.Approximately(weapon.DamagePerSecond, 3f) && missileEntry.Description.Contains("3 DPS"),
+                    "The linked missile's cooldown was not used");
+                weapon.missileCooldownSeconds = 0f;
+                Check(weapon.DamagePerSecond == 450f && missileEntry.Description.Contains("450 DPS @ 60 FPS"),
+                    "Zero cooldown should report the labeled frame-based estimate");
+                weapon.useMissileCooldown = false;
+                Check(weapon.DamagePerSecond == 60f, "Disabling missile cooldown should restore the firing rate");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(launcher);
+                UnityEngine.Object.DestroyImmediate(weapon);
+            }
+        }
+
         private static void Check(bool condition, string message)
         { if (!condition) throw new InvalidOperationException(message); }
     }

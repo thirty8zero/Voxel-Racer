@@ -51,7 +51,7 @@ namespace VoxelRacer.Editor
                 float radius = tyres.extents.y;
                 Debug.Log($"Spy Car 2 bounds: {bounds}; axles {rear:F3}/{front:F3}; tyre bottom {ground:F3}, radius {radius:F3}.");
 
-                var model = BuildTruck(bounds);
+                var model = BuildTruck();
                 var prefab = PrefabUtility.SaveAsPrefabAsset(model.gameObject, PrefabPath);
                 Object.DestroyImmediate(model.gameObject);
                 var truck = ((GameObject)PrefabUtility.InstantiatePrefab(prefab, scene)).GetComponent<VoxelCarrierTruck>();
@@ -67,16 +67,18 @@ namespace VoxelRacer.Editor
             }
         }
 
-        private static VoxelCarrierTruck BuildTruck(Bounds car)
+        private static VoxelCarrierTruck BuildTruck()
         {
             const float deck = 1.08f;
             const float middleLength = 2.16f;
             const float tipLength = 1.70f;
             const float cabLengthScale = .74f;
             const float cabExtension = .27f;
-            float clearWidth = car.size.x + .22f;
-            float clearHeight = Mathf.Max(2.41f, car.size.y + .31f);
-            float length = car.size.z + .30f;
+            // The fully upgraded Spy Car 2 measures 3.427 m across the spikes and 6.092 m with the plough.
+            const float clearWidth = 3.66f;
+            const float clearHeight = 2.41f;
+            const float length = 6.45f;
+            const float cabOuter = 1.655f;
             float rear = -length * .5f;
             float front = -rear;
             float half = clearWidth * .5f;
@@ -84,7 +86,7 @@ namespace VoxelRacer.Editor
             float roof = deck + clearHeight;
             float hood = front + 2.55f;
             float bumper = hood + .43f;
-            float cab = outer - .16f;
+            float cab = cabOuter - .16f;
             float rearAxle = rear + 1.38f;
             float CabZ(float z)
             {
@@ -93,7 +95,8 @@ namespace VoxelRacer.Editor
             }
 
             float frontAxle = CabZ(hood - .53f);
-            float wheelOffset = outer - .20f;
+            float rearWheelOffset = outer - .20f;
+            float frontWheelOffset = cabOuter - .20f;
             const float glassBottom = 1.91f;
             const float glassTop = 2.51f;
             float glassBottomZ = CabZ(front + 1.12f);
@@ -103,7 +106,7 @@ namespace VoxelRacer.Editor
             const float stepInset = .24f;
             const float stepWidth = .49f;
             float tankRadius = (TankHalfRows.Max() + .5f) * FuelTankCell;
-            float tankX = outer - stepInset + stepWidth * .5f - tankRadius;
+            float tankX = cabOuter - stepInset + stepWidth * .5f - tankRadius;
             float tankZ = CabZ(front - .055f) - .61f;
 
             Material white = Material("Porcelain White", 0xF1F3F4, .06f, .43f);
@@ -135,7 +138,7 @@ namespace VoxelRacer.Editor
             body.Box(steel, 0, deck - .037f, rear + .045f, clearWidth, .074f, .09f);
             body.Box(white, 0, roof + .065f, 0, outer * 2f, .13f, length + .08f);
             body.Box(panel, 0, deck + clearHeight * .5f, front + .057f, clearWidth, clearHeight, .114f);
-            BuildDriveline(body, black, tread, steel, wheelOffset, rearAxle, frontAxle);
+            BuildDriveline(body, black, tread, steel, rearWheelOffset, frontWheelOffset, rearAxle, frontAxle);
 
             // The bumper ends below the lamps are welded to a transverse bar and the chassis rails.
             body.Box(tread, 0, deck - .29f, rear + .215f, (outer - .028f) * 2f, .16f, .28f);
@@ -176,26 +179,27 @@ namespace VoxelRacer.Editor
                 body.Box(black, rim, deck - .27f, rear + .20f, .22f, .25f, .41f);
                 body.Box(tread, side * (outer - .075f), deck - .117f, rear + .18f, .125f, .27f, .24f);
                 body.Box(black, side * .57f, deck - .19f, rear + .24f, .19f, .22f, .43f);
-                CabBlock(black, side * (outer - .26f), .45f, front + .43f, .45f, .13f, .97f);
-                CabBlock(steel, side * (outer - stepInset), .52f, front + .43f, stepWidth, .071f, .94f);
-                CabBlock(black, side * (outer - .24f), .66f, front + .43f, .45f, .10f, .90f);
-                CabBlock(steel, side * (outer - stepInset), .72f, front + .43f, stepWidth, .066f, .94f);
+                CabBlock(black, side * (cabOuter - .26f), .45f, front + .43f, .45f, .13f, .97f);
+                CabBlock(steel, side * (cabOuter - stepInset), .52f, front + .43f, stepWidth, .071f, .94f);
+                CabBlock(black, side * (cabOuter - .24f), .66f, front + .43f, .45f, .10f, .90f);
+                CabBlock(steel, side * (cabOuter - stepInset), .72f, front + .43f, stepWidth, .066f, .94f);
 
-                float wheelX = side * wheelOffset;
-                Wheel(body, black, rubberLug, tread, steel, wheelX, rearAxle, side);
-                Wheel(body, black, rubberLug, tread, steel, side * (wheelOffset - .38f), rearAxle, -side);
-                Wheel(body, black, rubberLug, tread, steel, wheelX, frontAxle, side);
-                body.Box(black, side * (wheelOffset - .19f), .50f, rearAxle - .60f, .74f, .82f, .052f);
-                body.Box(steel, wheelX, deck + .018f, rearAxle, .46f, .064f, 1.21f);
-                body.Box(panel, wheelX, 1.153f, frontAxle, .49f, .12f, .99f);
-                body.Box(white, wheelX, 1.247f, frontAxle, .43f, .085f, .79f);
-                body.Box(panel, wheelX, 1.044f, frontAxle + .487f, .46f, .105f, .20f);
-                body.Box(panel, wheelX, 1.044f, frontAxle - .487f, .46f, .105f, .20f);
+                float rearWheelX = side * rearWheelOffset;
+                float frontWheelX = side * frontWheelOffset;
+                Wheel(body, black, rubberLug, tread, steel, rearWheelX, rearAxle, side);
+                Wheel(body, black, rubberLug, tread, steel, side * (rearWheelOffset - .38f), rearAxle, -side);
+                Wheel(body, black, rubberLug, tread, steel, frontWheelX, frontAxle, side);
+                body.Box(black, side * (rearWheelOffset - .19f), .50f, rearAxle - .60f, .74f, .82f, .052f);
+                body.Box(steel, rearWheelX, deck + .018f, rearAxle, .46f, .064f, 1.21f);
+                body.Box(panel, frontWheelX, 1.153f, frontAxle, .49f, .12f, .99f);
+                body.Box(white, frontWheelX, 1.247f, frontAxle, .43f, .085f, .79f);
+                body.Box(panel, frontWheelX, 1.044f, frontAxle + .487f, .46f, .105f, .20f);
+                body.Box(panel, frontWheelX, 1.044f, frontAxle - .487f, .46f, .105f, .20f);
                 CabBlock(whiteLamp, side * (cab - .11f), 1.22f, hood + .117f, .29f, .18f, .076f);
                 CabBlock(amber, side * (cab - .11f), 1.075f, hood + .113f, .29f, .063f, .065f);
                 CabBlock(steel, side * (cab + .053f), 2.08f, front + 1.03f, .145f, .058f, .053f);
-                CabBlock(black, side * (outer - .053f), 2.19f, front + 1.03f, .088f, .29f, .16f);
-                CabBlock(steel, side * (outer - .054f), 2.19f, front + .94f, .072f, .244f, .024f);
+                CabBlock(black, side * (cabOuter - .053f), 2.19f, front + 1.03f, .088f, .29f, .16f);
+                CabBlock(steel, side * (cabOuter - .054f), 2.19f, front + .94f, .072f, .244f, .024f);
 
                 CabBlock(panel, side * cab, 1.35f, front + .57f, .08f, .78f, .93f);
                 CabBlock(steel, side * (cab + .048f), 1.69f, front + .32f, .026f, .049f, .19f);
@@ -238,7 +242,7 @@ namespace VoxelRacer.Editor
             }
             body.Box(white, 0f, glassCentreY, glassCentreZ + .036f, .042f, glassLength, .021f, rake);
             body.Box(panel, 0f, glassBottom - .075f, glassBottomZ - .040f, cab * 1.90f, .16f, .26f);
-            BuildRoofFairing(body, white, front, glassTopZ - .10f, roof + .13f, outer);
+            BuildRoofFairing(body, white, front, glassTopZ - .10f, roof + .13f, cab, outer);
             CabBlock(white, 0, 1.20f, (front + 1.11f + hood) * .5f, cab * 1.64f, .72f, hood - front - 1.03f);
             CabBlock(white, 0, 1.57f, front + 1.83f, cab * 1.48f, .12f, 1.34f);
             CabBlock(panel, 0, 1.65f, front + 1.74f, cab * 1.22f, .07f, 1.15f);
@@ -249,7 +253,7 @@ namespace VoxelRacer.Editor
             for (int slat = -3; slat <= 3; slat++)
                 CabBlock(steel, 0, 1.33f + slat * .051f, hood + .198f, cab * 1.13f, .015f, .028f);
             CabBlock(blue, 0, 1.39f, hood + .218f, .105f, .089f, .036f);
-            CabBlock(steel, 0, .819f, bumper - .122f, (outer - .05f) * 2f, .24f, .30f);
+            CabBlock(steel, 0, .819f, bumper - .122f, (cabOuter - .05f) * 2f, .24f, .30f);
             CabBlock(black, 0, .793f, bumper + .034f, cab * 1.34f, .092f, .027f);
             for (int marker = -1; marker <= 1; marker++)
                 body.Box(amber, marker * cab * .52f, 2.642f, cabRoofFront - .053f, .098f, .049f, .077f);
@@ -313,7 +317,7 @@ namespace VoxelRacer.Editor
         }
 
         private static void BuildRoofFairing(Blocks body, Material paint, float boxFront, float leadingZ,
-            float boxRoofY, float boxHalfWidth)
+            float boxRoofY, float cabHalfWidth, float boxHalfWidth)
         {
             const float baseY = 2.613f;
             float trailingZ = boxFront + .038f;
@@ -332,21 +336,22 @@ namespace VoxelRacer.Editor
                 };
             }
 
+            float leadingWidth = cabHalfWidth - .27f;
+            float trailingWidth = boxHalfWidth - .09f;
             body.Loft(paint,
-                Section(leadingZ, 1.055f, 2.671f),
-                Section(Mathf.Lerp(leadingZ, trailingZ, .31f), 1.22f, 2.969f),
-                Section(Mathf.Lerp(leadingZ, trailingZ, .67f), 1.34f, 3.352f),
-                Section(trailingZ, boxHalfWidth - .09f, boxRoofY));
+                Section(leadingZ, leadingWidth, 2.671f),
+                Section(Mathf.Lerp(leadingZ, trailingZ, .31f), Mathf.Lerp(leadingWidth, trailingWidth, .25f), 2.969f),
+                Section(Mathf.Lerp(leadingZ, trailingZ, .67f), Mathf.Lerp(leadingWidth, trailingWidth, .65f), 3.352f),
+                Section(trailingZ, trailingWidth, boxRoofY));
         }
 
         private static void BuildDriveline(Blocks body, Material black, Material metal, Material steel,
-            float wheelOffset, float rear, float front)
+            float rearWheelOffset, float frontWheelOffset, float rear, float front)
         {
             float hubY = TyreHalfRows.Length * WheelCell * .5f;
-            float axleWidth = (wheelOffset + .07f) * 2f;
             float gearbox = front - .44f;
-            body.Box(metal, 0f, hubY, front, axleWidth, .15f, .19f);
-            body.Box(metal, 0f, hubY, rear, axleWidth, .18f, .21f);
+            body.Box(metal, 0f, hubY, front, (frontWheelOffset + .07f) * 2f, .15f, .19f);
+            body.Box(metal, 0f, hubY, rear, (rearWheelOffset + .07f) * 2f, .18f, .21f);
 
             // Low-mounted beam, gearbox and differential make a continuous path to the rear hubs.
             body.Box(black, 0f, hubY + .064f, gearbox, .40f, .29f, .58f);
@@ -360,9 +365,9 @@ namespace VoxelRacer.Editor
 
             for (int side = -1; side <= 1; side += 2)
             {
-                body.Box(black, side * (wheelOffset - .16f), hubY, front, .20f, .25f, .25f);
+                body.Box(black, side * (frontWheelOffset - .16f), hubY, front, .20f, .25f, .25f);
                 body.Box(black, side * .64f, hubY + .14f, rear, .18f, .30f, .32f);
-                body.Box(steel, side * (wheelOffset - .19f), hubY, rear, .21f, .21f, .21f);
+                body.Box(steel, side * (rearWheelOffset - .19f), hubY, rear, .21f, .21f, .21f);
             }
         }
 

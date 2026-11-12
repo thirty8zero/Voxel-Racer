@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: BasicHoodGunTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
   displayName: BASIC HOOD GUN
+  description: 
   visualPrefab: {fileID: 0}
   compatibleCarPrefab: {fileID: 0}
   upgradeLevel: 1

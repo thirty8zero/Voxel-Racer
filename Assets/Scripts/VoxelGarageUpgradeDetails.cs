@@ -192,46 +192,56 @@ namespace VoxelRacer
                 case VoxelGarageUpgradeKind.Armour:
                 case VoxelGarageUpgradeKind.ExtendedArmour:
                     var armour = VoxelGarageUpgradePlacement.ArmorTuning(kind);
-                    return (kind == VoxelGarageUpgradeKind.Armour ? "Protects the door you fit it to." : "A wider, tougher panel for one door.",
+                    return (DescriptionOr(armour?.description, kind == VoxelGarageUpgradeKind.Armour ?
+                            "Protects the door you fit it to." : "A wider, tougher panel for one door."),
                         armour != null ? armour.voxelHitPoints + " HP PER ARMOUR VOXEL" : "", "LEFT / RIGHT DOOR");
                 case VoxelGarageUpgradeKind.UnderbodyArmour:
                     var underbody = VoxelUnderbodyArmorTuning.Load();
-                    return ("Shields the chassis from mines.", underbody != null ? $"-{underbody.mineDamageReductionPercent:0.#}% MINE DAMAGE" : "", "UNDERBODY");
+                    return (DescriptionOr(underbody?.description, "Shields the chassis from mines."),
+                        underbody != null ? $"-{underbody.mineDamageReductionPercent:0.#}% MINE DAMAGE" : "", "UNDERBODY");
                 case VoxelGarageUpgradeKind.Wheels:
                 case VoxelGarageUpgradeKind.GoldWheels:
                     var wheels = VoxelGarageUpgradePlacement.WheelTuning(kind);
-                    return (kind == VoxelGarageUpgradeKind.GoldWheels ? "Larger tyres on ten-spoke gold alloys." : "Quicker starts, stops and lane changes.", wheels != null
+                    return (DescriptionOr(wheels?.description, kind == VoxelGarageUpgradeKind.GoldWheels ?
+                        "Larger tyres on ten-spoke gold alloys." : "Quicker starts, stops and lane changes."), wheels != null
                         ? $"+{wheels.accelerationBonusPercent:0.#}% ACCEL · +{wheels.brakingBonusPercent:0.#}% BRAKE\n+{wheels.laneChangeBonusPercent:0.#}% LANE CHANGE" : "", "ALL FOUR WHEELS");
                 case VoxelGarageUpgradeKind.Spikes:
                 case VoxelGarageUpgradeKind.StarSpikes:
                     var spikes = kind == VoxelGarageUpgradeKind.StarSpikes ? VoxelWheelSpikeTuning.LoadStar() : VoxelWheelSpikeTuning.Load();
-                    return ("Hit harder when ramming from the side.", spikes != null ? $"+{spikes.sideRamDamageBonusPercent:0.#}% SIDE-RAM DAMAGE" : "", "ALL FOUR WHEELS");
+                    return (DescriptionOr(spikes?.description, "Hit harder when ramming from the side."),
+                        spikes != null ? $"+{spikes.sideRamDamageBonusPercent:0.#}% SIDE-RAM DAMAGE" : "", "ALL FOUR WHEELS");
                 case VoxelGarageUpgradeKind.Boost:
                 case VoxelGarageUpgradeKind.DualBoost:
                     var boost = kind == VoxelGarageUpgradeKind.DualBoost ? VoxelBoostUpgradeTuning.LoadDualUpgrade() : VoxelBoostUpgradeTuning.LoadUpgrade();
-                    return (kind == VoxelGarageUpgradeKind.Boost ? "Adds a rechargeable burst of speed." : "Upgrades the boost with a twin-bottle setup.",
+                    return (DescriptionOr(boost?.description, kind == VoxelGarageUpgradeKind.Boost ?
+                        "Adds a rechargeable burst of speed." : "Upgrades the boost with a twin-bottle setup."),
                         boost != null ? $"{boost.boostLength:0.#}S BURST · {boost.rechargeCooldownLength:0.#}S RECHARGE" : "", "REAR MOUNT");
                 case VoxelGarageUpgradeKind.Plough:
-                    var plough = VoxelPloughTuning.Load();
-                    return ("Ram harder and take less front-impact damage.", plough != null
+                case VoxelGarageUpgradeKind.BullBar:
+                    var plough = VoxelGarageUpgradePlacement.PloughTuning(kind);
+                    return (DescriptionOr(plough?.description, "Ram harder and take less front-impact damage."), plough != null
                         ? $"+{plough.impactDamageBonusPercent:0.#}% FRONT RAM DAMAGE\n-{plough.playerDamageReductionPercent:0.#}% FRONT DAMAGE TAKEN" : "", "FRONT MOUNT");
                 case VoxelGarageUpgradeKind.Guns:
                 case VoxelGarageUpgradeKind.Minigun:
                     var gun = VoxelGarageUpgradePlacement.GunTuning(kind);
-                    return (kind == VoxelGarageUpgradeKind.Minigun ? "Six rotating barrels fire in sequence, each with a short tracer." :
-                        "Adds a forward-firing hood cannon.", gun != null
-                        ? $"{gun.shotsPerSecond:0.#} SHOTS/S · {gun.damagePerBullet:0.#} DAMAGE/HIT" : "", "LEFT / RIGHT HOOD");
+                    return (DescriptionOr(gun?.description, kind == VoxelGarageUpgradeKind.Minigun ?
+                        "Six rotating barrels fire in sequence, each with a short tracer." : "Adds a forward-firing hood cannon."), gun != null
+                        ? $"{gun.shotsPerSecond:0.#} SHOTS/S · {gun.damagePerBullet:0.#} DAMAGE/HIT\n{gun.DamagePerSecondLabel}" : "", "LEFT / RIGHT HOOD");
                 case VoxelGarageUpgradeKind.Missiles:
-                    var weapon = VoxelMissileLauncherTuning.Load()?.weapon;
-                    return ("Fires missiles from a roof launcher.", weapon != null
-                        ? $"{weapon.damagePerBullet:0.#} DAMAGE · {weapon.SecondsPerShot:0.#}S COOLDOWN" : "", "LEFT / RIGHT ROOF");
+                    var launcher = VoxelMissileLauncherTuning.Load();
+                    var weapon = launcher?.weapon;
+                    return (DescriptionOr(launcher?.description, "Fires missiles from a roof launcher."), weapon != null
+                        ? $"{weapon.damagePerBullet:0.#} DAMAGE · {weapon.SecondsPerShot:0.#}S COOLDOWN\n{weapon.DamagePerSecondLabel}" : "", "LEFT / RIGHT ROOF");
                 case VoxelGarageUpgradeKind.Engine:
                     var engine = VoxelEngineUpgradeTuning.Load();
-                    return ("Increases top speed and acceleration.", engine != null
+                    return (DescriptionOr(engine?.description, "Increases top speed and acceleration."), engine != null
                         ? $"+{engine.topSpeedBonusPercent:0.#}% TOP SPEED\n+{engine.accelerationBonusPercent:0.#}% ACCELERATION" : "", "ENGINE BAY");
                 default:
                     return ("", "", "");
             }
         }
+
+        private static string DescriptionOr(string description, string fallback) =>
+            string.IsNullOrWhiteSpace(description) ? fallback : description.Trim();
     }
 }

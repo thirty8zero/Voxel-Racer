@@ -43,6 +43,9 @@ namespace VoxelRacer.Editor
                 Check(settings.beamMaterial.enableInstancing && !ShaderUtil.ShaderHasError(settings.beamMaterial.shader), "Beam shader/instancing invalid.");
                 Check(settings.lampMaterial.IsKeywordEnabled("_EMISSION"), "Build-referenced lamp emission is disabled.");
                 Check(settings.enemyLampMaterial != null && settings.enemyLampMaterial.IsKeywordEnabled("_EMISSION"), "Enemy red lamp emission is disabled.");
+                Check(settings.playerLampMaterial != null && settings.playerLampMaterial.IsKeywordEnabled("_EMISSION") &&
+                    settings.playerBeamColour.b > settings.playerBeamColour.g && settings.playerBeamColour.b > settings.playerBeamColour.r,
+                    "Player headlights need an emissive lens material and blue beams.");
                 foreach (var old in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
                     if (old.enabled) { old.enabled = false; oldLights.Add(old); }
                 var source = Resources.Load<VoxelTrackDefinition>("Tracks/Track01");
@@ -61,7 +64,6 @@ namespace VoxelRacer.Editor
                 var playerModel = Object.Instantiate(Resources.Load<VoxelCarDefinition>("Cars/SpyCar2PlayerCar").visualPrefab, root.transform);
                 var player = playerModel.AddComponent<VoxelCarController>(); player.enabled = false;
                 player.SetTrack(road, 12); road.SetTarget(player.transform);
-                Check(VoxelNightHeadlights.Attach(player.gameObject, track) == null, "Player received night headlights.");
                 var key = Child(root.transform, "Night key").AddComponent<Light>(); key.type = LightType.Directional;
                 key.shadows = LightShadows.Hard; key.cullingMask = 1 << 31; RenderSettings.sun = key;
                 VoxelTrackEnvironment.ApplyLighting(key, track); VoxelTrackEnvironment.ApplyFog(track);
@@ -78,6 +80,7 @@ namespace VoxelRacer.Editor
                 camera.GetUniversalAdditionalCameraData().volumeLayerMask = 1 << 31;
                 Layer(root);
                 int models = ValidateModels(root.transform, player, road, camera, track);
+                ValidatePlayer(root, player, track, camera, settings);
                 var cars = new List<VoxelObstacleCar>();
                 foreach (var setup in new[] { ("CivilianBeetleTuning", 32f, -5.33f, false),
                     ("CivilianVanTuning", 42f, 0f, true), ("CivilianMercedesWagonTuning", 59f, 5.33f, false) })
@@ -107,8 +110,8 @@ namespace VoxelRacer.Editor
                 ValidateBeamClearance();
                 int lightsBefore = root.GetComponentsInChildren<Light>(true).Length;
                 Render(camera, Folder + "NightChase.png");
-                Check(VoxelNightHeadlights.LastBeamCount == 8, "Four traffic vehicles did not submit exactly eight cards.");
-                Check(VoxelNightHeadlights.LastBatchCount == (SystemInfo.supportsInstancing ? 1 : 8), "Beam cards did not share the expected batch.");
+                Check(VoxelNightHeadlights.LastBeamCount == 10, "Player and four traffic vehicles did not submit exactly ten cards.");
+                Check(VoxelNightHeadlights.LastBatchCount == (SystemInfo.supportsInstancing ? 1 : 10), "Beam cards did not share the expected batch.");
                 var close = Object.Instantiate(camera, root.transform);
                 close.transform.position = new Vector3(-10, 7, 50);
                 close.transform.LookAt(new Vector3(0, .5f, 34));
@@ -123,7 +126,7 @@ namespace VoxelRacer.Editor
                 Check(root.GetComponentsInChildren<Light>(true).Length == lightsBefore, "Headlights added realtime lights.");
                 Check(EditorJsonUtility.ToJson(source) == originalTrack, "Headlight preview edited source track.");
                 foreach (var car in cars) Object.DestroyImmediate(car.tuning);
-                File.WriteAllText(Folder + "Validation.txt", "PASS: " + models + " authored traffic/enemy/boss models; night-only and player exclusion; front lamps only; exactly two cards per intact vehicle and one shared instanced batch; destroyed lamp/vehicle and disabled-owner gates; no extra renderers/colliders/lights or projectile membership; source prefabs/materials/track and RNG preserved. NightChase/NightClose are isolated editor renders with the mobile post-processing profile, not a target-phone performance benchmark.");
+                File.WriteAllText(Folder + "Validation.txt", "PASS: " + models + " authored traffic/enemy/boss models; blue player lights at countdown 1 and through launch, darkness before 1 and on daytime tracks; front lamps only; exactly two cards per intact vehicle and one shared instanced batch; destroyed lamp/vehicle and disabled-owner gates; no extra renderers/colliders/lights or projectile membership; source prefabs/materials/track and RNG preserved. Renders use the mobile post-processing profile in an isolated editor scene.");
                 Debug.Log(File.ReadAllText(Folder + "Validation.txt"));
             }
             catch (Exception error) { File.WriteAllText(Folder + "Validation.txt", "FAIL: " + error); throw; }
@@ -140,6 +143,58 @@ namespace VoxelRacer.Editor
                 if (roadTuning != null) Object.DestroyImmediate(roadTuning);
                 foreach (var light in oldLights) if (light != null) light.enabled = true;
                 UnityEngine.Random.state = random;
+            }
+        }
+
+        private static void ValidatePlayer(GameObject root, VoxelCarController player, VoxelTrackDefinition track,
+            Camera camera, VoxelNightHeadlightSettings settings)
+        {
+            var countdown = root.AddComponent<VoxelStartCountdown>();
+            countdown.Prepare(player);
+            track.nightTime = false;
+            Check(VoxelNightHeadlights.Attach(player.gameObject, track, countdown) == null, "Daytime player received headlights.");
+            track.nightTime = true;
+            var headlights = VoxelNightHeadlights.Attach(player.gameObject, track, countdown);
+            Check(headlights != null && headlights.BoundLensCount == 6, "Spy Car 2 needs six bound driving-lamp voxels.");
+            var renderers = player.GetComponentsInChildren<MeshRenderer>();
+            var originalMaterials = renderers.Select(r => r.sharedMaterial).ToArray();
+            Check(originalMaterials.All(m => m != settings.playerLampMaterial), "Player lenses lit before the countdown started.");
+
+            VoxelMissileValidation.Set(countdown, "started", true);
+            SetCountdownElapsed(1.99f);
+            Check(!countdown.HasReachedFinalCount && VoxelNightHeadlights.LastBeamCount == 0 &&
+                renderers.Select(r => r.sharedMaterial).SequenceEqual(originalMaterials), "Player headlights turned on before 1.");
+            Render(camera, Folder + "PlayerBeforeOne.png");
+            SetCountdownElapsed(2.01f);
+            var lit = renderers.Where(r => r.sharedMaterial == settings.playerLampMaterial).ToArray();
+            Check(countdown.HasReachedFinalCount && !countdown.IsComplete && VoxelNightHeadlights.LastBeamCount == 2 &&
+                lit.Length == 6 && lit.All(r => r.name == "Front Driving Lamp"), "Player lights did not switch on at 1.");
+            Render(camera, Folder + "PlayerAtOne.png");
+            var close = Object.Instantiate(camera, root.transform);
+            close.transform.position = player.transform.TransformPoint(new Vector3(-5.5f, 3f, 7.5f));
+            close.transform.LookAt(player.transform.TransformPoint(new Vector3(0f, .45f, 2.8f)));
+            Render(close, Folder + "PlayerFront.png");
+            Object.DestroyImmediate(close.gameObject);
+            SetCountdownElapsed(4.1f);
+            Check(countdown.IsComplete && VoxelNightHeadlights.LastBeamCount == 2, "Headlights stopped after launch.");
+
+            var side = lit.Where(r => player.transform.InverseTransformPoint(r.transform.position).x < 0f).ToArray();
+            foreach (var renderer in side) renderer.enabled = false;
+            VoxelNightHeadlights.SubmitDraws(camera, false);
+            Check(VoxelNightHeadlights.LastBeamCount == 1, "Damaged player lamp still casts a beam.");
+            foreach (var renderer in side) renderer.enabled = true;
+            headlights.enabled = false;
+            VoxelMissileValidation.Call(headlights, "OnDisable");
+            Check(renderers.Select(r => r.sharedMaterial).SequenceEqual(originalMaterials),
+                "Disabling player lights failed to restore the original materials.");
+            Check(VoxelNightHeadlights.Attach(player.gameObject, track, countdown) == headlights &&
+                player.GetComponents<VoxelNightHeadlights>().Length == 1, "Night player reconfiguration duplicated the effect.");
+
+            void SetCountdownElapsed(float elapsed)
+            {
+                VoxelMissileValidation.Set(countdown, "countdownStartedAt", Time.time - elapsed);
+                VoxelMissileValidation.Call(headlights, "UpdatePower");
+                VoxelNightHeadlights.SubmitDraws(camera, false);
             }
         }
 

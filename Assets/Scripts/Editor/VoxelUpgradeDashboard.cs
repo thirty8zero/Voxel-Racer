@@ -14,6 +14,7 @@ namespace VoxelRacer.Editor
         [SerializeField] private bool showMounting;
         [SerializeField] private VoxelUpgradeDashboardSort sortOrder;
         private static readonly string[] SortLabels = { "Name: A to Z", "Name: Z to A", "Price: low to high", "Price: high to low", "Category" };
+        private const string DpsHelp = "Nominal damage per second for one weapon against one target, assuming every projectile hits and ammunition is available.";
         private List<VoxelUpgradeDashboardEntry> entries = new();
         private List<RowLayout> visibleEntries = new();
         private VoxelUpgradeDashboardEntry detailEntry;
@@ -79,6 +80,7 @@ namespace VoxelRacer.Editor
         {
             public readonly SerializedObject Serialized;
             public readonly List<FieldGroup> Groups = new();
+            public SerializedProperty Description => Serialized.FindProperty("description");
             public TuningView(ScriptableObject asset)
             {
                 Serialized = new SerializedObject(asset);
@@ -87,7 +89,7 @@ namespace VoxelRacer.Editor
                 while (iterator.NextVisible(children))
                 {
                     children = false;
-                    if (iterator.propertyPath == "m_Script") continue;
+                    if (iterator.propertyPath == "m_Script" || iterator.propertyPath == "description") continue;
                     var member = asset.GetType().GetField(iterator.name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                     string section = member == null ? "Settings" : VoxelTrackOdinLayout.Section(member.DeclaringType, member.Name);
                     section = VoxelOdinTuningLayout.UpgradeSection(asset.GetType(), iterator.name, section);
@@ -227,7 +229,7 @@ namespace VoxelRacer.Editor
             detailName = detailEntry?.Name;
             detailDescription = detailEntry?.Description;
             string[] compatible = detailEntry == null ? System.Array.Empty<string>() : cars
-                .Where(c => detailEntry.Fits.Any(f => f.Fits(c))).Select(c => c.displayName).Distinct().ToArray();
+                .Where(detailEntry.FitsCar).Select(c => c.displayName).Distinct().ToArray();
             detailCompatibility = compatible.Length == 0 ? "No compatible car configured" : string.Join(", ", compatible);
             drawMounting = showMounting;
             foreach (var removed in views.Keys.Where(a => a == null).ToArray())
@@ -375,9 +377,10 @@ namespace VoxelRacer.Editor
                                 }
                                 GUILayout.Label(row.PriceUnit, smallWrapped);
                             }
-                            else GUILayout.Label("Unconfigured", smallWrapped);
+                            else GUILayout.Label(entry.IsIncluded ? "Included" : "Unconfigured", smallWrapped);
                         }
-                        GUILayout.Label(row.Description, wrapped, GUILayout.ExpandWidth(true));
+                        GUILayout.Label(new GUIContent(row.Description, entry.WeaponTuning != null ? DpsHelp : null),
+                            wrapped, GUILayout.ExpandWidth(true));
                         // Buttons/price fields consume their own events first. The remaining
                         // row background and description are also selection targets.
                         if (Event.current.type == EventType.MouseDown && Event.current.button == 0 && rowScope.rect.Contains(Event.current.mousePosition))
@@ -403,16 +406,17 @@ namespace VoxelRacer.Editor
                     DrawAccentPanel(heading.rect, CategoryColor(entry.Category), true);
                     DrawCategoryBadge(entry.Category);
                     GUILayout.Label(detailName, detailTitleStyle);
-                    GUILayout.Label(detailDescription, wrapped);
+                    GUILayout.Label(new GUIContent(detailDescription, entry.WeaponTuning != null ? DpsHelp : null), wrapped);
                     GUILayout.Space(4);
                 }
+                DrawDescription(entry.Asset);
                 GUILayout.Space(4);
                 GUILayout.Label("Fits: " + detailCompatibility, smallWrapped);
                 GUILayout.Label(AssetDatabase.GetAssetPath(entry.Asset), smallWrapped);
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button("Select asset")) { Selection.activeObject = entry.Asset; EditorGUIUtility.PingObject(entry.Asset); }
-                    if (GUILayout.Button("Fit preview")) VoxelUpgradeFitPreview.Open(entry.Asset);
+                    if (!entry.IsIncluded && GUILayout.Button("Fit preview")) VoxelUpgradeFitPreview.Open(entry.Asset);
                 }
                 GUILayout.Space(8);
                 if (detailTuning != null) DrawTuning(detailTuning);
@@ -424,6 +428,17 @@ namespace VoxelRacer.Editor
                 }
             }
         }
+        private void DrawDescription(ScriptableObject asset)
+        {
+            var view = ViewFor(asset);
+            view.Serialized.UpdateIfRequiredOrScript();
+            var description = view.Description;
+            if (description == null) return;
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                EditorGUILayout.PropertyField(description);
+            if (view.Serialized.ApplyModifiedProperties()) { QueueSave(asset); Repaint(); }
+        }
+
         private TuningView ViewFor(ScriptableObject asset)
         {
             if (!views.TryGetValue(asset, out var view))

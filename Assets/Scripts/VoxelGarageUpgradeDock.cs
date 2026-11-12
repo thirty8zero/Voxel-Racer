@@ -42,16 +42,16 @@ namespace VoxelRacer
             rightArmorUpgradeButton.gameObject.SetActive(false);
             rightMissileButton.gameObject.SetActive(false);
             var buttons = new[] { leftArmorUpgradeButton, engineUpgradeButton, gunUpgradeButton, minigunUpgradeButton,
-                leftMissileButton, performanceWheelButton, goldWheelButton, boostUpgradeButton, wheelSpikeUpgradeButton, ploughUpgradeButton, starWheelSpikeUpgradeButton, dualBoostUpgradeButton, extendedArmorUpgradeButton, underbodyArmorUpgradeButton };
+                leftMissileButton, performanceWheelButton, goldWheelButton, boostUpgradeButton, wheelSpikeUpgradeButton, ploughUpgradeButton, starWheelSpikeUpgradeButton, dualBoostUpgradeButton, extendedArmorUpgradeButton, underbodyArmorUpgradeButton, bullBarUpgradeButton };
             var upgrades = new[] { VoxelGarageUpgradeKind.Armour, VoxelGarageUpgradeKind.Engine, VoxelGarageUpgradeKind.Guns, VoxelGarageUpgradeKind.Minigun,
                 VoxelGarageUpgradeKind.Missiles, VoxelGarageUpgradeKind.Wheels, VoxelGarageUpgradeKind.GoldWheels, VoxelGarageUpgradeKind.Boost,
-                VoxelGarageUpgradeKind.Spikes, VoxelGarageUpgradeKind.Plough, VoxelGarageUpgradeKind.StarSpikes, VoxelGarageUpgradeKind.DualBoost, VoxelGarageUpgradeKind.ExtendedArmour, VoxelGarageUpgradeKind.UnderbodyArmour };
+                VoxelGarageUpgradeKind.Spikes, VoxelGarageUpgradeKind.Plough, VoxelGarageUpgradeKind.StarSpikes, VoxelGarageUpgradeKind.DualBoost, VoxelGarageUpgradeKind.ExtendedArmour, VoxelGarageUpgradeKind.UnderbodyArmour, VoxelGarageUpgradeKind.BullBar };
             var kinds = new[] { VoxelGarageIconKind.Armour, VoxelGarageIconKind.Engine, VoxelGarageIconKind.Guns, VoxelGarageIconKind.Guns,
                 VoxelGarageIconKind.Missile, VoxelGarageIconKind.Wheels, VoxelGarageIconKind.GoldWheels, VoxelGarageIconKind.Boost,
-                VoxelGarageIconKind.Spikes, VoxelGarageIconKind.Plough, VoxelGarageIconKind.StarSpikes, VoxelGarageIconKind.Boost, VoxelGarageIconKind.Armour, VoxelGarageIconKind.Underbody };
+                VoxelGarageIconKind.Spikes, VoxelGarageIconKind.Plough, VoxelGarageIconKind.StarSpikes, VoxelGarageIconKind.Boost, VoxelGarageIconKind.Armour, VoxelGarageIconKind.Underbody, VoxelGarageIconKind.BullBar };
             var categories = new[] { VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.Engines, VoxelGarageUpgradeCategory.Guns, VoxelGarageUpgradeCategory.Guns,
                 VoxelGarageUpgradeCategory.Missiles, VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Boost,
-                VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Boost, VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.Armor };
+                VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.WheelsAndTires, VoxelGarageUpgradeCategory.Boost, VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.Armor, VoxelGarageUpgradeCategory.Armor };
             cr.sizeDelta = new Vector2(buttons.Length*224-14,234);
             sortedUpgradeCards = new VoxelGarageUpgradeCard[buttons.Length];
             for(int i=0;i<buttons.Length;i++)
@@ -290,10 +290,21 @@ namespace VoxelRacer
             var tuning = VoxelGarageUpgradePlacement.WheelTuning(kind);
             var current = VoxelPerformanceWheelUpgradeState.InstalledTuning;
             bool fits = tuning != null && tuning.Fits(definition);
-            bool installed = fits && current == tuning;
+            RefreshTieredCard(button, kind, fits, current == tuning,
+                current != null && tuning != null && current.upgradeLevel >= tuning.upgradeLevel, "OTHER SET PENDING");
+        }
+        private void RefreshPloughCard(Button button, VoxelGarageUpgradeKind kind)
+        {
+            var tuning = VoxelGarageUpgradePlacement.PloughTuning(kind);
+            RefreshTieredCard(button, kind, tuning != null && tuning.Fits(definition), VoxelPloughUpgradeState.InstalledTuning == tuning,
+                VoxelPloughUpgradeState.IsEquipped(tuning), "OTHER FRONT RAM PENDING");
+        }
+        private void RefreshTieredCard(Button button, VoxelGarageUpgradeKind kind, bool fits, bool installed, bool superseded, string otherPending)
+        {
+            installed &= fits;
             bool offered = UpgradeOffer(kind, out int price, out _);
             string unavailable = fits && !installed && !offered
-                ? (current != null && current.upgradeLevel >= tuning.upgradeLevel ? "SUPERSEDED" : "OTHER SET PENDING")
+                ? (superseded ? "SUPERSEDED" : otherPending)
                 : null;
             button?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(price, installed || offered, installed ? 1 : 0,
                 pending: PendingCount(kind), availableCash: AvailableUpgradeCash, unavailableLabel: unavailable);
@@ -328,7 +339,8 @@ namespace VoxelRacer
             var star=VoxelWheelSpikeTuning.LoadStar(); Card(starWheelSpikeUpgradeButton,star!=null?star.purchasePrice:0,
                 star!=null && star.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.Spikes)==0,
                 VoxelWheelSpikeUpgradeState.IsEquipped(star),VoxelGarageUpgradeKind.StarSpikes);
-            var plough=VoxelPloughTuning.Load(); Card(ploughUpgradeButton,plough!=null?plough.purchasePrice:0,plough!=null && plough.Fits(definition),VoxelPloughUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Plough);
+            RefreshPloughCard(ploughUpgradeButton, VoxelGarageUpgradeKind.Plough);
+            RefreshPloughCard(bullBarUpgradeButton, VoxelGarageUpgradeKind.BullBar);
             var underbody=VoxelUnderbodyArmorTuning.Load(); Card(underbodyArmorUpgradeButton,underbody!=null?underbody.purchasePrice:0,
                 underbody!=null && underbody.Fits(definition),VoxelUnderbodyArmorUpgradeState.IsPurchased,VoxelGarageUpgradeKind.UnderbodyArmour);
             if(sortedUpgradeCards!=null)

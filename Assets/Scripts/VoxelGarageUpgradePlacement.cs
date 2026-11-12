@@ -7,7 +7,7 @@ using Object = UnityEngine.Object;
 
 namespace VoxelRacer
 {
-    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough, StarSpikes, DualBoost, ExtendedArmour, UnderbodyArmour, GoldWheels, Minigun }
+    public enum VoxelGarageUpgradeKind { Armour, Guns, Missiles, Wheels, Spikes, Boost, Engine, Plough, StarSpikes, DualBoost, ExtendedArmour, UnderbodyArmour, GoldWheels, Minigun, BullBar }
 
     public readonly struct VoxelGarageUpgradeSelection
     {
@@ -31,6 +31,8 @@ namespace VoxelRacer
             ? VoxelArmorTuning.LoadExtended() : VoxelArmorTuning.Load();
         public static VoxelPerformanceWheelTuning WheelTuning(VoxelGarageUpgradeKind kind) =>
             kind == VoxelGarageUpgradeKind.GoldWheels ? VoxelPerformanceWheelTuning.LoadGold() : VoxelPerformanceWheelTuning.Load();
+        public static VoxelPloughTuning PloughTuning(VoxelGarageUpgradeKind kind) =>
+            kind == VoxelGarageUpgradeKind.BullBar ? VoxelPloughTuning.LoadBullBar() : VoxelPloughTuning.Load();
         private static bool ReplacesBaseVisual(VoxelGarageUpgradeKind kind) =>
             kind == VoxelGarageUpgradeKind.Wheels || kind == VoxelGarageUpgradeKind.GoldWheels || kind == VoxelGarageUpgradeKind.Engine;
         public bool RequiresPlacement => IsArmour(Kind) ||
@@ -196,7 +198,8 @@ namespace VoxelRacer
                 case VoxelGarageUpgradeKind.Engine:
                     VoxelEngineUpgradeState.CreateVisual(car, VoxelEngineUpgradeTuning.Load()); break;
                 case VoxelGarageUpgradeKind.Plough:
-                    VoxelPloughUpgradeState.CreateVisual(car, VoxelPloughTuning.Load()); break;
+                case VoxelGarageUpgradeKind.BullBar:
+                    VoxelPloughUpgradeState.CreateVisual(car, PloughTuning(kind)); break;
                 case VoxelGarageUpgradeKind.UnderbodyArmour:
                     VoxelUnderbodyArmorUpgradeState.CreateVisual(car, VoxelUnderbodyArmorTuning.Load()); break;
             }

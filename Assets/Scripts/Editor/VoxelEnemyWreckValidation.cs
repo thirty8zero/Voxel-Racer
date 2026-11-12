@@ -162,8 +162,9 @@ namespace VoxelRacer.Editor
                     }
                     if (mode == "PloughRam")
                     {
-                        typeof(VoxelPloughUpgradeState).GetField("purchased", Static).SetValue(null, true);
-                        new GameObject(VoxelPloughUpgradeState.InstanceName).transform.SetParent(player.transform, false);
+                        var plough = VoxelPloughTuning.Load();
+                        typeof(VoxelPloughUpgradeState).GetField("<InstalledTuning>k__BackingField", Static).SetValue(null, plough);
+                        VoxelPloughUpgradeState.CreateVisual(player.transform, plough);
                     }
                     if (mode == "SpikeRam")
                     {

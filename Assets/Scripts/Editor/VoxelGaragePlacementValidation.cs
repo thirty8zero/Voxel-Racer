@@ -177,11 +177,17 @@ namespace VoxelRacer.Editor
             return (int)args[1];
         }
 
+        // Select spikes before wheels to exercise replacement-dependent mounting.
+        private static readonly VoxelGarageUpgradeKind[] CartKinds =
+        {
+            VoxelGarageUpgradeKind.Spikes, VoxelGarageUpgradeKind.Guns, VoxelGarageUpgradeKind.Armour,
+            VoxelGarageUpgradeKind.Missiles, VoxelGarageUpgradeKind.Wheels, VoxelGarageUpgradeKind.Boost,
+            VoxelGarageUpgradeKind.Engine, VoxelGarageUpgradeKind.Plough
+        };
+
         private static void AddAll(VoxelRepairUpgradeSceneController shop)
         {
-            // Select spikes before wheels to exercise replacement-dependent mounting.
-            foreach (var kind in new[] { VoxelGarageUpgradeKind.Spikes, VoxelGarageUpgradeKind.Guns, VoxelGarageUpgradeKind.Armour,
-                VoxelGarageUpgradeKind.Missiles, VoxelGarageUpgradeKind.Wheels, VoxelGarageUpgradeKind.Boost, VoxelGarageUpgradeKind.Engine, VoxelGarageUpgradeKind.Plough })
+            foreach (var kind in CartKinds)
             {
                 Call(shop, "BeginUpgradePlacement", kind);
                 if (Placement(shop).RequiresPlacement)
@@ -254,9 +260,7 @@ namespace VoxelRacer.Editor
             shop.repairTuning = VoxelRepairTuning.Load(); Call(shop, "BuildUi"); Call(shop, "RefreshUi");
             root.GetComponentsInChildren<Button>(true).First(b => b.name == "Upgrade Menu Button").onClick.Invoke();
             int total = 0;
-            foreach (VoxelGarageUpgradeKind kind in Enum.GetValues(typeof(VoxelGarageUpgradeKind)).Cast<VoxelGarageUpgradeKind>()
-                .Where(k=>k!=VoxelGarageUpgradeKind.StarSpikes && k!=VoxelGarageUpgradeKind.DualBoost && k!=VoxelGarageUpgradeKind.ExtendedArmour &&
-                    k!=VoxelGarageUpgradeKind.UnderbodyArmour && k!=VoxelGarageUpgradeKind.GoldWheels && k!=VoxelGarageUpgradeKind.Minigun))
+            foreach (var kind in CartKinds)
                 total += Price(kind, shop) * (kind == VoxelGarageUpgradeKind.Armour || kind == VoxelGarageUpgradeKind.Guns || kind == VoxelGarageUpgradeKind.Missiles ? 2 : 1);
 
             AddAll(shop);
@@ -273,13 +277,13 @@ namespace VoxelRacer.Editor
                 root.transform.Find("Repair Upgrade UI/Upgrade Purchase Confirmation").gameObject.activeSelf,"Go Back discarded the cart");
             VoxelGarageUpgradeDockValidation.CheckPurchaseGrowth(shop);
             var cards=root.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
-            // This cart selects the base armour, spikes, wheels and boost.
+            // This cart selects the base armour, spikes, wheels and boost, plus the Plough.
             var alternatives=cards.Where(c=>c.UpgradeKind==VoxelGarageUpgradeKind.StarSpikes || c.UpgradeKind==VoxelGarageUpgradeKind.DualBoost ||
                 c.UpgradeKind==VoxelGarageUpgradeKind.ExtendedArmour || c.UpgradeKind==VoxelGarageUpgradeKind.GoldWheels ||
-                c.UpgradeKind==VoxelGarageUpgradeKind.Minigun).ToArray();
+                c.UpgradeKind==VoxelGarageUpgradeKind.Minigun || c.UpgradeKind==VoxelGarageUpgradeKind.BullBar).ToArray();
             Check(cards.Except(alternatives).Count(c=>c.UpgradeKind!=VoxelGarageUpgradeKind.UnderbodyArmour)==8 &&
                 cards.Except(alternatives).Where(c=>c.UpgradeKind!=VoxelGarageUpgradeKind.UnderbodyArmour).All(c=>c.State==VoxelGarageUpgradeState.Pending) &&
-                alternatives.Length==5 && alternatives.All(c=>c.State==VoxelGarageUpgradeState.Incompatible),
+                alternatives.Length==6 && alternatives.All(c=>c.State==VoxelGarageUpgradeState.Incompatible),
                 "Pending cards or mutually exclusive alternatives have incorrect states");
             var label = root.GetComponentsInChildren<Text>().First(t => t.name == "Purchase Description");
             Check(label.text.Contains("LEFT + RIGHT") && label.text.Contains("DOOR ARMOUR") && label.text.Contains("MISSILE") && label.text.Contains("ENGINE"), "Cart summary omitted selected parts or sides");

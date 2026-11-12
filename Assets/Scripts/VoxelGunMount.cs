@@ -18,7 +18,7 @@ namespace VoxelRacer
         public Vector3 FireDirection => muzzle != null ? muzzle.forward : transform.forward;
         public bool HasRotor => barrelRotor != null;
         public bool HasAmmunition => tuning != null && (tuning.ammunitionPerStage == 0 ||
-            remainingAmmunition >= Mathf.Max(1, tuning.bulletsPerShot));
+            remainingAmmunition >= tuning.ProjectilesPerShot);
         /// <summary>Uses the same scaled game clock and reserved interval as firing.</summary>
         public float CooldownProgress => shotInterval <= 0f ? 1f :
             Mathf.Clamp01(1f - (nextFireTime - Time.time) / shotInterval);
@@ -82,7 +82,7 @@ namespace VoxelRacer
 
             shotInterval = tuning.SecondsPerShot;
             nextFireTime = Time.time + shotInterval;
-            bulletCount = Mathf.Max(1, tuning.bulletsPerShot);
+            bulletCount = tuning.ProjectilesPerShot;
             if (tuning.ammunitionPerStage > 0)
                 remainingAmmunition -= bulletCount;
             return true;

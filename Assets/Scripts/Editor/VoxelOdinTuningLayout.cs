@@ -155,7 +155,7 @@ namespace VoxelRacer.Editor
         // Shared by the Odin Inspector and the dashboard's native serialized-property editor.
         internal static string UpgradeSection(Type type,string name,string section)
         {
-            if(name=="displayName")return "Identity";
+            if(name=="displayName"||name=="description")return "Identity";
             if(name.Contains("Price")||name=="maximumPurchases"||name=="upgradeLevel")return "Purchase";
             if(type==typeof(VoxelBoostUpgradeTuning) && name=="bottleCount")return "Boost Charges";
             if(typeof(VoxelBoostTuning).IsAssignableFrom(type) &&

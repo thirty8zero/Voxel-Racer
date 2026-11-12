@@ -6,8 +6,12 @@ namespace VoxelRacer
     public sealed class VoxelPloughTuning : ScriptableObject
     {
         public string displayName = "PLOUGH";
+        [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
+        public string description;
         public GameObject ploughPrefab;
         public GameObject compatibleCarPrefab;
+        [Min(1), Tooltip("A higher level replaces the lower-level front ram in the same slot.")]
+        public int upgradeLevel = 2;
         [Min(0)] public int purchasePrice = 300;
         [Min(0)] public float impactDamageBonusPercent = 25f;
         [Range(0, 100)] public float playerDamageReductionPercent = 25f;
@@ -17,5 +21,6 @@ namespace VoxelRacer
         public bool Fits(VoxelCarDefinition car) => car != null && ploughPrefab != null &&
             compatibleCarPrefab != null && car.visualPrefab == compatibleCarPrefab;
         public static VoxelPloughTuning Load() => Resources.Load<VoxelPloughTuning>("Upgrades/PloughTuning");
+        public static VoxelPloughTuning LoadBullBar() => Resources.Load<VoxelPloughTuning>("Upgrades/BullBarTuning");
     }
 }

@@ -7,6 +7,8 @@ namespace VoxelRacer
     public sealed class VoxelArmorTuning : ScriptableObject
     {
         public string displayName = "DOOR ARMOUR";
+        [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
+        public string description;
         public GameObject panelPrefab;
         [FormerlySerializedAs("purchasePrice")]
         [Min(0)] public int panelPurchasePrice = 100;

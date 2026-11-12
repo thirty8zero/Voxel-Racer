@@ -15,7 +15,9 @@ namespace VoxelRacer.Editor
         public VoxelUpgradeDashboardEntry(ScriptableObject asset, IEnumerable<VoxelUpgradeFitEntry> fits)
         { Asset = asset; Fits = fits.ToArray(); }
 
+        public bool IsIncluded => Fits.Length == 0;
         public ScriptableObject PriceAsset => Asset is VoxelMissileLauncherTuning missile ? missile.weapon : Asset;
+        public VoxelGunTuning WeaponTuning => PriceAsset as VoxelGunTuning;
         public string PriceField => Asset is VoxelArmorTuning ? "panelPurchasePrice" : "purchasePrice";
         public string Name
         {
@@ -30,7 +32,7 @@ namespace VoxelRacer.Editor
         {
             get
             {
-                if (PriceAsset == null) return null;
+                if (PriceAsset == null || IsIncluded) return null;
                 using var serialized = new SerializedObject(PriceAsset);
                 var price = serialized.FindProperty(PriceField);
                 return price != null && price.propertyType == SerializedPropertyType.Integer ? price.intValue : null;
@@ -38,7 +40,7 @@ namespace VoxelRacer.Editor
         }
         public bool SetPrice(int value)
         {
-            if (PriceAsset == null) return false;
+            if (PriceAsset == null || IsIncluded) return false;
             using var serialized = new SerializedObject(PriceAsset);
             var price = serialized.FindProperty(PriceField);
             if (price == null || price.propertyType != SerializedPropertyType.Integer) return false;
@@ -63,42 +65,69 @@ namespace VoxelRacer.Editor
             VoxelArmorTuning => "per door panel",
             VoxelGunTuning => "per gun",
             VoxelMissileLauncherTuning => "per launcher",
+            VoxelPloughTuning => "per front mount",
             VoxelPerformanceWheelTuning or VoxelWheelSpikeTuning => "set of four",
             _ => "per upgrade"
         };
         private static string N(float value) => value.ToString("0.##");
-        private static string Weapon(VoxelGunTuning gun)
+        public bool FitsCar(VoxelCarDefinition car) => IsIncluded
+            ? car.visualPrefab.GetComponentsInChildren<VoxelGunMount>(true).Any(m => m.tuning == Asset)
+            : Fits.Any(f => f.Fits(car));
+
+        private static string WeaponSummary(VoxelGunTuning gun)
         {
             if (gun == null) return "Assign a weapon tuning to configure damage, firing and price.";
             string firing = gun.projectileKind == VoxelProjectileKind.Missile
                 ? N(gun.SecondsPerShot) + "s between shots"
                 : N(gun.shotsPerSecond) + " shots/s";
-            return N(gun.damagePerBullet) + " damage/projectile; " + firing + "; " + gun.bulletsPerShot +
+            return gun.DamagePerSecondLabel + " per weapon. " + N(gun.damagePerBullet) + " damage/projectile; " +
+                firing + "; " + gun.ProjectilesPerShot +
                 " projectile(s)/shot; " + N(gun.maximumRange) + "m range. " +
                 (gun.areaOfEffectRadius > 0 ? N(gun.areaOfEffectRadius) + "m blast radius. " : "") +
                 (gun.IsRotary ? "Six muzzles rotate at " + N(gun.barrelSpinDegreesPerSecond) + "°/s. " : "") +
                 (gun.ammunitionPerStage == 0 ? "Unlimited ammo." : gun.ammunitionPerStage + " ammo/stage.");
         }
-        public string Description => Asset switch
+        public string Description
         {
-            VoxelUnderbodyArmorTuning underbody => N(underbody.mineDamageReductionPercent) + "% less damage from mines. Complete underbody skid-plate kit.",
+            get
+            {
+                using var serialized = new SerializedObject(Asset);
+                string custom = serialized.FindProperty("description")?.stringValue;
+                string overview = string.IsNullOrWhiteSpace(custom) ? DefaultOverview : custom.Trim();
+                return string.IsNullOrEmpty(overview) ? TuningSummary : overview + "\n" + TuningSummary;
+            }
+        }
+
+        private string DefaultOverview => Asset switch
+        {
+            VoxelUnderbodyArmorTuning => "Complete underbody skid-plate kit.",
+            VoxelArmorTuning { upgradeLevel: > 1 } => "Extended coverage. Replaces lower-level panels on the selected door.",
+            VoxelArmorTuning => "Each panel is purchased separately.",
+            VoxelMissileLauncherTuning => "Independent left/right roof launchers.",
+            VoxelEngineUpgradeTuning => "Includes engine, exhausts and rear spoiler.",
+            VoxelWheelSpikeTuning => "Replaces lower levels. Side-ram bonuses apply from the fitted set.",
+            _ => ""
+        };
+
+        private string TuningSummary => Asset switch
+        {
+            VoxelUnderbodyArmorTuning underbody => N(underbody.mineDamageReductionPercent) + "% less damage from mines.",
             VoxelArmorTuning armor => "Protects each door with " + armor.voxelHitPoints +
-                " HP per armour voxel. Each panel is purchased separately." +
-                (armor.upgradeLevel > 1 ? " Extended coverage; replaces lower-level panels on the selected door." : ""),
-            VoxelGunTuning gun => Weapon(gun),
-            VoxelMissileLauncherTuning missile => "Independent left/right roof launchers. " + Weapon(missile.weapon),
+                " HP per armour voxel.",
+            VoxelGunTuning or VoxelMissileLauncherTuning => WeaponSummary(WeaponTuning),
             VoxelBoostUpgradeTuning boost => boost.bottleCount + " independently recharging boost charge(s); +" +
                 N(boost.boostSpeed) + "m/s for " + N(boost.boostLength) + "s; " + N(boost.rechargeCooldownLength) +
                 "s recharge; " + N(boost.boostAccelerationMultiplier) + "x acceleration. Ram damage +" +
                 N(boost.boostRamDamageBonusPercent) + "% (with plough: +" + N(boost.boostRamDamageWithPloughBonusPercent) + "%).",
             VoxelEngineUpgradeTuning engine => "+" + N(engine.topSpeedBonusPercent) + "% top speed; +" +
-                N(engine.accelerationBonusPercent) + "% acceleration. Includes engine, exhausts and rear spoiler.",
+                N(engine.accelerationBonusPercent) + "% acceleration.",
             VoxelPerformanceWheelTuning wheels => "+" + N(wheels.accelerationBonusPercent) + "% acceleration; +" +
                 N(wheels.laneChangeBonusPercent) + "% lane-change speed; +" + N(wheels.brakingBonusPercent) + "% braking deceleration.",
             VoxelWheelSpikeTuning spikes => "+" + N(spikes.sideRamDamageBonusPercent) + "% side-ram damage. Level " +
-                spikes.upgradeLevel + ": replaces lower levels; bonuses do not stack.",
+                spikes.upgradeLevel + ".",
             VoxelPloughTuning plough => "+" + N(plough.impactDamageBonusPercent) + "% front-ram damage; " +
-                N(plough.playerDamageReductionPercent) + "% less player damage on protected front impacts.",
+                N(plough.playerDamageReductionPercent) + "% less player damage on protected front impacts. Level " +
+                plough.upgradeLevel + ".",
             _ => "Select this upgrade to inspect and edit its tuning values."
         };
 
@@ -131,9 +160,14 @@ namespace VoxelRacer.Editor
             return sorted.ThenBy(e => AssetDatabase.GetAssetPath(e.Asset), System.StringComparer.Ordinal);
         }
 
-        public static List<VoxelUpgradeDashboardEntry> Discover() => VoxelUpgradeFitCatalog.Discover()
-            .Where(e => e.Asset != null).GroupBy(e => e.Asset)
-            .Select(g => new VoxelUpgradeDashboardEntry(g.Key, g))
-            .OrderBy(e => e.Category).ThenBy(e => e.Name).ToList();
+        public static List<VoxelUpgradeDashboardEntry> Discover()
+        {
+            var entries = VoxelUpgradeFitCatalog.Discover().Where(e => e.Asset != null).GroupBy(e => e.Asset)
+                .Select(g => new VoxelUpgradeDashboardEntry(g.Key, g)).ToList();
+            var starter = Resources.Load<VoxelGunTuning>("Weapons/BasicHoodGunTuning");
+            if (starter != null && entries.All(e => e.Asset != starter))
+                entries.Add(new VoxelUpgradeDashboardEntry(starter, System.Array.Empty<VoxelUpgradeFitEntry>()));
+            return entries.OrderBy(e => e.Category).ThenBy(e => e.Name).ToList();
+        }
     }
 }

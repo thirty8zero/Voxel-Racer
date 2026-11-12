@@ -65,8 +65,9 @@ namespace VoxelRacer.Editor
             var originalScene = SceneManager.GetActiveScene();
             var scene = SceneManager.CreateScene("Temporary Boost Ram QA"); SceneManager.SetActiveScene(scene);
             var random = UnityEngine.Random.state;
-            bool savedPlough = VoxelPloughUpgradeState.IsPurchased, savedSpikes = VoxelWheelSpikeUpgradeState.IsPurchased;
-            var ploughOwned = typeof(VoxelPloughUpgradeState).GetField("purchased", Static);
+            var savedPlough = VoxelPloughUpgradeState.InstalledTuning;
+            bool savedSpikes = VoxelWheelSpikeUpgradeState.IsPurchased;
+            var ploughOwned = typeof(VoxelPloughUpgradeState).GetField("<InstalledTuning>k__BackingField", Static);
             var spikesOwned = typeof(VoxelWheelSpikeUpgradeState).GetField("purchased", Static);
             var spikeSelection = typeof(VoxelWheelSpikeUpgradeState).GetField("installedTuning", Static);
             var savedSpikeSelection = spikeSelection.GetValue(null);
@@ -155,14 +156,14 @@ namespace VoxelRacer.Editor
                     try
                     {
                         root.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
-                        ploughOwned.SetValue(null, fitted && owned); spikesOwned.SetValue(null, spikes);
+                        ploughOwned.SetValue(null, fitted && owned ? plough : null); spikesOwned.SetValue(null, spikes);
                         var playerObject = new GameObject("Player"); playerObject.transform.SetParent(root.transform, false);
                         Voxels(playerObject.transform);
                         var player = playerObject.AddComponent<VoxelCarController>(); player.enabled = false;
                         player.debrisVoxelsPerDamagedVoxel = 0; player.ResetIntegrityBaseline();
                         if (fitted)
                         {
-                            var mount = new GameObject(VoxelPloughUpgradeState.InstanceName); mount.transform.SetParent(player.transform, false);
+                            var mount = VoxelPloughUpgradeState.CreateVisual(player.transform, plough);
                             mount.SetActive(!inactivePlough);
                         }
                         var environment = new GameObject("Separate race environment"); environment.transform.SetParent(root.transform, false);

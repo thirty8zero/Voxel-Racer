@@ -5,6 +5,8 @@ namespace VoxelRacer
     public sealed class VoxelMissileLauncherTuning : ScriptableObject
     {
         public VoxelGunTuning weapon;
+        [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
+        public string description;
         public GameObject compatibleCarPrefab;
         public Vector3 mountPosition = new(.77f, 1.48f, -.56f);
         [Tooltip("Right launcher rotation; yaw and roll are mirrored for the left launcher.")]

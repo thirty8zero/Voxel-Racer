@@ -5,6 +5,8 @@ namespace VoxelRacer
     public sealed class VoxelEngineUpgradeTuning : ScriptableObject
     {
         public string displayName="V6 ENGINE + SPOILER";
+        [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
+        public string description;
         [Tooltip("Bundled engine, exhausts and rear spoiler; gameplay and fit previews mount this same prefab.")]
         public GameObject enginePrefab;
         public GameObject compatibleCarPrefab;

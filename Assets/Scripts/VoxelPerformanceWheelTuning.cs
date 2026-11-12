@@ -6,6 +6,8 @@ namespace VoxelRacer
     public sealed class VoxelPerformanceWheelTuning : ScriptableObject
     {
         public string displayName = "PERFORMANCE WHEELS";
+        [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
+        public string description;
         public GameObject wheelPrefab;
         public GameObject compatibleCarPrefab;
         [Min(0)] public int purchasePrice = 250;

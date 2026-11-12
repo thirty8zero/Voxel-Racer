@@ -15,10 +15,12 @@ MonoBehaviour:
   headlightsEnabled: 1
   lampMaterial: {fileID: 2100000, guid: 826eee4c71121d542b61e812a99d139d, type: 2}
   enemyLampMaterial: {fileID: 2100000, guid: ad5d6bc4a9e56a4428ed9629e76f1861, type: 2}
+  playerLampMaterial: {fileID: 2100000, guid: 25cc9a998e484722971d1f03c0c590be, type: 2}
   beamMaterial: {fileID: 2100000, guid: 3160b80c1b2ccf044889e4186e3a53ae, type: 2}
   beamLength: 14
   beamEndWidth: 4
   beamColour: {r: 1, g: 0.82, b: 0.12, a: 1}
   enemyBeamColour: {r: 2, g: 0.025, b: 0.01, a: 1}
+  playerBeamColour: {r: 0.10, g: 0.52, b: 2.2, a: 1}
   beamOpacity: 0.22
   maximumDrawDistance: 140

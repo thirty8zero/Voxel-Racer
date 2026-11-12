@@ -140,7 +140,7 @@ namespace VoxelRacer
             }
 
             // Force the first wave when the countdown changes to "1", rather than
-            // waiting for a spawn interval that may otherwise elapse after "GO!".
+            // waiting for a spawn interval that may otherwise elapse after driving starts.
             if (countdown != null && !trafficSpawnWindowOpened)
             {
                 trafficSpawnWindowOpened = true;

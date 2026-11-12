@@ -8,6 +8,8 @@ namespace VoxelRacer
     public sealed class VoxelWheelSpikeTuning : ScriptableObject
     {
         public string displayName = "WHEEL SPIKES";
+        [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
+        public string description;
         [Tooltip("The single visual model instantiated once on each of the car's four wheels.")]
         public GameObject spikePrefab;
         [Min(0)] public int purchasePrice = 125;

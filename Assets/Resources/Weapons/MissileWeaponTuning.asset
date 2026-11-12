@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: MissileWeaponTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
   displayName: MISSILE LAUNCHER
+  description: 
   visualPrefab: {fileID: 7140078567076894838, guid: 48a4c50d2d0a9bd4eba47c31e794f165, type: 3}
   compatibleCarPrefab: {fileID: 0}
   upgradeLevel: 1

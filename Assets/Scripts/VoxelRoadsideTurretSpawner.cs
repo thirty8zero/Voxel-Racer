@@ -33,7 +33,7 @@ namespace VoxelRacer
             if (target == null || path == null || tuning == null || tuning.roadsideTurretTuning == null || target.IsDestroyed)
                 return;
             // SetupGameplay configures this spawner before it creates the countdown,
-            // so resolve it lazily and never permit a spawn before the countdown's GO.
+            // so resolve it lazily and wait for the countdown to complete before spawning.
             if (countdown == null)
                 countdown = GetComponent<VoxelStartCountdown>();
             if (countdown == null || !countdown.IsComplete || runFinish != null && runFinish.HasFinished ||

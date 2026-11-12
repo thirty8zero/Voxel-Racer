@@ -35,8 +35,7 @@ namespace VoxelRacer
         private Button boostUpgradeButton;
         private Button dualBoostUpgradeButton;
         private Text boostUpgradeLabel;
-        private Button ploughUpgradeButton;
-        private Text ploughUpgradeLabel;
+        private Button ploughUpgradeButton, bullBarUpgradeButton;
         private Button engineUpgradeButton;
         private Text engineUpgradeLabel;
         private Text repair10ButtonLabel;
@@ -283,7 +282,8 @@ namespace VoxelRacer
             engineUpgradeLabel = engineUpgradeButton.GetComponentInChildren<Text>();
             ploughUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Plough Purchase Button", string.Empty, 30,
                 new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.Plough));
-            ploughUpgradeLabel = ploughUpgradeButton.GetComponentInChildren<Text>();
+            bullBarUpgradeButton = VoxelMenuUi.CreateButton(weaponUpgradePanel.transform, "Bull Bar Purchase Button", string.Empty, 30,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 100), () => BeginUpgradePlacement(VoxelGarageUpgradeKind.BullBar));
             BuildMissileShop(weaponUpgradePanel.transform);
             BuildUpgradeScroll(weaponUpgradePanel.transform);
 
@@ -430,7 +430,6 @@ namespace VoxelRacer
             RefreshArmorShop();
             RefreshWheelSpikeShop();
             RefreshEngineShop();
-            RefreshPloughShop();
             RefreshMissileShop();
             RefreshBoostShop();
             RefreshNextMission();

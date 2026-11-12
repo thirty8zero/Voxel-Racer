@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: LongBarrelHoodGunTuning
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelGunTuning
   displayName: THUMP CANNONS
+  description: 
   visualPrefab: {fileID: 4125248041604159245, guid: a424565e8cb5851408940778327aa5aa, type: 3}
   compatibleCarPrefab: {fileID: 0}
   upgradeLevel: 1

@@ -38,7 +38,8 @@ namespace VoxelRacer
             VoxelPerformanceWheelUpgradeState.GrantForDevelopment(Ranked<VoxelPerformanceWheelTuning>("Upgrades",
                 t => t.Fits(definition), t => t.upgradeLevel).FirstOrDefault(), definition);
             VoxelEngineUpgradeState.GrantForDevelopment(VoxelEngineUpgradeTuning.Load(), definition);
-            VoxelPloughUpgradeState.GrantForDevelopment(VoxelPloughTuning.Load(), definition);
+            VoxelPloughUpgradeState.GrantForDevelopment(Ranked<VoxelPloughTuning>("Upgrades",
+                t => t.Fits(definition), t => t.upgradeLevel).FirstOrDefault(), definition);
             VoxelUnderbodyArmorUpgradeState.GrantForDevelopment(VoxelUnderbodyArmorTuning.Load(), definition);
             VoxelMissileUpgradeState.GrantForDevelopment(VoxelMissileLauncherTuning.Load(), definition);
 
