@@ -9,6 +9,8 @@ namespace VoxelRacer
     {
         public int ClumpCount { get; private set; }
         private Mesh generatedMesh;
+        private Vector3[] straightVertices, straightNormals, curvedVertices, curvedNormals;
+        private List<Vector3> straightPivots, curvedPivots;
         private struct Card
         {
             public Vector3[] vertices, normals;
@@ -85,6 +87,52 @@ namespace VoxelRacer
             renderer.lightProbeUsage = LightProbeUsage.Off; renderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
             renderer.SetPropertyBlock(tuning.DrawProperties());
         }
+
+        internal void UpdateOpeningGeometry(float start, System.Func<float, VoxelTrackPose> sample, bool finished)
+        {
+            if (straightVertices == null)
+            {
+                straightVertices = generatedMesh.vertices;
+                straightNormals = generatedMesh.normals;
+                curvedVertices = new Vector3[straightVertices.Length];
+                curvedNormals = new Vector3[straightVertices.Length];
+                straightPivots = new List<Vector3>(straightVertices.Length);
+                generatedMesh.GetUVs(1, straightPivots);
+                curvedPivots = new List<Vector3>(straightPivots);
+                generatedMesh.MarkDynamic();
+            }
+
+            Matrix4x4 world = transform.localToWorldMatrix;
+            Matrix4x4 local = transform.worldToLocalMatrix;
+            Vector3 previousPivot = Vector3.zero;
+            Matrix4x4 moved = Matrix4x4.identity;
+            for (int i = 0; i < straightVertices.Length; i++)
+            {
+                Vector3 pivot = straightPivots[i];
+                if (i == 0 || pivot != previousPivot)
+                {
+                    Vector3 origin = world.MultiplyPoint3x4(pivot);
+                    VoxelTrackPose pose = sample(origin.z - start);
+                    Vector3 position = pose.position + pose.right * origin.x + Vector3.up * origin.y;
+                    moved = local * Matrix4x4.TRS(position, pose.rotation, Vector3.one) *
+                        Matrix4x4.Translate(-origin) * world;
+                    previousPivot = pivot;
+                }
+                curvedVertices[i] = moved.MultiplyPoint3x4(straightVertices[i]);
+                curvedNormals[i] = moved.MultiplyVector(straightNormals[i]);
+                curvedPivots[i] = moved.MultiplyPoint3x4(pivot);
+            }
+            generatedMesh.SetVertices(curvedVertices);
+            generatedMesh.SetNormals(curvedNormals);
+            generatedMesh.SetUVs(1, curvedPivots);
+            generatedMesh.RecalculateBounds();
+            if (!finished)
+                return;
+
+            straightVertices = straightNormals = curvedVertices = curvedNormals = null;
+            straightPivots = curvedPivots = null;
+        }
+
         private void OnDestroy()
         {
             if (generatedMesh == null) return;

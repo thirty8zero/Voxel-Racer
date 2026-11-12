@@ -103,6 +103,7 @@ namespace VoxelRacer
         }
 
         private bool CanUseDeveloperActions => paused && devPage != null && devPage.activeSelf &&
+            GetComponent<VoxelCarrierIntro>() == null &&
             !VoxelLoadingScreen.IsLoading && target != null && target.isActiveAndEnabled && !target.IsDestroyed &&
             !VoxelPlayerDeathScreen.IsShowing && VoxelMissionProgress.Active?.IsComplete != true &&
             VoxelMissionProgress.Active?.IsFailed != true;

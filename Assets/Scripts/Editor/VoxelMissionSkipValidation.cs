@@ -112,6 +112,7 @@ namespace VoxelRacer.Editor
                         VoxelMissionBriefing.Active.Accept();
                         return;
                     }
+                    if (Object.FindFirstObjectByType<VoxelCarrierIntro>() != null) return;
                     var pause = VoxelPauseMenu.Active;
                     Check(pause != null && VoxelRacerBootstrap.ActiveTrack == sequence.tracks[skippedIndex], "Wrong race loaded.");
                     var car = (VoxelCarController)typeof(VoxelPauseMenu).GetField("target", Private).GetValue(pause);
@@ -168,11 +169,6 @@ namespace VoxelRacer.Editor
                         sequence.tracks[skippedIndex].missionTuning.repairCostPerPixel), "Garage used the wrong mission's repair price.");
                     garage.NextRaceButton.onClick.Invoke();
                     garage.NextRaceButton.onClick.Invoke();
-                    Check(VoxelMissionBriefing.IsShowing && VoxelMissionBriefing.Active.Track == sequence.tracks[nextIndex] &&
-                        VoxelTrackProgressState.CurrentTrackIndex == skippedIndex,
-                        "Garage opened the wrong briefing or advanced before it was accepted.");
-                    VoxelMissionBriefing.Active.Accept();
-                    garage.NextRaceButton.onClick.Invoke();
                     Check(VoxelLoadingScreen.IsLoading && VoxelTrackProgressState.CurrentTrackIndex == nextIndex,
                         "Garage failed to advance exactly once.");
                     phaseStarted = Time.realtimeSinceStartupAsDouble; phase = 3;
@@ -181,6 +177,8 @@ namespace VoxelRacer.Editor
                 {
                     Check(VoxelRacerBootstrap.ActiveTrack == sequence.tracks[nextIndex] && VoxelTrackProgressState.CurrentTrackIndex == nextIndex,
                         "Next race used the wrong track.");
+                    Check(VoxelMissionBriefing.IsShowing && VoxelMissionBriefing.Active.Track == sequence.tracks[nextIndex],
+                        "Next race displayed the wrong briefing.");
                     Check(VoxelCurrencyState.Balance == wallet && VoxelGunUpgradeState.IsPurchased(1) && VoxelCarRunState.MissingVoxelCount == 5,
                         "Next race lost run state.");
                     if (testCase == 0)

@@ -6,8 +6,7 @@ namespace VoxelRacer
 {
     public sealed partial class VoxelDistantScenery
     {
-        private readonly Dictionary<Vector2Int, List<Prop>> horizonTiles = new();
-        private readonly Dictionary<Vector2Int, Bounds> horizonTileBounds = new();
+        private Dictionary<Vector2Int, Tile> horizonTiles = new();
         private readonly HashSet<Vector2Int> horizonWanted = new();
         private readonly Dictionary<Mesh, List<Matrix4x4>> horizonBatches = new();
         private MaterialPropertyBlock horizonFoliageProperties;
@@ -19,50 +18,40 @@ namespace VoxelRacer
         public int VisibleHorizonClumpCount { get; private set; }
         public int VisibleHorizonBatchCount { get; private set; }
 
-        private void PrepareHorizonFoliage(Camera camera, VoxelScenerySet set)
+        private bool HasHorizonFoliage(VoxelDesertFoliageTuning foliage) =>
+            road.horizonRoadEnabled && foliage != null && foliage.enabled &&
+            foliage.horizonGroundCoverEnabled && foliage.horizonClumpsPerTile > 0 &&
+            foliage.material != null && foliage.variants != null && foliage.variants.Length > 0;
+
+        private void PrepareHorizonFoliage(Camera camera, VoxelScenerySet set, uint pathRevision)
         {
             var foliage = set.groundCover;
-            if (!road.horizonRoadEnabled || foliage == null || !foliage.enabled ||
-                !foliage.horizonGroundCoverEnabled || foliage.horizonClumpsPerTile <= 0 ||
-                foliage.material == null || foliage.variants == null || foliage.variants.Length == 0)
+            if (!HasHorizonFoliage(foliage))
             { ClearHorizonFoliage(); return; }
 
             // A strip along the actual path, rather than expanding the expensive
             // 3D scenery's square tile cache to the whole horizon radius.
             float coverage = road.horizonRoadDistance;
-            float focus = Mathf.Floor(road.SceneryTrackDistance / TileSize) * TileSize;
+            float focus = HorizonTileFocus(road.SceneryTrackDistance);
             bool changed = foliage != horizonFoliage || foliage.Revision != horizonRevision ||
                 coverage != horizonCoverage || road.roadWidth != horizonRoadWidth ||
-                road.turnSeed != horizonSeed || road.PathRevision != horizonPathRevision || foliage.horizonClumpsPerTile != horizonDensity;
-            if (changed) { horizonTiles.Clear(); horizonTileBounds.Clear(); }
+                road.turnSeed != horizonSeed || pathRevision != horizonPathRevision || foliage.horizonClumpsPerTile != horizonDensity;
+            if (changed) horizonTiles.Clear();
             if (changed || focus != horizonFocus)
             {
-                horizonWanted.Clear();
-                const float halfStrip = 144f;
-                // Include rear coverage for the finish/orbit camera, too.
-                for (float distance = focus - coverage; distance <= focus + coverage + TileSize; distance += TileSize * .5f)
-                {
-                    var pose = road.Evaluate(distance);
-                    for (float side = -halfStrip; side <= halfStrip; side += TileSize * .5f)
-                    {
-                        Vector3 position = pose.position + pose.right * side;
-                        horizonWanted.Add(new Vector2Int(Mathf.FloorToInt(position.x / TileSize), Mathf.FloorToInt(position.z / TileSize)));
-                    }
-                }
+                CollectHorizonTiles(horizonWanted, focus, coverage, road.Evaluate);
                 expired.Clear();
                 foreach (var key in horizonTiles.Keys) if (!horizonWanted.Contains(key)) expired.Add(key);
-                foreach (var key in expired) { horizonTiles.Remove(key); horizonTileBounds.Remove(key); }
+                foreach (var key in expired) horizonTiles.Remove(key);
                 // A continuous road clearance check also covers bends at tile joins.
-                roadSamples.Clear();
-                for (float distance = focus - coverage - 64; distance <= focus + coverage + 64; distance += 4)
-                    roadSamples.Add(road.Evaluate(distance).position);
+                roadSamples.Capture(focus, coverage + 64, road.Evaluate);
                 foreach (var key in horizonWanted)
-                    if (!horizonTiles.ContainsKey(key)) horizonTiles.Add(key, BuildHorizonTile(key, foliage));
+                    if (!horizonTiles.ContainsKey(key)) horizonTiles.Add(key, BuildHorizonTile(key, foliage, roadSamples));
                 horizonFoliage = foliage; horizonRevision = foliage.Revision; horizonCoverage = coverage;
                 horizonRoadWidth = road.roadWidth; horizonSeed = road.turnSeed; horizonDensity = foliage.horizonClumpsPerTile; horizonFocus = focus;
-                horizonPathRevision = road.PathRevision;
+                horizonPathRevision = pathRevision;
                 CachedHorizonClumpCount = 0;
-                foreach (var tile in horizonTiles.Values) CachedHorizonClumpCount += tile.Count;
+                foreach (var tile in horizonTiles.Values) CachedHorizonClumpCount += tile.Props.Count;
                 horizonFoliageProperties = foliage.DrawProperties();
                 horizonFoliageProperties.SetFloat("_FadeInStart", foliage.fadeStartDistance);
                 horizonFoliageProperties.SetFloat("_FadeInEnd", foliage.drawDistance);
@@ -73,10 +62,10 @@ namespace VoxelRacer
             VisibleHorizonClumpCount = VisibleHorizonBatchCount = 0;
             float near = Mathf.Max(0, foliage.fadeStartDistance - 8);
             float far = Mathf.Min(camera.farClipPlane, coverage * .95f);
-            foreach (var tile in horizonTiles)
+            foreach (var tile in horizonTiles.Values)
             {
-                if (tile.Value.Count == 0 || !GeometryUtility.TestPlanesAABB(planes, horizonTileBounds[tile.Key])) continue;
-                foreach (var prop in tile.Value)
+                if (tile.Props.Count == 0 || !GeometryUtility.TestPlanesAABB(planes, tile.Bounds)) continue;
+                foreach (var prop in tile.Props)
                 {
                     float distance = (prop.bounds.center - camera.transform.position).sqrMagnitude;
                     if (distance < near * near || distance > far * far || !GeometryUtility.TestPlanesAABB(planes, prop.bounds)) continue;
@@ -88,7 +77,26 @@ namespace VoxelRacer
             foreach (var batch in horizonBatches.Values) if (batch.Count > 0) VisibleHorizonBatchCount++;
         }
 
-        private List<Prop> BuildHorizonTile(Vector2Int key, VoxelDesertFoliageTuning foliage)
+        private static float HorizonTileFocus(float distance) => Mathf.Floor(distance / TileSize) * TileSize;
+
+        private static void CollectHorizonTiles(HashSet<Vector2Int> wanted, float focus, float coverage,
+            System.Func<float, VoxelTrackPose> evaluate)
+        {
+            wanted.Clear();
+            const float halfStrip = 144f;
+            // Include rear coverage for the finish/orbit camera, too.
+            for (float distance = focus - coverage; distance <= focus + coverage + TileSize; distance += TileSize * .5f)
+            {
+                var pose = evaluate(distance);
+                for (float side = -halfStrip; side <= halfStrip; side += TileSize * .5f)
+                {
+                    Vector3 position = pose.position + pose.right * side;
+                    wanted.Add(new Vector2Int(Mathf.FloorToInt(position.x / TileSize), Mathf.FloorToInt(position.z / TileSize)));
+                }
+            }
+        }
+
+        private Tile BuildHorizonTile(Vector2Int key, VoxelDesertFoliageTuning foliage, RoadSamples samples)
         {
             var result = new List<Prop>(foliage.horizonClumpsPerTile);
             var random = new System.Random(unchecked(key.x * 73856093 ^ key.y * 19349663 ^ foliage.seed));
@@ -102,18 +110,13 @@ namespace VoxelRacer
                 Vector3 position = new((key.x + Next()) * TileSize, 0, (key.y + Next()) * TileSize);
                 if (Next() > foliage.Density(position)) continue;
                 float clearance = road.roadWidth * .5f + foliage.roadClearance + footprint + 2;
-                bool blocked = false;
-                foreach (var sample in roadSamples)
-                    if ((sample - position).sqrMagnitude < clearance * clearance) { blocked = true; break; }
-                if (blocked) continue;
+                if (samples.WithinClearance(position, clearance)) continue;
                 var matrix = Matrix4x4.TRS(position, Quaternion.Euler(0, Next() * 360, 0), Vector3.one * scale);
                 result.Add(new Prop { mesh = mesh, matrix = matrix,
                     bounds = new Bounds(matrix.MultiplyPoint3x4(mesh.bounds.center), Vector3.one * mesh.bounds.size.magnitude * scale) });
             }
             var bounds = new Bounds(new Vector3((key.x + .5f) * TileSize, 0, (key.y + .5f) * TileSize), Vector3.zero);
-            foreach (var prop in result) bounds.Encapsulate(prop.bounds);
-            horizonTileBounds[key] = bounds;
-            return result;
+            return new Tile(result, bounds);
         }
 
         private void SubmitHorizonFoliage(Camera camera)
@@ -135,7 +138,7 @@ namespace VoxelRacer
 
         private void ClearHorizonFoliage()
         {
-            horizonTiles.Clear(); horizonTileBounds.Clear(); horizonWanted.Clear(); horizonBatches.Clear();
+            horizonTiles.Clear(); horizonWanted.Clear(); horizonBatches.Clear();
             horizonFoliage = null; horizonFocus = float.NaN;
             CachedHorizonClumpCount = VisibleHorizonClumpCount = VisibleHorizonBatchCount = 0;
         }

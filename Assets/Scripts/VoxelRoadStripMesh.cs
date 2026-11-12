@@ -3,12 +3,17 @@ using UnityEngine;
 
 namespace VoxelRacer
 {
-    /// <summary>A closed, static road strip sharing its sampled ends with adjacent strips/chunks.</summary>
+    /// <summary>A closed road strip sharing its sampled ends with adjacent strips/chunks.</summary>
     [ExecuteAlways]
     public sealed class VoxelRoadStripMesh : MonoBehaviour
     {
         [SerializeField, HideInInspector] private Mesh ownedMesh;
         [SerializeField, HideInInspector] private int meshOwnerId;
+        private Vector3[] openingVertices;
+        private Vector2[] openingOffsets;
+        private MeshCollider stripCollider;
+
+        internal int SliceCount => (ownedMesh.vertexCount - 8) / 16;
 
         public static GameObject Create(string name, Transform parent, VoxelTrackPose[] frames,
             float startDistance, float sliceLength, float left, float right, float bottom, float top, Material material)
@@ -53,6 +58,38 @@ namespace VoxelRacer
                 triangles.Add(first);triangles.Add(first+1);triangles.Add(first+2);
                 triangles.Add(first);triangles.Add(first+2);triangles.Add(first+3);
             }
+        }
+
+        internal void UpdateOpeningGeometry(VoxelTrackPose[] frames, float start, float length, bool finished)
+        {
+            if (openingVertices == null)
+            {
+                openingVertices = ownedMesh.vertices;
+                openingOffsets = ownedMesh.uv;
+                stripCollider = GetComponent<MeshCollider>();
+                // The affected strips are ahead of all vehicles. Cook collision once at the final shape.
+                stripCollider.sharedMesh = null;
+                ownedMesh.MarkDynamic();
+            }
+
+            Matrix4x4 local = transform.worldToLocalMatrix;
+            float framesPerMetre = (frames.Length - 1) / length;
+            for (int i = 0; i < openingVertices.Length; i++)
+            {
+                Vector2 offset = openingOffsets[i];
+                var pose = frames[Mathf.RoundToInt((offset.y - start) * framesPerMetre)];
+                float height = openingVertices[i].y;
+                openingVertices[i] = local.MultiplyPoint3x4(pose.position + pose.right * offset.x + Vector3.up * height);
+            }
+            ownedMesh.SetVertices(openingVertices);
+            ownedMesh.RecalculateNormals();
+            ownedMesh.RecalculateBounds();
+            if (!finished)
+                return;
+
+            stripCollider.sharedMesh = ownedMesh;
+            openingVertices = null;
+            openingOffsets = null;
         }
 
         private void OnDestroy()

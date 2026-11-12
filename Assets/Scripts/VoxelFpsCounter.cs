@@ -82,6 +82,11 @@ namespace VoxelRacer
         private void Update()
         {
             if (canvas == null) return;
+            if (VoxelStartCountdown.Active?.IsRollingOpening == true)
+            {
+                canvas.enabled = false;
+                return;
+            }
             waveLabel.enabled = ShowWaveDebug && VoxelObstacleSpawner.Active != null;
             canvas.enabled = ShowCounter || waveLabel.enabled;
             if (!canvas.enabled) return;

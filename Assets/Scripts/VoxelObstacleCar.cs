@@ -23,7 +23,9 @@ namespace VoxelRacer
         public float MaximumPhaseTravelSpeed => Mathf.Max(travelSpeed, Mathf.Max(spawnSpeed, Mathf.Max(approachSpeed, engageSpeed)));
         public float TrafficHalfLength => collisionHalfLength;
         public float TrafficHalfWidth => collisionHalfWidth;
-        public bool IsDrivingTraffic => !hasBeenHit;
+        public bool IsDrivingTraffic => !hasBeenHit && !IsLeavingMission;
+        internal bool IsLeavingMission => finishExit.Active;
+        private VoxelEnemyFinishExit finishExit;
         public const float TrafficGap = 1.5f;
         private static readonly List<VoxelObstacleCar> ActiveTraffic = new();
         private void OnEnable() { if(!ActiveTraffic.Contains(this)) ActiveTraffic.Add(this); }
@@ -120,6 +122,15 @@ namespace VoxelRacer
                 return;
             }
 
+            if (IsLeavingMission)
+            {
+                travelSpeed = finishExit.Advance(Time.deltaTime, trackDistance - target.TrackDistance, gameObject);
+                float signedSpeed = travelsWithPlayer ? travelSpeed : -travelSpeed;
+                trackDistance += signedSpeed * Time.deltaTime;
+                ApplyTrackPose();
+                RotateWheels(signedSpeed);
+                return;
+            }
             if (!hasBeenHit)
             {
                 float direction = travelsWithPlayer ? 1f : -1f;
@@ -162,6 +173,20 @@ namespace VoxelRacer
             int second = IsEnemyTraffic && EnemyTuning != null ? EnemyTuning.playerDamageVoxelsMax : tuning.playerDamageVoxelsMax;
             minimum = Mathf.Max(0, Mathf.Min(first, second));
             maximum = Mathf.Max(minimum, Mathf.Max(first, second));
+        }
+
+        internal void FinishMission()
+        {
+            if (!IsEnemyTraffic || !IsDrivingTraffic || EnemyTuning == null || target == null) return;
+            if (CurrentHealth < EnemyTuning.vehicleHealth)
+            {
+                DestroyFromWeaponHit(transform.position, transform.forward, false);
+                return;
+            }
+
+            finishExit.Begin(travelSpeed, target.EffectiveTopSpeed,
+                travelsWithPlayer && trackDistance >= target.CollisionTrackPosition.y);
+            if (TryGetComponent<VoxelMissileTarget>(out var missileTarget)) missileTarget.enabled = false;
         }
 
         private void HitCar(Vector3? sweptDirection = null)
@@ -239,7 +264,7 @@ namespace VoxelRacer
             direction.Normalize();
             foreach (var car in ActiveTraffic)
             {
-                if (car == null || car.hasBeenHit || !car.gameObject.activeInHierarchy) continue;
+                if (car == null || !car.IsDrivingTraffic || !car.gameObject.activeInHierarchy) continue;
                 if (car.projectileVoxels == null) car.CacheProjectileVoxels();
                 if (!car.projectileVoxels.MayIntersect(start, direction, Mathf.Min(distance, hitDistance))) continue;
                 foreach (var piece in car.projectileVoxels.Pieces)
@@ -275,7 +300,7 @@ namespace VoxelRacer
         private void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
             bool awardMissionPoints)
         {
-            if (hasBeenHit || EnemyTuning == null || damage <= 0f || (hitVoxel != null &&
+            if (!IsDrivingTraffic || EnemyTuning == null || damage <= 0f || (hitVoxel != null &&
                 (!hitVoxel.gameObject.activeInHierarchy || hitVoxel.GetComponentInParent<VoxelIndestructiblePart>() != null)))
                 return;
 

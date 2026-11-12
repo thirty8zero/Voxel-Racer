@@ -11,8 +11,17 @@ namespace VoxelRacer
 
         private readonly List<RendererState> renderers = new();
         private float elapsed;
-        private bool isFading;
-        public float Opacity => isFading ? Mathf.Clamp01(elapsed / Mathf.Max(.01f, duration)) : 1f;
+        private float fadeOutStart;
+        private bool isFading, fadingOut;
+        public float Opacity
+        {
+            get
+            {
+                if (!isFading) return 1f;
+                float progress = Mathf.Clamp01(elapsed / Mathf.Max(.01f, duration));
+                return fadingOut ? fadeOutStart * (1f - progress) : progress;
+            }
+        }
         private static readonly Dictionary<Material, SharedFadeMaterial> sharedFadeMaterials = new();
         private static readonly ProfilerMarker setupMarker = new ProfilerMarker("VoxelFadeIn.Setup");
 
@@ -52,8 +61,22 @@ namespace VoxelRacer
             RestoreOpaqueMaterials();
             CacheRenderers();
             elapsed = 0f;
+            fadingOut = false;
             isFading = renderers.Count > 0;
             SetAlpha(0f);
+        }
+
+        internal static void FadeOutAndDestroy(GameObject owner, float seconds)
+        {
+            var effect = owner.GetComponent<VoxelFadeIn>();
+            float opacity = effect != null ? effect.Opacity : 1f;
+            if (effect == null) effect = owner.AddComponent<VoxelFadeIn>();
+            if (!effect.isFading) effect.CacheRenderers();
+            effect.fadingOut = effect.isFading = true;
+            effect.fadeOutStart = opacity;
+            effect.duration = seconds;
+            effect.elapsed = 0f;
+            effect.SetAlpha(opacity);
         }
 
         private void Update()
@@ -62,10 +85,14 @@ namespace VoxelRacer
                 return;
 
             elapsed += Time.deltaTime;
-            float alpha = Mathf.Clamp01(elapsed / duration);
-            SetAlpha(alpha);
-            if (alpha >= 1f)
+            SetAlpha(Opacity);
+            if (elapsed >= duration)
             {
+                if (fadingOut)
+                {
+                    Destroy(gameObject);
+                    return;
+                }
                 RestoreOpaqueMaterials();
                 isFading = false;
             }

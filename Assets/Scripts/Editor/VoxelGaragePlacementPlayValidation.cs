@@ -414,11 +414,11 @@ namespace VoxelRacer.Editor
                         warning.GetComponentsInChildren<Button>().First(b=>b.name=="Start Mission Without Parts").onClick.Invoke();
                         break;
                     case 15:
+                        if (VoxelLoadingScreen.IsLoading) return;
                         Check(VoxelMissionBriefing.IsShowing, "Starting without pending parts did not open the mission briefing");
                         VoxelMissionBriefing.Active.GetComponentsInChildren<Button>().First(b => b.name == "Start Mission").onClick.Invoke();
                         break;
                     case 16:
-                        if (VoxelLoadingScreen.IsLoading) return;
                         Check(SceneManager.GetActiveScene().name==missionScene && VoxelTrackProgressState.CurrentTrackIndex==missionIndex,"Start Mission did not advance and load the mission");
                         Check(!VoxelPloughUpgradeState.IsPurchased && VoxelCurrencyState.Balance==departureBalance,"Starting without pending parts bought them or spent cash");
                         Check(Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).All(t=>t.name!="Temporary Upgrade Placement"),"Unpurchased preview leaked into the mission");

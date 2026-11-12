@@ -3,9 +3,10 @@ using UnityEngine.UI;
 
 namespace VoxelRacer
 {
-    /// <summary>Holds the player at the mission start, then presents a short race countdown.</summary>
+    /// <summary>Shares the three-count and race gates between stationary and rolling mission starts.</summary>
     public sealed class VoxelStartCountdown : MonoBehaviour
     {
+        internal const float Duration = 3f;
         public static VoxelStartCountdown Active { get; private set; }
         public VoxelCarController target;
 
@@ -18,23 +19,26 @@ namespace VoxelRacer
         private bool started;
         private bool prepared;
         private bool waitingForLoadingScreen;
+        private bool rollingOpening;
         private CanvasGroup openingFade;
         private string trackDisplayName;
         private bool isBossMission;
         private GUIStyle numberStyle;
         private GUIStyle trackStyle;
 
-        public bool IsComplete => started && Time.time - countdownStartedAt >= 3f;
+        public bool IsComplete => started && Time.time - countdownStartedAt >= Duration;
 
-        public bool HasReachedFinalCount => started && Time.time - countdownStartedAt >= 2f;
+        public bool HasReachedFinalCount => started && Time.time - countdownStartedAt >= Duration - 1f;
+        internal float CountdownElapsed => started ? Time.time - countdownStartedAt : 0f;
+        internal bool IsRollingOpening => rollingOpening && !IsComplete;
 
-        /// <summary>Traffic may enter during the final displayed "1" second so it is present when driving begins.</summary>
-        public bool IsTrafficSpawnWindowOpen => HasReachedFinalCount;
+        /// <summary>Keep the carrier opening empty through the countdown. Stationary starts prewarm traffic at 1.</summary>
+        public bool IsTrafficSpawnWindowOpen => rollingOpening ? IsComplete : HasReachedFinalCount;
 
         /// <summary>Gameplay HUD fades in during the one-second launch cue.</summary>
         public float GameplayHudAlpha => !started
             ? 0f
-            : Mathf.Clamp01(Time.time - countdownStartedAt - 3f);
+            : Mathf.Clamp01(Time.time - countdownStartedAt - Duration);
 
         public static float CurrentGameplayHudAlpha => Active == null ? 1f : Active.GameplayHudAlpha;
 
@@ -54,6 +58,7 @@ namespace VoxelRacer
             target.SetDrivingEnabled(false);
             prepared = true;
             started = false;
+            rollingOpening = false;
             waitingForLoadingScreen = false;
         }
 
@@ -63,6 +68,7 @@ namespace VoxelRacer
                 return;
 
             target.SetDrivingEnabled(false);
+            rollingOpening = false;
             EnsureOpeningFade();
             openingFade.gameObject.SetActive(true);
             openingFade.alpha = 1f;
@@ -75,6 +81,15 @@ namespace VoxelRacer
             waitingForLoadingScreen = false;
             openingStartedAt = Time.time;
             countdownStartedAt = openingStartedAt + blackScreenDuration + fadeInDuration;
+            started = true;
+        }
+
+        internal void PrepareRollingOpening() => rollingOpening = true;
+
+        internal void BeginRollingCountdown()
+        {
+            waitingForLoadingScreen = false;
+            countdownStartedAt = Time.time;
             started = true;
         }
 
@@ -173,7 +188,7 @@ namespace VoxelRacer
             if (elapsed >= 4f)
                 return;
 
-            string text = elapsed < 1f ? "3" : elapsed < 2f ? "2" : elapsed < 3f ? "1" : "HUNT!";
+            string text = elapsed < 1f ? "3" : elapsed < Duration - 1f ? "2" : elapsed < Duration ? "1" : "HUNT!";
             numberStyle ??= new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
@@ -184,7 +199,7 @@ namespace VoxelRacer
             trackStyle ??= new GUIStyle(numberStyle);
             float scale = Screen.height / 1080f;
             float numberTop = Screen.height * 0.22f;
-            numberStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt((elapsed < 3f ? 144f : 114f) * scale));
+            numberStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt((elapsed < Duration ? 144f : 114f) * scale));
             DrawOutlinedLabel(new Rect(0f, numberTop, Screen.width, 160f * scale), text,
                 numberStyle, 4f * scale, 1f, Color.white);
 

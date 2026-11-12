@@ -52,7 +52,11 @@ namespace VoxelRacer
             public Vector3 startPosition;
             public float startHeading;
             public float turnAngle;
+            public float openingTurnAngle;
+            public Vector3 openingStartPosition;
+            public float openingStartHeading;
             public Transform visual;
+            public OpeningSegmentVisual openingVisual;
             public float EndDistance(float length) => startDistance + length;
         }
 
@@ -68,6 +72,9 @@ namespace VoxelRacer
         private bool rebuildQueued;
         private bool editorRebuildQueued;
         private bool recyclingSuspended;
+        private bool keepFinishRearCoverage;
+        private float? finishSceneryDistance;
+        private bool straightOpening;
         private bool hasRandomizedTurnSeedForRun;
         private int randomizedTurnSeedForRun;
 
@@ -110,8 +117,35 @@ namespace VoxelRacer
                 gameObject.AddComponent<VoxelDistantScenery>();
         }
 
-        internal float SceneryTrackDistance => targetController != null ? targetController.TrackDistance : 0;
+        internal float SceneryTrackDistance => finishSceneryDistance ??
+            (targetController != null ? targetController.TrackDistance : 0f);
+        internal void SetFinishSceneryDistance(float distance)
+        {
+            finishSceneryDistance = distance;
+            keepFinishRearCoverage = false;
+        }
         internal uint PathRevision { get; private set; }
+
+        internal void BeginStraightOpening() => straightOpening = true;
+
+        internal void EndStraightOpening()
+        {
+            if (!straightOpening)
+                return;
+
+            straightOpening = false;
+            // Keep every road chunk the player has already driven on or seen up close.
+            // The horizon is rebuilt from that same boundary with the authored turns.
+            if (visibleSegments.Count == 0)
+                return;
+            int keep = visibleSegments[^1].index + 1;
+            if (pathSegments.Count > keep)
+                pathSegments.RemoveRange(keep, pathSegments.Count - keep);
+            straightSegmentsSinceTurn = minimumStraightSegmentsBetweenTurns;
+            PathRevision++;
+            horizonStart = float.NaN;
+            RefreshHorizonRoad();
+        }
 
         public void SetTuning(VoxelRoadTuning value)
         {
@@ -143,6 +177,7 @@ namespace VoxelRacer
                 : turnSeed;
             turnRandom = new System.Random(seedForThisBuild);
             straightSegmentsSinceTurn = minimumStraightSegmentsBetweenTurns;
+            openingTargetHeading = 0f;
             for (int index = 0; index < Mathf.Max(3, segmentCount); index++)
                 AppendSegment(true);
             CaptureAppliedValues();
@@ -183,7 +218,9 @@ namespace VoxelRacer
                 AppendSegment(false);
         }
 
-        public VoxelTrackPose Evaluate(float distance)
+        public VoxelTrackPose Evaluate(float distance) => Evaluate(distance, false);
+
+        private VoxelTrackPose Evaluate(float distance, bool openingTarget)
         {
             EnsurePathCovers(distance + segmentLength);
             if (pathSegments.Count == 0)
@@ -194,7 +231,10 @@ namespace VoxelRacer
 
             int index = Mathf.Clamp(Mathf.FloorToInt((distance - first.startDistance) / Mathf.Max(0.01f, segmentLength)), 0, pathSegments.Count - 1);
             RoadSegment segment = pathSegments[index];
-            return EvaluateSegment(segment, Mathf.Clamp(distance - segment.startDistance, 0f, segmentLength));
+            float localDistance = Mathf.Clamp(distance - segment.startDistance, 0f, segmentLength);
+            return openingTarget && openingTurnIndex >= 0 && index >= openingTurnIndex
+                ? EvaluateArc(segment.openingStartPosition, segment.openingStartHeading, segment.openingTurnAngle, localDistance)
+                : EvaluateSegment(segment, localDistance);
         }
 
         public float FindClosestDistance(Vector3 worldPosition)
@@ -323,12 +363,15 @@ namespace VoxelRacer
             if (recyclingSuspended)
                 return;
 
-            while (visibleSegments.Count > 0 && targetController.TrackDistance > visibleSegments[0].EndDistance(segmentLength) + recycleBehindDistance)
+            float behind = keepFinishRearCoverage ? Mathf.Max(recycleBehindDistance, finishRoadBehindDistance) : recycleBehindDistance;
+            while (visibleSegments.Count > 0 && SceneryTrackDistance > visibleSegments[0].EndDistance(segmentLength) + behind)
             {
                 RoadSegment oldest = visibleSegments[0];
                 visibleSegments.RemoveAt(0);
                 if (oldest.visual != null)
                     Destroy(oldest.visual.gameObject);
+                if (!keepFinishRearCoverage && visibleSegments.Count >= Mathf.Max(3, segmentCount))
+                    break;
                 int nextIndex = visibleSegments.Count > 0 ? visibleSegments[^1].index + 1 : oldest.index + 1;
                 EnsurePathCovers(pathSegments[0].startDistance + (nextIndex + 1) * segmentLength);
                 RoadSegment next = pathSegments[Mathf.Clamp(nextIndex, 0, pathSegments.Count - 1)];
@@ -338,13 +381,14 @@ namespace VoxelRacer
             RefreshHorizonRoad();
         }
 
-        /// <summary>Restores recently recycled road only for the finish shot, then freezes recycling.</summary>
-        public void PreserveRoadForFinish()
+        /// <summary>Restores recently recycled road for the rear-facing finish shot.</summary>
+        public void PreserveRoadForFinish(bool moving = false)
         {
             if (!Application.isPlaying || targetController == null)
                 return;
 
-            recyclingSuspended = true;
+            recyclingSuspended = !moving;
+            keepFinishRearCoverage = moving;
             float minimumDistance = targetController.TrackDistance - Mathf.Max(0f, finishRoadBehindDistance);
             foreach (RoadSegment segment in pathSegments)
             {
@@ -407,7 +451,13 @@ namespace VoxelRacer
                 segment.startPosition = end.position;
                 segment.startHeading = previous.startHeading + previous.turnAngle;
             }
-            segment.turnAngle = ChooseTurnAngle(segment);
+            if (!straightOpening)
+                segment.turnAngle = ChooseTurnAngle(index, segment.startHeading);
+            else if (openingTurnIndex >= 0 && index >= openingTurnIndex)
+            {
+                PlanOpeningTurn(segment);
+                segment.turnAngle = segment.openingTurnAngle * openingTurnBlend;
+            }
             pathSegments.Add(segment);
             if (buildVisual)
             {
@@ -416,18 +466,18 @@ namespace VoxelRacer
             }
         }
 
-        private float ChooseTurnAngle(RoadSegment segment)
+        private float ChooseTurnAngle(int index, float startHeading)
         {
-            if (segment.index < 3 || straightSegmentsSinceTurn < minimumStraightSegmentsBetweenTurns || turnRandom.NextDouble() > turnChancePerSegment)
+            if (index < 3 || straightSegmentsSinceTurn < minimumStraightSegmentsBetweenTurns || turnRandom.NextDouble() > turnChancePerSegment)
             {
                 straightSegmentsSinceTurn++;
                 return 0f;
             }
             float magnitude = Mathf.Lerp(minimumTurnAngle, maximumTurnAngle, (float)turnRandom.NextDouble());
             float candidate = (turnRandom.NextDouble() < 0.5 ? -1f : 1f) * magnitude;
-            if (Mathf.Abs(segment.startHeading + candidate) > maximumTrackHeading)
+            if (Mathf.Abs(startHeading + candidate) > maximumTrackHeading)
                 candidate = -candidate;
-            if (Mathf.Abs(segment.startHeading + candidate) > maximumTrackHeading)
+            if (Mathf.Abs(startHeading + candidate) > maximumTrackHeading)
             {
                 straightSegmentsSinceTurn++;
                 return 0f;
@@ -436,17 +486,22 @@ namespace VoxelRacer
             return candidate;
         }
 
-        private VoxelTrackPose EvaluateSegment(RoadSegment segment, float localDistance)
+        private VoxelTrackPose EvaluateSegment(RoadSegment segment, float localDistance) =>
+            EvaluateArc(segment.startPosition, segment.startHeading, segment.turnAngle, localDistance);
+
+        private VoxelTrackPose EvaluateArc(Vector3 startPosition, float startHeading, float turnAngle, float localDistance)
         {
             float distance = Mathf.Clamp(localDistance, 0f, segmentLength);
-            if (Mathf.Abs(segment.turnAngle) < 0.001f)
-                return new VoxelTrackPose(segment.startPosition + HeadingForward(segment.startHeading) * distance, segment.startHeading);
-            float curvature = segment.turnAngle * Mathf.Deg2Rad / segmentLength;
-            float startRadians = segment.startHeading * Mathf.Deg2Rad;
-            float headingRadians = startRadians + curvature * distance;
-            Vector3 position = segment.startPosition + new Vector3(
-                (Mathf.Cos(startRadians) - Mathf.Cos(headingRadians)) / curvature, 0f,
-                (Mathf.Sin(headingRadians) - Mathf.Sin(startRadians)) / curvature);
+            if (Mathf.Abs(turnAngle) < 0.001f)
+                return new VoxelTrackPose(startPosition + HeadingForward(startHeading) * distance, startHeading);
+            float curvature = turnAngle * Mathf.Deg2Rad / segmentLength;
+            float startRadians = startHeading * Mathf.Deg2Rad;
+            float halfTurn = curvature * distance * .5f;
+            float headingRadians = startRadians + halfTurn * 2f;
+            // Chord form stays stable while a countdown turn is still close to straight.
+            float chord = Mathf.Abs(halfTurn) < .0001f ? distance : distance * Mathf.Sin(halfTurn) / halfTurn;
+            float middle = startRadians + halfTurn;
+            Vector3 position = startPosition + new Vector3(Mathf.Sin(middle), 0f, Mathf.Cos(middle)) * chord;
             return new VoxelTrackPose(position, headingRadians * Mathf.Rad2Deg);
         }
 
@@ -454,9 +509,16 @@ namespace VoxelRacer
 
         private Transform CreateSegmentVisual(RoadSegment data)
         {
+            RoadSegment path = data;
+            bool blending = openingTurnIndex >= 0 && data.index >= openingTurnIndex && openingTurnBlend > 0f;
+            if (blending)
+                data = new RoadSegment { startDistance = data.startDistance, startPosition = Vector3.forward * data.startDistance };
+
             var segment = new GameObject("Road Segment").transform;
             segment.SetParent(transform, false);
             int slices = Mathf.Abs(data.turnAngle) < 0.001f ? 1 : Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(data.turnAngle) / curveDegreesPerSlice));
+            if (straightOpening)
+                slices = Mathf.Max(slices, OpeningStripSlices);
             float sliceLength = segmentLength / slices;
             var frames = new VoxelTrackPose[slices + 1];
             for (int slice = 0; slice <= slices; slice++)
@@ -500,6 +562,11 @@ namespace VoxelRacer
             // chunks during the initial visual build, which would leave gaps in the road.
             VoxelDesertGroundCover.Build(segment, this, data.startDistance, distance => EvaluateSegment(data, distance));
             segment.gameObject.AddComponent<VoxelFadeIn>();
+            if (blending)
+            {
+                path.openingVisual = new OpeningSegmentVisual(segment);
+                path.openingVisual.Update(this, path, false);
+            }
             return segment;
         }
 
@@ -530,7 +597,7 @@ namespace VoxelRacer
         {
             if (continuousGround == null || target == null)
                 return;
-            Vector3 position = target.position;
+            Vector3 position = finishSceneryDistance.HasValue ? Evaluate(finishSceneryDistance.Value).position : target.position;
             position.y = -0.27f;
             continuousGround.position = position;
             continuousGround.rotation = Quaternion.identity;

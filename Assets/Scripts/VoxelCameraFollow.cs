@@ -4,6 +4,7 @@ namespace VoxelRacer
 {
     public sealed partial class VoxelCameraFollow : MonoBehaviour
     {
+        internal const float RaceFieldOfView = 58f;
         [Header("Camera Tuning")]
         public VoxelCameraTuning tuning;
 
@@ -45,10 +46,14 @@ namespace VoxelRacer
         private Quaternion destroyedCameraRotation;
         private Quaternion lastRoadHeading = Quaternion.identity, destroyedRoadHeading;
         private float deathSequenceElapsed, deathStartFieldOfView;
+        private VoxelCarrierIntro carrierIntro;
+        private VoxelCarrierRecovery carrierRecovery;
 
         private VoxelCameraTuning Tuning => tuning != null ? tuning : VoxelCameraTuning.Load();
 
         public void SetTuning(VoxelCameraTuning value) => tuning = value;
+        internal void SetCarrierIntro(VoxelCarrierIntro intro) => carrierIntro = intro;
+        internal void SetCarrierRecovery(VoxelCarrierRecovery recovery) => carrierRecovery = recovery;
 
         public void BeginFinishSequence(VoxelCarController car)
         {
@@ -102,6 +107,11 @@ namespace VoxelRacer
             if (finishSequenceActive)
             {
                 lastRoadHeading = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
+                if (carrierRecovery?.HasCamera == true)
+                {
+                    carrierRecovery.ApplyCamera(transform);
+                    return;
+                }
                 UpdateFinishSequence();
                 return;
             }
@@ -121,6 +131,8 @@ namespace VoxelRacer
             Vector3 lookForward = hasRoadHeading ? roadHeading * Vector3.forward : target.forward;
             Vector3 chaseLook = cameraTargetPosition + lookForward * chaseLookAhead + Vector3.up * .3f;
             transform.rotation = Quaternion.LookRotation(GetBossSideRamLookPoint(chaseLook, roadHeading) - transform.position);
+            if (carrierIntro != null)
+                carrierIntro.BlendCamera(transform);
             ApplyShake();
         }
 
@@ -210,7 +222,7 @@ namespace VoxelRacer
                 FinishSequenceComplete = true;
         }
 
-        private static Vector3 InterpolateOrbitOffset(Vector3 startOffset, Vector3 endOffset, float progress)
+        internal static Vector3 InterpolateOrbitOffset(Vector3 startOffset, Vector3 endOffset, float progress)
         {
             Vector3 startHorizontal = new Vector3(startOffset.x, 0f, startOffset.z);
             Vector3 endHorizontal = new Vector3(endOffset.x, 0f, endOffset.z);

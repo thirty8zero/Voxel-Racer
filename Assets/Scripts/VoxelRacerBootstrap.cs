@@ -74,6 +74,10 @@ namespace VoxelRacer
         public static void BuildPrototype(Transform root)
         {
             activeTrack = VoxelTrackProgressState.CurrentTrack;
+            bool runtimeMission = Application.isPlaying && root.gameObject.scene.buildIndex >= 0;
+            bool retry = runtimeMission && VoxelMissionBriefing.ConsumeStationaryRetry(activeTrack);
+            VoxelCarrierTruck carrier = runtimeMission && !retry
+                ? VoxelMissionBriefingSettings.Load()?.carrierTruck : null;
             CreateMaterials(activeTrack);
             var existing = root.Find("Generated Environment");
             if (existing != null)
@@ -87,11 +91,10 @@ namespace VoxelRacer
                     {
                         ConfigureCarTuning(existingCar);
                         ConfigureRoadTuning(existingRoad);
+                        if (carrier != null) existingRoad.BeginStraightOpening();
                         existingRoad.RebuildSegmentCache();
                         existingRoad.SetTarget(existingCar);
-                        SetupGameplay(existing, existingCar, existingRoad);
-                        SetupCamera(existingCar);
-                        SetupSky(existingCar, activeTrack);
+                        FinishRaceSetup(existing, existingCar, existingRoad, carrier, retry);
                     }
                     return;
                 }
@@ -110,22 +113,55 @@ namespace VoxelRacer
             generated.localScale = Vector3.one;
             generated.gameObject.AddComponent<VoxelRacerGeneratedEnvironment>();
 
-            var road = BuildRoad(generated);
+            var road = BuildRoad(generated, carrier != null);
             var car = BuildCar(generated);
             road.SetTarget(car);
             BuildFinishLine(generated, road);
-            SetupGameplay(generated, car, road);
-            SetupCamera(car);
-            SetupSky(car, activeTrack);
+            FinishRaceSetup(generated, car, road, carrier, retry);
         }
 
-        private static EndlessVoxelRoad BuildRoad(Transform parent)
+        private static EndlessVoxelRoad BuildRoad(Transform parent, bool straightOpening)
         {
             var road = parent.gameObject.AddComponent<EndlessVoxelRoad>();
             road.trackDefinition = activeTrack;
             ConfigureRoadTuning(road);
+            if (straightOpening) road.BeginStraightOpening();
             road.BuildInitialRoad();
             return road;
+        }
+
+        private static void FinishRaceSetup(Transform environment, Transform car, EndlessVoxelRoad road,
+            VoxelCarrierTruck carrier, bool retry)
+        {
+            SetupGameplay(environment, car, road);
+            var follow = SetupCamera(car);
+            SetupSky(car, activeTrack);
+            if (!Application.isPlaying)
+                return;
+
+            var countdown = environment.GetComponent<VoxelStartCountdown>();
+            var goBack = VoxelMissionBriefing.TakeRaceBackAction() ?? ReturnToMainMenu;
+            if (retry)
+            {
+                countdown.BeginCountdown();
+                return;
+            }
+
+            var intro = VoxelCarrierIntro.TryCreate(environment, carrier, countdown.target, road, countdown);
+            follow.SetCarrierIntro(intro);
+            if (intro != null)
+            {
+                VoxelMissionBriefing.Present(environment, activeTrack, intro.RequestStart, goBack, alongsideRace: true);
+                return;
+            }
+            road.EndStraightOpening();
+            VoxelMissionBriefing.Present(environment, activeTrack, countdown.BeginCountdown, goBack);
+        }
+
+        private static void ReturnToMainMenu()
+        {
+            int index = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/MainMenu.unity");
+            if (index >= 0) VoxelLoadingScreen.LoadScene(index);
         }
 
         private static void ConfigureRoadTuning(EndlessVoxelRoad road)
@@ -591,7 +627,7 @@ namespace VoxelRacer
             return block;
         }
 
-        private static void SetupCamera(Transform target)
+        private static VoxelCameraFollow SetupCamera(Transform target)
         {
             var camera = Camera.main;
             if (camera == null)
@@ -602,7 +638,7 @@ namespace VoxelRacer
 
             camera.transform.position = new Vector3(-10f, 11f, -16f);
             camera.transform.rotation = Quaternion.LookRotation(new Vector3(-1.5f, 0.3f, 10f) - camera.transform.position);
-            camera.fieldOfView = 58f;
+            camera.fieldOfView = VoxelCameraFollow.RaceFieldOfView;
             VoxelMobilePostProcessing.Configure(camera);
             camera.backgroundColor = new Color(0.48f, 0.75f, 0.92f);
 
@@ -611,6 +647,7 @@ namespace VoxelRacer
                 follow = camera.gameObject.AddComponent<VoxelCameraFollow>();
             follow.target = target;
             follow.SetTuning(VoxelCameraTuning.Load());
+            return follow;
         }
 
         private static void SetupGameplay(Transform environment, Transform car, EndlessVoxelRoad road)
@@ -728,16 +765,6 @@ namespace VoxelRacer
                 else
                     Object.DestroyImmediate(selectionScreen);
             }
-            if (Application.isPlaying)
-            {
-                if (VoxelMissionBriefing.ConsumeLaunch(activeTrack)) countdown.BeginCountdown();
-                else VoxelMissionBriefing.Present(environment, activeTrack, countdown.BeginCountdown, () =>
-                {
-                    int menuIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/MainMenu.unity");
-                    if (menuIndex >= 0) VoxelLoadingScreen.LoadScene(menuIndex);
-                });
-            }
-
         }
 
         private static void BuildFinishLine(Transform parent, EndlessVoxelRoad road)

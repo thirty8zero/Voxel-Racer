@@ -52,7 +52,16 @@ namespace VoxelRacer.Editor
                 Debug.Log($"Spy Car 2 bounds: {bounds}; axles {rear:F3}/{front:F3}; tyre bottom {ground:F3}, radius {radius:F3}.");
 
                 var model = BuildTruck();
+                var briefing = VoxelMissionBriefingSettings.Load();
+                bool refreshBriefingReference = briefing != null && briefing.carrierTruck != null &&
+                    AssetDatabase.GetAssetPath(briefing.carrierTruck) == PrefabPath;
                 var prefab = PrefabUtility.SaveAsPrefabAsset(model.gameObject, PrefabPath);
+                if (refreshBriefingReference)
+                {
+                    briefing.carrierTruck = prefab.GetComponent<VoxelCarrierTruck>();
+                    EditorUtility.SetDirty(briefing);
+                    AssetDatabase.SaveAssetIfDirty(briefing);
+                }
                 Object.DestroyImmediate(model.gameObject);
                 var truck = ((GameObject)PrefabUtility.InstantiatePrefab(prefab, scene)).GetComponent<VoxelCarrierTruck>();
                 Camera camera = BuildTestLot();
@@ -123,6 +132,24 @@ namespace VoxelRacer.Editor
 
             var truck = new GameObject("Carrier Truck").AddComponent<VoxelCarrierTruck>();
             var body = new Blocks(truck.transform, "Truck body");
+            var wheelModel = new Blocks(truck.transform, "Front right wheel");
+            BuildWheel(wheelModel, black, rubberLug, tread, steel);
+            wheelModel.Bake("Wheel");
+            var wheels = new Transform[6];
+            wheels[0] = PlaceWheel(wheelModel.Root, frontWheelOffset, frontAxle, false);
+            wheels[1] = PlaceWheel(Object.Instantiate(wheelModel.Root, truck.transform), -frontWheelOffset, frontAxle, true);
+            wheels[1].name = "Front left wheel";
+            for (int side = -1; side <= 1; side += 2)
+            {
+                string sideName = side < 0 ? "left" : "right";
+                var outerWheel = Object.Instantiate(wheelModel.Root, truck.transform);
+                var innerWheel = Object.Instantiate(wheelModel.Root, truck.transform);
+                outerWheel.name = $"Rear {sideName} outer wheel";
+                innerWheel.name = $"Rear {sideName} inner wheel";
+                int index = side < 0 ? 2 : 4;
+                wheels[index] = PlaceWheel(outerWheel, side * rearWheelOffset, rearAxle, side < 0);
+                wheels[index + 1] = PlaceWheel(innerWheel, side * (rearWheelOffset - .38f), rearAxle, side > 0);
+            }
             // Stretch the cab ahead of the box; translate the bonnet and front axle together.
             void CabBlock(Material material, float x, float y, float z, float w, float h, float d)
             {
@@ -186,9 +213,6 @@ namespace VoxelRacer.Editor
 
                 float rearWheelX = side * rearWheelOffset;
                 float frontWheelX = side * frontWheelOffset;
-                Wheel(body, black, rubberLug, tread, steel, rearWheelX, rearAxle, side);
-                Wheel(body, black, rubberLug, tread, steel, side * (rearWheelOffset - .38f), rearAxle, -side);
-                Wheel(body, black, rubberLug, tread, steel, frontWheelX, frontAxle, side);
                 body.Box(black, side * (rearWheelOffset - .19f), .50f, rearAxle - .60f, .74f, .82f, .052f);
                 body.Box(steel, rearWheelX, deck + .018f, rearAxle, .46f, .064f, 1.21f);
                 body.Box(panel, frontWheelX, 1.153f, frontAxle, .49f, .12f, .99f);
@@ -276,6 +300,7 @@ namespace VoxelRacer.Editor
             extension.Box(tread, 0, middleLength * .5f, -.05f, rampWidth, middleLength, .10f);
             var tip = new Blocks(extension.Root, "Sliding ramp tip");
             float tipWidth = rampWidth - .062f;
+            var sparkContacts = new Transform[2];
             tip.Box(tread, 0, (tipLength - .16f) * .5f, -.024f, tipWidth, tipLength - .16f, .048f);
             // Taper the last section under the driving face so it sits flush on the road.
             tip.Box(steel, 0, tipLength - .13f, -.017f, tipWidth, .099f, .034f);
@@ -291,6 +316,11 @@ namespace VoxelRacer.Editor
                 float tipEdge = side * (tipWidth * .5f - .036f);
                 tip.Box(steel, tipEdge, (tipLength - .35f) * .5f, -.029f, .065f, tipLength + .05f, .054f);
                 tip.Box(blue, tipEdge, (tipLength - .17f) * .5f, .006f, .025f, tipLength - .25f, .012f);
+                var contact = new GameObject(side < 0 ? "Left ramp contact" : "Right ramp contact").transform;
+                contact.SetParent(tip.Root, false);
+                contact.localPosition = new Vector3(tipEdge, tipLength - .025f, .019f);
+                contact.localRotation = Quaternion.LookRotation(new Vector3(side * .26f, 1f, .45f));
+                sparkContacts[side < 0 ? 0 : 1] = contact;
             }
             for (int rib = 1; rib <= 10; rib++)
                 door.Box(steel, 0, leaf * rib / 11f, .004f, rampWidth - .19f, .025f, .008f);
@@ -313,6 +343,7 @@ namespace VoxelRacer.Editor
             AddCollider(extension.Root, new Vector3(0f, middleLength * .5f, -.05f), new Vector3(rampWidth, middleLength, .10f));
             AddCollider(tip.Root, new Vector3(0f, tipLength * .5f, -.008f), new Vector3(tipWidth, tipLength, .016f));
             truck.Configure(door.Root, extension.Root, tip.Root, leaf, middleLength, tipLength, front, clearWidth, clearHeight);
+            truck.ConfigureRollingDetails(wheels, WheelRadius, sparkContacts);
             return truck;
         }
 
@@ -348,7 +379,7 @@ namespace VoxelRacer.Editor
         private static void BuildDriveline(Blocks body, Material black, Material metal, Material steel,
             float rearWheelOffset, float frontWheelOffset, float rear, float front)
         {
-            float hubY = TyreHalfRows.Length * WheelCell * .5f;
+            float hubY = WheelRadius;
             float gearbox = front - .44f;
             body.Box(metal, 0f, hubY, front, (frontWheelOffset + .07f) * 2f, .15f, .19f);
             body.Box(metal, 0f, hubY, rear, (rearWheelOffset + .07f) * 2f, .18f, .21f);
@@ -422,42 +453,48 @@ namespace VoxelRacer.Editor
         private const float WheelCell = .081f;
         private static readonly int[] TyreHalfRows = { 2, 4, 5, 5, 6, 6, 6, 6, 6, 5, 5, 4, 2 };
         private static readonly int[] RimHalfRows = { 1, 2, 3, 3, 3, 2, 1 };
+        private static float WheelRadius => TyreHalfRows.Length * WheelCell * .5f;
 
-        private static void Wheel(Blocks body, Material tyre, Material lug, Material recess, Material silver,
-            float x, float z, int side)
+        private static Transform PlaceWheel(Transform wheel, float x, float z, bool mirror)
+        {
+            wheel.localPosition = new Vector3(x, WheelRadius, z);
+            wheel.localScale = new Vector3(mirror ? -1f : 1f, 1f, 1f);
+            return wheel;
+        }
+
+        private static void BuildWheel(Blocks body, Material tyre, Material lug, Material recess, Material silver)
         {
             const float cell = WheelCell;
-            float hubY = TyreHalfRows.Length * cell * .5f;
             for (int row = 0; row < TyreHalfRows.Length; row++)
             {
-                float y = (row + .5f) * cell;
+                float y = (row + .5f) * cell - WheelRadius;
                 int halfRow = TyreHalfRows[row];
-                body.Box(tyre, x, y, z, .32f, cell, (2 * halfRow + 1) * cell - .012f);
+                body.Box(tyre, 0f, y, 0f, .32f, cell, (2 * halfRow + 1) * cell - .012f);
                 for (int edge = -1; edge <= 1; edge += 2)
                 {
-                    float edgeZ = z + edge * (halfRow + .32f) * cell;
+                    float edgeZ = edge * (halfRow + .32f) * cell;
                     float treadOffset = row % 2 == 0 ? .08f : -.08f;
-                    body.Box(tyre, x - treadOffset, y, edgeZ, .16f, cell, .36f * cell);
-                    body.Box(lug, x + treadOffset, y, edgeZ, .16f, cell * .74f, .36f * cell);
+                    body.Box(tyre, -treadOffset, y, edgeZ, .16f, cell, .36f * cell);
+                    body.Box(lug, treadOffset, y, edgeZ, .16f, cell * .74f, .36f * cell);
                     if (row % 2 == 0)
-                        body.Box(lug, x + side * .162f, y, z + edge * (halfRow - .32f) * cell,
+                        body.Box(lug, .162f, y, edge * (halfRow - .32f) * cell,
                             .014f, cell * .77f, cell * .81f);
                 }
             }
 
             for (int row = 0; row < RimHalfRows.Length; row++)
             {
-                float y = hubY + (row - 3) * cell;
+                float y = (row - 3) * cell;
                 int halfRow = RimHalfRows[row];
-                body.Box(silver, x + side * .17f, y, z, .027f, cell, (2 * halfRow + 1) * cell);
+                body.Box(silver, .17f, y, 0f, .027f, cell, (2 * halfRow + 1) * cell);
                 if (row > 0 && row < RimHalfRows.Length - 1)
-                    body.Box(recess, x + side * .185f, y, z, .019f, cell, (2 * halfRow - 1) * cell);
+                    body.Box(recess, .185f, y, 0f, .019f, cell, (2 * halfRow - 1) * cell);
             }
-            body.Box(silver, x + side * .208f, hubY, z, .037f, cell * 2f, cell * 2f);
+            body.Box(silver, .208f, 0f, 0f, .037f, cell * 2f, cell * 2f);
             for (int vertical = -1; vertical <= 1; vertical += 2)
                 for (int longitudinal = -1; longitudinal <= 1; longitudinal += 2)
-                    body.Box(silver, x + side * .2f, hubY + vertical * cell * 1.72f,
-                        z + longitudinal * cell * 1.72f, .020f, .032f, .032f);
+                    body.Box(silver, .2f, vertical * cell * 1.72f, longitudinal * cell * 1.72f,
+                        .020f, .032f, .032f);
         }
 
         private static Camera BuildTestLot()

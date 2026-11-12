@@ -18,15 +18,16 @@ namespace VoxelRacer.Editor
         private List<VoxelUpgradeDashboardEntry> entries = new();
         private List<RowLayout> visibleEntries = new();
         private VoxelUpgradeDashboardEntry detailEntry;
-        private string detailName, detailDescription, detailCompatibility;
+        private string detailName, detailDefaultDescription, detailLiveStats, detailCompatibility;
         private ScriptableObject pendingSelection, detailTuning;
+        private ScriptableObject clearedDescription;
         private bool selectionRequested, drawMounting, resetListScroll;
         private VoxelCarDefinition[] cars = System.Array.Empty<VoxelCarDefinition>();
         private Vector2 listScroll, detailScroll;
         private readonly Dictionary<ScriptableObject, TuningView> views = new();
         private readonly HashSet<ScriptableObject> pendingSaves = new();
         private bool refreshRequested;
-        private GUIStyle wrapped, smallWrapped, titleStyle, detailTitleStyle, rowNameStyle, badgeStyle, filterStyle, pageStyle;
+        private GUIStyle wrapped, smallWrapped, descriptionArea, titleStyle, detailTitleStyle, rowNameStyle, badgeStyle, filterStyle, pageStyle;
         private readonly List<CategoryFilter[]> filterRows = new();
 
         private sealed class CategoryFilter
@@ -81,6 +82,16 @@ namespace VoxelRacer.Editor
             public readonly SerializedObject Serialized;
             public readonly List<FieldGroup> Groups = new();
             public SerializedProperty Description => Serialized.FindProperty("description");
+            public string DescriptionText(string defaultText, bool showEmptyEdit = false)
+            {
+                string value = Description.stringValue;
+                return showEmptyEdit || !string.IsNullOrWhiteSpace(value) ? value : defaultText;
+            }
+            public bool SetDescription(string text)
+            {
+                Description.stringValue = text;
+                return Serialized.ApplyModifiedProperties();
+            }
             public TuningView(ScriptableObject asset)
             {
                 Serialized = new SerializedObject(asset);
@@ -157,6 +168,7 @@ namespace VoxelRacer.Editor
         private void ProjectChanged() { refreshRequested = true; Repaint(); }
         private void UndoRedo()
         {
+            clearedDescription = null;
             foreach (var asset in AllAssets().Where(EditorUtility.IsDirty)) QueueSave(asset);
             Repaint();
         }
@@ -175,6 +187,7 @@ namespace VoxelRacer.Editor
         {
             if (selectedAsset == asset) return;
             selectedAsset = asset;
+            clearedDescription = null;
             detailScroll = Vector2.zero;
             Repaint();
         }
@@ -227,7 +240,7 @@ namespace VoxelRacer.Editor
             detailEntry = entries.FirstOrDefault(e => e.Asset == selectedAsset);
             detailTuning = detailEntry?.PriceAsset;
             detailName = detailEntry?.Name;
-            detailDescription = detailEntry?.Description;
+            detailDefaultDescription = detailEntry?.DefaultDescription;
             string[] compatible = detailEntry == null ? System.Array.Empty<string>() : cars
                 .Where(detailEntry.FitsCar).Select(c => c.displayName).Distinct().ToArray();
             detailCompatibility = compatible.Length == 0 ? "No compatible car configured" : string.Join(", ", compatible);
@@ -236,6 +249,9 @@ namespace VoxelRacer.Editor
             { views[removed].Serialized.Dispose(); views.Remove(removed); }
             if (detailTuning != null) ViewFor(detailTuning).Prepare();
             if (detailEntry != null && detailTuning != detailEntry.Asset) ViewFor(detailEntry.Asset).Prepare();
+            var description = detailEntry != null ? ViewFor(detailEntry.Asset).Description : null;
+            detailLiveStats = description != null && !string.IsNullOrWhiteSpace(description.stringValue)
+                ? detailEntry.TuningSummary : null;
         }
         private void QueueSave(ScriptableObject asset)
         {
@@ -277,6 +293,7 @@ namespace VoxelRacer.Editor
         {
             wrapped ??= new GUIStyle(EditorStyles.wordWrappedLabel) { padding = new RectOffset(4, 4, 3, 3) };
             smallWrapped ??= new GUIStyle(EditorStyles.miniLabel) { wordWrap = true };
+            descriptionArea ??= new GUIStyle(EditorStyles.textArea) { wordWrap = true };
             titleStyle ??= new GUIStyle(EditorStyles.boldLabel) { fontSize = 20 };
             detailTitleStyle ??= new GUIStyle(titleStyle) { fontSize = 17, wordWrap = true, padding = new RectOffset(6, 4, 3, 3) };
             rowNameStyle ??= new GUIStyle(EditorStyles.wordWrappedLabel) { fontStyle = FontStyle.Bold, padding = new RectOffset(4, 4, 3, 3) };
@@ -406,10 +423,9 @@ namespace VoxelRacer.Editor
                     DrawAccentPanel(heading.rect, CategoryColor(entry.Category), true);
                     DrawCategoryBadge(entry.Category);
                     GUILayout.Label(detailName, detailTitleStyle);
-                    GUILayout.Label(new GUIContent(detailDescription, entry.WeaponTuning != null ? DpsHelp : null), wrapped);
                     GUILayout.Space(4);
                 }
-                DrawDescription(entry.Asset);
+                DrawDescription(entry);
                 GUILayout.Space(4);
                 GUILayout.Label("Fits: " + detailCompatibility, smallWrapped);
                 GUILayout.Label(AssetDatabase.GetAssetPath(entry.Asset), smallWrapped);
@@ -428,15 +444,46 @@ namespace VoxelRacer.Editor
                 }
             }
         }
-        private void DrawDescription(ScriptableObject asset)
+        private void DrawDescription(VoxelUpgradeDashboardEntry entry)
         {
+            var asset = entry.Asset;
             var view = ViewFor(asset);
             view.Serialized.UpdateIfRequiredOrScript();
             var description = view.Description;
             if (description == null) return;
+            string control = "upgrade-description-" + asset.GetInstanceID();
+            if (GUI.GetNameOfFocusedControl() != control)
+                clearedDescription = null;
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
-                EditorGUILayout.PropertyField(description);
-            if (view.Serialized.ApplyModifiedProperties()) { QueueSave(asset); Repaint(); }
+            {
+                bool reset;
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField("Description", EditorStyles.boldLabel);
+                    using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(description.stringValue)))
+                        reset = GUILayout.Button("Reset to Default", EditorStyles.miniButton, GUILayout.Width(110));
+                }
+                if (reset)
+                {
+                    clearedDescription = null;
+                    GUI.FocusControl(null);
+                    if (view.SetDescription(string.Empty)) { QueueSave(asset); Repaint(); }
+                }
+                GUI.SetNextControlName(control);
+                EditorGUI.BeginChangeCheck();
+                string text = GUILayout.TextArea(view.DescriptionText(detailDefaultDescription, clearedDescription == asset),
+                    descriptionArea, GUILayout.MinHeight(46));
+                if (EditorGUI.EndChangeCheck())
+                {
+                    clearedDescription = string.IsNullOrWhiteSpace(text) ? asset : null;
+                    if (view.SetDescription(text)) { QueueSave(asset); Repaint(); }
+                }
+                if (detailLiveStats != null)
+                {
+                    GUILayout.Label("Live stats", EditorStyles.miniBoldLabel);
+                    GUILayout.Label(new GUIContent(detailLiveStats, entry.WeaponTuning != null ? DpsHelp : null), wrapped);
+                }
+            }
         }
 
         private TuningView ViewFor(ScriptableObject asset)

@@ -601,16 +601,11 @@ namespace VoxelRacer
 
         private void StartNextRaceConfirmed()
         {
-            if (isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing || DisplayedCar == null) return;
-            VoxelMissionBriefing.Present(transform, VoxelTrackProgressState.NextTrack, LaunchNextRace);
-        }
-
-        private void LaunchNextRace()
-        {
-            if (isLoading || VoxelLoadingScreen.IsLoading || DisplayedCar == null) return;
+            if (!Application.isPlaying || isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing || DisplayedCar == null) return;
             CancelUpgradePlacement();
 
-            VoxelTrackDefinition nextTrack = VoxelTrackProgressState.AdvanceToNextTrack();
+            int previousTrack = VoxelTrackProgressState.CurrentTrackIndex;
+            VoxelTrackDefinition nextTrack = VoxelTrackProgressState.NextTrack;
             string sceneName = nextTrack != null && !string.IsNullOrWhiteSpace(nextTrack.raceSceneName)
                 ? nextTrack.raceSceneName
                 : raceSceneName;
@@ -622,8 +617,15 @@ namespace VoxelRacer
             }
 
             VoxelCarRunState.Capture(DisplayedCar, definition);
+            VoxelTrackProgressState.AdvanceToNextTrack();
+            int garageIndex = gameObject.scene.buildIndex;
+            if (garageIndex >= 0)
+                VoxelMissionBriefing.SetRaceBackAction(() =>
+                {
+                    VoxelTrackProgressState.RestoreTrackIndex(previousTrack);
+                    VoxelLoadingScreen.LoadScene(garageIndex);
+                });
             isLoading = true;
-            VoxelMissionBriefing.ApproveLaunch(nextTrack);
             VoxelLoadingScreen.LoadScene(buildIndex);
         }
 

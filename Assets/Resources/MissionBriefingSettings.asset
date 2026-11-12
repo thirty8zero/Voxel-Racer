@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 226a16ec4a4cb604eb184d6d4f12a9e3, type: 3}
   m_Name: MissionBriefingSettings
   m_EditorClassIdentifier: Assembly-CSharp::VoxelRacer.VoxelMissionBriefingSettings
+  carrierTruck: {fileID: 3815308321098609425, guid: ad68ed35e3cc7e94f978232c9a74ce8a, type: 3}
   dayBackground: {fileID: 2800000, guid: 3cf4920a4d55f524d9771c07c7edc870, type: 3}
   nightBackground: {fileID: 2800000, guid: e8e8a46dca1236d409327d7f9d2706df, type: 3}
   backgroundDim: 0.12

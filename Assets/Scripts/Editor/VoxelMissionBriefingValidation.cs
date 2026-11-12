@@ -75,14 +75,21 @@ namespace VoxelRacer.Editor
                 CheckRadarAnimation(root, view, scene, bossTrack, settings);
                 foreach (var width in new[] { 2400, 1440 })
                 { view.Show(bossTrack, null); Capture(root, view, scene, "BossResponsive", width, 1080); view.Close(); }
+                foreach (var size in new[] { new Vector2Int(1920, 1080), new Vector2Int(2400, 1080), new Vector2Int(1440, 1080), new Vector2Int(1080, 1920) })
+                {
+                    view.Show(bossTrack, null, alongsideRace: true);
+                    Check(root.transform.Find("Mission Briefing Canvas/Safe Content/Briefing Panel")
+                        .GetComponent<RectTransform>().rect.width == 900, "Carrier briefing width changed.");
+                    Capture(root, view, scene, "CarrierResponsive", size.x, size.y);
+                    view.Close();
+                }
                 CheckSyntheticContent(day, settings, view);
-                CheckSourceScreens(root);
                 Check(VoxelCurrencyState.Balance == balance && VoxelCarRunState.MissingVoxelCount == missing && VoxelTrackProgressState.CurrentTrackIndex == index,
                     "Briefing or Back changed wallet, damage or campaign index.");
                 Check(tracks.All(t => EditorJsonUtility.ToJson(t) == snapshots[t]) && EditorJsonUtility.ToJson(settings) == settingsBefore,
                     "Preview validation changed authored tracks or settings.");
                 Check(Time.timeScale == clock && AudioListener.pause == audio, "Briefing changed clocks or audio.");
-                string report = "PASS (Edit Mode): all " + tracks.Length + " levels, hidden boss encounter name/model with one large ??? card, authored mission heading on normal and boss levels, enlarged header/buttons, enabled weighted/drought enemies, turret eligibility, radar/boss objectives, actual model preview coverage, score/name/background selection, independent background override, deduplication/disabled/empty pools, exactly-once Start and read-only Back, native main-menu/garage briefing entry without campaign advancement, 16:9/20:9/4:3/portrait fitting and model aspect; source assets, wallet, damage, campaign, clocks/audio/RNG preserved. Renders: Temp/MissionBriefing/.";
+                string report = "PASS (Edit Mode): all " + tracks.Length + " levels, anonymous boss card, authored titles and objectives, enemy eligibility and model previews, animated radar, background selection and override, empty pools, one-shot Start and Back, full-screen and carrier layouts at 16:9/20:9/4:3/portrait. Source assets, wallet, damage, campaign, clocks/audio/RNG preserved. Renders: Temp/MissionBriefing/.";
                 File.WriteAllText("Temp/MissionBriefing/Validation.txt", report); Debug.Log(report);
             }
             catch (Exception error) { File.WriteAllText("Temp/MissionBriefing/Validation.txt", "FAIL: " + error); throw; }
@@ -138,31 +145,13 @@ namespace VoxelRacer.Editor
                 traffic.enemyDroughtWaveLimit = 0;
                 Check(VoxelMissionBriefingContent.Enemies(track).Count == 0, "Disabled enemies still reported.");
                 view.Show(track, null); Check(view.EnemyCount == 0, "Empty mission failed to render."); view.Close();
-                VoxelMissionBriefing.ApproveLaunch(original);
-                Check(VoxelMissionBriefing.ConsumeLaunch(original) && !VoxelMissionBriefing.ConsumeLaunch(original), "Launch approval not consumed exactly once.");
-                VoxelMissionBriefing.ApproveLaunch(original);
-                Check(!VoxelMissionBriefing.ConsumeLaunch(track), "Launch approval accepted a different level.");
+                VoxelMissionBriefing.UseStationaryOpeningOnRetry(original);
+                Check(VoxelMissionBriefing.ConsumeStationaryRetry(original) && !VoxelMissionBriefing.ConsumeStationaryRetry(original), "Launch approval not consumed exactly once.");
+                VoxelMissionBriefing.UseStationaryOpeningOnRetry(original);
+                Check(!VoxelMissionBriefing.ConsumeStationaryRetry(track), "Launch approval accepted a different level.");
             }
             finally { view.Close(); Object.DestroyImmediate(track); Object.DestroyImmediate(traffic); Object.DestroyImmediate(mission); }
         }
-        private static void CheckSourceScreens(GameObject root)
-        {
-            var menuObject = new GameObject("Menu Entry QA"); menuObject.transform.SetParent(root.transform, false);
-            var menu = menuObject.AddComponent<VoxelMainMenuController>(); menu.StartMission();
-            Check(VoxelMissionBriefing.IsShowing && VoxelMissionBriefing.Active.Track == VoxelTrackProgressState.CurrentTrack, "Menu does not present current mission.");
-            VoxelMissionBriefing.Active.GoBack();
-            var shopObject = new GameObject("Garage Entry QA"); shopObject.transform.SetParent(root.transform, false);
-            var holder = new GameObject("Garage car"); holder.transform.SetParent(shopObject.transform, false);
-            var definition = Resources.Load<VoxelCarDefinition>("Cars/SpyCar2PlayerCar");
-            Object.Instantiate(definition.visualPrefab, holder.transform); var car = holder.AddComponent<VoxelCarController>(); car.enabled = false;
-            var shop = shopObject.AddComponent<VoxelRepairUpgradeSceneController>();
-            typeof(VoxelRepairUpgradeSceneController).GetProperty("DisplayedCar").SetValue(shop, car);
-            typeof(VoxelRepairUpgradeSceneController).GetField("definition", Private).SetValue(shop, definition);
-            shop.StartNextRace();
-            Check(VoxelMissionBriefing.IsShowing && VoxelMissionBriefing.Active.Track == VoxelTrackProgressState.NextTrack, "Garage does not present next mission.");
-            VoxelMissionBriefing.Active.GoBack();
-        }
-
         private static void Capture(GameObject root, VoxelMissionBriefing view, Scene scene, string label, int width, int height)
         {
             var go = new GameObject("Temporary Briefing Render Camera"); SceneManager.MoveGameObjectToScene(go, scene);

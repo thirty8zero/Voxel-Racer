@@ -13,6 +13,8 @@ namespace VoxelRacer
         private float horizonStart = float.NaN, horizonEnd = float.NaN;
         private float horizonWidth;
         private int horizonLanes;
+        private bool horizonOpeningShapeDirty;
+        private Matrix4x4 horizonWorldToLocal;
         private readonly List<Vector3> horizonVertices = new(2048);
         private readonly List<Vector2> horizonUV = new(2048);
         private readonly List<int>[] horizonTriangles = { new(2048), new(2048), new(2048) };
@@ -32,7 +34,7 @@ namespace VoxelRacer
             // Overlap the last three chunks beneath the real surface, so a newly
             // recycled chunk can fade in without opening a hole in the distant road.
             float start = visibleSegments[Mathf.Max(0, visibleSegments.Count - 3)].startDistance;
-            float focus = targetController != null ? targetController.TrackDistance : 0f;
+            float focus = SceneryTrackDistance;
             float end = Mathf.Ceil((focus + horizonRoadDistance) / segmentLength) * segmentLength;
             if (end <= visibleSegments[^1].EndDistance(segmentLength))
             {
@@ -40,9 +42,10 @@ namespace VoxelRacer
                 return;
             }
             bool owned = horizonMesh != null && horizonMeshOwner == GetInstanceID();
-            if (owned && horizonRoot != null && horizonRoot.gameObject.activeSelf &&
+            bool sameSpan = owned && horizonRoot != null && horizonRoot.gameObject.activeSelf &&
                 Mathf.Approximately(start, horizonStart) && Mathf.Approximately(end, horizonEnd) &&
-                Mathf.Approximately(horizonWidth, roadWidth) && horizonLanes == laneCount) return;
+                Mathf.Approximately(horizonWidth, roadWidth) && horizonLanes == laneCount;
+            if (sameSpan && !horizonOpeningShapeDirty) return;
 
             EnsurePathCovers(end + segmentLength);
             if (horizonRoot == null) horizonRoot = transform.Find("Distant Road");
@@ -61,8 +64,11 @@ namespace VoxelRacer
             }
             horizonRoot.GetComponent<MeshFilter>().sharedMesh = horizonMesh;
             horizonRenderer = horizonRoot.GetComponent<MeshRenderer>();
-            UpdateHorizonMaterials();
-            horizonRenderer.sharedMaterials = horizonMaterials;
+            if (!sameSpan)
+            {
+                UpdateHorizonMaterials();
+                horizonRenderer.sharedMaterials = horizonMaterials;
+            }
             horizonRenderer.shadowCastingMode = ShadowCastingMode.Off;
             horizonRenderer.receiveShadows = false;
             horizonRenderer.lightProbeUsage = LightProbeUsage.Off;
@@ -70,6 +76,7 @@ namespace VoxelRacer
             horizonProperties ??= new MaterialPropertyBlock();
             horizonProperties.SetFloat("_UseRoadUV", 1f);
             horizonRenderer.SetPropertyBlock(horizonProperties, 0);
+            horizonWorldToLocal = horizonRoot.worldToLocalMatrix;
             horizonVertices.Clear(); horizonUV.Clear();
             foreach (var triangles in horizonTriangles) triangles.Clear();
             float half = roadWidth * .5f;
@@ -113,6 +120,7 @@ namespace VoxelRacer
             for (int submesh = 0; submesh < 3; submesh++) horizonMesh.SetTriangles(horizonTriangles[submesh], submesh, false);
             horizonMesh.RecalculateNormals(); horizonMesh.RecalculateBounds();
             horizonStart = start; horizonEnd = end; horizonWidth = roadWidth; horizonLanes = laneCount;
+            horizonOpeningShapeDirty = false;
         }
 
         private void AddHorizonMark(RoadSegment segment, float distance, float offset, float width, float length, float height)
@@ -163,10 +171,10 @@ namespace VoxelRacer
                 leftA = centre - halfA; rightA = centre + halfA;
                 leftB = centre - halfB; rightB = centre + halfB;
             }
-            horizonVertices.Add(horizonRoot.InverseTransformPoint(a.position + a.right * leftA + Vector3.up * height));
-            horizonVertices.Add(horizonRoot.InverseTransformPoint(b.position + b.right * leftB + Vector3.up * height));
-            horizonVertices.Add(horizonRoot.InverseTransformPoint(b.position + b.right * rightB + Vector3.up * height));
-            horizonVertices.Add(horizonRoot.InverseTransformPoint(a.position + a.right * rightA + Vector3.up * height));
+            horizonVertices.Add(horizonWorldToLocal.MultiplyPoint3x4(a.position + a.right * leftA + Vector3.up * height));
+            horizonVertices.Add(horizonWorldToLocal.MultiplyPoint3x4(b.position + b.right * leftB + Vector3.up * height));
+            horizonVertices.Add(horizonWorldToLocal.MultiplyPoint3x4(b.position + b.right * rightB + Vector3.up * height));
+            horizonVertices.Add(horizonWorldToLocal.MultiplyPoint3x4(a.position + a.right * rightA + Vector3.up * height));
             horizonUV.Add(new Vector2(left, d0)); horizonUV.Add(new Vector2(left, d1));
             horizonUV.Add(new Vector2(right, d1)); horizonUV.Add(new Vector2(right, d0));
             var triangles = horizonTriangles[material];

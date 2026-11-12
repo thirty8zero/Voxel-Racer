@@ -115,27 +115,8 @@ namespace VoxelRacer
 
         private void PlaceCar()
         {
-            float rearHeight = truck.SurfaceHeight(rearZ);
-            float wheelbase = axles.y - axles.x;
-            // Keep the axle spacing constant while the front and rear cross the two grade changes.
-            float near = rearZ;
-            float far = rearZ + wheelbase;
-            for (int i = 0; i < 14; i++)
-            {
-                float mid = (near + far) * .5f;
-                float rise = truck.SurfaceHeight(mid) - rearHeight;
-                float run = mid - rearZ;
-                if (run * run + rise * rise > wheelbase * wheelbase)
-                    far = mid;
-                else
-                    near = mid;
-            }
-            float frontZ = (near + far) * .5f;
-            float pitch = -Mathf.Atan2(truck.SurfaceHeight(frontZ) - rearHeight, frontZ - rearZ);
-            var rotation = Quaternion.AngleAxis(pitch * Mathf.Rad2Deg, Vector3.right);
-            var rearContact = new Vector3(-carBounds.center.x, rearHeight, rearZ);
-            Vector3 origin = rearContact - rotation * new Vector3(0f, wheelGround, axles.x);
-            car.SetPositionAndRotation(truck.transform.TransformPoint(origin), truck.transform.rotation * rotation);
+            Pose pose = truck.EvaluateCarPose(axles, wheelGround, carBounds.center.x, rearZ);
+            car.SetPositionAndRotation(truck.transform.TransformPoint(pose.position), truck.transform.rotation * pose.rotation);
         }
 
         private void PlaceCamera()

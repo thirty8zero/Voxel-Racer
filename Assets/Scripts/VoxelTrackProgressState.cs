@@ -7,6 +7,7 @@ namespace VoxelRacer
         private static int currentTrackIndex;
 
         public static int CurrentTrackIndex => currentTrackIndex;
+        internal static void RestoreTrackIndex(int index) => currentTrackIndex = index;
         public static int NextTrackIndex
         {
             get

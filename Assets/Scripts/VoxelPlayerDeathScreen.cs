@@ -232,6 +232,7 @@ namespace VoxelRacer
 
             VoxelCarRunState.BeginNewRun(VoxelCarSelectionState.GetSelectedOrDefault());
             VoxelTrackProgressState.BeginSequence();
+            VoxelMissionBriefing.UseStationaryOpeningOnRetry(VoxelTrackProgressState.CurrentTrack);
             isLoading = true;
             VoxelLoadingScreen.LoadScene(buildIndex);
         }

@@ -10,7 +10,7 @@ namespace VoxelRacer
         public bool IsPsychoBug => (!IsBoss && Tuning != null && Tuning.psychoBug != null) || IsBichoPsychoPhase;
         public PsychoBugPhase PsychoPhase { get; private set; }
         public float DriveSpeed => currentSpeed;
-        public bool IsDrivingEnemy => Tuning != null && !hasBeenRammed && CurrentHealth > 0;
+        public bool IsDrivingEnemy => Tuning != null && IsDrivingTraffic && CurrentHealth > 0;
         private VoxelPsychoBugTuning Psycho => IsBichoPsychoPhase ? bichoBodyBehaviour : Tuning.psychoBug;
         private float psychoClock, psychoPhaseTime, psychoNextDecision, psychoNextScan, psychoNextAttack;
         private float psychoExposureDeadline, psychoExposureDuration, psychoAlignedTime;

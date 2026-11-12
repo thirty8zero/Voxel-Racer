@@ -44,7 +44,7 @@ namespace VoxelRacer.Editor
                 }
             }
             ValidateDescriptions(entries);
-            report.Add("PASS editable and searchable descriptions for every upgrade, including launcher-owned descriptions");
+            report.Add("PASS default text in the editor, custom descriptions, reset and Undo/Redo for every upgrade, including launcher-owned descriptions");
             ValidateDamagePerSecond(entries);
             report.Add("PASS live DPS for built-in guns, fitted guns and linked missile weapons, including ammo and cooldown edge cases");
             var clone = UnityEngine.Object.Instantiate(assets.OfType<VoxelPerformanceWheelTuning>().First());
@@ -123,21 +123,32 @@ namespace VoxelRacer.Editor
                 try
                 {
                     var entry = new VoxelUpgradeDashboardEntry(asset, original.Fits);
-                    string defaultDescription = entry.Description;
                     var view = new VoxelUpgradeDashboard.TuningView(asset);
                     using (view.Serialized)
                     {
                         Check(view.Description?.propertyType == SerializedPropertyType.String,
                             $"{entry.Name} is missing its editable description");
-                        view.Description.stringValue = text;
-                        Check(view.Serialized.ApplyModifiedProperties() && entry.Description.StartsWith(text + "\n") &&
+                        string previous = view.Description.stringValue;
+                        Check(view.DescriptionText(entry.DefaultDescription) ==
+                            (string.IsNullOrWhiteSpace(previous) ? entry.DefaultDescription : previous),
+                            $"{entry.Name} did not show its existing copy or generated default in the editor");
+                        Check(view.SetDescription(text) && view.DescriptionText(entry.DefaultDescription) == text &&
+                            entry.Description.StartsWith(text + "\n") &&
                             entry.Matches("Second line"), $"{entry.Name} did not show its edited description");
                         if (entry.WeaponTuning != null)
-                            Check(entry.Description.Contains(entry.WeaponTuning.DamagePerSecondLabel), "Custom copy hid live DPS");
-                        view.Description.stringValue = "";
-                        view.Serialized.ApplyModifiedProperties();
-                        if (!defaultDescription.StartsWith(text))
-                            Check(!entry.Description.Contains(text), "Clearing the edit did not restore the default");
+                            Check(entry.TuningSummary.Contains(entry.WeaponTuning.DamagePerSecondLabel), "Custom copy hid live DPS");
+                        Undo.IncrementCurrentGroup();
+                        Check(view.SetDescription(string.Empty) && view.DescriptionText(entry.DefaultDescription) == entry.DefaultDescription &&
+                            view.DescriptionText(entry.DefaultDescription, showEmptyEdit: true) == string.Empty &&
+                            entry.Description == entry.DefaultDescription, "Reset did not restore the generated description");
+                        Undo.FlushUndoRecordObjects();
+                        Undo.PerformUndo();
+                        view.Serialized.Update();
+                        Check(view.DescriptionText(entry.DefaultDescription) == text, "Undo reset did not restore the custom copy");
+                        Undo.PerformRedo();
+                        view.Serialized.Update();
+                        Check(view.DescriptionText(entry.DefaultDescription) == entry.DefaultDescription, "Redo reset did not restore the default");
+                        Undo.IncrementCurrentGroup();
                     }
                 }
                 finally { UnityEngine.Object.DestroyImmediate(asset); }

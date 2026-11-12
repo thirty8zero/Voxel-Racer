@@ -93,10 +93,12 @@ namespace VoxelRacer.Editor
             {
                 using var serialized = new SerializedObject(Asset);
                 string custom = serialized.FindProperty("description")?.stringValue;
-                string overview = string.IsNullOrWhiteSpace(custom) ? DefaultOverview : custom.Trim();
-                return string.IsNullOrEmpty(overview) ? TuningSummary : overview + "\n" + TuningSummary;
+                return string.IsNullOrWhiteSpace(custom) ? DefaultDescription : custom.Trim() + "\n" + TuningSummary;
             }
         }
+
+        internal string DefaultDescription => string.IsNullOrEmpty(DefaultOverview)
+            ? TuningSummary : DefaultOverview + "\n" + TuningSummary;
 
         private string DefaultOverview => Asset switch
         {
@@ -109,7 +111,7 @@ namespace VoxelRacer.Editor
             _ => ""
         };
 
-        private string TuningSummary => Asset switch
+        internal string TuningSummary => Asset switch
         {
             VoxelUnderbodyArmorTuning underbody => N(underbody.mineDamageReductionPercent) + "% less damage from mines.",
             VoxelArmorTuning armor => "Protects each door with " + armor.voxelHitPoints +

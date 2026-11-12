@@ -18,10 +18,22 @@ namespace VoxelRacer
             public Bounds bounds;
             public float maximumDistance;
         }
-        private readonly Dictionary<Vector2Int,List<Prop>> tiles = new();
-        private readonly Dictionary<Vector2Int,Bounds> tileBounds = new();
+        private sealed class Tile
+        {
+            public readonly List<Prop> Props;
+            public readonly Bounds Bounds;
+
+            public Tile(List<Prop> props, Bounds bounds)
+            {
+                Props = props;
+                foreach (var prop in props) bounds.Encapsulate(prop.bounds);
+                Bounds = bounds;
+            }
+        }
+
+        private Dictionary<Vector2Int, Tile> tiles = new();
         private readonly List<Vector2Int> expired = new();
-        private readonly List<Vector3> roadSamples = new();
+        private readonly RoadSamples roadSamples = new();
         private readonly Dictionary<(Mesh,Material),List<Matrix4x4>> batches = new();
         private readonly Matrix4x4[] drawBuffer = new Matrix4x4[1023];
         private readonly Plane[] planes = new Plane[6];
@@ -30,6 +42,7 @@ namespace VoxelRacer
         private Vector2Int lastTile = new(int.MinValue,int.MinValue);
         private float lastRadius;
         private int lastSeed, lastDensity, lastSetRevision;
+        private uint lastPathRevision;
         private VoxelDesertFoliageTuning lastFoliage;
         private int lastFoliageRevision;
         private MaterialPropertyBlock foliageProperties;
@@ -84,40 +97,38 @@ namespace VoxelRacer
             VisibleBatchCount=0;
             var set=road!=null && road.trackDefinition!=null?road.trackDefinition.scenerySet:null;
             if(set==null || !set.distantSceneryEnabled)
-            { tiles.Clear(); tileBounds.Clear(); lastSet=null; CachedPropCount=0; ClearHorizonFoliage(); return; }
+            { tiles.Clear(); openingScenery=null; lastSet=null; CachedPropCount=0; ClearHorizonFoliage(); return; }
             float radius=CoverageRadius(camera,set);
             var center=new Vector2Int(Mathf.FloorToInt(camera.transform.position.x/TileSize),Mathf.FloorToInt(camera.transform.position.z/TileSize));
+            uint pathRevision = PrepareOpeningScenery(camera, set, radius);
             bool settingsChanged=set!=lastSet || radius!=lastRadius || set.distantScenerySeed!=lastSeed || set.distantPropsPerTile!=lastDensity ||
-                set.Revision!=lastSetRevision || set.groundCover != lastFoliage || (set.groundCover != null && set.groundCover.Revision != lastFoliageRevision);
-            if(settingsChanged) { tiles.Clear(); tileBounds.Clear(); batches.Clear(); }
+                set.Revision!=lastSetRevision || pathRevision!=lastPathRevision ||
+                set.groundCover != lastFoliage || (set.groundCover != null && set.groundCover.Revision != lastFoliageRevision);
+            if(settingsChanged) { tiles.Clear(); batches.Clear(); }
             if(settingsChanged || center!=lastTile)
             {
-                roadSamples.Clear();
                 // Sample the actual curved road, including future path and the finish-camera rear view.
-                for(float d=road.SceneryTrackDistance-radius*2-64;d<=road.SceneryTrackDistance+radius*2+64;d+=4)
-                    roadSamples.Add(road.Evaluate(d).position);
-                int extent=Mathf.CeilToInt(radius/TileSize)+1;
+                roadSamples.Capture(road.SceneryTrackDistance, radius * 2 + 64, road.Evaluate);
+                int extent = SceneryTileExtent(radius);
                 expired.Clear();
                 foreach(var tile in tiles.Keys)
                     if(Mathf.Abs(tile.x-center.x)>extent || Mathf.Abs(tile.y-center.y)>extent) expired.Add(tile);
-                foreach(var tile in expired) { tiles.Remove(tile); tileBounds.Remove(tile); }
-                for(int x=-extent;x<=extent;x++) for(int z=-extent;z<=extent;z++)
-                {
-                    var key=center+new Vector2Int(x,z);
-                    if(!tiles.ContainsKey(key)) tiles[key]=BuildTile(key,set);
-                }
+                foreach(var tile in expired) tiles.Remove(tile);
+                foreach (var key in SquareTiles(center, extent))
+                    if (!tiles.ContainsKey(key)) tiles.Add(key, BuildTile(key, set, roadSamples));
                 lastSet=set; lastTile=center; lastRadius=radius; lastSeed=set.distantScenerySeed; lastDensity=set.distantPropsPerTile;
+                lastPathRevision=pathRevision;
                 lastSetRevision=set.Revision;
                 lastFoliage=set.groundCover; lastFoliageRevision=lastFoliage!=null?lastFoliage.Revision:0;
                 foliageProperties=lastFoliage!=null?lastFoliage.DrawProperties():null;
-                CachedPropCount=0; foreach(var tile in tiles.Values) CachedPropCount+=tile.Count;
+                CachedPropCount=0; foreach(var tile in tiles.Values) CachedPropCount+=tile.Props.Count;
             }
             GeometryUtility.CalculateFrustumPlanes(camera,planes);
-            foreach(var tile in tiles)
+            foreach(var tile in tiles.Values)
             {
                 // Reject whole off-camera tiles before inspecting individual plant bounds.
-                if(tile.Value.Count==0 || !GeometryUtility.TestPlanesAABB(planes,tileBounds[tile.Key]))continue;
-                foreach(var prop in tile.Value)
+                if(tile.Props.Count==0 || !GeometryUtility.TestPlanesAABB(planes,tile.Bounds))continue;
+                foreach(var prop in tile.Props)
                 {
                     Vector3 delta=prop.bounds.center-camera.transform.position; delta.y=0;
                     float distance=prop.maximumDistance>0?Mathf.Min(radius,prop.maximumDistance):radius;
@@ -136,10 +147,19 @@ namespace VoxelRacer
                 }
             }
             foreach(var batch in batches.Values)if(batch.Count>0)VisibleBatchCount++;
-            PrepareHorizonFoliage(camera, set);
+            PrepareHorizonFoliage(camera, set, pathRevision);
         }
 
-        private List<Prop> BuildTile(Vector2Int key,VoxelScenerySet set)
+        private static int SceneryTileExtent(float radius) => Mathf.CeilToInt(radius / TileSize) + 1;
+
+        private static IEnumerable<Vector2Int> SquareTiles(Vector2Int center, int extent)
+        {
+            for (int x = -extent; x <= extent; x++)
+            for (int z = -extent; z <= extent; z++)
+                yield return center + new Vector2Int(x, z);
+        }
+
+        private Tile BuildTile(Vector2Int key, VoxelScenerySet set, RoadSamples samples)
         {
             var result=new List<Prop>();
             var oldRandom=Random.state;
@@ -156,14 +176,9 @@ namespace VoxelRacer
                     Vector3 pos=new(key.x*TileSize+Random.Range(footprint,TileSize-footprint),0,
                         key.y*TileSize+Random.Range(footprint,TileSize-footprint));
                     float clearance=road.roadWidth*.5f+Mathf.Max(entry.maximumRoadDistance,entry.roadClearance)+footprint+2;
-                    bool blocked=false;
-                    foreach(var sample in roadSamples)
-                    {
-                        Vector3 delta=sample-pos; delta.y=0;
-                        if(delta.sqrMagnitude<clearance*clearance) { blocked=true; break; }
-                    }
-                    if(blocked) continue;
+                    if(samples.WithinClearance(pos, clearance)) continue;
                     if(Random.value>set.PlacementDensity(pos)) continue;
+                    bool blocked=false;
                     foreach(var other in result)
                         if(Vector3.Distance(other.bounds.center,pos)<footprint+other.bounds.extents.magnitude) { blocked=true; break; }
                     if(blocked) continue;
@@ -196,9 +211,7 @@ namespace VoxelRacer
                             key.y*TileSize+Random.Range(footprint,TileSize-footprint));
                         if(Random.value>foliage.Density(position))continue;
                         float clearance=road.roadWidth*.5f+foliage.roadsideDistance+footprint+2;
-                        bool blocked=false;
-                        foreach(var sample in roadSamples)if((sample-position).sqrMagnitude<clearance*clearance){blocked=true;break;}
-                        if(blocked)continue;
+                        if(samples.WithinClearance(position, clearance))continue;
                         var matrix=Matrix4x4.TRS(position,Quaternion.Euler(0,Random.Range(0,360f),0),Vector3.one*scale);
                         result.Add(new Prop {mesh=mesh,material=foliage.material,matrix=matrix,
                             bounds=new Bounds(matrix.MultiplyPoint3x4(mesh.bounds.center),Vector3.one*mesh.bounds.size.magnitude*scale),maximumDistance=foliage.drawDistance});
@@ -206,11 +219,9 @@ namespace VoxelRacer
                 }
             }
             finally { Random.state=oldRandom; }
-            var aggregateBounds=result.Count>0?result[0].bounds:new Bounds(new Vector3(key.x*TileSize,0,key.y*TileSize),Vector3.zero);
-            foreach(var prop in result)aggregateBounds.Encapsulate(prop.bounds);
-            tileBounds[key]=aggregateBounds;
-            return result;
+            var tileBounds=result.Count>0?result[0].bounds:new Bounds(new Vector3(key.x*TileSize,0,key.y*TileSize),Vector3.zero);
+            return new Tile(result, tileBounds);
         }
-        private void OnDisable() { tiles.Clear(); tileBounds.Clear(); batches.Clear(); ClearHorizonFoliage(); lastSet=null; CachedPropCount=VisiblePropCount=VisibleBatchCount=0; }
+        private void OnDisable() { tiles.Clear(); openingScenery=null; batches.Clear(); ClearHorizonFoliage(); lastSet=null; CachedPropCount=VisiblePropCount=VisibleBatchCount=0; }
     }
 }

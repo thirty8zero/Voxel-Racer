@@ -12,7 +12,9 @@ namespace VoxelRacer
         public float HealthPercent => Tuning == null ? 0f : Mathf.Clamp01(CurrentHealth / Tuning.vehicleHealth);
         public float LaneOffset => laneOffset + sideRamOffset;
         public float TrackDistance => trackDistance + rearRamForwardOffset;
-        public bool IsDrivingTraffic => !hasBeenRammed;
+        public bool IsDrivingTraffic => !hasBeenRammed && !IsLeavingMission;
+        internal bool IsLeavingMission => finishExit.Active;
+        private VoxelEnemyFinishExit finishExit;
 
         private readonly Dictionary<Transform, float> voxelHealth = new();
         internal static readonly List<VoxelEnemyCar> ActiveProjectileTargets = new();
@@ -209,6 +211,14 @@ namespace VoxelRacer
                     Destroy(gameObject);
                 return;
             }
+            if (IsLeavingMission)
+            {
+                currentSpeed = finishExit.Advance(Time.deltaTime, TrackDistance - target.TrackDistance, gameObject);
+                trackDistance += currentSpeed * Time.deltaTime;
+                ApplyTrackPose();
+                RotateWheels();
+                return;
+            }
 
             // Psycho Bug movement runs after the player's Update, so alignment and
             // contact use the same frame regardless of MonoBehaviour update order.
@@ -397,6 +407,7 @@ namespace VoxelRacer
         private void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
             bool awardMissionPoints)
         {
+            if (IsLeavingMission) return;
             if (bichoRig != null && !hasBeenRammed && damage > 0 && ConsumeBichoProjectile(hitVoxel, damage, hitPoint, impactDirection, awardMissionPoints)) return;
             if (hasBeenRammed || damage <= 0f || (hitVoxel != null && (!hitVoxel.gameObject.activeInHierarchy || hitVoxel.GetComponentInParent<VoxelIndestructiblePart>() != null)))
                 return;
@@ -520,6 +531,23 @@ namespace VoxelRacer
                 return;
 
             Explode(transform.position, transform.forward, false);
+        }
+
+        internal void FinishMission()
+        {
+            if (!IsDrivingTraffic || Tuning == null || target == null) return;
+            if (CurrentHealth < Tuning.vehicleHealth)
+            {
+                DetonateForMissionCompletion();
+                return;
+            }
+            if (IsBoss) return;
+
+            finishExit.Begin(currentSpeed, target.EffectiveTopSpeed, TrackDistance >= target.CollisionTrackPosition.y);
+            rearContact = default;
+            ActiveProjectileTargets.Remove(this);
+            if (TryGetComponent<VoxelMissileTarget>(out var missileTarget)) missileTarget.enabled = false;
+            if (healthBar != null) healthBar.gameObject.SetActive(false);
         }
 
         private void Explode(Vector3 hitPoint, Vector3 impactDirection, bool awardMissionPoints = true)

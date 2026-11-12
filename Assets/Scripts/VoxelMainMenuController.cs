@@ -387,14 +387,8 @@ namespace VoxelRacer
 
         public void StartMission()
         {
-            if (isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing)
+            if (!Application.isPlaying || isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing)
                 return;
-            VoxelMissionBriefing.Present(transform, VoxelTrackProgressState.CurrentTrack, LaunchMission);
-        }
-
-        private void LaunchMission()
-        {
-            if (isLoading || VoxelLoadingScreen.IsLoading) return;
             VoxelCarDefinition selectedCar = VoxelCarSelectionState.GetSelectedOrDefault();
             if (selectedCar == null)
             {
@@ -412,7 +406,6 @@ namespace VoxelRacer
                 return;
             }
             isLoading = true;
-            VoxelMissionBriefing.ApproveLaunch(VoxelTrackProgressState.CurrentTrack);
             VoxelLoadingScreen.LoadScene(buildIndex);
         }
     }

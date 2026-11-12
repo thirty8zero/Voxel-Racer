@@ -51,6 +51,7 @@ namespace VoxelRacer.Editor
                     CheckRoad(root.transform, tight); scenarios++;
                 }
                 finally { Object.DestroyImmediate(tight); }
+                CheckOpeningBlend(root.transform);
                 foreach (var shader in new[] { "Voxel Racer/Mountain Card", "Voxel Racer/Horizon Sun", "Voxel Racer/Horizon Road" })
                     Check(!ShaderUtil.ShaderHasError(Shader.Find(shader)), "Horizon shader has errors: " + shader);
                 Directory.CreateDirectory("Temp/RoadHorizon");
@@ -58,7 +59,8 @@ namespace VoxelRacer.Editor
                     "matching road/shoulder edges at handoff; detailed geometry/collider count unchanged; one distant renderer/three " +
                     "submeshes, no colliders or shadow casting; normal/UV/triangle budget; no gameplay RNG consumed; zero warmed " +
                     "refresh allocations; cached mesh reused across handoffs; enable/disable; preview clone ownership; seed rebuild " +
-                    "and native mesh cleanup; horizon shaders compile. Source settings, material caches and RNG restored.";
+                    "and native mesh cleanup; countdown bend planning, gradual joined strips and final colliders; " +
+                    "horizon shaders compile. Source settings, material caches and RNG restored.";
                 File.WriteAllText("Temp/RoadHorizon/Validation.txt", report); Debug.Log(report);
             }
             catch (Exception e)
@@ -72,6 +74,110 @@ namespace VoxelRacer.Editor
                 foreach (var material in materials) Object.DestroyImmediate(material);
                 UnityEngine.Random.state = random;
             }
+        }
+
+        private static void CheckOpeningBlend(Transform root)
+        {
+            var go = new GameObject("Countdown turn case");
+            go.transform.SetParent(root, false);
+            try
+            {
+                var road = go.AddComponent<EndlessVoxelRoad>();
+                road.enabled = false;
+                road.trackDefinition = Resources.Load<VoxelTrackDefinition>("Tracks/Track01");
+                road.trackDefinition.roadTuning.ApplyTo(road);
+                road.minimumCactiPerSegment = road.maximumCactiPerSegment = 0;
+                road.turnChancePerSegment = 1f;
+                road.minimumTurnAngle = road.maximumTurnAngle = 24f;
+                Call(road, "BeginStraightOpening");
+                road.BuildInitialRoad();
+
+                const float launch = 78f;
+                const float firstBend = 135f;
+                const float bendSample = 150f;
+                var launchPose = road.Evaluate(launch);
+                var plan = typeof(EndlessVoxelRoad).GetMethod("PlanOpeningTurns", Private);
+                var blend = (Action<float>)Delegate.CreateDelegate(typeof(Action<float>), road,
+                    typeof(EndlessVoxelRoad).GetMethod("BlendOpeningTurns", Private));
+                var refresh = (Action)Delegate.CreateDelegate(typeof(Action), road,
+                    typeof(EndlessVoxelRoad).GetMethod("RefreshHorizonRoad", Private));
+                var strip = go.GetComponentsInChildren<VoxelRoadStripMesh>()
+                    .First(piece => piece.name == "Road" && Mathf.Abs(piece.transform.position.z - firstBend) < .001f);
+                var mesh = strip.GetComponent<MeshFilter>().sharedMesh;
+                var straight = mesh.vertices;
+                var collider = strip.GetComponent<MeshCollider>();
+                var horizon = go.transform.Find("Distant Road").GetComponent<MeshFilter>().sharedMesh;
+                var scenery = go.AddComponent<VoxelDistantScenery>();
+                var cameraObject = new GameObject("Countdown scenery camera");
+                cameraObject.transform.SetParent(go.transform, false);
+                var camera = cameraObject.AddComponent<Camera>();
+                camera.enabled = false;
+                camera.farClipPlane = 760f;
+                scenery.Prepare(camera);
+                var tilesField = typeof(VoxelDistantScenery).GetField("tiles", Private);
+                var horizonTilesField = typeof(VoxelDistantScenery).GetField("horizonTiles", Private);
+                var activeTiles = tilesField.GetValue(scenery);
+                var activeHorizonTiles = horizonTilesField.GetValue(scenery);
+                plan.Invoke(road, new object[] { launch, 52f });
+                Check(Mathf.Abs(road.Evaluate(bendSample).forward.x) < .001f && mesh.vertices.SequenceEqual(straight),
+                    "Planning at 3 changed visible road immediately.");
+                var evaluateTarget = (Func<float, VoxelTrackPose>)Delegate.CreateDelegate(typeof(Func<float, VoxelTrackPose>), road,
+                    typeof(EndlessVoxelRoad).GetMethod("EvaluateOpeningTarget", Private));
+                var sampleDistances = new[] { -50f, 48f, 135f, 150f, 455f, 1700f };
+                var plannedPoses = sampleDistances.Select(evaluateTarget).ToArray();
+                Check(Vector3.Angle(Vector3.forward, plannedPoses[3].forward) > 11.9f,
+                    "Scenery could not sample the final bend before the road began to blend.");
+
+                scenery.Prepare(camera);
+                var pendingField = typeof(VoxelDistantScenery).GetField("openingScenery", Private);
+                var pending = pendingField.GetValue(scenery);
+                Check(pending != null, "Countdown did not start preparing the final scenery.");
+                var build = pending.GetType().GetField("Build");
+                for (int i = 0; i < 240 && build.GetValue(pending) != null; i++)
+                    scenery.Prepare(camera);
+                Check(build.GetValue(pending) == null && activeTiles == tilesField.GetValue(scenery) &&
+                    activeHorizonTiles == horizonTilesField.GetValue(scenery), "Preparing scenery replaced the active tiles early or failed to complete.");
+
+                float previousAngle = 0f;
+                foreach (float progress in new[] { .25f, .5f, .75f, 1f })
+                {
+                    blend(progress);
+                    refresh();
+                    float angle = Vector3.Angle(Vector3.forward, road.Evaluate(bendSample).forward);
+                    Check(angle > previousAngle + .1f, "Countdown curve did not blend monotonically.");
+                    previousAngle = angle;
+                    Check(road.Evaluate(launch).position == launchPose.position &&
+                        Mathf.Abs(road.Evaluate(firstBend - .01f).forward.x) < .001f,
+                        "Countdown moved the road under the car or turned before the launch buffer.");
+                    Check(strip.GetComponent<MeshFilter>().sharedMesh == mesh &&
+                        !mesh.vertices.SequenceEqual(straight), "Countdown did not deform the live road strip in place.");
+                    Check((collider.sharedMesh == mesh) == (progress == 1f), "Countdown cooked road collision before the final shape.");
+                    CheckSeam(road);
+                }
+
+                var finishedVertices = mesh.vertices;
+                var finishedPose = road.Evaluate(bendSample);
+                camera.transform.position = Vector3.forward * 52f;
+                scenery.Prepare(camera);
+                Check(pendingField.GetValue(scenery) == null &&
+                    tilesField.GetValue(scenery) == pending.GetType().GetField("Tiles").GetValue(pending) &&
+                    horizonTilesField.GetValue(scenery) == pending.GetType().GetField("HorizonTiles").GetValue(pending) &&
+                    scenery.CachedPropCount > 0 && scenery.CachedHorizonClumpCount > 0,
+                    "The settled road did not reuse both prepared scenery caches.");
+                blend(1f);
+                refresh();
+                Check(Mathf.Abs(previousAngle - 12f) < .01f && mesh.vertices.SequenceEqual(finishedVertices) &&
+                    road.Evaluate(bendSample).position == finishedPose.position &&
+                    go.transform.Find("Distant Road").GetComponent<MeshFilter>().sharedMesh == horizon,
+                    "Final road differed from the authored bend or changed again at handoff.");
+                for (int i = 0; i < sampleDistances.Length; i++)
+                {
+                    var actual = road.Evaluate(sampleDistances[i]);
+                    Check(actual.position == plannedPoses[i].position && actual.forward == plannedPoses[i].forward,
+                        "The final road did not match the scenery plan, including segments appended during the countdown.");
+                }
+            }
+            finally { Object.DestroyImmediate(go); }
         }
 
         private static void CheckRoad(Transform root, VoxelRoadTuning tuning)

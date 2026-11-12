@@ -97,6 +97,8 @@ namespace VoxelRacer
             Mathf.Clamp(100f * RemainingIntegrityVoxels / initialIntegrityVoxels, 0f, 100f);
         private float nextDamageTime;
         private bool drivingEnabled = true;
+        private bool carrierMotion;
+        private bool carrierRecoveryMotion;
         private bool finishingRun;
         private float finishDeceleration;
         private float visualYaw;
@@ -169,6 +171,49 @@ namespace VoxelRacer
                 CurrentSpeed = 0f;
                 SetBrakeLights(false);
             }
+        }
+
+        internal void SetCarrierPose(float distance, float speed, Vector3 position, Quaternion rotation,
+            float? laneOffset = null)
+        {
+            carrierMotion = true;
+            TrackDistance = distance;
+            CurrentSpeed = speed;
+            if (laneOffset.HasValue)
+                CurrentLaneOffset = laneOffset.Value;
+            transform.SetPositionAndRotation(position, rotation);
+        }
+
+        internal void PrepareCarrierRecovery()
+        {
+            carrierRecoveryMotion = true;
+            boostForwardOffsetStartedAt = ramResponseStartedAt = -1f;
+            boostForwardOffset = targetBoostForwardOffset = ramForwardOffset = ramLateralOffset = 0f;
+            oilSpinElapsed = oilSpinDuration;
+            oilSpinYaw = visualYaw = visualRoll = 0f;
+            oilTireMarks = null;
+            bossSideRamRecoveryElapsed = BossSideRamRecoveryDuration;
+            SetBrakeLights(false);
+        }
+
+        internal void ReleaseCarrierRecovery()
+        {
+            carrierRecoveryMotion = false;
+            currentLane = previousLane = Mathf.Clamp(Mathf.RoundToInt(CurrentLaneOffset / laneWidth +
+                (laneCount - 1) * .5f), 0, laneCount - 1);
+            ReleaseCarrierPose();
+        }
+
+        internal void PrepareCarrierLane()
+        {
+            currentLane = previousLane = Mathf.Min(currentLane, laneCount - 2);
+            CurrentLaneOffset = TargetLaneOffset;
+        }
+
+        internal void ReleaseCarrierPose()
+        {
+            carrierMotion = false;
+            ApplyTrackPose();
         }
 
         /// <summary>Applied by the boost controller and kept separate from the car's tuned normal top speed.</summary>
@@ -248,6 +293,8 @@ namespace VoxelRacer
                 UpdateDestroyedWreck();
                 return;
             }
+            if (carrierMotion)
+                return;
 
             var keyboard = Keyboard.current;
             IsBraking = !VoxelBossIntroduction.BlocksControls(this) &&
@@ -275,11 +322,12 @@ namespace VoxelRacer
             if (IsOilSpinning) AdvanceOilSpin(Time.deltaTime);
             else AdvanceLaneChange(Time.deltaTime);
             AdvanceBossSideRamRecovery(Time.deltaTime);
-            float laneOffset = targetLaneOffset - CurrentLaneOffset;
+            bool finishStopped = finishingRun && CurrentSpeed <= .05f;
+            float laneOffset = finishStopped ? 0f : targetLaneOffset - CurrentLaneOffset;
             float steeringTarget = Mathf.Abs(laneOffset) > 0.01f
                 ? Mathf.Sign(laneOffset) * frontWheelTurnDegrees
                 : 0f;
-            if (bossSideRamRecoveryElapsed < BossSideRamRecoveryDuration && !IsOilSpinning)
+            if (!finishStopped && bossSideRamRecoveryElapsed < BossSideRamRecoveryDuration && !IsOilSpinning)
                 steeringTarget = Mathf.Clamp(-BossSideRamSkidYaw * 1.5f, -frontWheelTurnDegrees, frontWheelTurnDegrees);
 
             float laneDirection = Mathf.Abs(laneOffset) > 0.01f ? Mathf.Sign(laneOffset) : 0f;
@@ -298,15 +346,19 @@ namespace VoxelRacer
                     continue;
 
                 if (child.name == "Front Wheel Steering")
-                {
-                    float currentAngle = Mathf.DeltaAngle(0f, child.localEulerAngles.y);
-                    float newAngle = Mathf.MoveTowards(currentAngle, steeringTarget, 240f * Time.deltaTime);
-                    child.localRotation = Quaternion.Euler(0f, newAngle, 0f);
-                }
+                    AdvanceFrontWheelSteering(child, steeringTarget, Time.deltaTime);
 
                 if (child.name == "Voxel Wheel")
                     child.Rotate(Vector3.right, CurrentSpeed * wheelSpinDegreesPerUnit * Time.deltaTime, Space.Self);
             }
+        }
+
+        internal static float AdvanceFrontWheelSteering(Transform pivot, float targetAngle, float dt)
+        {
+            float currentAngle = Mathf.DeltaAngle(0f, pivot.localEulerAngles.y);
+            float angle = Mathf.MoveTowards(currentAngle, targetAngle, 240f * dt);
+            pivot.localRotation = Quaternion.Euler(0f, angle, 0f);
+            return angle;
         }
 
         private float CalculateNextDriveSpeed(float speed, bool braking, float deltaTime)
@@ -391,7 +443,7 @@ namespace VoxelRacer
         /// <summary>Applies the player-side recoil after a surviving enemy ram.</summary>
         public void ApplyRamResponse(bool rearImpact, Vector3 enemyDirection, VoxelEnemyVehicleTuning enemyTuning, float sideBounceScale = 1f)
         {
-            if (enemyTuning == null)
+            if (carrierRecoveryMotion || enemyTuning == null)
                 return;
 
             ramResponseStartedAt = Time.time;
@@ -457,7 +509,7 @@ namespace VoxelRacer
 
         private void RequestLaneChange(int requestedLane)
         {
-            if (CurrentSpeed <= 0f) return;
+            if (carrierMotion || CurrentSpeed <= 0f) return;
             if (VoxelPauseMenu.IsPaused) return;
             if (VoxelBossIntroduction.BlocksControls(this)) return;
             if (IsOilSpinning) return;
@@ -491,7 +543,7 @@ namespace VoxelRacer
 
         public void ApplyDamage(Vector3 hitPoint, Vector3 impactDirection, string source = "Other damage")
         {
-            if (IsDestroyed || Time.time < nextDamageTime)
+            if (carrierRecoveryMotion || IsDestroyed || Time.time < nextDamageTime)
                 return;
 
             nextDamageTime = Time.time + 0.35f;

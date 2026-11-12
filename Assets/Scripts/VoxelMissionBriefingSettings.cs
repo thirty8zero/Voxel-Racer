@@ -7,6 +7,9 @@ namespace VoxelRacer
     [CreateAssetMenu(menuName = "Voxel Racer/Mission Briefing Settings", fileName = "MissionBriefingSettings")]
     public sealed class VoxelMissionBriefingSettings : ScriptableObject
     {
+        [Header("Mission Entry")]
+        public VoxelCarrierTruck carrierTruck;
+
         [Header("Backgrounds")]
         [Tooltip("Independent background textures. A track's Briefing Background Override takes priority.")]
         public Texture2D dayBackground, nightBackground;

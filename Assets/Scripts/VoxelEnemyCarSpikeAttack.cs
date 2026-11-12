@@ -58,6 +58,7 @@ namespace VoxelRacer
 
         private void LateUpdate()
         {
+            if (IsLeavingMission) return;
             UpdatePsychoBugAfterPlayer();
             ResolveRearContact();
             if (spikeAttackTuning != null && Tuning != null && !bossEntranceActive && !hasBeenRammed &&

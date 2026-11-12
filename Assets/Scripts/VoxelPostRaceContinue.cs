@@ -4,7 +4,8 @@ using UnityEngine.UI;
 
 namespace VoxelRacer
 {
-    /// <summary>Reveals the workshop transition only after a finished car has stopped.</summary>
+    /// <summary>Reveals the workshop transition after the finish presentation is ready.</summary>
+    [DefaultExecutionOrder(100)]
     public sealed partial class VoxelPostRaceContinue : MonoBehaviour
     {
         public VoxelRunFinish runFinish;
@@ -22,6 +23,13 @@ namespace VoxelRacer
         // while Continue's top is y=130 in the 1080-high reference layout.
         // A 520-high panel centred at 446.5 leaves 56.5 units on each side.
         private static readonly Vector2 PostRacePanelPosition = new Vector2(470f, -93.5f);
+        internal const float PanelWidth = 900f;
+
+        internal static float SubjectViewportX(float aspect)
+        {
+            float panelRight = (PostRacePanelPosition.x + PanelWidth * .5f) / (1080f * aspect);
+            return Mathf.Clamp((1f + panelRight) * .5f, .5f, .83f);
+        }
 
         private static void MatchPostRaceCanvasHeight(RectTransform canvas)
         {
@@ -37,19 +45,13 @@ namespace VoxelRacer
             missionProgress = mission;
         }
 
-        private void Update()
+        private void LateUpdate()
         {
-            if (runFinish == null || !runFinish.HasFinished ||
-                (missionProgress != null && missionProgress.IsCompletionSlowMotionActive) ||
-                runFinish.target == null || runFinish.target.CurrentSpeed > 0.05f ||
-                !runFinish.FinishCameraComplete)
+            if (runFinish == null || !runFinish.ResultsReady)
                 return;
 
             if (rewardSequenceStartedAt < 0f)
-            {
                 BuildRewardSequence();
-                return;
-            }
 
             UpdateRewardSequence();
             if (ContinueButton == null)
@@ -67,7 +69,7 @@ namespace VoxelRacer
             MatchPostRaceCanvasHeight(canvas);
             canvas.GetComponent<Canvas>().sortingOrder = 101;
             Image panel = VoxelMenuUi.CreatePanel(canvas, "Mission Reward Panel", new Vector2(0f, 0.5f),
-                PostRacePanelPosition, new Vector2(900f, 520f));
+                PostRacePanelPosition, new Vector2(PanelWidth, 520f));
             panel.color = new Color(.015f, .035f, .065f, .90f);
             baseRewardText = VoxelMenuUi.CreateText(panel.transform, "Base Mission Reward", string.Empty, 84,
                 TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0f, 185f), new Vector2(860f, 90f));
