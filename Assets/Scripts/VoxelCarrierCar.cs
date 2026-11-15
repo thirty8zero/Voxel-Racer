@@ -11,6 +11,7 @@ namespace VoxelRacer
         private readonly VoxelCarController player;
         private readonly Transform[] wheels;
         private readonly Transform[] steeringPivots;
+        private readonly Vector3[] tyreContacts;
         private readonly Vector2 axles;
         private Transform plough;
         private Vector3 ploughPosition, ploughHinge;
@@ -30,8 +31,12 @@ namespace VoxelRacer
             Bounds = body;
             WheelGround = tyres.min.y;
             Transform car = player.transform;
-            axles = new Vector2(wheels.Min(wheel => car.InverseTransformPoint(wheel.position).z),
-                wheels.Max(wheel => car.InverseTransformPoint(wheel.position).z));
+            tyreContacts = wheels.Select(wheel =>
+            {
+                Vector3 point = car.InverseTransformPoint(wheel.position);
+                return new Vector3(point.x, WheelGround, point.z);
+            }).ToArray();
+            axles = new Vector2(tyreContacts.Min(point => point.z), tyreContacts.Max(point => point.z));
             CachePlough();
         }
 
@@ -68,6 +73,9 @@ namespace VoxelRacer
 
         internal Pose Evaluate(VoxelCarrierTruck truck, float rearAxle) =>
             truck.EvaluateCarPose(axles, WheelGround, Bounds.center.x, rearAxle);
+
+        internal Vector3 TyreContact(int index) => tyreContacts[index];
+        internal int TyreCount => tyreContacts.Length;
 
         internal void RotateWheels(float distance)
         {

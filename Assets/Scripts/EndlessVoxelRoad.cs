@@ -57,6 +57,8 @@ namespace VoxelRacer
             public float openingStartHeading;
             public Transform visual;
             public OpeningSegmentVisual openingVisual;
+            public VoxelCreekCrossing creek;
+            public bool? hasCreek;
             public float EndDistance(float length) => startDistance + length;
         }
 
@@ -138,6 +140,7 @@ namespace VoxelRacer
             // The horizon is rebuilt from that same boundary with the authored turns.
             if (visibleSegments.Count == 0)
                 return;
+            ExcludeStagedCreekSections();
             int keep = visibleSegments[^1].index + 1;
             if (pathSegments.Count > keep)
                 pathSegments.RemoveRange(keep, pathSegments.Count - keep);
@@ -182,6 +185,7 @@ namespace VoxelRacer
                 AppendSegment(true);
             CaptureAppliedValues();
             RefreshHorizonRoad();
+            RefreshCreekGround();
         }
 
         /// <summary>Compatibility hook used by the generated-scene bootstrap.</summary>
@@ -307,6 +311,7 @@ namespace VoxelRacer
             isRebuilding = true;
             horizonStart = float.NaN;
             DestroyRoadSegments(true);
+            creekGroundDirty = true;
             pathSegments.Clear();
             visibleSegments.Clear();
             BuildInitialRoad();
@@ -368,6 +373,7 @@ namespace VoxelRacer
             {
                 RoadSegment oldest = visibleSegments[0];
                 visibleSegments.RemoveAt(0);
+                if (oldest.creek != null) creekGroundDirty = true;
                 if (oldest.visual != null)
                     Destroy(oldest.visual.gameObject);
                 if (!keepFinishRearCoverage && visibleSegments.Count >= Mathf.Max(3, segmentCount))
@@ -375,10 +381,11 @@ namespace VoxelRacer
                 int nextIndex = visibleSegments.Count > 0 ? visibleSegments[^1].index + 1 : oldest.index + 1;
                 EnsurePathCovers(pathSegments[0].startDistance + (nextIndex + 1) * segmentLength);
                 RoadSegment next = pathSegments[Mathf.Clamp(nextIndex, 0, pathSegments.Count - 1)];
-                next.visual = CreateSegmentVisual(next);
+                next.visual = CreateSegmentVisual(next, revealCreek: true);
                 visibleSegments.Add(next);
             }
             RefreshHorizonRoad();
+            RefreshCreekGround();
         }
 
         /// <summary>Restores recently recycled road for the rear-facing finish shot.</summary>
@@ -401,6 +408,7 @@ namespace VoxelRacer
             }
 
             visibleSegments.Sort((first, second) => first.index.CompareTo(second.index));
+            RefreshCreekGround();
         }
 
         private IEnumerator RebuildAfterCurrentFrame()
@@ -409,6 +417,7 @@ namespace VoxelRacer
             isRebuilding = true;
             horizonStart = float.NaN;
             DestroyRoadSegments(false);
+            creekGroundDirty = true;
             pathSegments.Clear();
             visibleSegments.Clear();
             yield return null;
@@ -507,7 +516,7 @@ namespace VoxelRacer
 
         private static Vector3 HeadingForward(float headingDegrees) => Quaternion.Euler(0f, headingDegrees, 0f) * Vector3.forward;
 
-        private Transform CreateSegmentVisual(RoadSegment data)
+        private Transform CreateSegmentVisual(RoadSegment data, bool revealCreek = false)
         {
             RoadSegment path = data;
             bool blending = openingTurnIndex >= 0 && data.index >= openingTurnIndex && openingTurnBlend > 0f;
@@ -516,6 +525,9 @@ namespace VoxelRacer
 
             var segment = new GameObject("Road Segment").transform;
             segment.SetParent(transform, false);
+            path.creek = CreateCreekCrossing(segment, path);
+            if (revealCreek && path.creek != null)
+                path.creek.BeginReveal();
             int slices = Mathf.Abs(data.turnAngle) < 0.001f ? 1 : Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(data.turnAngle) / curveDegreesPerSlice));
             if (straightOpening)
                 slices = Mathf.Max(slices, OpeningStripSlices);
@@ -560,7 +572,7 @@ namespace VoxelRacer
             CreateScenerySet(segment, data);
             // Sampling this chunk directly avoids Evaluate's look-ahead appending path-only
             // chunks during the initial visual build, which would leave gaps in the road.
-            VoxelDesertGroundCover.Build(segment, this, data.startDistance, distance => EvaluateSegment(data, distance));
+            VoxelDesertGroundCover.Build(segment, this, data.startDistance, distance => EvaluateSegment(data, distance), path.creek);
             segment.gameObject.AddComponent<VoxelFadeIn>();
             if (blending)
             {
@@ -587,7 +599,12 @@ namespace VoxelRacer
             // still use the authored groundWidth and retain their current budgets.
             float groundCoverage = horizonRoadEnabled
                 ? Mathf.Max(groundWidth, (horizonRoadDistance + segmentLength * 2f) * 2f) : groundWidth;
-            continuousGround.localScale = new Vector3(groundCoverage, 0.25f, groundCoverage);
+            var scale = new Vector3(groundCoverage, 0.25f, groundCoverage);
+            if (continuousGround.localScale != scale)
+            {
+                continuousGround.localScale = scale;
+                creekGroundDirty = true;
+            }
             var renderer = continuousGround.GetComponent<MeshRenderer>();
             if (renderer != null)
                 renderer.sharedMaterial = VoxelRacerBootstrap.GroundMaterial;
@@ -595,12 +612,13 @@ namespace VoxelRacer
 
         private void UpdateContinuousGroundPosition()
         {
-            if (continuousGround == null || target == null)
+            if (continuousGround == null)
                 return;
-            Vector3 position = finishSceneryDistance.HasValue ? Evaluate(finishSceneryDistance.Value).position : target.position;
+            Vector3 position = finishSceneryDistance.HasValue ? Evaluate(finishSceneryDistance.Value).position :
+                target != null ? target.position : continuousGround.position;
             position.y = -0.27f;
-            continuousGround.position = position;
             continuousGround.rotation = Quaternion.identity;
+            RefreshCreekGround(position);
         }
 
         private static GameObject CreatePlacedBlock(string name, Transform parent, VoxelTrackPose pose,
@@ -620,9 +638,12 @@ namespace VoxelRacer
                 return;
             float side = Random.value < 0.5f ? -1f : 1f;
             VoxelTrackPose pose = EvaluateSegment(data, Random.Range(segmentLength * 0.05f, segmentLength * 0.95f));
+            Vector3 position = pose.position + pose.right * side * Random.Range(minimumOffset, maximumOffset) - Vector3.up * 0.1f;
+            if (data.creek != null && data.creek.Overlaps(position, 1.2f))
+                return;
             var cactus = new GameObject("Voxel Cactus").transform;
             cactus.SetParent(segment);
-            cactus.position = pose.position + pose.right * side * Random.Range(minimumOffset, maximumOffset) - Vector3.up * 0.1f;
+            cactus.position = position;
             cactus.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
             BuildRandomCactusVisual(cactus, minimumCactusHeightScale, maximumCactusHeightScale, minimumCactusWidthScale, maximumCactusWidthScale,
                 trackDefinition != null ? trackDefinition.cactusShades : null);
@@ -685,6 +706,7 @@ namespace VoxelRacer
                 {
                     var pose = EvaluateSegment(data, Random.Range(segmentLength * .05f, segmentLength * .95f));
                     Vector3 position = pose.position + pose.right * (Random.value < .5f ? -1 : 1) * Random.Range(min, max);
+                    if (data.creek != null && data.creek.Overlaps(position, radius)) continue;
                     if (Random.value > set.PlacementDensity(position)) continue;
                     bool overlaps = false;
                     foreach (var other in occupied)
@@ -720,6 +742,12 @@ namespace VoxelRacer
                 scenery.transform.position = pose.position + pose.right * side * Random.Range(minimumOffset, maximumOffset);
                 scenery.transform.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
                 scenery.transform.localScale *= Random.Range(trackDefinition.minimumSceneryScale, trackDefinition.maximumSceneryScale);
+                if (data.creek != null && data.creek.Overlaps(scenery.transform.position, 1.5f))
+                {
+                    scenery.SetActive(false);
+                    if (Application.isPlaying) Destroy(scenery); else DestroyImmediate(scenery);
+                    continue;
+                }
                 VoxelSpawnScaleIn.Play(scenery);
             }
         }
@@ -734,7 +762,8 @@ namespace VoxelRacer
                 !Mathf.Approximately(appliedMinimumTurnAngle, minimumTurnAngle) || !Mathf.Approximately(appliedMaximumTurnAngle, maximumTurnAngle) ||
                 appliedStraightSegmentsBetweenTurns != minimumStraightSegmentsBetweenTurns || !Mathf.Approximately(appliedMaximumTrackHeading, maximumTrackHeading) ||
                 !Mathf.Approximately(appliedCurveDegreesPerSlice, curveDegreesPerSlice) ||
-                appliedRandomizeTurnSeedEachRun != randomizeTurnSeedEachRun || appliedTurnSeed != turnSeed;
+                appliedRandomizeTurnSeedEachRun != randomizeTurnSeedEachRun || appliedTurnSeed != turnSeed ||
+                !Mathf.Approximately(appliedCreekChance, CreekChance);
         }
 
         private void CaptureAppliedValues()
@@ -749,6 +778,7 @@ namespace VoxelRacer
             appliedCurveDegreesPerSlice = curveDegreesPerSlice;
             appliedRandomizeTurnSeedEachRun = randomizeTurnSeedEachRun;
             appliedTurnSeed = turnSeed;
+            appliedCreekChance = CreekChance;
         }
     }
 }

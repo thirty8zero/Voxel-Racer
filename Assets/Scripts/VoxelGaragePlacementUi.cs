@@ -211,7 +211,7 @@ namespace VoxelRacer
             var panel = VoxelMenuUi.CreatePanel(blocker.transform, "Purchase Dialog",
                 new Vector2(1, 1), Vector2.zero, new Vector2(325, 460));
             Frame(panel.gameObject, new Color(.38f, .94f, .55f), new Color(.025f, .045f, .06f, .98f));
-            Caption(panel.transform, "Purchase Heading", "PARTS TO FIT", 24,
+            Caption(panel.transform, "Purchase Heading", "PURCHASE UPGRADES", 24,
                 new Vector2(.5f, 1), new Vector2(0, -32), new Vector2(285, 32));
             var viewport = new GameObject("Pending Parts Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image), typeof(ScrollRect));
             viewport.transform.SetParent(panel.transform, false);
@@ -379,6 +379,7 @@ namespace VoxelRacer
             RefreshNextMission();
             placementPointerHeld = false; rotatingCar = pinching = false;
             if (purchaseModal != null) purchaseModal.SetActive(false);
+            SetInspectedUpgrade(null);
             if (feedbackText != null) feedbackText.text = string.Empty;
             if (refresh && hadPreview && DisplayedCar != null && garageCanvas != null) RefreshUi();
         }

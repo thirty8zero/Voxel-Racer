@@ -104,6 +104,8 @@ namespace VoxelRacer
             renderers.Clear();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
+                // Creek ground must render in the same opaque pass as the surrounding terrain.
+                if (renderer.GetComponentInParent<VoxelCreekCrossing>() != null) continue;
                 var healthBar = renderer.GetComponentInParent<VoxelEnemyHealthBar>();
                 if (healthBar != null && healthBar.UsesDistanceVisibility) continue;
                 Material material = renderer.sharedMaterial;

@@ -4,6 +4,7 @@ namespace VoxelRacer
 {
     public sealed partial class VoxelCameraFollow
     {
+        private const float BossDestructionReturnBlendSeconds = .5f;
         public bool BossDestructionFocusComplete { get; private set; } = true;
         private bool bossDestructionFocusActive;
         private VoxelEnemyCar destructionFocusBoss;
@@ -58,8 +59,20 @@ namespace VoxelRacer
                 transform.rotation = Quaternion.Slerp(destructionFocusStartRotation, Quaternion.LookRotation(look - transform.position), blend);
             var camera = GetComponent<Camera>();
             if (camera != null) camera.fieldOfView = Mathf.Lerp(destructionFocusStartFov, destructionFocusFov, blend);
-            ApplyShake();
-            if (destructionFocusElapsed >= destructionFocusDuration)
+
+            bool focusComplete = destructionFocusElapsed >= destructionFocusDuration;
+            float returnStart = Mathf.Max(0f, destructionFocusDuration - BossDestructionReturnBlendSeconds);
+            if (destructionFocusElapsed >= returnStart)
+            {
+                // Seed the orbit from this frame's unshaken wreck view, then follow both subjects during the return.
+                if (!finishSequenceActive) StartFinishOrbit();
+                float returnBlend = focusComplete ? 1f : Mathf.SmoothStep(0f, 1f,
+                    Mathf.InverseLerp(returnStart, destructionFocusDuration, destructionFocusElapsed));
+                UpdateFinishSequence(returnBlend);
+            }
+            else ApplyShake();
+
+            if (focusComplete)
             {
                 bossDestructionFocusActive = false;
                 BossDestructionFocusComplete = true;

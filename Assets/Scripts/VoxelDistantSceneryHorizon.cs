@@ -69,6 +69,7 @@ namespace VoxelRacer
                 {
                     float distance = (prop.bounds.center - camera.transform.position).sqrMagnitude;
                     if (distance < near * near || distance > far * far || !GeometryUtility.TestPlanesAABB(planes, prop.bounds)) continue;
+                    if (road.IsNearVisibleCreek(prop.bounds.center, Mathf.Max(prop.bounds.extents.x, prop.bounds.extents.z))) continue;
                     if (!horizonBatches.TryGetValue(prop.mesh, out var batch))
                         horizonBatches.Add(prop.mesh, batch = new List<Matrix4x4>());
                     batch.Add(prop.matrix); VisibleHorizonClumpCount++;

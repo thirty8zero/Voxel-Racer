@@ -15,6 +15,9 @@ namespace VoxelRacer.Editor
     {
         private const string Folder = "Assets/Prefabs/Vehicles/CarrierTruck";
         private const string PrefabPath = Folder + "/CarrierTruck.prefab";
+        private const string BayDarknessName = "Cargo Bay Darkness";
+        private const string BayLinersName = "Cargo Bay Liners";
+        private const string BayTextureFolder = "Assets/Images/Van Interior Surfaces";
         private const string ScenePath = "Assets/Scenes/CarrierTruckTest.unity";
         private const string PreviewFolder = "Temp/CarrierTruck";
         private const string Menu = "Tools/Voxel Racer/Carrier Truck/";
@@ -344,7 +347,135 @@ namespace VoxelRacer.Editor
             AddCollider(tip.Root, new Vector3(0f, tipLength * .5f, -.008f), new Vector3(tipWidth, tipLength, .016f));
             truck.Configure(door.Root, extension.Root, tip.Root, leaf, middleLength, tipLength, front, clearWidth, clearHeight);
             truck.ConfigureRollingDetails(wheels, WheelRadius, sparkContacts);
+            AddBayDarkness(truck);
+            AddBayLiners(truck);
             return truck;
+        }
+
+        private static void AddBayLiners(VoxelCarrierTruck truck)
+        {
+            var liners = new GameObject(BayLinersName).transform;
+            liners.SetParent(truck.transform, false);
+
+            float deck = truck.DeckHeight;
+            float roof = deck + truck.ClearHeight;
+            float rear = truck.BayRear;
+            float front = truck.BayFront;
+            float length = front - rear;
+            float halfWidth = truck.ClearWidth * .5f;
+            float middle = (rear + front) * .5f;
+            const float inset = .002f;
+            var wall = BayLinerMaterial("Wall");
+            var floor = BayLinerMaterial("Floor");
+            var ceiling = BayLinerMaterial("Ceiling");
+            // Crop the workbench art to the narrower bulkhead without stretching its equipment.
+            float bulkheadCoverage = truck.ClearWidth / length;
+            var bulkhead = BayLinerMaterial("Wall", "Bulkhead", bulkheadCoverage);
+
+            AddBayLiner(liners, "Left Wall", wall, new Vector3(-halfWidth + inset, (deck + roof) * .5f, middle),
+                Quaternion.Euler(0f, -90f, 0f), new Vector2(length, truck.ClearHeight));
+            AddBayLiner(liners, "Right Wall", wall, new Vector3(halfWidth - inset, (deck + roof) * .5f, middle),
+                Quaternion.Euler(0f, 90f, 0f), new Vector2(length, truck.ClearHeight));
+            AddBayLiner(liners, "Front Bulkhead", bulkhead, new Vector3(0f, (deck + roof) * .5f, front - inset),
+                Quaternion.identity, new Vector2(truck.ClearWidth, truck.ClearHeight));
+            AddBayLiner(liners, "Floor", floor, new Vector3(0f, deck + inset, middle),
+                Quaternion.LookRotation(Vector3.down, Vector3.right), new Vector2(length, truck.ClearWidth));
+            AddBayLiner(liners, "Ceiling", ceiling, new Vector3(0f, roof - inset, middle),
+                Quaternion.LookRotation(Vector3.up, Vector3.right), new Vector2(length, truck.ClearWidth));
+        }
+
+        private static Material BayLinerMaterial(string surface, string materialLabel = null, float widthFraction = 1f)
+        {
+            string name = "Cargo Bay " + (materialLabel ?? surface);
+            string materialPath = $"{Folder}/{name}.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+            if (material != null)
+                return material;
+
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>($"{BayTextureFolder}/{surface}.png");
+            if (texture == null)
+                throw new FileNotFoundException($"Missing carrier liner texture: {surface}.png", BayTextureFolder);
+
+            // The texture includes its own cyan lights and shadows. The bay darkness still shades the liner.
+            material = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { name = name };
+            material.SetTexture("_BaseMap", texture);
+            material.SetTextureScale("_BaseMap", new Vector2(widthFraction, 1f));
+            material.SetTextureOffset("_BaseMap", new Vector2((1f - widthFraction) * .5f, 0f));
+            AssetDatabase.CreateAsset(material, materialPath);
+            return material;
+        }
+
+        private static void AddBayLiner(Transform parent, string name, Material material,
+            Vector3 position, Quaternion rotation, Vector2 size)
+        {
+            var panel = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
+            panel.transform.SetParent(parent, false);
+            panel.transform.SetLocalPositionAndRotation(position, rotation);
+            panel.transform.localScale = new Vector3(size.x, size.y, 1f);
+            panel.GetComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
+            var renderer = panel.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.lightProbeUsage = LightProbeUsage.Off;
+            renderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
+        }
+
+        private static void AddBayDarkness(VoxelCarrierTruck truck)
+        {
+            const string materialPath = Folder + "/" + BayDarknessName + ".mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+            if (material == null)
+            {
+                var shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Shaders/VoxelCarrierBayDarkness.shader");
+                material = new Material(shader) { name = BayDarknessName };
+                AssetDatabase.CreateAsset(material, materialPath);
+            }
+
+            const string meshPath = Folder + "/" + BayDarknessName + ".asset";
+            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+            if (mesh == null)
+            {
+                const int sliceCount = 24;
+                var vertices = new Vector3[sliceCount * 4];
+                var uv = new Vector2[vertices.Length];
+                var triangles = new int[sliceCount * 6];
+                for (int slice = 0; slice < sliceCount; slice++)
+                {
+                    int vertex = slice * 4;
+                    int index = slice * 6;
+                    // Pack slices closer together near the ramp so the car darkens as it enters.
+                    float depth = (slice + .5f) / sliceCount;
+                    float z = depth * depth;
+                    vertices[vertex] = new Vector3(-.5f, 0f, z);
+                    vertices[vertex + 1] = new Vector3(.5f, 0f, z);
+                    vertices[vertex + 2] = new Vector3(.5f, 1f, z);
+                    vertices[vertex + 3] = new Vector3(-.5f, 1f, z);
+                    for (int corner = 0; corner < 4; corner++)
+                        uv[vertex + corner] = new Vector2(1f / sliceCount, 0f);
+                    triangles[index] = vertex;
+                    triangles[index + 1] = vertex + 1;
+                    triangles[index + 2] = vertex + 2;
+                    triangles[index + 3] = vertex;
+                    triangles[index + 4] = vertex + 2;
+                    triangles[index + 5] = vertex + 3;
+                }
+                mesh = new Mesh { name = BayDarknessName, vertices = vertices, uv = uv, triangles = triangles };
+                mesh.bounds = new Bounds(new Vector3(0f, .5f, .5f), Vector3.one);
+                AssetDatabase.CreateAsset(mesh, meshPath);
+            }
+
+            var volume = new GameObject(BayDarknessName, typeof(MeshFilter), typeof(MeshRenderer));
+            volume.transform.SetParent(truck.transform, false);
+            volume.transform.localPosition = new Vector3(0f, truck.DeckHeight, truck.BayRear);
+            volume.transform.localScale = new Vector3(truck.ClearWidth, truck.ClearHeight, truck.BayFront - truck.BayRear);
+            volume.GetComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = volume.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.lightProbeUsage = LightProbeUsage.Off;
+            renderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
         }
 
         private static void BuildRoofFairing(Blocks body, Material paint, float boxFront, float leadingZ,

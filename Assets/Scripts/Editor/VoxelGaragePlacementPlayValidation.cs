@@ -36,6 +36,7 @@ namespace VoxelRacer.Editor
         private static float carriedIntegrity;
         private static int carriedMissingVoxels;
         private static float swipeDistance;
+        private static Quaternion[] minigunRotations;
         private static Button Button(string name)
         {
             var button=shop.GetComponentsInChildren<Button>(true).First(b=>b.name==name);
@@ -46,10 +47,14 @@ namespace VoxelRacer.Editor
         }
         private static VoxelGarageUpgradePlacement Preview() => (VoxelGarageUpgradePlacement)
             typeof(VoxelRepairUpgradeSceneController).GetField("upgradePlacement", Private).GetValue(shop);
-        private static void UseUpgradeAction(string card) => VoxelGarageUpgradeDockValidation.InspectUpgrade(Button(card)).onClick.Invoke();
+        private static void UseUpgradeAction(string card) => VoxelGarageUpgradeDockValidation.RevealUpgradeCard(Button(card)).onClick.Invoke();
         private static void Call(string method, params object[] args) =>
             typeof(VoxelRepairUpgradeSceneController).GetMethod(method, Private).Invoke(shop, args);
         private static void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
+        private static VoxelGunMount[] Miniguns(GameObject car) =>
+            car.GetComponentsInChildren<VoxelGunMount>().Where(gun => gun.HasRotor).OrderBy(gun => gun.name).ToArray();
+        private static Quaternion RotorRotation(VoxelGunMount gun) =>
+            ((Transform)typeof(VoxelGunMount).GetField("barrelRotor", Private).GetValue(gun)).localRotation;
 
         [InitializeOnLoadMethod]
         private static void Hook()
@@ -191,6 +196,19 @@ namespace VoxelRacer.Editor
             }
             throw new InvalidOperationException("No visible screen-space spot for slot " + slot);
         }
+
+        private static Vector2 FacePlacementSpot(int slot)
+        {
+            Quaternion original = shop.DisplayedCar.transform.rotation;
+            for (int offset = 0; offset < 360; offset += 15)
+            {
+                shop.DisplayedCar.transform.rotation = original * Quaternion.Euler(0, offset, 0);
+                Preview().SyncTransform();
+                try { return Spot(slot); }
+                catch (InvalidOperationException) when (offset < 345) { }
+            }
+            return Spot(slot);
+        }
         private static Vector2 PendingSpot(VoxelGarageUpgradeKind kind, int slot)
         {
             var camera = (Camera)typeof(VoxelRepairUpgradeSceneController).GetField("workshopCamera", Private).GetValue(shop);
@@ -233,7 +251,7 @@ namespace VoxelRacer.Editor
             if (Time.realtimeSinceStartup - started > 30) { Finish("FAIL: input validation timed out."); return; }
             if (Time.frameCount < frame + 3) return;
             // Model taps need settled screen positions after navigating between garage panels.
-            if (phase >= 0 && shop != null && (bool)typeof(VoxelRepairUpgradeSceneController).GetField("garageCameraTransitionActive", Private).GetValue(shop)) return;
+            if (phase >= 0 && phase <= 16 && shop != null && (bool)typeof(VoxelRepairUpgradeSceneController).GetField("garageCameraTransitionActive", Private).GetValue(shop)) return;
             try
             {
                 switch (phase)
@@ -245,6 +263,9 @@ namespace VoxelRacer.Editor
                             "Garage entry still delays spinning in its first frames");
                         Check(Quaternion.Angle(menuRotation, menu.transform.Find("Featured Car Displays").rotation) > .01f,
                             "Main-menu entry does not spin immediately with a paused gameplay clock");
+                        menu.transform.Find("Main Menu UI").gameObject.SetActive(false);
+                        var menuArtwork = menu.transform.Find("Main Menu Artwork");
+                        if (menuArtwork != null) menuArtwork.gameObject.SetActive(false);
                         Time.timeScale = savedTimeScale;
                         shop.garageAutoRotationDegreesPerSecond = 0;
                         shop.DisplayedCar.transform.rotation = Quaternion.Euler(0, -15, 0);
@@ -296,38 +317,47 @@ namespace VoxelRacer.Editor
                         Check(shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().Length==4 &&
                             shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().All(c=>c.Category==VoxelGarageUpgradeCategory.WheelsAndTires),
                             "Touch input did not open Wheels & Tires category.");
-                        point=RectTransformUtility.WorldToScreenPoint(null,Button("Category Engines").transform.position);
-                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Began);break;
-                    case -5: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended);break;
-                    case -4:
-                        Check(shop.GetComponentsInChildren<VoxelGarageUpgradeCard>().Single().Category==VoxelGarageUpgradeCategory.Engines,
-                            "Touch input did not open Engines category.");
-                        point = RectTransformUtility.WorldToScreenPoint(null, Button("Long Gun Purchase Button").transform.position);
+                        Check(Preview() == null && !shop.transform.Find("Repair Upgrade UI/Car Upgrade Panel/Upgrade Details").gameObject.activeSelf,
+                            "Entering upgrades or changing categories selected a part.");
+                        point = RectTransformUtility.WorldToScreenPoint(null, Button("Wheel Spike Purchase Button").transform.position);
                         TouchEvent(UnityEngine.InputSystem.TouchPhase.Began); break;
-                    case -3: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
+                    case -5:
+                        TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
+                    case -4:
+                        Check(Preview()?.PendingCount(VoxelGarageUpgradeKind.Spikes) == 1 && VoxelCurrencyState.Balance == balance &&
+                            shop.transform.Find("Repair Upgrade UI/Car Upgrade Panel/Upgrade Details/Part Stats").gameObject.activeInHierarchy &&
+                            Button("Confirm Upgrade Purchase").gameObject.activeInHierarchy,
+                            "A single tap did not preview the wheel spikes and show part stats and confirmation without spending.");
+                        ScreenCapture.CaptureScreenshot("Temp/Garage_PartStats.png");
+                        break;
+                    case -3:
+                        Button("Cancel Upgrade Purchase").onClick.Invoke();
+                        Button("Category Guns").onClick.Invoke();
+                        shop.DisplayedCar.transform.rotation = Quaternion.Euler(0, -15, 0);
+                        Canvas.ForceUpdateCanvases();
+                        break;
                     case -2:
-                        Check(Preview() == null && VoxelCurrencyState.Balance == balance &&
-                            Button("Selected Upgrade Action").GetComponentInChildren<Text>().text.StartsWith("PLACE +"),
-                            "Touch inspection started a preview or failed to show the place action");
-                        point = RectTransformUtility.WorldToScreenPoint(null, Button("Selected Upgrade Action").transform.position);
+                        point = RectTransformUtility.WorldToScreenPoint(null, Button("Long Gun Purchase Button").transform.position);
                         TouchEvent(UnityEngine.InputSystem.TouchPhase.Began); break;
                     case -1: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
                     case 0:
-                        Check(Preview()?.Kind == VoxelGarageUpgradeKind.Guns, "Touch on the detail action did not open gun placement");
-                        Call("ApplyGaragePreviewViewport"); point = Spot(1); MouseEvent(true, point); break;
+                        Check(Preview()?.Kind == VoxelGarageUpgradeKind.Guns && Preview().AvailableSpotCount > 0 &&
+                            Preview().Selections.Count == 0 && VoxelCurrencyState.Balance == balance,
+                            "Tapping the gun card did not directly open slot selection");
+                        Call("ApplyGaragePreviewViewport"); point = FacePlacementSpot(1); MouseEvent(true, point); break;
                     case 1: MouseEvent(false, point); break;
                     case 2:
                         Check(Preview() != null && Preview().SelectedSlot == 1 && VoxelCurrencyState.Balance == balance,
                             "Mouse tap did not select right ghost without spending");
                         Button("Cancel Upgrade Purchase").onClick.Invoke();
                         Check(Preview() == null && !VoxelGunUpgradeState.IsPurchased(1), "Cancel bought the preview");
-                        UseUpgradeAction("Long Gun Purchase Button"); point = Spot(1);
+                        UseUpgradeAction("Long Gun Purchase Button"); point = FacePlacementSpot(1);
                         TouchEvent(UnityEngine.InputSystem.TouchPhase.Began); break;
                     case 3: TouchEvent(UnityEngine.InputSystem.TouchPhase.Ended); break;
                     case 4:
                         Check(Preview() != null && Preview().SelectedSlot == 1 && VoxelCurrencyState.Balance == balance,
                             "Touch tap did not select right ghost without spending; selected="+Preview()?.SelectedSlot+", balance="+VoxelCurrencyState.Balance+", expected="+balance);
-                        point = Spot(0); MouseEvent(true, point); break;
+                        point = FacePlacementSpot(0); MouseEvent(true, point); break;
                     case 5: MouseEvent(false, point); break;
                     case 6:
                         Check(Preview().PendingCount(VoxelGarageUpgradeKind.Guns) == 2 && VoxelCurrencyState.Balance == balance,
@@ -401,6 +431,29 @@ namespace VoxelRacer.Editor
                             VoxelPerformanceWheelTuning.Load().purchasePrice + VoxelBoostUpgradeTuning.LoadUpgrade().purchasePrice;
                         Check(VoxelCurrencyState.Balance == balance - confirmedCost, "Removing pending parts changed cash");
                         CheckGoldWheelReplacement();
+                        Time.timeScale = 0;
+                        UseUpgradeAction("Minigun Purchase Button");
+                        Call("SelectUpgradePlacement", 0);
+                        minigunRotations = Miniguns(Preview().Car).Select(RotorRotation).ToArray();
+                        Check(minigunRotations.Length == 2, "Expected a pending minigun and an empty-slot marker.");
+                        break;
+                    case 15:
+                        var candidates = Miniguns(Preview().Car);
+                        Check(Quaternion.Angle(minigunRotations[0], RotorRotation(candidates[0])) > .1f &&
+                            Quaternion.Angle(minigunRotations[1], RotorRotation(candidates[1])) < .01f,
+                            "Pending minigun did not spin or the empty-slot marker moved.");
+                        Call("SelectUpgradePlacement", 1);
+                        Button("Confirm Upgrade Purchase").onClick.Invoke();
+                        var installed = Miniguns(shop.DisplayedCar.gameObject);
+                        Check(installed.Length == 2 && Preview() == null, "Both miniguns must be fitted after confirmation.");
+                        minigunRotations = installed.Select(RotorRotation).ToArray();
+                        break;
+                    case 16:
+                        var spinning = Miniguns(shop.DisplayedCar.gameObject);
+                        Check(spinning.Select((gun, index) => Quaternion.Angle(minigunRotations[index], RotorRotation(gun)) > .1f &&
+                            !gun.TryBeginShot(out _) && gun.CooldownProgress == 1f).All(value => value),
+                            "Installed miniguns did not spin with the paused clock, or garage firing was enabled.");
+                        Time.timeScale = savedTimeScale;
                         UseUpgradeAction("Plough Purchase Button");
                         shop.NextRaceButton.onClick.Invoke();
                         var warning=shop.transform.Find("Repair Upgrade UI/Unfitted Parts Warning");
@@ -413,24 +466,40 @@ namespace VoxelRacer.Editor
                         shop.NextRaceButton.onClick.Invoke();
                         warning.GetComponentsInChildren<Button>().First(b=>b.name=="Start Mission Without Parts").onClick.Invoke();
                         break;
-                    case 15:
+                    case 17:
                         if (VoxelLoadingScreen.IsLoading) return;
                         Check(VoxelMissionBriefing.IsShowing, "Starting without pending parts did not open the mission briefing");
                         VoxelMissionBriefing.Active.GetComponentsInChildren<Button>().First(b => b.name == "Start Mission").onClick.Invoke();
                         break;
-                    case 16:
+                    case 18:
                         Check(SceneManager.GetActiveScene().name==missionScene && VoxelTrackProgressState.CurrentTrackIndex==missionIndex,"Start Mission did not advance and load the mission");
                         Check(!VoxelPloughUpgradeState.IsPurchased && VoxelCurrencyState.Balance==departureBalance,"Starting without pending parts bought them or spent cash");
                         Check(Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).All(t=>t.name!="Temporary Upgrade Placement"),"Unpurchased preview leaked into the mission");
                         var raceCar = Object.FindObjectsByType<VoxelCarController>(FindObjectsSortMode.None)
                             .Single(car => car.gameObject.scene == SceneManager.GetActiveScene());
+                        Check(Miniguns(raceCar.gameObject).Length == 2, "The next race lost the installed miniguns.");
                         var gold = VoxelPerformanceWheelTuning.LoadGold();
                         VoxelGoldTrackWheelValidation.VerifyMounts(raceCar.gameObject, gold);
                         Check(Mathf.Approximately(raceCar.EffectiveAcceleration, raceCar.acceleration * (1 + gold.accelerationBonusPercent / 100)) &&
                             Mathf.Approximately(raceCar.EffectiveLaneChangeSpeed, raceCar.laneChangeSpeed * (1 + gold.laneChangeBonusPercent / 100)) &&
                             Mathf.Approximately(raceCar.EffectiveBrakingForce, raceCar.brakingForce * (1 + gold.brakingBonusPercent / 100)),
                             "The next race lost or stacked the installed wheel bonuses");
-                        Finish("PASS (Play Mode): real touch category selection, upgrade inspection and separate Place action, per-category sorting, pending cart and wallet preserved across tabs; empty-background touch swipes right/left, mouse background drag beside repairs, repair UI drag blocking, background rotation with pending upgrades and confirmation open; garage integrity visible with disabled controller and paused clock, race damage carry-over, partial/full repair refresh and persistence, home/repair/upgrades, no pause input, inactive/disabled visibility and retained race gate; immediate menu/garage spin, real mouse/touch placement and removal, multiple selections, combined purchase, disable/close cleanup; Gold Track Wheels preview/cancel and exclusive Sports Wheel replacement with exact cost, preserved damage/spikes and installed gold wheels and tuning in the next race; starting with pending parts warns, Go Back retains the cart, the mission briefing launches the real race without spending or purchasing pending parts. Temporary input devices and cash/purchase/campaign/clock state restored."); return;
+                        Check(VoxelLoadingScreen.LoadScene(SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/RepairUpgrade.unity")),
+                            "Could not return to the garage.");
+                        break;
+                    case 19:
+                        if (VoxelLoadingScreen.IsLoading) return;
+                        shop = Object.FindFirstObjectByType<VoxelRepairUpgradeSceneController>();
+                        Check(shop != null, "The garage did not reopen.");
+                        minigunRotations = Miniguns(shop.DisplayedCar.gameObject).Select(RotorRotation).ToArray();
+                        Check(minigunRotations.Length == 2, "The returning garage lost the installed miniguns.");
+                        break;
+                    case 20:
+                        var returning = Miniguns(shop.DisplayedCar.gameObject);
+                        Check(returning.Length == 2 && returning.Select((gun, index) =>
+                            Quaternion.Angle(minigunRotations[index], RotorRotation(gun)) < .01f).All(value => value),
+                            "Previously installed miniguns spun on return to the garage.");
+                        Finish("PASS (Play Mode): real touch and mouse placement, combined purchase, garage layout and integrity, Gold Track Wheels replacement, miniguns spin when previewed and confirmed during the current visit, empty markers and previously installed miniguns stay still, and garage firing stays gated. Race launch preserves purchased parts and discards pending previews. Temporary inputs and run state restored."); return;
                 }
                 phase++; frame = Time.frameCount;
             }

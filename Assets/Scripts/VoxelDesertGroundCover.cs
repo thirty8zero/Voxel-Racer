@@ -19,7 +19,8 @@ namespace VoxelRacer
             public Bounds bounds;
         }
 
-        public static void Build(Transform segment, EndlessVoxelRoad road, float startDistance, System.Func<float, VoxelTrackPose> sample)
+        internal static void Build(Transform segment, EndlessVoxelRoad road, float startDistance,
+            System.Func<float, VoxelTrackPose> sample, VoxelCreekCrossing creek = null)
         {
             var tuning = road.trackDefinition != null ? road.trackDefinition.scenerySet?.groundCover : null;
             if (tuning == null || !tuning.enabled || tuning.material == null || tuning.variants.Length == 0 || tuning.clumpsPerSegment <= 0) return;
@@ -52,6 +53,7 @@ namespace VoxelRacer
                 var pose = sample(Next() * road.segmentLength);
                 var position = pose.position + pose.right * (Next() < .5f ? -1 : 1) * Mathf.Lerp(min, max, Next());
                 if (Next() > tuning.Density(position)) continue;
+                if (creek != null && creek.Overlaps(position, radius)) continue;
                 // Curved-road clearance is checked against the nearby actual centreline, not world Z.
                 bool blocked = false;
                 float clearance = road.roadWidth * .5f + tuning.roadClearance + radius;

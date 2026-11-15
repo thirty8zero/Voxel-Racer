@@ -52,7 +52,7 @@ namespace VoxelRacer
             slots = Label("Fitted Slots", "", 18, -17, 24, body);
             for (int i = 0; i < segments.Length; i++)
             {
-                segments[i] = VoxelMenuUi.CreatePanel(transform, "Fit Segment " + i, new Vector2(.5f, .5f),
+                segments[i] = VoxelMenuUi.CreatePanel(transform, "Level Segment " + i, new Vector2(.5f, .5f),
                     new Vector2(-48 + i * 32, -39), new Vector2(27, 9));
                 segments[i].raycastTarget = false;
             }
@@ -68,6 +68,11 @@ namespace VoxelRacer
         public void SetTitle(string title)
         {
             if(titleLabel!=null && titleLabel.text!=title)titleLabel.text=title;
+        }
+        internal void SetLevel(int level)
+        {
+            for (int i = 0; i < segments.Length; i++)
+                segments[i].color = i < level ? new Color(.24f, .9f, .40f) : new Color(.16f, .20f, .27f);
         }
         internal void SetSelected(bool value)
         {
@@ -120,20 +125,10 @@ namespace VoxelRacer
             slots.color = unaffordable ? mutedText : new Color(.57f, .63f, .72f);
             price.text = State == VoxelGarageUpgradeState.Pending ? "IN PREVIEW" : State == VoxelGarageUpgradeState.Equipped ? "INSTALLED" : compatible ? "$ " + cost.ToString("N0") : "—";
             price.color = unaffordable ? mutedText : Color.white;
-            status.text = pending > 0 ? "PREVIEW X" + pending : State == VoxelGarageUpgradeState.Equipped ? "EQUIPPED" : State == VoxelGarageUpgradeState.Affordable ? "DETAILS" :
+            status.text = pending > 0 ? "PREVIEW X" + pending : State == VoxelGarageUpgradeState.Equipped ? "EQUIPPED" : State == VoxelGarageUpgradeState.Affordable ? "FIT" :
                 State == VoxelGarageUpgradeState.Unaffordable ? "NO FUNDS" : "UNAVAILABLE";
             status.color = unaffordable ? mutedText : State == VoxelGarageUpgradeState.Affordable || State == VoxelGarageUpgradeState.Equipped
                 ? new Color(.32f, .91f, .52f) : new Color(.58f, .62f, .69f);
-            float fraction = compatible ? Mathf.Clamp01((float)owned / capacity) : 0;
-            float previewFraction = compatible ? Mathf.Clamp01((float)(owned + pending) / capacity) : 0;
-            for (int i = 0; i < segments.Length; i++)
-            {
-                Color segmentColor = i < Mathf.RoundToInt(fraction * segments.Length)
-                    ? new Color(.24f, .9f, .40f) : i < Mathf.RoundToInt(previewFraction * segments.Length)
-                    ? new Color(1, .81f, .35f) : new Color(.16f, .20f, .27f);
-                if (unaffordable) segmentColor = new Color(segmentColor.r * .6f, segmentColor.g * .6f, segmentColor.b * .6f);
-                segments[i].color = segmentColor;
-            }
         }
     }
 }

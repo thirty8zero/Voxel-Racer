@@ -19,7 +19,7 @@ MonoBehaviour:
   upgradeLevel: 2
   purchasePrice: 1200
   maximumPurchases: 2
-  shotsPerSecond: 14
+  shotsPerSecond: 20
   bulletsPerShot: 1
   ammunitionPerStage: 0
   spreadDegrees: 0.8

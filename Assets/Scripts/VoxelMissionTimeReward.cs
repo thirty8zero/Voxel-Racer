@@ -6,11 +6,13 @@ namespace VoxelRacer
     public sealed partial class VoxelMissionProgress
     {
         private const float TimeRewardWidth = 326f, TimeRewardHeight = 294f, TimeRewardPeakScale = 1.04f;
+        private const float TimeRewardPlusWidth = 26f, TimeRewardPlusGap = 6f, TimeRewardNumberMaxWidth = 120f;
         private static readonly Color TimeRewardCyan = new(.38f, .87f, 1f), TimeRewardSilver = new(.8f, .91f, 1f);
         private Texture2D timeRewardRing, timeRewardArc, timeRewardDisc, timeRewardStrip;
         private GUIStyle timeRewardNumberStyle, timeRewardSecondsStyle, timeRewardTitleStyle;
         private readonly GUIContent timeRewardNumber = new();
         private int timeRewardStyledAmount = -1;
+        private float timeRewardNumberWidth;
         private RectTransform[] timeRewardControls;
         private readonly Vector3[] timeRewardCorners = new Vector3[4];
         private readonly Rect[] timeRewardObstacles = new Rect[12];
@@ -111,11 +113,14 @@ namespace VoxelRacer
                 DrawTimeRewardTexture(timeRewardRing, new Rect(71.5f, 40.5f, 183, 183), new Color(.4f, .7f, .85f, .3f), opacity);
                 Fill(new Rect(143, 0, 40, 14), TimeRewardSilver, opacity);
                 Fill(new Rect(152, 14, 22, 12), TimeRewardCyan, opacity);
+                float amountWidth = TimeRewardPlusWidth + TimeRewardPlusGap + timeRewardNumberWidth;
+                float amountLeft = (TimeRewardWidth - amountWidth) * .5f;
                 // IMPACTED has no usable plus glyph: draw the sign as crisp UI bars.
-                Fill(new Rect(104, 124, 26, 5), Color.white, opacity);
-                Fill(new Rect(114.5f, 113.5f, 5, 26), Color.white, opacity);
+                Fill(new Rect(amountLeft, 124, TimeRewardPlusWidth, 5), Color.white, opacity);
+                Fill(new Rect(amountLeft + (TimeRewardPlusWidth - 5f) * .5f, 113.5f, 5, TimeRewardPlusWidth), Color.white, opacity);
                 GUI.color = new Color(1, 1, 1, opacity);
-                GUI.Label(new Rect(132, 64, 123, 112), timeRewardNumber, timeRewardNumberStyle);
+                GUI.Label(new Rect(amountLeft + TimeRewardPlusWidth + TimeRewardPlusGap, 64, timeRewardNumberWidth, 112),
+                    timeRewardNumber, timeRewardNumberStyle);
                 GUI.Label(new Rect(63, 163, 200, 37), "SECONDS", timeRewardSecondsStyle);
                 DrawTimeRewardTexture(timeRewardStrip, new Rect(0, 245, 326, 49), TimeRewardCyan, opacity);
                 DrawTimeRewardTexture(timeRewardStrip, new Rect(3, 248, 320, 43), new Color(.025f, .1f, .15f), opacity);
@@ -144,8 +149,12 @@ namespace VoxelRacer
             timeRewardStyledAmount = timeExtensionAmount;
             timeRewardNumber.text = timeExtensionAmount.ToString();
             timeRewardNumberStyle.fontSize = 98;
-            float measured = timeRewardNumberStyle.CalcSize(timeRewardNumber).x;
-            if (measured > 120) timeRewardNumberStyle.fontSize = Mathf.Max(12, Mathf.FloorToInt(98 * 120 / measured));
+            timeRewardNumberWidth = timeRewardNumberStyle.CalcSize(timeRewardNumber).x;
+            if (timeRewardNumberWidth > TimeRewardNumberMaxWidth)
+            {
+                timeRewardNumberStyle.fontSize = Mathf.Max(12, Mathf.FloorToInt(98 * TimeRewardNumberMaxWidth / timeRewardNumberWidth));
+                timeRewardNumberWidth = timeRewardNumberStyle.CalcSize(timeRewardNumber).x;
+            }
         }
 
         private static GUIStyle TimeRewardStyle(int size, Color colour) => new()

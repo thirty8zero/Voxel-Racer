@@ -5,6 +5,8 @@ namespace VoxelRacer
     /// <summary>Articulated rear door and truck-local driving surface, with +Z toward the cab.</summary>
     public sealed class VoxelCarrierTruck : MonoBehaviour
     {
+        private const float RampDeploymentDuration = 3f;
+        private const float BayRevealDeployment = .38f;
         private static readonly int SparkBaseColor = Shader.PropertyToID("_BaseColor");
 
         [SerializeField] private Transform door;
@@ -34,6 +36,8 @@ namespace VoxelRacer
         public float RampTip => BayRear - Mathf.Sqrt(RampLength * RampLength - DeckHeight * DeckHeight);
         public bool IsOpen => deployment >= 1f;
         public bool IsClosed => deployment <= 0f;
+        internal bool HasRevealedBay => IsBayRevealWithin(0f);
+        internal bool IsBayRevealWithin(float rampSeconds) => deployment + rampSeconds / RampDeploymentDuration >= BayRevealDeployment;
         public bool Opening => openRequested;
 
         private float RampLength => leafLength + extensionLength + tipLength;
@@ -168,7 +172,7 @@ namespace VoxelRacer
 
         public void AdvanceRamp(float seconds)
         {
-            float next = Mathf.MoveTowards(deployment, openRequested ? 1f : 0f, seconds / 3f);
+            float next = Mathf.MoveTowards(deployment, openRequested ? 1f : 0f, seconds / RampDeploymentDuration);
             if (next == deployment)
                 return;
 

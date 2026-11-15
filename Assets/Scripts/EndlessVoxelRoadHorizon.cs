@@ -184,6 +184,7 @@ namespace VoxelRacer
 
         private void OnDestroy()
         {
+            ReleaseCreekGround();
             if (horizonMaterials != null && horizonMaterialOwner == GetInstanceID())
                 foreach (var material in horizonMaterials)
                     if (Application.isPlaying) Destroy(material); else DestroyImmediate(material);

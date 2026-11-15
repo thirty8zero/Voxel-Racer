@@ -55,16 +55,7 @@ namespace VoxelRacer
                 return;
 
             float distance = player.TrackDistance + tuning.turretSpawnDistanceAhead;
-            if (obstacleSpawner.HasStaticObstacleNearTrackDistance(distance, turretTuning.staticObstacleClearance))
-                return;
-
-            road.EnsurePathCovers(distance + 10f);
-            var turretObject = new GameObject(turretTuning.displayName);
-            turretObject.transform.SetParent(transform);
-            var turret = turretObject.AddComponent<VoxelRoadsideTurret>();
-            turret.Configure(player, road, turretTuning, distance, Random.value < .5f ? -1f : 1f);
-            turretObject.AddComponent<VoxelFadeIn>();
-            VoxelSpawnScaleIn.Play(turretObject);
+            VoxelRoadsideTurret.Spawn(transform, player, road, turretTuning, distance, obstacleSpawner);
         }
 
         private void TrySpawnOilSlick()

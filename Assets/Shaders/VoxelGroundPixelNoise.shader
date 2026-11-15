@@ -7,6 +7,7 @@ Shader "Voxel Racer/Ground Pixel Noise"
         _NoiseDensity ("Noise Density", Range(0, 1)) = 0.6
         _ColourVariation ("Colour Variation", Range(0, 0.5)) = 0.1
         _NoiseSeed ("Noise Seed", Float) = 317
+        [HideInInspector] _CreekReveal ("Creek Reveal", Float) = 0
     }
 
     SubShader
@@ -26,6 +27,7 @@ Shader "Voxel Racer/Ground Pixel Noise"
             #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Random.hlsl"
 
             struct Attributes
             {
@@ -36,7 +38,6 @@ Shader "Voxel Racer/Ground Pixel Noise"
             {
                 float4 positionCS : SV_POSITION;
                 float3 positionWS : TEXCOORD0;
-                half fogFactor : TEXCOORD1;
             };
 
             CBUFFER_START(UnityPerMaterial)
@@ -45,6 +46,7 @@ Shader "Voxel Racer/Ground Pixel Noise"
                 float _NoiseDensity;
                 float _ColourVariation;
                 float _NoiseSeed;
+                float _CreekReveal;
             CBUFFER_END
 
             float Hash21(float2 value)
@@ -60,12 +62,13 @@ Shader "Voxel Racer/Ground Pixel Noise"
                 VertexPositionInputs positions = GetVertexPositionInputs(input.positionOS.xyz);
                 output.positionCS = positions.positionCS;
                 output.positionWS = positions.positionWS;
-                output.fogFactor = ComputeFogFactor(positions.positionCS.z);
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
+                if (_CreekReveal > 0.0)
+                    clip(InterleavedGradientNoise(input.positionCS.xy, 0) - _CreekReveal);
                 float pixelSize = max(0.05, _PixelSize);
                 float2 cell = floor(input.positionWS.xz / pixelSize);
                 float selection = Hash21(cell + _NoiseSeed);
@@ -73,7 +76,10 @@ Shader "Voxel Racer/Ground Pixel Noise"
                 float selected = step(1.0 - saturate(_NoiseDensity), selection);
                 float shade = 1.0 + (shadeHash * 2.0 - 1.0) * _ColourVariation * selected;
                 half3 colour = _BaseColor.rgb * shade;
-                colour = MixFog(colour, input.fogFactor);
+                // Streaming changes the ground's triangulation. Fog must depend on the
+                // pixel's depth so identical terrain renders the same across mesh seams.
+                real fogFactor = InitializeInputDataFog(float4(input.positionWS, 1.0), 0.0);
+                colour = MixFog(colour, fogFactor);
                 return half4(colour, _BaseColor.a);
             }
             ENDHLSL

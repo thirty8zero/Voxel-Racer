@@ -16,7 +16,6 @@ namespace VoxelRacer
         [Min(.1f)] public float beamEndWidth = 4f;
         public Color beamColour = new(1f, .82f, .12f, 1f);
         [ColorUsage(false, true)] public Color enemyBeamColour = new(2f, .025f, .01f, 1f);
-        [ColorUsage(false, true)] public Color playerBeamColour = new(.10f, .52f, 2.2f, 1f);
         [Range(0f, 1f)] public float beamOpacity = .22f;
         [Min(1f)] public float maximumDrawDistance = 140f;
         public static VoxelNightHeadlightSettings Load() => Resources.Load<VoxelNightHeadlightSettings>("NightHeadlightSettings");

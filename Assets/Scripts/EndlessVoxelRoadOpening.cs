@@ -84,6 +84,7 @@ namespace VoxelRacer
                 return;
 
             straightOpening = false;
+            ExcludeStagedCreekSections();
             openingTurnIndex = -1;
             if (hasCurve)
                 PathRevision++;

@@ -25,7 +25,6 @@ namespace VoxelRacer
         public bool FinishSequenceComplete { get; private set; }
         public bool DeathSequenceComplete { get; private set; }
 
-        private VoxelCarController finishTarget;
         private Vector3 finishStartOffset;
         private Quaternion finishStartRotation;
         private float finishStartFieldOfView;
@@ -57,14 +56,19 @@ namespace VoxelRacer
 
         public void BeginFinishSequence(VoxelCarController car)
         {
-            if (car == null || finishSequenceActive)
+            if (car == null || (finishSequenceActive && !bossDestructionFocusActive))
                 return;
 
             bossDestructionFocusActive = false;
             BossDestructionFocusComplete = true;
+            destructionFocusBoss = null;
 
             target = car.transform;
-            finishTarget = car;
+            StartFinishOrbit();
+        }
+
+        private void StartFinishOrbit()
+        {
             finishStartOffset = transform.position - target.position;
             finishStartRotation = transform.rotation;
             Camera camera = GetComponent<Camera>();
@@ -141,6 +145,7 @@ namespace VoxelRacer
             if (car == null || destroyedFollowTarget == car.transform) return;
             bossDestructionFocusActive = false;
             BossDestructionFocusComplete = true;
+            destructionFocusBoss = null;
             target = car.transform;
             // Capture the clean view and a stable road heading before the wreck tumbles.
             bool hasPreviousPose = cameraPoseTarget == target;
@@ -189,7 +194,7 @@ namespace VoxelRacer
             ApplyShake();
         }
 
-        private void UpdateFinishSequence()
+        private void UpdateFinishSequence(float blend = 1f)
         {
             VoxelCameraTuning settings = Tuning;
             float duration = settings != null ? settings.finishSequenceDuration : finishSequenceDuration;
@@ -200,25 +205,32 @@ namespace VoxelRacer
                 (settings != null ? settings.finishOffset : finishOffset);
             Vector3 orbitOffset = InterpolateOrbitOffset(finishStartOffset, endOffset, easedProgress);
 
-            transform.position = target.position + orbitOffset;
+            Vector3 position = target.position + orbitOffset;
             Vector3 finishLookPoint = target.position + target.right *
                 (settings != null ? settings.finishLookSideOffset : finishLookSideOffset) +
                 Vector3.up * (settings != null ? settings.finishLookHeight : finishLookHeight);
-            Quaternion endRotation = Quaternion.LookRotation(finishLookPoint - transform.position);
-            transform.rotation = Quaternion.Slerp(finishStartRotation, endRotation, easedProgress);
+            Quaternion endRotation = Quaternion.LookRotation(finishLookPoint - position);
+            Quaternion rotation = Quaternion.Slerp(finishStartRotation, endRotation, easedProgress);
+            if (blend < 1f)
+            {
+                position = Vector3.Lerp(transform.position, position, blend);
+                rotation = Quaternion.Slerp(transform.rotation, rotation, blend);
+            }
+            transform.SetPositionAndRotation(position, rotation);
 
             Camera camera = GetComponent<Camera>();
             if (camera != null)
             {
-                camera.fieldOfView = Mathf.Lerp(finishStartFieldOfView,
+                float fieldOfView = Mathf.Lerp(finishStartFieldOfView,
                     settings != null ? settings.finishFieldOfView : finishFieldOfView, easedProgress);
-                if (camera.TryGetComponent<VoxelMobilePostProcessing>(out var postProcessing))
+                camera.fieldOfView = Mathf.Lerp(camera.fieldOfView, fieldOfView, blend);
+                if (blend >= 1f && camera.TryGetComponent<VoxelMobilePostProcessing>(out var postProcessing))
                     postProcessing.SetDebriefFocus(true, camera.transform.InverseTransformPoint(target.position + Vector3.up * .9f).z);
             }
 
             ApplyShake();
 
-            if (progress >= 1f)
+            if (blend >= 1f && progress >= 1f)
                 FinishSequenceComplete = true;
         }
 

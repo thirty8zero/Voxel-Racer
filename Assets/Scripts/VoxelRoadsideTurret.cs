@@ -25,6 +25,33 @@ namespace VoxelRacer
 
         public float TrackDistance => trackDistance;
 
+        internal static void Spawn(Transform parent, VoxelCarController player, EndlessVoxelRoad road,
+            VoxelRoadsideTurretTuning tuning, float distance, VoxelObstacleSpawner obstacles)
+        {
+            if (road.IsCreekSection(distance))
+            {
+                // Keep the same position within each candidate section as we look ahead.
+                do
+                {
+                    distance += road.segmentLength;
+                }
+                while (road.IsCreekSection(distance) || HasNearbyObstacle(distance));
+            }
+            else if (HasNearbyObstacle(distance))
+                return;
+
+            road.EnsurePathCovers(distance + 10f);
+            var turretObject = new GameObject(tuning.displayName);
+            turretObject.transform.SetParent(parent);
+            var turret = turretObject.AddComponent<VoxelRoadsideTurret>();
+            turret.Configure(player, road, tuning, distance, Random.value < .5f ? -1f : 1f);
+            turretObject.AddComponent<VoxelFadeIn>();
+            VoxelSpawnScaleIn.Play(turretObject);
+
+            bool HasNearbyObstacle(float candidate) => obstacles != null &&
+                obstacles.HasStaticObstacleNearTrackDistance(candidate, tuning.staticObstacleClearance);
+        }
+
         public void Configure(VoxelCarController player, EndlessVoxelRoad road, VoxelRoadsideTurretTuning value,
             float distance, float roadsideSide)
         {

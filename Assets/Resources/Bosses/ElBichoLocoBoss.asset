@@ -40,9 +40,9 @@ MonoBehaviour:
   missileHealthDamageMultiplier: 1
   missileBlastRadiusMultiplier: 1
   maximumMissileDebris: 24
-  onDestroyVoxelsRemoved: 200
+  onDestroyVoxelsRemoved: 350
   maximumDestructionRemovalFraction: 0.65
-  maximumDestructionDebris: 200
+  maximumDestructionDebris: 350
   destructionExplosionScale: 2
   useWorldScaleForDestructionExplosion: 0
   destroyedLifetime: 4
@@ -83,12 +83,12 @@ MonoBehaviour:
   completionSlowMotionTimeScale: 0.25
   overrideFinishStopDuration: 0
   finishStopDuration: 3
-  focusCameraOnDestruction: 0
-  destructionCameraDuration: 3
-  destructionCameraBlendDuration: 0.5
+  focusCameraOnDestruction: 1
+  destructionCameraDuration: 4
+  destructionCameraBlendDuration: 2
   destructionCameraOffset: {x: 24, y: 14, z: -30}
   destructionCameraLookHeight: 4
-  destructionCameraFieldOfView: 50
+  destructionCameraFieldOfView: 40
   minimumDistanceAhead: 28
   maximumDistanceAhead: 120
   escapeWarningDistance: 200

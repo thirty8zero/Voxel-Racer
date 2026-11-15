@@ -43,9 +43,11 @@ namespace VoxelRacer.Editor
                 Check(settings.beamMaterial.enableInstancing && !ShaderUtil.ShaderHasError(settings.beamMaterial.shader), "Beam shader/instancing invalid.");
                 Check(settings.lampMaterial.IsKeywordEnabled("_EMISSION"), "Build-referenced lamp emission is disabled.");
                 Check(settings.enemyLampMaterial != null && settings.enemyLampMaterial.IsKeywordEnabled("_EMISSION"), "Enemy red lamp emission is disabled.");
-                Check(settings.playerLampMaterial != null && settings.playerLampMaterial.IsKeywordEnabled("_EMISSION") &&
-                    settings.playerBeamColour.b > settings.playerBeamColour.g && settings.playerBeamColour.b > settings.playerBeamColour.r,
-                    "Player headlights need an emissive lens material and blue beams.");
+                Check(settings.playerLampMaterial != null && settings.playerLampMaterial.IsKeywordEnabled("_EMISSION"),
+                    "Player headlights need an emissive lens material.");
+                var playerEmission = settings.playerLampMaterial.GetColor("_EmissionColor");
+                Check(playerEmission.b > 1f && playerEmission.b > playerEmission.g && playerEmission.b > playerEmission.r,
+                    "Player headlight emission is not HDR blue.");
                 foreach (var old in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
                     if (old.enabled) { old.enabled = false; oldLights.Add(old); }
                 var source = Resources.Load<VoxelTrackDefinition>("Tracks/Track01");
@@ -110,8 +112,8 @@ namespace VoxelRacer.Editor
                 ValidateBeamClearance();
                 int lightsBefore = root.GetComponentsInChildren<Light>(true).Length;
                 Render(camera, Folder + "NightChase.png");
-                Check(VoxelNightHeadlights.LastBeamCount == 10, "Player and four traffic vehicles did not submit exactly ten cards.");
-                Check(VoxelNightHeadlights.LastBatchCount == (SystemInfo.supportsInstancing ? 1 : 10), "Beam cards did not share the expected batch.");
+                Check(VoxelNightHeadlights.LastBeamCount == 8, "Four traffic vehicles should submit all eight cards with no player beams.");
+                Check(VoxelNightHeadlights.LastBatchCount == (SystemInfo.supportsInstancing ? 1 : 8), "Beam cards did not share the expected batch.");
                 var close = Object.Instantiate(camera, root.transform);
                 close.transform.position = new Vector3(-10, 7, 50);
                 close.transform.LookAt(new Vector3(0, .5f, 34));
@@ -126,7 +128,7 @@ namespace VoxelRacer.Editor
                 Check(root.GetComponentsInChildren<Light>(true).Length == lightsBefore, "Headlights added realtime lights.");
                 Check(EditorJsonUtility.ToJson(source) == originalTrack, "Headlight preview edited source track.");
                 foreach (var car in cars) Object.DestroyImmediate(car.tuning);
-                File.WriteAllText(Folder + "Validation.txt", "PASS: " + models + " authored traffic/enemy/boss models; blue player lights at countdown 1 and through launch, darkness before 1 and on daytime tracks; front lamps only; exactly two cards per intact vehicle and one shared instanced batch; destroyed lamp/vehicle and disabled-owner gates; no extra renderers/colliders/lights or projectile membership; source prefabs/materials/track and RNG preserved. Renders use the mobile post-processing profile in an isolated editor scene.");
+                File.WriteAllText(Folder + "Validation.txt", "PASS: " + models + " authored traffic/enemy/boss models; blue player lens emission on day and night tracks before and through countdown and launch, zero player beam cards, wreck shutoff; front lamps only; two cards per intact night traffic vehicle and one shared instanced batch; destroyed lamp/vehicle and disabled-owner gates; no extra renderers/colliders/lights or projectile membership; source prefabs/materials/track and RNG preserved. Renders use the mobile post-processing profile in an isolated editor scene.");
                 Debug.Log(File.ReadAllText(Folder + "Validation.txt"));
             }
             catch (Exception error) { File.WriteAllText(Folder + "Validation.txt", "FAIL: " + error); throw; }
@@ -152,49 +154,54 @@ namespace VoxelRacer.Editor
             var countdown = root.AddComponent<VoxelStartCountdown>();
             countdown.Prepare(player);
             track.nightTime = false;
-            Check(VoxelNightHeadlights.Attach(player.gameObject, track, countdown) == null, "Daytime player received headlights.");
-            track.nightTime = true;
-            var headlights = VoxelNightHeadlights.Attach(player.gameObject, track, countdown);
-            Check(headlights != null && headlights.BoundLensCount == 6, "Spy Car 2 needs six bound driving-lamp voxels.");
             var renderers = player.GetComponentsInChildren<MeshRenderer>();
             var originalMaterials = renderers.Select(r => r.sharedMaterial).ToArray();
-            Check(originalMaterials.All(m => m != settings.playerLampMaterial), "Player lenses lit before the countdown started.");
+            var headlights = VoxelNightHeadlights.Attach(player.gameObject, track);
+            Check(headlights != null && headlights.BoundLensCount == 6, "Spy Car 2 needs six bound driving-lamp voxels.");
+            var lit = renderers.Where(r => r.sharedMaterial == settings.playerLampMaterial).ToArray();
+            Check(lit.Length == 6 && lit.All(r => r.name == "Front Driving Lamp"), "Player lenses did not glow immediately on a daytime track.");
+            CheckGlowingWithoutBeams("before the daytime countdown");
+            track.nightTime = true;
+            Check(VoxelNightHeadlights.Attach(player.gameObject, track) == headlights, "Switching to a night track duplicated the player headlights.");
+            CheckGlowingWithoutBeams("before the nighttime countdown");
+            Render(camera, Folder + "PlayerBeforeCountdown.png");
 
             VoxelMissileValidation.Set(countdown, "started", true);
-            SetCountdownElapsed(1.99f);
-            Check(!countdown.HasReachedFinalCount && VoxelNightHeadlights.LastBeamCount == 0 &&
-                renderers.Select(r => r.sharedMaterial).SequenceEqual(originalMaterials), "Player headlights turned on before 1.");
-            Render(camera, Folder + "PlayerBeforeOne.png");
-            SetCountdownElapsed(2.01f);
-            var lit = renderers.Where(r => r.sharedMaterial == settings.playerLampMaterial).ToArray();
-            Check(countdown.HasReachedFinalCount && !countdown.IsComplete && VoxelNightHeadlights.LastBeamCount == 2 &&
-                lit.Length == 6 && lit.All(r => r.name == "Front Driving Lamp"), "Player lights did not switch on at 1.");
-            Render(camera, Folder + "PlayerAtOne.png");
+            VoxelMissileValidation.Set(countdown, "countdownStartedAt", Time.time - 1f);
+            Check(!countdown.HasReachedFinalCount, "The countdown fixture did not reach its early stage.");
+            CheckGlowingWithoutBeams("during the countdown");
             var close = Object.Instantiate(camera, root.transform);
             close.transform.position = player.transform.TransformPoint(new Vector3(-5.5f, 3f, 7.5f));
             close.transform.LookAt(player.transform.TransformPoint(new Vector3(0f, .45f, 2.8f)));
             Render(close, Folder + "PlayerFront.png");
             Object.DestroyImmediate(close.gameObject);
-            SetCountdownElapsed(4.1f);
-            Check(countdown.IsComplete && VoxelNightHeadlights.LastBeamCount == 2, "Headlights stopped after launch.");
+            VoxelMissileValidation.Set(countdown, "countdownStartedAt", Time.time - 4.1f);
+            Check(countdown.IsComplete, "The countdown fixture did not reach launch.");
+            CheckGlowingWithoutBeams("after launch");
 
-            var side = lit.Where(r => player.transform.InverseTransformPoint(r.transform.position).x < 0f).ToArray();
-            foreach (var renderer in side) renderer.enabled = false;
-            VoxelNightHeadlights.SubmitDraws(camera, false);
-            Check(VoxelNightHeadlights.LastBeamCount == 1, "Damaged player lamp still casts a beam.");
-            foreach (var renderer in side) renderer.enabled = true;
+            lit[0].enabled = false;
+            CheckGlowingWithoutBeams("with a damaged lens");
+            Check(!lit[0].enabled, "Night headlights re-enabled a damaged lens.");
+            lit[0].enabled = true;
+            VoxelMissileValidation.Set(player, "<IsDestroyed>k__BackingField", true);
+            VoxelMissileValidation.Call(headlights, "UpdatePower");
+            Check(renderers.Select(r => r.sharedMaterial).SequenceEqual(originalMaterials), "Player wreck lenses still glow.");
+            VoxelMissileValidation.Set(player, "<IsDestroyed>k__BackingField", false);
+            CheckGlowingWithoutBeams("after resetting the wreck fixture");
             headlights.enabled = false;
             VoxelMissileValidation.Call(headlights, "OnDisable");
             Check(renderers.Select(r => r.sharedMaterial).SequenceEqual(originalMaterials),
                 "Disabling player lights failed to restore the original materials.");
-            Check(VoxelNightHeadlights.Attach(player.gameObject, track, countdown) == headlights &&
+            Check(VoxelNightHeadlights.Attach(player.gameObject, track) == headlights &&
                 player.GetComponents<VoxelNightHeadlights>().Length == 1, "Night player reconfiguration duplicated the effect.");
+            CheckGlowingWithoutBeams("after reattaching");
 
-            void SetCountdownElapsed(float elapsed)
+            void CheckGlowingWithoutBeams(string stage)
             {
-                VoxelMissileValidation.Set(countdown, "countdownStartedAt", Time.time - elapsed);
                 VoxelMissileValidation.Call(headlights, "UpdatePower");
                 VoxelNightHeadlights.SubmitDraws(camera, false);
+                Check(lit.All(r => r.sharedMaterial == settings.playerLampMaterial) && VoxelNightHeadlights.LastBeamCount == 0,
+                    "Player headlights should glow without beams " + stage + ".");
             }
         }
 

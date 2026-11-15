@@ -35,6 +35,7 @@ namespace VoxelRacer
             var existing = transform.Find("Main Menu UI") as RectTransform;
             RectTransform canvas = existing != null ? existing : VoxelMenuUi.CreateCanvas(transform, "Main Menu UI");
             BuildTitle(canvas);
+            BuildStartTapArea(canvas);
             var existingButton = canvas.Find("Start Button");
             if (existingButton != null)
             {
@@ -47,6 +48,30 @@ namespace VoxelRacer
             // Keep the label's existing layout so the large font stays unclipped.
             ((RectTransform)startButton.transform).sizeDelta = new Vector2(340f, 124f);
             startButton.image.color = new Color(0f, 0f, 0f, .7f);
+        }
+
+        private void BuildStartTapArea(RectTransform canvas)
+        {
+            if (canvas.Find("Start Tap Area") != null) return;
+            var area = new GameObject("Start Tap Area", typeof(RectTransform), typeof(Image), typeof(Button));
+            var rect = (RectTransform)area.transform;
+            rect.SetParent(canvas, false);
+            rect.SetAsFirstSibling();
+            rect.anchorMin = new Vector2(.5f, 0f);
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+
+            var image = area.GetComponent<Image>();
+            image.color = Color.clear;
+            var button = area.GetComponent<Button>();
+            button.targetGraphic = image;
+            button.transition = Selectable.Transition.None;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            button.onClick.AddListener(() =>
+            {
+                if (isActiveAndEnabled && startButton != null && startButton.isActiveAndEnabled && startButton.IsInteractable())
+                    startButton.onClick.Invoke();
+            });
         }
 
         private static void PositionStartButton(RectTransform rect)

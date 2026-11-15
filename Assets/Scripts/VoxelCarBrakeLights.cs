@@ -9,6 +9,12 @@ namespace VoxelRacer
         private MeshRenderer[] brakeLightRenderers;
         public bool BrakeLightsActive { get; private set; }
 
+        internal void SetCarrierBrakeLights(bool active)
+        {
+            if (carrierMotion)
+                SetBrakeLights(active && isActiveAndEnabled && !IsDestroyed);
+        }
+
         /// <summary>Bind only the red rear lenses, including damaged lenses that can be repaired.</summary>
         public void RefreshBrakeLights()
         {

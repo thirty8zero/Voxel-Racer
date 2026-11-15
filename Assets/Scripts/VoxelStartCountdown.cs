@@ -188,7 +188,7 @@ namespace VoxelRacer
             if (elapsed >= 4f)
                 return;
 
-            string text = elapsed < 1f ? "3" : elapsed < Duration - 1f ? "2" : elapsed < Duration ? "1" : "HUNT!";
+            string text = elapsed < 1f ? "3" : elapsed < Duration - 1f ? "2" : elapsed < Duration ? "1" : "HUNT";
             numberStyle ??= new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,

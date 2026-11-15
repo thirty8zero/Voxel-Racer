@@ -54,18 +54,7 @@ namespace VoxelRacer
                 return;
 
             float distance = target.TrackDistance + tuning.roadsideTurretSpawnDistanceAhead;
-            VoxelRoadsideTurretTuning turretTuning = tuning.roadsideTurretTuning;
-            if (obstacleSpawner != null && obstacleSpawner.HasStaticObstacleNearTrackDistance(distance,
-                    turretTuning.staticObstacleClearance))
-                return;
-
-            path.EnsurePathCovers(distance + 10f);
-            GameObject turretObject = new GameObject(turretTuning.displayName);
-            turretObject.transform.SetParent(transform);
-            var turret = turretObject.AddComponent<VoxelRoadsideTurret>();
-            turret.Configure(target, path, turretTuning, distance, Random.value < 0.5f ? -1f : 1f);
-            turretObject.AddComponent<VoxelFadeIn>();
-            VoxelSpawnScaleIn.Play(turretObject);
+            VoxelRoadsideTurret.Spawn(transform, target, path, tuning.roadsideTurretTuning, distance, obstacleSpawner);
         }
     }
 }

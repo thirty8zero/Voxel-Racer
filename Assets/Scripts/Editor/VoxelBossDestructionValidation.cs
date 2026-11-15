@@ -36,6 +36,7 @@ namespace VoxelRacer.Editor
         private static Dictionary<Object, string> snapshots;
         private static float previousScale, previousStep;
         private static bool previousBackground, captured, pictured, verifiedSlowMotion, verifiedHandback, verifiedSpikeTrails;
+        private static bool verifiedReturnBlend;
         private static UnityEngine.Random.State random;
         private static double startedAt;
         private static float spikesSpawnedAt;
@@ -115,7 +116,7 @@ namespace VoxelRacer.Editor
                 previousRoots = previousScene.GetRootGameObjects(); previousRootActive = previousRoots.Select(go => go.activeSelf).ToArray();
                 foreach (var go in previousRoots) go.SetActive(false);
                 captured = true; Application.runInBackground = true; Time.timeScale = .8f; Time.fixedDeltaTime = .03f;
-                report.Clear(); pictured = verifiedSlowMotion = verifiedHandback = verifiedSpikeTrails = false;
+                report.Clear(); pictured = verifiedSlowMotion = verifiedHandback = verifiedSpikeTrails = verifiedReturnBlend = false;
                 snapshots = Resources.LoadAll<VoxelEnemyVehicleTuning>("EnemyVehicles").Cast<Object>()
                     .Concat(new Object[] { Resources.Load<VoxelBossDefinition>("Bosses/RedVanBoss") }).ToDictionary(a => a, a => EditorJsonUtility.ToJson(a));
                 scene = SceneManager.CreateScene("Temporary boss destruction QA"); SceneManager.SetActiveScene(scene);
@@ -263,11 +264,13 @@ namespace VoxelRacer.Editor
             live.Settings.overrideCompletionSlowMotion = true; live.Settings.completionSlowMotionDuration = .35f; live.Settings.completionSlowMotionTimeScale = .2f;
             live.Settings.overrideFinishStopDuration = true; live.Settings.finishStopDuration = .6f;
             live.Settings.focusCameraOnDestruction = true; live.Settings.destructionCameraDuration = 2; live.Settings.destructionCameraBlendDuration = .15f;
+            live.Settings.destructionCameraFieldOfView = 40f;
             var cameraRoot = new GameObject("Boss QA Camera", typeof(Camera)); cameraRoot.transform.SetParent(root.transform, false); cameraRoot.tag = "MainCamera";
             camera = cameraRoot.GetComponent<Camera>(); camera.transform.position = new Vector3(20, 14, -25); camera.transform.LookAt(new Vector3(0, 4, 0));
             camera.nearClipPlane = .1f; camera.farClipPlane = 300; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.12f, .15f, .2f);
             cameraFollow = cameraRoot.AddComponent<VoxelCameraFollow>(); cameraFollow.target = player.transform;
-            cameraTuning = Object.Instantiate(VoxelCameraTuning.Load()); cameraTuning.finishSequenceDuration = .25f; cameraFollow.tuning = cameraTuning;
+            cameraTuning = Object.Instantiate(VoxelCameraTuning.Load()); cameraTuning.finishSequenceDuration = .25f;
+            cameraTuning.finishFieldOfView = 42f; cameraFollow.tuning = cameraTuning;
             var light = new GameObject("QA light", typeof(Light)); light.transform.SetParent(root.transform, false);
             light.GetComponent<Light>().type = LightType.Directional; light.GetComponent<Light>().intensity = 1.8f; light.transform.rotation = Quaternion.Euler(45, 25, 0);
             mission.Configure(missionTuning); globals[0].SetValue(null, mission); mission.SetBossEncounter(true); mission.ShowBoss(live.Enemy, "Boss QA");
@@ -320,8 +323,15 @@ namespace VoxelRacer.Editor
                     Check(!mission.IsCompletionSlowMotionActive, "Boss real-time slowdown duration did not end");
                     Equal(Time.timeScale, .8f, "Boss clock restoration"); Equal(Time.fixedDeltaTime, .03f, "Boss fixed-step restoration"); verifiedSlowMotion = true;
                 }
+                if (!verifiedReturnBlend && elapsed > 1.5 && !cameraFollow.BossDestructionFocusComplete &&
+                    camera.fieldOfView > live.Settings.destructionCameraFieldOfView + .02f && camera.fieldOfView < cameraTuning.finishFieldOfView)
+                {
+                    Check(!finish.ResultsReady, "Boss return blend revealed results before handoff");
+                    verifiedReturnBlend = true;
+                }
                 if (!verifiedHandback && elapsed >= 2.7)
                 {
+                    Check(verifiedReturnBlend, "Player finish lens did not blend in before boss focus ended");
                     Check(cameraFollow.BossDestructionFocusComplete && finish.FinishCameraComplete, "Boss focus did not return to the normal player finish sequence");
                     Equal(player.CurrentSpeed, 0, "Boss coasting did not stop the player");
                     Check(live.Enemy == null, "Expired boss wreck was kept alive for the focus camera");
@@ -343,7 +353,7 @@ namespace VoxelRacer.Editor
                 if (!verifiedHandback || spikeAge < live.Settings.spikeDebrisLifetime + .1f) return;
                 Check(Object.FindObjectsByType<VoxelBossSpikeDebris>(FindObjectsSortMode.None).All(s => s.gameObject.scene != scene), "Detached spike/effects lifetime leaked");
                 foreach (var pair in snapshots) Check(pair.Value == EditorJsonUtility.ToJson(pair.Key), "Source tuning changed: " + pair.Key.name);
-                report.Add("PASS all three drills emit smoke and fire near the end of their lifetime and clean up with their particles. Live physics, boss slowdown/restoration, independent coast duration, camera handback after wreck expiry and reward gating passed.");
+                report.Add("PASS all three drills emit smoke and fire near the end of their lifetime and clean up with their particles. Live physics, boss slowdown/restoration, independent coast duration, camera return blend after wreck expiry and reward gating passed.");
                 Complete(true, "All boss destruction checks passed.");
             }
             catch (Exception error) { Complete(false, error.ToString()); }

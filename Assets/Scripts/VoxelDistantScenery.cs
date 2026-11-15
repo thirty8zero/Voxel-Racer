@@ -133,6 +133,7 @@ namespace VoxelRacer
                     Vector3 delta=prop.bounds.center-camera.transform.position; delta.y=0;
                     float distance=prop.maximumDistance>0?Mathf.Min(radius,prop.maximumDistance):radius;
                     if(delta.sqrMagnitude>distance*distance || !GeometryUtility.TestPlanesAABB(planes,prop.bounds)) continue;
+                    if (road.IsNearVisibleCreek(prop.bounds.center, Mathf.Max(prop.bounds.extents.x, prop.bounds.extents.z))) continue;
                     var key=(prop.mesh,prop.material);
                     if(!batches.TryGetValue(key,out var list)) { list=new List<Matrix4x4>(); batches.Add(key,list); }
                     var matrix = prop.matrix;

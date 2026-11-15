@@ -249,7 +249,7 @@ namespace VoxelRacer.Editor
                 .First(button => button.name == "Right Door Armor Purchase Button");
             var leftButton = shopObject.GetComponentsInChildren<Button>(true)
                 .First(button => button.name == "Left Door Armor Purchase Button");
-            var action = VoxelGarageUpgradeDockValidation.InspectUpgrade(leftButton);
+            var action = VoxelGarageUpgradeDockValidation.RevealUpgradeCard(leftButton);
             Check(action.interactable && !rightButton.gameObject.activeSelf, "combined armour card unavailable or duplicate side card visible");
             action.onClick.Invoke();
             Check(!VoxelArmorUpgradeState.IsPurchased, "placement preview purchased armour immediately");

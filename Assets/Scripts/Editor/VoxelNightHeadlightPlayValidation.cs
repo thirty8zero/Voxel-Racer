@@ -19,6 +19,7 @@ namespace VoxelRacer.Editor
         private static VoxelEnemyCar enemy;
         private static VoxelObstacleCar traffic;
         private static VoxelNightHeadlights enemyLights;
+        private static MeshRenderer[] playerLenses;
         private static VoxelSpawnScaleIn growth;
         private static VoxelFadeIn fade;
         private static Camera camera;
@@ -60,16 +61,26 @@ namespace VoxelRacer.Editor
             try
             {
                 var root = new GameObject("Temporary headlight frame checks");
-                track = Object.Instantiate(Resources.Load<VoxelTrackDefinition>("Tracks/Track01")); track.nightTime = true;
+                track = Object.Instantiate(Resources.Load<VoxelTrackDefinition>("Tracks/Track01")); track.nightTime = false;
                 roadTuning = Object.Instantiate(track.roadTuning);
                 roadTuning.minimumCactiPerSegment = roadTuning.maximumCactiPerSegment = 0;
                 roadTuning.turnChancePerSegment = 0;
                 var road = root.AddComponent<EndlessVoxelRoad>(); road.enabled = false;
                 road.trackDefinition = track; road.SetTuning(roadTuning); road.BuildInitialRoad();
-                var player = new GameObject("QA player").AddComponent<VoxelCarController>(); player.transform.SetParent(root.transform);
+                var playerModel = Resources.Load<VoxelCarDefinition>("Cars/SpyCar2PlayerCar").visualPrefab;
+                var player = Object.Instantiate(playerModel, root.transform).AddComponent<VoxelCarController>();
                 player.enabled = false; player.topSpeed = 0; player.SetTrack(road, 0);
                 camera = new GameObject("QA beam camera").AddComponent<Camera>(); camera.transform.SetParent(root.transform);
                 camera.enabled = false; camera.transform.position = new Vector3(-6, 6, 0); camera.transform.LookAt(new Vector3(0, 0, 40));
+                var playerLights = VoxelNightHeadlights.Attach(player.gameObject, track);
+                var playerLampMaterial = VoxelNightHeadlightSettings.Load().playerLampMaterial;
+                playerLenses = player.GetComponentsInChildren<MeshRenderer>()
+                    .Where(renderer => renderer.sharedMaterial == playerLampMaterial).ToArray();
+                Check(playerLights != null && playerLights.BoundLensCount == 6 && playerLenses.Length == 6,
+                    "Player lenses did not illuminate during a paused daytime opening without a countdown.");
+                VoxelNightHeadlights.SubmitDraws(camera, false);
+                Check(VoxelNightHeadlights.LastBeamCount == 0, "Player lenses cast beam cards.");
+                track.nightTime = true;
                 enemy = new GameObject("QA enemy").AddComponent<VoxelEnemyCar>(); enemy.transform.SetParent(root.transform);
                 enemy.Configure(player, VoxelObstacleCarTuning.Load(), Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning"), road, 40, 5);
                 enemy.enabled = false; enemyLights = enemy.GetComponent<VoxelNightHeadlights>();
@@ -103,6 +114,8 @@ namespace VoxelRacer.Editor
                 {
                     Check(growth.Growth > 0 && growth.Growth < 1 && fade.Opacity > 0 && fade.Opacity < 1,
                         "Headlights did not follow the one-second spawn fade/growth.");
+                    var playerLampMaterial = VoxelNightHeadlightSettings.Load().playerLampMaterial;
+                    Check(playerLenses.All(lens => lens.sharedMaterial == playerLampMaterial), "Player lenses stopped glowing during the night traffic test.");
                     VoxelNightHeadlights.SubmitDraws(camera, false);
                     Check(VoxelNightHeadlights.LastBeamCount == 6 && VoxelNightHeadlights.LastBatchCount == 1, "Live mixed traffic did not share six cards in one batch.");
                     phase = 2; started = Time.realtimeSinceStartup; return;
@@ -134,7 +147,7 @@ namespace VoxelRacer.Editor
                 settings.headlightsEnabled = true;
                 VoxelMissileValidation.Call(trafficLights, "LateUpdate");
                 Check(traffic.GetComponentsInChildren<MeshRenderer>().Any(r => r.sharedMaterial == settings.lampMaterial), "Headlight master switch did not restore lens emission.");
-                Finish("PASS (Play Mode): real night civilian/enemy/boss configure; zero-scale boss entrance binds lamps; paused spawn stays dark; real-frame one-second opacity/growth and boss entrance; six cards share one batch; opaque material restoration retains lens glow; wreck turns off beams and glow; disable/re-enable restores registry. Temporary scene/tuning removed, RNG/clock/background restored, original startup scene retained. Not a phone GPU benchmark.");
+                Finish("PASS (Play Mode): player lenses illuminate without beams from the daytime opening and during night traffic tests; real night civilian/enemy/boss configure; zero-scale boss entrance binds lamps; paused traffic spawn stays dark; real-frame one-second opacity/growth and boss entrance; six traffic cards share one batch; opaque material restoration retains lens glow; wreck turns off beams and glow; disable/re-enable restores registry. Temporary scene/tuning removed, RNG/clock/background restored, original startup scene retained. Not a phone GPU benchmark.");
             }
             catch (Exception error) { Finish("FAIL: " + error); }
         }

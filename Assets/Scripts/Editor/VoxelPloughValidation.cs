@@ -56,14 +56,14 @@ namespace VoxelRacer.Editor
                 var shopType = typeof(VoxelRepairUpgradeSceneController);
                 var confirm = shopType.GetMethod("ConfirmUpgradePurchase", Fields);
                 var placementField = shopType.GetField("upgradePlacement", Fields);
-                VoxelGarageUpgradeDockValidation.InspectUpgrade(bullButton).onClick.Invoke();
+                VoxelGarageUpgradeDockValidation.RevealUpgradeCard(bullButton).onClick.Invoke();
                 var placement = (VoxelGarageUpgradePlacement)placementField.GetValue(shop);
                 Check(placement != null && Mounted(placement.Car) == bullBar && Mounted(car.gameObject) == null &&
                     !VoxelPloughUpgradeState.IsPurchased && VoxelCurrencyState.Balance == startingCash, "Bull Bar preview changed the real car or cash");
-                Check(!VoxelGarageUpgradeDockValidation.InspectUpgrade(ploughButton).interactable, "Both front rams can enter one basket");
+                Check(ploughButton.GetComponent<VoxelGarageUpgradeCard>().State == VoxelGarageUpgradeState.Incompatible, "Both front rams can enter one basket");
                 shopType.GetMethod("CancelUpgradePlacement", Fields).Invoke(shop, null);
                 Check(placementField.GetValue(shop) == null && VoxelCurrencyState.Balance == startingCash, "Cancel did not clear the Bull Bar preview");
-                VoxelGarageUpgradeDockValidation.InspectUpgrade(bullButton).onClick.Invoke();
+                VoxelGarageUpgradeDockValidation.RevealUpgradeCard(bullButton).onClick.Invoke();
                 confirm.Invoke(shop, null);
                 Check(VoxelPloughUpgradeState.InstalledTuning == bullBar && Mounted(car.gameObject) == bullBar &&
                     VoxelCurrencyState.Balance == startingCash - bullBar.purchasePrice &&
@@ -81,13 +81,13 @@ namespace VoxelRacer.Editor
                 var laterSibling = new GameObject("Subsequent car part").transform;
                 laterSibling.SetParent(car.transform, false);
                 int laterSiblingIndex = laterSibling.GetSiblingIndex();
-                var button = VoxelGarageUpgradeDockValidation.InspectUpgrade(ploughButton);
+                var button = VoxelGarageUpgradeDockValidation.RevealUpgradeCard(ploughButton);
                 Check(button.interactable, "Plough shop disabled"); button.onClick.Invoke();
                 placement = (VoxelGarageUpgradePlacement)placementField.GetValue(shop);
                 Check(Mounted(placement.Car) == tuning && Mounted(car.gameObject) == bullBar, "Plough preview failed to replace the Bull Bar");
                 confirm.Invoke(shop, null);
                 Check(VoxelPloughUpgradeState.InstalledTuning == tuning && Mounted(car.gameObject) == tuning &&
-                    VoxelCurrencyState.Balance == 123 && !button.interactable &&
+                    VoxelCurrencyState.Balance == 123 && button.GetComponent<VoxelGarageUpgradeCard>().State == VoxelGarageUpgradeState.Equipped &&
                     laterSibling.GetSiblingIndex() == laterSiblingIndex, "Plough replacement purchase or sibling paths failed");
                 Check(!VoxelPloughUpgradeState.TryPurchase(bullBar, definition), "Downgrade allowed");
                 Check(!VoxelPloughUpgradeState.TryPurchase(tuning, definition), "Duplicate purchase allowed");

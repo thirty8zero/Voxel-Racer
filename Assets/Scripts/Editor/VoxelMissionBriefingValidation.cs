@@ -52,6 +52,17 @@ namespace VoxelRacer.Editor
                     Check(VoxelMissionBriefing.IsShowing && view.EnemyCount == enemies.Count, "Briefing did not open.");
                     Check(view.GetComponentsInChildren<Text>().Single(t => t.name == "Mission Name").text ==
                         VoxelTrackDefinition.ResolveDisplayName(track).ToUpperInvariant(), "Briefing must retain the authored mission name: " + track.name);
+                    Check(view.GetComponentsInChildren<Text>().All(t => t.name != "Threat"), "Enemy cards must only show their names.");
+                    if (track.boss == null)
+                    {
+                        var labels = view.GetComponentsInChildren<Text>();
+                        var pointsLabel = labels.Single(t => t.name == "Objective Label");
+                        var points = labels.Single(t => t.name == "Objective");
+                        Check(pointsLabel.text == "POINTS TO COMPLETE" && points.text == VoxelMissionBriefingContent.Objective(track) &&
+                            pointsLabel.transform.parent == points.transform.parent &&
+                            pointsLabel.rectTransform.anchoredPosition.y > points.rectTransform.anchoredPosition.y,
+                            "Points label must sit above the authored score in the same header box.");
+                    }
                     if (track.boss != null)
                     {
                         var labels = view.GetComponentsInChildren<Text>();
@@ -83,13 +94,14 @@ namespace VoxelRacer.Editor
                     Capture(root, view, scene, "CarrierResponsive", size.x, size.y);
                     view.Close();
                 }
+                CheckEnemyScroll(root, view, scene, day);
                 CheckSyntheticContent(day, settings, view);
                 Check(VoxelCurrencyState.Balance == balance && VoxelCarRunState.MissingVoxelCount == missing && VoxelTrackProgressState.CurrentTrackIndex == index,
                     "Briefing or Back changed wallet, damage or campaign index.");
                 Check(tracks.All(t => EditorJsonUtility.ToJson(t) == snapshots[t]) && EditorJsonUtility.ToJson(settings) == settingsBefore,
                     "Preview validation changed authored tracks or settings.");
                 Check(Time.timeScale == clock && AudioListener.pause == audio, "Briefing changed clocks or audio.");
-                string report = "PASS (Edit Mode): all " + tracks.Length + " levels, anonymous boss card, authored titles and objectives, enemy eligibility and model previews, animated radar, background selection and override, empty pools, one-shot Start and Back, full-screen and carrier layouts at 16:9/20:9/4:3/portrait. Source assets, wallet, damage, campaign, clocks/audio/RNG preserved. Renders: Temp/MissionBriefing/.";
+                string report = "PASS (Edit Mode): all " + tracks.Length + " levels, anonymous boss card, header score order, name-only enemy cards, four-card viewport, fifth-card wheel/drag scrolling, illustrated radar layer and full-speed loop, background selection and override, empty pools, one-shot Start and Back, full-screen and carrier layouts at 16:9/20:9/4:3/portrait. Source assets, wallet, damage, campaign, clocks/audio/RNG preserved. Renders: Temp/MissionBriefing/.";
                 File.WriteAllText("Temp/MissionBriefing/Validation.txt", report); Debug.Log(report);
             }
             catch (Exception error) { File.WriteAllText("Temp/MissionBriefing/Validation.txt", "FAIL: " + error); throw; }
@@ -106,26 +118,84 @@ namespace VoxelRacer.Editor
         {
             var radar = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/RadarInterceptorTuning");
             var preview = settings.PreviewRecordFor(radar);
-            Check(preview != null && preview.IsAnimated, "Radar briefing animation has not been baked.");
+            Check(preview != null && preview.UsesPortraitDish, "Illustrated radar must use its separate animated dish.");
             float duration = preview.frameCount / preview.framesPerSecond;
             var dish = radar.modelPrefab.GetComponentInChildren<VoxelRadarDish>(true);
             Check(dish != null && Mathf.Abs(duration - 360f / Mathf.Abs(dish.degreesPerSecond)) < .001f,
                 "Briefing dish must match the gameplay model's spin speed.");
             view.Show(track, null);
-            var image = view.GetComponentsInChildren<RawImage>().Single(i => i.texture == preview.animation);
+            var image = view.GetComponentsInChildren<RawImage>().Single(i => i.texture == preview.AnimationImage);
+            var body = image.transform.parent.GetComponent<RawImage>();
+            Check(body != null && body.texture == preview.portrait, "Radar dish is not attached to its illustrated car.");
+            Rect bodyUv = body.uvRect;
             Call(view, "AnimatePreviews", 0f); Rect first = image.uvRect;
             foreach (int quarter in new[] { 0, 1, 2, 3 })
             {
                 Call(view, "AnimatePreviews", duration * quarter / 4);
                 Check(quarter == 0 || image.uvRect != first, "Radar card did not advance its animation.");
+                Check(body.uvRect == bodyUv, "Radar body should stay fixed through the spin.");
                 Capture(root, view, scene, "RadarSpin-" + quarter, 1920, 1080);
             }
             Call(view, "AnimatePreviews", duration);
             Check(image.uvRect == first, "Radar animation does not loop seamlessly.");
             view.Close(); view.Show(track, null);
-            Check(view.GetComponentsInChildren<RawImage>().Single(i => i.texture == preview.animation).uvRect == first,
+            Check(view.GetComponentsInChildren<RawImage>().Single(i => i.texture == preview.AnimationImage).uvRect == first,
                 "Reopening the briefing did not reset its animation.");
             view.Close();
+        }
+
+        private static void CheckEnemyScroll(GameObject root, VoxelMissionBriefing view, Scene scene, VoxelTrackDefinition original)
+        {
+            var track = Object.Instantiate(original);
+            var traffic = Object.Instantiate(original.obstacleCarTuning);
+            var mission = Object.Instantiate(original.missionTuning);
+            track.obstacleCarTuning = traffic;
+            track.missionTuning = mission;
+            try
+            {
+                traffic.enemyDroughtWaveLimit = 1;
+                traffic.enemyVehicleSpawns = new[] { "BlackInterceptorTuning", "RadarInterceptorTuning", "BI_MineLayerTuning", "PsychoBugEnemyTuning" }
+                    .Select(name => new VoxelEnemyVehicleSpawnEntry
+                    { vehicle = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/" + name), spawnWeight = 1 }).ToArray();
+                mission.roadsideTurretTuning = Resources.LoadAll<VoxelRoadsideTurretTuning>("").First();
+                mission.roadsideTurretSpawnChance = 1;
+                mission.maximumActiveRoadsideTurrets = 1;
+                view.Show(track, null);
+                var scroll = view.GetComponentInChildren<ScrollRect>();
+                Canvas.ForceUpdateCanvases();
+                Check(view.EnemyCount == 5 && scroll.vertical && !scroll.horizontal && scroll.verticalScrollbar.gameObject.activeInHierarchy,
+                    "Expected a vertical scrollbar for five enemy cards.");
+                Check(scroll.viewport.GetComponent<RectMask2D>() != null, "Extra enemy rows must be clipped.");
+                var first = (RectTransform)scroll.content.GetChild(0);
+                var second = (RectTransform)scroll.content.GetChild(1);
+                var fourth = (RectTransform)scroll.content.GetChild(3);
+                var fifth = (RectTransform)scroll.content.GetChild(4);
+                Check(first.anchoredPosition.y == second.anchoredPosition.y && first.anchoredPosition.x < second.anchoredPosition.x &&
+                    -fourth.anchoredPosition.y + fourth.rect.height <= scroll.viewport.rect.height &&
+                    -fifth.anchoredPosition.y > scroll.viewport.rect.height, "Viewport must fit exactly two rows.");
+                Capture(root, view, scene, "IllustratedGrid", 1920, 1080);
+                var pointer = new PointerEventData(EventSystem.current) { scrollDelta = new Vector2(0, -4) };
+                scroll.OnScroll(pointer);
+                Check(scroll.content.anchoredPosition.y > 0, "Scroll wheel did not move the enemy cards.");
+                scroll.verticalNormalizedPosition = 1;
+                pointer.button = PointerEventData.InputButton.Left;
+                pointer.position = RectTransformUtility.WorldToScreenPoint(null, scroll.viewport.TransformPoint(scroll.viewport.rect.center));
+                scroll.OnBeginDrag(pointer);
+                pointer.position += Vector2.up * 100;
+                scroll.OnDrag(pointer);
+                scroll.OnEndDrag(pointer);
+                Check(scroll.content.anchoredPosition.y > 0, "Dragging did not move the enemy cards.");
+                scroll.verticalNormalizedPosition = 0;
+                Check(-fifth.anchoredPosition.y + fifth.rect.height - scroll.content.anchoredPosition.y <= scroll.viewport.rect.height + .01f,
+                    "The last card must be fully reachable.");
+                Capture(root, view, scene, "IllustratedGridScrolled", 1920, 1080);
+                view.Close();
+                mission.roadsideTurretSpawnChance = 0;
+                view.Show(track, null);
+                Check(view.EnemyCount == 4 && !scroll.vertical && !scroll.verticalScrollbar.gameObject.activeSelf &&
+                    Mathf.Approximately(scroll.content.anchoredPosition.y, 0), "Four cards must fit without scrolling.");
+            }
+            finally { view.Close(); Object.DestroyImmediate(track); Object.DestroyImmediate(traffic); Object.DestroyImmediate(mission); }
         }
 
         private static void CheckSyntheticContent(VoxelTrackDefinition original, VoxelMissionBriefingSettings settings, VoxelMissionBriefing view)

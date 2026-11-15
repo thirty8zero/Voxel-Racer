@@ -32,6 +32,7 @@ namespace VoxelRacer.Editor
             if(Section(typeof(VoxelTrackDefinition), name)=="Time Of Day" && name!="nightTime")
                 attributes.Add(new ShowIfAttribute("nightTime"));
             if(name=="horizonSunEnabled") attributes.Add(new LabelTextAttribute("Sun / Moon Enabled"));
+            if(name=="creekCrossingChancePercent") attributes.Add(new LabelTextAttribute("Spawn Chance (%)"));
             if(name=="sunColour" || name=="sunHorizonHeight") attributes.Add(new HideIfAttribute("nightTime"));
             if(name.StartsWith("fog") && name!="fogEnabled") attributes.Add(new ShowIfAttribute("fogEnabled"));
             if(name.StartsWith("groundNoise")) attributes.Add(new ShowIfAttribute("groundPixelNoiseEnabled"));

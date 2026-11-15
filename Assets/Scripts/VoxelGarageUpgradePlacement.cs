@@ -22,6 +22,7 @@ namespace VoxelRacer
         public GameObject Car { get; private set; }
         public VoxelGarageUpgradeKind Kind { get; private set; }
         public IReadOnlyList<VoxelGarageUpgradeSelection> Selections => selections;
+        internal VoxelGunMount[] DisplayedGuns { get; private set; } = Array.Empty<VoxelGunMount>();
         public int SelectedSlot { get; private set; } = -1;
         public static bool IsArmour(VoxelGarageUpgradeKind kind) => kind == VoxelGarageUpgradeKind.Armour || kind == VoxelGarageUpgradeKind.ExtendedArmour;
         public static bool IsGun(VoxelGarageUpgradeKind kind) => kind == VoxelGarageUpgradeKind.Guns || kind == VoxelGarageUpgradeKind.Minigun;
@@ -118,6 +119,12 @@ namespace VoxelRacer
             }
             // Pending parts remain tappable across tabs, including when no more parts are affordable.
             pickMeshes = Car.GetComponentsInChildren<MeshFilter>();
+            var guns = new List<VoxelGunMount>();
+            foreach (var gun in Car.GetComponentsInChildren<VoxelGunMount>())
+                if (gun.HasRotor && (gun.tuning == VoxelGunUpgradeState.InstalledTuning(gun.upgradeSlot) ||
+                    IsPending(VoxelGarageUpgradeKind.Minigun, gun.upgradeSlot)))
+                    guns.Add(gun);
+            DisplayedGuns = guns.ToArray();
         }
 
         private void BuildPendingPart(VoxelGarageUpgradeSelection part)

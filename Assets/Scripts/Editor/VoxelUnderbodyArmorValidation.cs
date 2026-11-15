@@ -70,7 +70,7 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRepairUpgradeSceneController).GetField("definition", Private).SetValue(shop, definition);
                 shop.repairTuning = VoxelRepairTuning.Load(); Call(shop, "BuildUi"); Call(shop, "RefreshUi");
                 VoxelGarageUpgradeDockValidation.CheckCategories(shop);
-                var action = VoxelGarageUpgradeDockValidation.InspectUpgrade(shop.GetComponentsInChildren<Button>(true).Single(b => b.name == "Underbody Armor Purchase Button"));
+                var action = VoxelGarageUpgradeDockValidation.RevealUpgradeCard(shop.GetComponentsInChildren<Button>(true).Single(b => b.name == "Underbody Armor Purchase Button"));
                 Check(action.interactable, "shop card unavailable");
                 action.onClick.Invoke();
                 Check(!VoxelUnderbodyArmorUpgradeState.IsPurchased && VoxelCurrencyState.Balance == 1000 && car.transform.Find(VoxelUnderbodyArmorUpgradeState.InstanceName) == null,

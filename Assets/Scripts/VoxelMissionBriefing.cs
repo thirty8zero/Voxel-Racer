@@ -10,6 +10,9 @@ namespace VoxelRacer
     /// <summary>Scene-owned mission objectives and enemy previews, with a live carrier layout and a full-screen fallback.</summary>
     public sealed class VoxelMissionBriefing : MonoBehaviour
     {
+        private const float RacePanelInset = 20f;
+        private const float InnerWidth = 838f, CardHeight = 232f, CardGap = 20f, BannerHeight = 45f;
+        private const float ViewportHeight = 2 * CardHeight + CardGap;
         public static VoxelMissionBriefing Active { get; private set; }
         public static bool IsShowing => Active != null && Active.shown;
         private static VoxelTrackDefinition stationaryRetryTrack;
@@ -17,15 +20,16 @@ namespace VoxelRacer
         private static readonly Color Ice = new(.69f, .84f, .96f), Silver = new(.47f, .56f, .65f);
         private RectTransform canvas, content, cards;
         private RawImage background;
-        private Text title, objective, objectiveLabel, objectiveSuffix, pageLabel;
-        private Button startButton, backButton, previousButton, nextButton;
+        private Text title, objective, bossObjective;
+        private Button startButton;
+        private ScrollRect enemyScroll;
         private VoxelMissionBriefingSettings settings;
         private List<VoxelMissionBriefingEnemy> enemies;
         private readonly List<(RawImage image, VoxelMissionBriefingPreview preview)> animatedPreviews = new();
         private float previewsStartedAt;
         private Action launch, back;
         private bool shown, alongsideRace;
-        private int page, openedFrame;
+        private int openedFrame;
         public VoxelTrackDefinition Track { get; private set; }
         public int EnemyCount => enemies?.Count ?? 0;
         public bool IsPresenting => shown;
@@ -65,19 +69,15 @@ namespace VoxelRacer
             }
             this.alongsideRace = alongsideRace;
             Track = track; launch = onStart; back = onBack; settings = VoxelMissionBriefingSettings.Load();
-            enemies = VoxelMissionBriefingContent.Enemies(track); page = 0;
+            enemies = VoxelMissionBriefingContent.Enemies(track);
             if (canvas == null) Build();
             bool boss = track != null && track.boss != null;
             title.text = VoxelTrackDefinition.ResolveDisplayName(track).ToUpperInvariant();
-            objectiveLabel.text = boss ? "MISSION OBJECTIVE" : "SCORE OBJECTIVE";
-            objective.text = VoxelMissionBriefingContent.Objective(track);
-            objective.fontSize = boss ? 56 : alongsideRace ? 84 : 128;
-            objective.resizeTextMaxSize = objective.fontSize;
-            if (alongsideRace)
-                SetRect(objective.rectTransform, 50, 316, boss ? 800 : 360, 92);
-            else
-                SetRect(objective.rectTransform, 535, 271, boss ? 1030 : 340, 108);
-            objectiveSuffix.gameObject.SetActive(!boss);
+            SetRect(title.rectTransform, 52, 109, boss ? InnerWidth : 590, 78);
+            objective.transform.parent.gameObject.SetActive(!boss);
+            bossObjective.gameObject.SetActive(boss);
+            var target = boss ? bossObjective : objective;
+            target.text = VoxelMissionBriefingContent.Objective(track);
             background.texture = settings != null ? settings.BackgroundFor(track) : null;
             background.enabled = !alongsideRace && background.texture != null;
             if (background.texture != null) background.GetComponent<AspectRatioFitter>().aspectRatio = background.texture.width / (float)background.texture.height;
@@ -123,18 +123,19 @@ namespace VoxelRacer
             Rect safe = Application.isPlaying ? Screen.safeArea : new Rect(0, 0, Screen.width, Screen.height);
             Vector2 ratio = new(size.x / Mathf.Max(1, Screen.width), size.y / Mathf.Max(1, Screen.height));
             float width = safe.width * ratio.x, height = safe.height * ratio.y;
-            if (alongsideRace)
-            {
-                float panelWidth = VoxelPostRaceContinue.PanelWidth;
-                float scale = Mathf.Min(width * .58f / panelWidth, height / 1080f);
-                content.localScale = Vector3.one * scale;
-                Vector2 center = new(safe.xMin * ratio.x + content.sizeDelta.x * .5f * scale, safe.center.y * ratio.y);
-                content.anchoredPosition = center - size * .5f;
-                return;
-            }
-            content.localScale = Vector3.one * Mathf.Min(width / 1920f, height / 1080f);
-            content.anchoredPosition = Vector2.Scale(safe.center, ratio) - size * .5f;
+            float scale = RacePanelScale(width, height);
+            content.localScale = Vector3.one * scale;
+            Vector2 center = new(safe.xMin * ratio.x + content.sizeDelta.x * .5f * scale, safe.center.y * ratio.y);
+            content.anchoredPosition = center - size * .5f;
         }
+
+        internal static float RacePanelRightViewport(Rect safeArea, float screenWidth) =>
+            (safeArea.xMin + (RacePanelInset + VoxelPostRaceContinue.PanelWidth) *
+                RacePanelScale(safeArea.width, safeArea.height)) / screenWidth;
+
+        private static float RacePanelScale(float width, float height) =>
+            Mathf.Min(width * .58f / VoxelPostRaceContinue.PanelWidth, height / 1080f);
+
         private void Build()
         {
             canvas = VoxelMenuUi.CreateCanvas(transform, "Mission Briefing Canvas");
@@ -145,53 +146,75 @@ namespace VoxelRacer
             background.gameObject.AddComponent<AspectRatioFitter>().aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
             Stretch("Background Dim", canvas).gameObject.AddComponent<Image>().raycastTarget = false;
             content = new GameObject("Safe Content", typeof(RectTransform)).GetComponent<RectTransform>(); content.SetParent(canvas, false);
-            content.anchorMin = content.anchorMax = content.pivot = new Vector2(.5f, .5f); content.sizeDelta = new Vector2(1920, 1080);
-            cards = new GameObject("Enemy Cards", typeof(RectTransform)).GetComponent<RectTransform>(); cards.SetParent(content, false);
-            cards.anchorMin = cards.anchorMax = cards.pivot = new Vector2(.5f, .5f);
-            if (alongsideRace)
+            content.anchorMin = content.anchorMax = content.pivot = new Vector2(.5f, .5f);
+            float width = VoxelPostRaceContinue.PanelWidth;
+            content.sizeDelta = new Vector2(width + RacePanelInset, 1080f);
+            var panel = Panel(content, "Briefing Panel", RacePanelInset, 20, width, 1040, new Color(.043f, .078f, .118f));
+            panel.useGradient = true;
+            panel.topColor = new Color(.085f, .145f, .19f);
+            Accent(content, 55, 66);
+            Label(content, "Briefing Heading", "MISSION BRIEFING", 37, 134, 48, 490, 56).color = Ice;
+            title = Label(content, "Mission Name", "", 76, 52, 109, 590, 78);
+
+            var points = Panel(content, "Objective Panel", 665, 50, 223, 139, new Color(.095f, .17f, .23f));
+            var objectiveLabel = Label(points.transform, "Objective Label", "POINTS TO COMPLETE", 27, 8, 9, 207, 34, TextAnchor.MiddleCenter);
+            objectiveLabel.color = Ice;
+            objective = Label(points.transform, "Objective", "", 89, 8, 44, 207, 84, TextAnchor.MiddleCenter);
+            objective.color = Ice;
+            bossObjective = Label(content, "Boss Objective", "", 36, 52, 181, InnerWidth, 42);
+            bossObjective.color = Ice;
+
+            var rule = Panel(content, "Header Divider", 52, 225, InnerWidth, 2, Silver);
+            rule.edgeColor = new Color(.25f, .34f, .40f);
+            Label(content, "Enemies Heading", "ENEMIES YOU MAY ENCOUNTER", 37, 52, 246, InnerWidth, 50);
+            BuildEnemyScroll();
+            Button(content, "Back", "BACK", 52, 925, 243, 102, false, GoBack, 45);
+            startButton = Button(content, "Start Mission", "START MISSION", 315, 925, 575, 102, true, Accept, 60);
+            var arrow = new GameObject("Start Chevron", typeof(RectTransform)).GetComponent<RectTransform>();
+            arrow.SetParent(startButton.transform, false);
+            SetRect(arrow, 478, 51, 0, 0);
+            for (int side = -1; side <= 1; side += 2)
             {
-                BuildRacePanel();
-                return;
+                var stroke = new GameObject("Chevron Stroke", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+                stroke.transform.SetParent(arrow, false);
+                stroke.rectTransform.sizeDelta = new Vector2(20, 3);
+                stroke.rectTransform.anchoredPosition = new Vector2(-7, 7 * side);
+                stroke.rectTransform.localRotation = Quaternion.Euler(0, 0, -45 * side);
+                stroke.color = new Color(.02f, .04f, .075f);
+                stroke.raycastTarget = false;
             }
-            Accent(content, 60, 58);
-            Label(content, "Briefing Heading", "MISSION BRIEFING", 48, 145, 32, 1200, 76).color = Ice;
-            title = Label(content, "Mission Name", "", 140, 60, 104, 1800, 148);
-            Panel(content, "Objective Panel", 54, 260, 1560, 140, new Color(.025f, .04f, .075f, .95f));
-            objectiveLabel = Label(content, "Objective Label", "", 52, 90, 271, 425, 108);
-            objective = Label(content, "Objective", "", 128, 535, 271, 340, 108); objective.color = Ice;
-            objectiveSuffix = Label(content, "Objective Suffix", "POINTS\nTO COMPLETE", 48, 900, 271, 670, 108);
-            Accent(content, 60, 425);
-            Label(content, "Enemies Heading", "ENEMIES YOU MAY ENCOUNTER", 52, 145, 404, 1300, 65);
-            var rule = Panel(content, "Silver Rule", 1460, 439, 400, 2, Silver); rule.edgeColor = Silver;
-            cards.sizeDelta = content.sizeDelta;
-            backButton = Button(content, "Back", "<  BACK", 54, 930, 360, 124, false, GoBack, 64);
-            startButton = Button(content, "Start Mission", "START MISSION  >", 1264, 930, 600, 124, true, Accept, 64);
-            previousButton = Button(content, "Previous Enemies", "<", 1510, 407, 70, 58, false, () => { page--; RebuildCards(); });
-            nextButton = Button(content, "Next Enemies", ">", 1790, 407, 70, 58, false, () => { page++; RebuildCards(); });
-            pageLabel = Label(content, "Enemy Page", "", 28, 1585, 407, 200, 58, TextAnchor.MiddleCenter);
         }
 
-        private void BuildRacePanel()
+        private void BuildEnemyScroll()
         {
-            float width = VoxelPostRaceContinue.PanelWidth;
-            content.sizeDelta = new Vector2(width + 20f, 1080f);
-            cards.sizeDelta = content.sizeDelta;
-            Panel(content, "Briefing Panel", 20, 20, width, 1040, new Color(.015f, .035f, .065f, .93f));
-            cards.SetAsLastSibling();
-            Accent(content, 50, 64);
-            Label(content, "Briefing Heading", "MISSION BRIEFING", 45, 135, 42, 705, 74).color = Ice;
-            title = Label(content, "Mission Name", "", 92, 50, 113, 800, 130);
-            Panel(content, "Objective Panel", 44, 248, 820, 174, new Color(.025f, .04f, .075f, .95f));
-            objectiveLabel = Label(content, "Objective Label", "", 42, 56, 260, 780, 56);
-            objective = Label(content, "Objective", "", 84, 50, 316, 360, 92);
-            objective.color = Ice;
-            objectiveSuffix = Label(content, "Objective Suffix", "POINTS TO COMPLETE", 36, 425, 316, 413, 92);
-            Label(content, "Enemies Heading", "ENEMIES YOU MAY ENCOUNTER", 39, 48, 448, 520, 52);
-            previousButton = Button(content, "Previous Enemies", "<", 576, 444, 65, 58, false, () => { page--; RebuildCards(); });
-            nextButton = Button(content, "Next Enemies", ">", 792, 444, 65, 58, false, () => { page++; RebuildCards(); });
-            pageLabel = Label(content, "Enemy Page", "", 32, 648, 444, 137, 58, TextAnchor.MiddleCenter);
-            backButton = Button(content, "Back", "<  BACK", 44, 924, 240, 106, false, GoBack, 44);
-            startButton = Button(content, "Start Mission", "START MISSION  >", 302, 924, 562, 106, true, Accept, 62);
+            var scroll = new GameObject("Enemy Scroll", typeof(RectTransform), typeof(ScrollRect));
+            scroll.transform.SetParent(content, false);
+            SetRect((RectTransform)scroll.transform, 52, 306, InnerWidth, ViewportHeight);
+            enemyScroll = scroll.GetComponent<ScrollRect>();
+            var viewport = new GameObject("Enemy Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewport.transform.SetParent(scroll.transform, false);
+            SetRect((RectTransform)viewport.transform, 0, 0, InnerWidth, ViewportHeight);
+            viewport.GetComponent<Image>().color = Color.clear;
+            cards = new GameObject("Enemy Cards", typeof(RectTransform)).GetComponent<RectTransform>();
+            cards.SetParent(viewport.transform, false);
+            enemyScroll.viewport = (RectTransform)viewport.transform;
+            enemyScroll.content = cards;
+            enemyScroll.horizontal = false;
+            enemyScroll.movementType = ScrollRect.MovementType.Clamped;
+            enemyScroll.scrollSensitivity = 46;
+
+            var track = new GameObject("Enemy Scrollbar", typeof(RectTransform), typeof(Image), typeof(Scrollbar));
+            track.transform.SetParent(scroll.transform, false);
+            SetRect((RectTransform)track.transform, InnerWidth - 12, 0, 12, ViewportHeight);
+            track.GetComponent<Image>().color = new Color(.15f, .23f, .31f);
+            var slidingArea = Stretch("Sliding Area", track.transform);
+            var handle = Stretch("Handle", slidingArea).gameObject.AddComponent<Image>();
+            handle.color = Ice;
+            var scrollbar = track.GetComponent<Scrollbar>();
+            scrollbar.direction = Scrollbar.Direction.BottomToTop;
+            scrollbar.handleRect = handle.rectTransform;
+            scrollbar.targetGraphic = handle;
+            enemyScroll.verticalScrollbar = scrollbar;
         }
 
         private void RebuildCards()
@@ -199,45 +222,79 @@ namespace VoxelRacer
             animatedPreviews.Clear();
             previewsStartedAt = Time.unscaledTime;
             for (int i = cards.childCount - 1; i >= 0; i--)
-            { var child = cards.GetChild(i).gameObject; child.SetActive(false); if (Application.isPlaying) Destroy(child); else DestroyImmediate(child); }
-            int pageSize = alongsideRace ? 2 : 4;
-            int pages = Mathf.Max(1, Mathf.CeilToInt(enemies.Count / (float)pageSize)); page = Mathf.Clamp(page, 0, pages - 1);
-            previousButton.gameObject.SetActive(pages > 1); nextButton.gameObject.SetActive(pages > 1); pageLabel.gameObject.SetActive(pages > 1);
-            previousButton.interactable = page > 0; nextButton.interactable = page < pages - 1; pageLabel.text = (page + 1) + " / " + pages;
-            int count = Mathf.Min(pageSize, enemies.Count - page * pageSize);
-            float width = alongsideRace ? 820 : count > 0 ? Mathf.Min(540, (1812 - 22 * (count - 1)) / count) : 540;
-            float left = (1920 - (count * width + (count - 1) * 22)) * .5f;
-            for (int i = 0; i < count; i++)
             {
-                var enemy = enemies[page * pageSize + i];
-                bool unknownBoss = enemy.Source is VoxelBossDefinition;
-                var card = Panel(cards, unknownBoss ? "Unknown Boss" : "Enemy - " + enemy.Name,
-                    alongsideRace ? 44 : left + i * (width + 22), alongsideRace ? 514 + 192 * i : 480,
-                    width, alongsideRace ? 176 : 412, new Color(.025f, .04f, .07f, .96f));
-                if (unknownBoss)
-                {
-                    Label(card.transform, "Unknown Boss", "???", alongsideRace ? 132 : 240, 20,
-                        alongsideRace ? 10 : 40, width - 40, alongsideRace ? 156 : 330, TextAnchor.MiddleCenter).color = Ice;
-                    continue;
-                }
-                var frame = new GameObject("Model Frame", typeof(RectTransform)).GetComponent<RectTransform>(); frame.SetParent(card.transform, false);
-                SetRect(frame, 8, 12, alongsideRace ? 270 : width - 16, alongsideRace ? 152 : 280);
-                var model = Stretch("Three Quarter Model", frame).gameObject.AddComponent<RawImage>(); model.raycastTarget = false;
-                var preview = settings != null ? settings.PreviewRecordFor(enemy.Source) : null;
-                model.texture = preview != null ? preview.IsAnimated ? preview.animation : preview.image : null;
-                model.enabled = model.texture != null;
-                if (preview != null && preview.IsAnimated)
-                { model.uvRect = preview.FrameUv(0); animatedPreviews.Add((model, preview)); }
-                if (model.texture != null) { var fit = model.gameObject.AddComponent<AspectRatioFitter>(); fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent; fit.aspectRatio = preview.AspectRatio; }
-                else Label(card.transform, "Missing Preview", "MODEL PREVIEW", 25, 20, alongsideRace ? 55 : 125,
-                    alongsideRace ? 252 : width - 40, 65, TextAnchor.MiddleCenter).color = Silver;
-                float textX = alongsideRace ? 296 : 28, textWidth = width - textX - 28;
-                Label(card.transform, "Enemy Name", enemy.Name.ToUpperInvariant(), 39, textX, alongsideRace ? 25 : 296, textWidth, 56);
-                var line = Panel(card.transform, "Card Rule", textX, alongsideRace ? 88 : 358, textWidth, 1, Silver); line.edgeColor = Silver;
-                Label(card.transform, "Threat", enemy.Trait, 27, textX, alongsideRace ? 100 : 366, textWidth, 38).color = new Color(.65f, .71f, .79f);
+                var child = cards.GetChild(i).gameObject;
+                child.SetActive(false);
+                if (Application.isPlaying) Destroy(child); else DestroyImmediate(child);
             }
-            if (count == 0) Label(cards, "No Enemies", "NO HOSTILE VEHICLES REPORTED", 44,
-                alongsideRace ? 50 : 160, 580, alongsideRace ? 800 : 1600, 120, TextAnchor.MiddleCenter);
+
+            bool overflow = enemies.Count > 4;
+            float width = InnerWidth - (overflow ? 26 : 0);
+            float cardWidth = (width - CardGap) * .5f;
+            int rows = (enemies.Count + 1) / 2;
+            SetRect(enemyScroll.viewport, 0, 0, width, ViewportHeight);
+            SetRect(cards, 0, 0, width, Mathf.Max(ViewportHeight, rows * (CardHeight + CardGap) - CardGap));
+            enemyScroll.vertical = overflow;
+            enemyScroll.verticalScrollbar.gameObject.SetActive(overflow);
+            enemyScroll.StopMovement();
+            for (int i = 0; i < enemies.Count; i++)
+                BuildEnemyCard(enemies[i], i % 2 * (cardWidth + CardGap), i / 2 * (CardHeight + CardGap), cardWidth);
+            if (enemies.Count == 0)
+                Label(cards, "No Enemies", "NO HOSTILE VEHICLES REPORTED", 40, 0, 38, width, 90, TextAnchor.MiddleCenter);
+            enemyScroll.verticalNormalizedPosition = 1f;
+        }
+
+        private void BuildEnemyCard(VoxelMissionBriefingEnemy enemy, float x, float y, float width)
+        {
+            bool unknownBoss = enemy.Source is VoxelBossDefinition;
+            var card = Panel(cards, unknownBoss ? "Unknown Boss" : "Enemy - " + enemy.Name,
+                x, y, width, CardHeight, new Color(.06f, .12f, .18f));
+            if (unknownBoss)
+            {
+                Label(card.transform, "Unknown Boss", "???", 120, 16, 0, width - 32, CardHeight, TextAnchor.MiddleCenter).color = Ice;
+                return;
+            }
+
+            var inset = Panel(card.transform, "Portrait Clip", 2, 2, width - 4, CardHeight - 4, Color.white);
+            inset.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            float portraitHeight = CardHeight - BannerHeight - 2;
+            var frame = new GameObject("Model Frame", typeof(RectTransform)).GetComponent<RectTransform>();
+            frame.SetParent(inset.transform, false);
+            SetRect(frame, 0, 0, width - 4, portraitHeight);
+            var backdrop = Stretch("Portrait Backdrop", frame).gameObject.AddComponent<Image>();
+            backdrop.color = new Color32(44, 46, 52, 255);
+            backdrop.raycastTarget = false;
+            var model = Stretch("Three Quarter Model", frame).gameObject.AddComponent<RawImage>();
+            model.raycastTarget = false;
+            var preview = settings != null ? settings.PreviewRecordFor(enemy.Source) : null;
+            model.texture = preview != null
+                ? preview.IsAnimated && !preview.UsesPortraitDish ? preview.AnimationImage : preview.StillImage
+                : null;
+            model.enabled = model.texture != null;
+            if (preview != null && preview.IsAnimated)
+            {
+                var animated = model;
+                if (preview.UsesPortraitDish)
+                {
+                    animated = Stretch("Spinning Radar Dish", model.transform).gameObject.AddComponent<RawImage>();
+                    animated.raycastTarget = false;
+                    animated.texture = preview.AnimationImage;
+                    animated.rectTransform.anchorMin = preview.portraitDishPlacement.min;
+                    animated.rectTransform.anchorMax = preview.portraitDishPlacement.max;
+                }
+                animated.uvRect = preview.FrameUv(0);
+                animatedPreviews.Add((animated, preview));
+            }
+            if (model.texture != null)
+            {
+                var fit = model.gameObject.AddComponent<AspectRatioFitter>();
+                fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+                fit.aspectRatio = preview.AspectRatio;
+            }
+            else
+                Label(frame, "Missing Preview", "MODEL PREVIEW", 25, 0, 0, width - 4, portraitHeight, TextAnchor.MiddleCenter).color = Silver;
+            Label(card.transform, "Enemy Name", enemy.Name.ToUpperInvariant(), 32, 15,
+                CardHeight - BannerHeight, width - 30, BannerHeight);
         }
         private void AnimatePreviews(float elapsed)
         {

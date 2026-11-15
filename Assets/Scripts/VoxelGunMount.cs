@@ -60,12 +60,18 @@ namespace VoxelRacer
 
         private void Update() => UpdateFiring(IsFireHeld(), Time.deltaTime);
 
+        internal void SpinBarrels(float seconds)
+        {
+            if (barrelRotor != null && tuning != null)
+                barrelRotor.Rotate(Vector3.forward, tuning.barrelSpinDegreesPerSecond * seconds, Space.Self);
+        }
+
         internal void UpdateFiring(bool held, float seconds)
         {
             if (!Application.isPlaying || !held || tuning == null)
                 return;
             if (HasRotor && CanFire)
-                barrelRotor.Rotate(Vector3.forward, tuning.barrelSpinDegreesPerSecond * seconds, Space.Self);
+                SpinBarrels(seconds);
             if (!TryBeginShot(out int bulletCount))
                 return;
 

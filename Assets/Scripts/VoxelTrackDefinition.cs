@@ -82,6 +82,11 @@ namespace VoxelRacer
         [Range(0f, 0.5f)] public float groundNoiseColourVariation = 0.1f;
         public int groundNoiseSeed = 317;
 
+        [Header("Creek Crossings")]
+        [Range(0f, 100f)]
+        [Tooltip("Chance per eligible straight road section. Five road sections must separate crossings. Set to 0 to disable.")]
+        public float creekCrossingChancePercent = 12f;
+
         [Header("Cactus Palette")]
         public Color[] cactusShades =
         {

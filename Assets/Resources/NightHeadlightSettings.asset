@@ -21,6 +21,5 @@ MonoBehaviour:
   beamEndWidth: 4
   beamColour: {r: 1, g: 0.82, b: 0.12, a: 1}
   enemyBeamColour: {r: 2, g: 0.025, b: 0.01, a: 1}
-  playerBeamColour: {r: 0.10, g: 0.52, b: 2.2, a: 1}
   beamOpacity: 0.22
   maximumDrawDistance: 140

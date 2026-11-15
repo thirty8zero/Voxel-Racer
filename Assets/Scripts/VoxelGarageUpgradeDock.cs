@@ -62,7 +62,7 @@ namespace VoxelRacer
                 sortedUpgradeCards[i] = card;
                 card.Build(buttons[i],UpgradeDisplayName(upgrades[i]),kinds[i],GarageHeading,GarageMono,i,categories[i],upgrades[i]);
                 buttons[i].onClick.RemoveAllListeners();
-                buttons[i].onClick.AddListener(() => SelectUpgradeDetails(card));
+                buttons[i].onClick.AddListener(() => SelectUpgradeCard(card));
             }
             BuildUpgradeDetails(panel);
             var scroll=viewport.AddComponent<ScrollRect>(); scroll.viewport=rect; scroll.content=cr;
@@ -166,7 +166,7 @@ namespace VoxelRacer
             if (garageUpgradePanel.activeSelf)
             {
                 var panel = (RectTransform)garageUpgradePanel.transform;
-                float inset = upgradeDetails != null && upgradeDetails.anchoredPosition.y -
+                float inset = upgradeDetails != null && upgradeDetails.gameObject.activeSelf && upgradeDetails.anchoredPosition.y -
                     upgradeDetails.rect.height * upgradeDetails.localScale.y < 58f
                     ? upgradeDetails.anchoredPosition.x + upgradeDetails.rect.width * upgradeDetails.localScale.x + 16f : 0f;
                 float width = Mathf.Max(1f, panel.rect.width - inset);
@@ -312,6 +312,18 @@ namespace VoxelRacer
         private static int ArmorOwnedCount(VoxelArmorTuning tuning) =>
             (VoxelArmorUpgradeState.IsEquipped(tuning, VoxelArmorSide.Left) ? 1 : 0) +
             (VoxelArmorUpgradeState.IsEquipped(tuning, VoxelArmorSide.Right) ? 1 : 0);
+        private static int UpgradeLevel(VoxelGarageUpgradeKind kind) => Mathf.Clamp(kind switch
+        {
+            VoxelGarageUpgradeKind.Armour or VoxelGarageUpgradeKind.ExtendedArmour => VoxelGarageUpgradePlacement.ArmorTuning(kind)?.upgradeLevel ?? 1,
+            VoxelGarageUpgradeKind.Guns or VoxelGarageUpgradeKind.Minigun => VoxelGarageUpgradePlacement.GunTuning(kind)?.upgradeLevel ?? 1,
+            VoxelGarageUpgradeKind.Missiles => VoxelMissileLauncherTuning.Load()?.weapon?.upgradeLevel ?? 1,
+            VoxelGarageUpgradeKind.Wheels or VoxelGarageUpgradeKind.GoldWheels => VoxelGarageUpgradePlacement.WheelTuning(kind)?.upgradeLevel ?? 1,
+            VoxelGarageUpgradeKind.Spikes => VoxelWheelSpikeTuning.Load()?.upgradeLevel ?? 1,
+            VoxelGarageUpgradeKind.StarSpikes => VoxelWheelSpikeTuning.LoadStar()?.upgradeLevel ?? 2,
+            VoxelGarageUpgradeKind.Plough or VoxelGarageUpgradeKind.BullBar => VoxelGarageUpgradePlacement.PloughTuning(kind)?.upgradeLevel ?? 1,
+            VoxelGarageUpgradeKind.DualBoost => VoxelBoostUpgradeTuning.LoadDualUpgrade()?.bottleCount ?? 2,
+            _ => 1
+        }, 1, 4);
         private void RefreshUpgradeCards()
         {
             var armour=VoxelArmorTuning.Load(); bool fits=armour!=null && armour.panelPrefab!=null && armour.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.ExtendedArmour)==0;
@@ -344,7 +356,11 @@ namespace VoxelRacer
             var underbody=VoxelUnderbodyArmorTuning.Load(); Card(underbodyArmorUpgradeButton,underbody!=null?underbody.purchasePrice:0,
                 underbody!=null && underbody.Fits(definition),VoxelUnderbodyArmorUpgradeState.IsPurchased,VoxelGarageUpgradeKind.UnderbodyArmour);
             if(sortedUpgradeCards!=null)
-                foreach(var card in sortedUpgradeCards)card.SetTitle(UpgradeDisplayName(card.UpgradeKind));
+                foreach(var card in sortedUpgradeCards)
+                {
+                    card.SetTitle(UpgradeDisplayName(card.UpgradeKind));
+                    card.SetLevel(UpgradeLevel(card.UpgradeKind));
+                }
             SortUpgradeCards();
             CacheGarageCarBounds();
             RefreshNextMission();
@@ -390,7 +406,6 @@ namespace VoxelRacer
         {
             if(sortedUpgradeCards==null || upgradeCategoryScroll==null)return;
             int visible=0;
-            VoxelGarageUpgradeCard firstVisible = null;
             var positions=new int[upgradeCategoryTabs.Length];
             foreach(var card in sortedUpgradeCards)
             {
@@ -398,14 +413,10 @@ namespace VoxelRacer
                 card.gameObject.SetActive(show);
                 int slot = UpgradeSectionTabsEnabled ? positions[(int)card.Category]++ : visible;
                 ((RectTransform)card.transform).anchoredPosition=new Vector2(105+slot*224,0);
-                if(show)
-                {
-                    firstVisible ??= card;
-                    visible++;
-                }
+                if(show) visible++;
             }
             upgradeCategoryScroll.content.sizeDelta=new Vector2(Mathf.Max(0,visible*224-14),234);
-            if (inspectedUpgrade == null || !inspectedUpgrade.gameObject.activeSelf) SelectUpgradeDetails(firstVisible);
+            if (inspectedUpgrade != null && !inspectedUpgrade.gameObject.activeSelf) SetInspectedUpgrade(null);
             else RefreshUpgradeDetails();
             RefreshUpgradeScrollHint();
         }

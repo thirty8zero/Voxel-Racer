@@ -102,6 +102,7 @@ MonoBehaviour:
   groundNoiseDensity: 0.7
   groundNoiseColourVariation: 0.2
   groundNoiseSeed: 317
+  creekCrossingChancePercent: 12
   cactusShades:
   - {r: 0.09, g: 0.28, b: 0.1, a: 1}
   - {r: 0.071110725, g: 0.8867924, b: 0.071110725, a: 1}

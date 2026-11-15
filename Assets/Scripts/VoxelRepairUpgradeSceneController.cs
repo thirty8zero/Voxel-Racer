@@ -47,6 +47,8 @@ namespace VoxelRacer
         private Vector3 appliedCameraLookAt;
         private float appliedCameraFieldOfView;
         private bool isLoading;
+        private VoxelGunMount[] workshopGuns = System.Array.Empty<VoxelGunMount>();
+        private readonly bool[] gunsFittedThisVisit = new bool[VoxelGunUpgradeState.SlotCount];
 
         private void Awake()
         {
@@ -76,6 +78,12 @@ namespace VoxelRacer
             ApplyGaragePreviewViewport();
             AdvanceGarageCameraTransition(Time.unscaledDeltaTime);
             upgradePlacement?.SyncTransform();
+            foreach (var gun in upgradePlacement?.DisplayedGuns ?? workshopGuns)
+                if (gun != null && gun.HasRotor && gun.gameObject.activeInHierarchy &&
+                    gun.upgradeSlot >= 0 && gun.upgradeSlot < gunsFittedThisVisit.Length &&
+                    (gunsFittedThisVisit[gun.upgradeSlot] ||
+                        upgradePlacement?.IsPending(VoxelGarageUpgradeKind.Minigun, gun.upgradeSlot) == true))
+                    gun.SpinBarrels(Time.unscaledDeltaTime);
         }
 
         private void BuildWorkshop()
@@ -111,7 +119,7 @@ namespace VoxelRacer
             DisplayedCar = car.gameObject.AddComponent<VoxelCarController>();
             if (definition != null && definition.tuning != null)
                 DisplayedCar.SetTuning(definition.tuning);
-            VoxelGunUpgradeState.ApplyTo(car);
+            RefreshWorkshopGuns();
             VoxelArmorUpgradeState.ApplyTo(car, definition);
             VoxelWheelSpikeUpgradeState.ApplyTo(car);
             VoxelPerformanceWheelUpgradeState.ApplyTo(car, definition);
@@ -357,9 +365,16 @@ namespace VoxelRacer
                 return;
             }
 
-            VoxelGunUpgradeState.ApplyTo(DisplayedCar.transform);
+            gunsFittedThisVisit[slot] = true;
+            RefreshWorkshopGuns();
             feedbackText.text = tuning.displayName.ToUpperInvariant() + " INSTALLED";
             RefreshUi();
+        }
+
+        private void RefreshWorkshopGuns()
+        {
+            VoxelGunUpgradeState.ApplyTo(DisplayedCar.transform);
+            workshopGuns = DisplayedCar.GetComponentsInChildren<VoxelGunMount>();
         }
 
         private void TryPurchaseDoorArmor(VoxelArmorSide side, bool extended = false)

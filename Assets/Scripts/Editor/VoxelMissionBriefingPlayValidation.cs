@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
@@ -28,6 +31,11 @@ namespace VoxelRacer.Editor
         private static Quaternion[] lastTruckWheelRotations;
         private static Vector3 lastTruckPosition;
         private static bool sawRampSparks, capturedRampSparks;
+        private static float bayRevealedAt, startupBrakeOnAt, startupBrakeOffAt;
+        private static readonly PropertyInfo BayRevealed = typeof(VoxelCarrierTruck).GetProperty("HasRevealedBay",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly HashSet<int> exhaustPuffs = new(), touchdownPuffs = new();
+        private static readonly HashSet<int> puffsWithParticles = new();
         private static float roadSampleDistance;
         private static VoxelTrackPose roadAtFinalCount;
         private static bool pickupBlocked, pickupPan, pickupRamp, pickupLoaded;
@@ -76,6 +84,25 @@ namespace VoxelRacer.Editor
             Next(next);
         }
         private static void ReleaseSpace() => InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+        private static void TapRightSide(VoxelMainMenuController menu)
+        {
+            var events = EventSystem.current;
+            var hits = new List<RaycastResult>();
+            var pointer = new PointerEventData(events) { button = PointerEventData.InputButton.Left };
+            var area = menu.transform.Find("Main Menu UI/Start Tap Area").gameObject;
+            foreach (var point in new[] { new Vector2(.51f, .02f), new Vector2(.98f, .98f), new Vector2(.75f, .55f) })
+            {
+                pointer.position = Vector2.Scale(point, new Vector2(Screen.width, Screen.height));
+                events.RaycastAll(pointer, hits);
+                Check(hits.Count > 0 && hits[0].gameObject == area, "Right-side tap missed the expanded START area.");
+            }
+            var rightTarget = hits[0].gameObject;
+            pointer.position = new Vector2(Screen.width * .49f, Screen.height * .55f);
+            events.RaycastAll(pointer, hits);
+            Check(hits.All(hit => hit.gameObject != area), "The expanded START tap area covers the left side.");
+            pointer.position = new Vector2(Screen.width * .75f, Screen.height * .55f);
+            ExecuteEvents.Execute(rightTarget, pointer, ExecuteEvents.pointerClickHandler);
+        }
         private static bool AfterPress => Time.frameCount >= phaseFrame + 2 && EditorApplication.timeSinceStartup - phaseAt >= .2;
         private static bool SpaceBrakes() => (bool)typeof(VoxelMenuUi).Assembly.GetType("VoxelRacer.VoxelEditorNavigation")
             .GetMethod("IsSpaceBrakeHeld", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
@@ -98,11 +125,11 @@ namespace VoxelRacer.Editor
                         var menu = UnityEngine.Object.FindFirstObjectByType<VoxelMainMenuController>();
                         if (menu == null) return;
                         VoxelCarSelectionState.Select(Resources.Load<VoxelCarDefinition>("Cars/SpyCar2PlayerCar"));
-                        PressSpace(1); break;
+                        TapRightSide(menu); Next(1); break;
                     case 1:
                         if (!AfterPress) return;
                         Check(SceneManager.GetActiveScene().name == "SampleScene" && VoxelMissionBriefing.IsShowing && Truck != null,
-                            "Main-menu Start did not enter the carrier briefing, or held Space confirmed it.");
+                            "Tapping the right side of the main menu did not enter the carrier briefing.");
                         Check(VoxelMissionBriefing.Active.GetComponentsInChildren<RectTransform>()
                             .Any(rect => rect.name == "Briefing Panel" && Mathf.Approximately(rect.rect.width, 900)),
                             "The live briefing did not match the result-panel width.");
@@ -111,6 +138,10 @@ namespace VoxelRacer.Editor
                         lastTruckWheelRotations = truckWheels.Select(wheel => wheel.localRotation).ToArray();
                         lastTruckPosition = Truck.transform.position;
                         sawRampSparks = capturedRampSparks = false;
+                        bayRevealedAt = startupBrakeOnAt = startupBrakeOffAt = -1f;
+                        exhaustPuffs.Clear();
+                        touchdownPuffs.Clear();
+                        puffsWithParticles.Clear();
                         VerifyRollingDetails(Truck);
                         ReleaseSpace(); Next(10); break;
                     case 10:
@@ -157,6 +188,12 @@ namespace VoxelRacer.Editor
                         Check(roadAtLaunch.position == roadAtFinalCount.position && roadAtLaunch.forward == roadAtFinalCount.forward,
                             "The visible route changed at HUNT.");
                         Check(sawRampSparks, "Both ramp corners did not maintain a dense spray during unloading.");
+                        Check(exhaustPuffs.Count == 1 && touchdownPuffs.Count == 4,
+                            $"Expected one stock exhaust puff and four tyre puffs, saw {exhaustPuffs.Count} and {touchdownPuffs.Count}.");
+                        Check(exhaustPuffs.Concat(touchdownPuffs).All(puffsWithParticles.Contains),
+                            "A carrier smoke emitter never produced particles.");
+                        Check(!VoxelStartCountdown.Active.target.BrakeLightsActive,
+                            "The startup brake-light flash stayed on through the countdown.");
                         VoxelPauseMenu.Active.SetPaused(true);
                         Check(VoxelPauseMenu.IsPaused, "Could not open pause for Space validation.");
                         PressSpace(13); break;
@@ -244,6 +281,7 @@ namespace VoxelRacer.Editor
                                 "The staging road turned while the briefing was open.");
                         if (Truck != null || EditorApplication.timeSinceStartup - phaseAt < 12) return;
                         Check(ploughLifted && upgraded.TrackDistance > 100, "The truck did not unload the fitted plough and leave the player cruising.");
+                        VerifySettledFraming(upgraded);
                         ScreenCapture.CaptureScreenshot("Temp/MissionBriefing/LiveGarageBriefing.png");
                         Next(31); break;
                     case 31:
@@ -293,7 +331,15 @@ namespace VoxelRacer.Editor
                         if (!AfterPress) return;
                         Check(SceneManager.GetActiveScene().name == "SampleScene" && VoxelMissionBriefing.IsShowing,
                             "A second Space in CarSelect did not enter the race briefing.");
-                        ReleaseSpace(); Click("Start Mission"); Next(20); break;
+                        ReleaseSpace(); Next(32); break;
+                    case 32:
+                        if (Truck != null) return;
+                        VerifySettledFraming(VoxelStartCountdown.Active.target);
+                        ScreenCapture.CaptureScreenshot("Temp/MissionBriefing/LiveSettledBriefing.png");
+                        Next(33); break;
+                    case 33:
+                        if (Time.frameCount <= phaseFrame + 1) return;
+                        Click("Start Mission"); Next(20); break;
                     case 20:
                         if (keyboard.spaceKey.isPressed || !VoxelStartCountdown.Active.IsComplete) return;
                         VoxelPlayerDeathScreen.Active.ShowBossEscaped(); PressSpace(21); break;
@@ -317,10 +363,40 @@ namespace VoxelRacer.Editor
                         Check(SceneManager.GetActiveScene().name == "SampleScene" && !VoxelMissionBriefing.IsShowing &&
                             Truck == null && VoxelStartCountdown.Active != null && VoxelStartCountdown.Active.target.CurrentSpeed == 0,
                             "Retry did not use the normal stationary opening.");
-                        Finish(true, "PASS (Play Mode): early and late Start, camera at 1, fully upgraded unload and plough clearance, rolling wheels and ramp sparks, results at the front three-quarter shot, intact enemies clear ahead and behind, blocked-lane pickup, rear-left orbit and ramp framing, moving road during departure, retry, garage Back, damage and cash continuity, and Space navigation."); break;
+                        Finish(true, "PASS (Play Mode): right-side main-menu tap, early and late Start, camera at 1, fully upgraded unload and plough clearance, settled car framing beside the briefing, startup exhaust and four tyre touchdown puffs, rolling wheels and ramp sparks, results at the front three-quarter shot, intact enemies clear ahead and behind, blocked-lane pickup, rear-left orbit and ramp framing, moving road during departure, retry, garage Back, damage and cash continuity, and Space navigation."); break;
                 }
             }
             catch (Exception error) { Finish(false, "FAIL at phase " + phase + ": " + error); }
+        }
+
+        private static void VerifySettledFraming(VoxelCarController car)
+        {
+            Camera camera = Camera.main;
+            float left = 1f, right = 0f;
+            foreach (var renderer in car.GetComponentsInChildren<MeshRenderer>())
+            {
+                if (!renderer.enabled) continue;
+                Bounds bounds = renderer.localBounds;
+                for (int corner = 0; corner < 8; corner++)
+                {
+                    Vector3 local = new((corner & 1) == 0 ? bounds.min.x : bounds.max.x,
+                        (corner & 2) == 0 ? bounds.min.y : bounds.max.y,
+                        (corner & 4) == 0 ? bounds.min.z : bounds.max.z);
+                    float x = camera.WorldToViewportPoint(renderer.transform.TransformPoint(local)).x;
+                    left = Mathf.Min(left, x);
+                    right = Mathf.Max(right, x);
+                }
+            }
+
+            var panel = VoxelMissionBriefing.Active.GetComponentsInChildren<RectTransform>()
+                .Single(rect => rect.name == "Briefing Panel");
+            var corners = new Vector3[4];
+            panel.GetWorldCorners(corners);
+            float panelRight = RectTransformUtility.WorldToScreenPoint(null, corners[2]).x / Screen.width;
+            float leftGap = left - panelRight;
+            float rightGap = Screen.safeArea.xMax / Screen.width - right;
+            Check(leftGap > .01f && rightGap > .01f && Mathf.Abs(leftGap - rightGap) < .06f,
+                $"Settled car was not centred beside the briefing. Panel gap: {leftGap:P1}, screen gap: {rightGap:P1}.");
         }
 
         private static void SpawnFinishEnemies(VoxelCarController car, EndlessVoxelRoad road)
@@ -434,6 +510,8 @@ namespace VoxelRacer.Editor
         private static void VerifyRollingDetails(VoxelCarrierTruck truck)
         {
             Check(truck != null, "Carrier disappeared during unload.");
+            if (phase == 1 || phase == 10 || phase == 3 || phase == 11)
+                VerifyUnloadingSmoke(truck);
             float distance = truck.transform.position.z - lastTruckPosition.z;
             for (int i = 0; i < truckWheels.Length; i++)
             {
@@ -476,6 +554,58 @@ namespace VoxelRacer.Editor
             }
             VerifyRampSparkBounce(sparks[0], truck.transform);
             sawRampSparks = true;
+        }
+
+        private static void VerifyUnloadingSmoke(VoxelCarrierTruck truck)
+        {
+            var player = VoxelStartCountdown.Active.target;
+            float now = Time.time;
+            if (bayRevealedAt < 0f && (bool)BayRevealed.GetValue(truck))
+            {
+                Check(startupBrakeOnAt >= 0f && Mathf.Abs(now - startupBrakeOnAt - .1f) < .08f,
+                    "The startup brake lights did not turn on 0.1 seconds before the bay reveal.");
+                bayRevealedAt = now;
+            }
+            if (startupBrakeOnAt < 0f && player.BrakeLightsActive)
+                startupBrakeOnAt = now;
+            if (startupBrakeOnAt >= 0f && startupBrakeOffAt < 0f && !player.BrakeLightsActive)
+            {
+                Check(Mathf.Abs(now - startupBrakeOnAt - .75f) < .15f, "The startup brake lights did not stay lit for 0.75 seconds.");
+                startupBrakeOffAt = now;
+            }
+            foreach (var puff in UnityEngine.Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+            {
+                if (puff.name == "Carrier Exhaust Puff")
+                {
+                    int id = puff.GetInstanceID();
+                    if (exhaustPuffs.Add(id))
+                    {
+                        Check(truck.Opening && puff.transform.IsChildOf(player.transform) &&
+                            puff.main.simulationSpace == ParticleSystemSimulationSpace.Local,
+                            "The exhaust puff did not originate on the car during unloading.");
+                        Check(bayRevealedAt >= 0f && Mathf.Abs(now - bayRevealedAt - 1f) < .15f,
+                            "The exhaust puff did not appear 1 second after the bay reveal.");
+                        Check(startupBrakeOffAt >= 0f && !player.BrakeLightsActive,
+                            "The exhaust puff appeared before the startup brake lights went out.");
+                    }
+                    if (puff.particleCount > 0)
+                        puffsWithParticles.Add(id);
+                }
+                else if (puff.name == "Carrier Tyre Touchdown Puff")
+                {
+                    int id = puff.GetInstanceID();
+                    if (touchdownPuffs.Add(id))
+                    {
+                        Vector3 point = truck.transform.InverseTransformPoint(puff.transform.position);
+                        Check(point.z <= truck.RampTip + .005f &&
+                            Mathf.Abs(point.y - .045f) < .01f &&
+                            puff.main.simulationSpace == ParticleSystemSimulationSpace.World,
+                            "A tyre puff originated before road contact or did not stay on the road.");
+                    }
+                    if (puff.particleCount > 0)
+                        puffsWithParticles.Add(id);
+                }
+            }
         }
 
         private static void VerifyRampSparkBounce(ParticleSystem source, Transform roadPlane)

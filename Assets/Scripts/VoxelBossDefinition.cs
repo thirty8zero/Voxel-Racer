@@ -115,8 +115,9 @@ namespace VoxelRacer
 
         [Header("Destruction Camera")]
         public bool focusCameraOnDestruction;
-        [Tooltip("Real-time seconds spent viewing the defeated boss before the normal player finish camera begins.")]
+        [Tooltip("Real-time duration of the destruction shot, including the final half-second blend into the player finish orbit.")]
         [Min(0)] public float destructionCameraDuration = 3f;
+        [Tooltip("Real-time blend into the boss view at the start of the destruction shot.")]
         [Min(0)] public float destructionCameraBlendDuration = .5f;
         public Vector3 destructionCameraOffset = new(16, 10, -20);
         [Min(0)] public float destructionCameraLookHeight = 4f;

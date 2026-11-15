@@ -58,7 +58,7 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRepairUpgradeSceneController).GetField("definition",Private).SetValue(shop,definition);
                 shop.repairTuning=VoxelRepairTuning.Load();Call(shop,"BuildUi");Call(shop,"RefreshUi");
                 var button=shop.GetComponentsInChildren<Button>(true).First(b=>b.name=="Star Wheel Spike Purchase Button");
-                var action = VoxelGarageUpgradeDockValidation.InspectUpgrade(button);
+                var action = VoxelGarageUpgradeDockValidation.RevealUpgradeCard(button);
                 Check(action.interactable && button.GetComponent<VoxelGarageUpgradeCard>().State==VoxelGarageUpgradeState.Affordable,"Star shop card unavailable after basic purchase");
                 int cash=VoxelCurrencyState.Balance;
                 action.onClick.Invoke();

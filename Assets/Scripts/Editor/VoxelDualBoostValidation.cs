@@ -63,7 +63,7 @@ namespace VoxelRacer.Editor
                 typeof(VoxelRepairUpgradeSceneController).GetField("definition", Private).SetValue(shop, definition);
                 shop.repairTuning = VoxelRepairTuning.Load(); Call(shop, "BuildUi"); Call(shop, "RefreshUi");
                 VoxelGarageUpgradeDockValidation.CheckCategories(shop);
-                var button = VoxelGarageUpgradeDockValidation.InspectUpgrade(shop.GetComponentsInChildren<Button>(true).Single(b => b.name == "Dual Boost Bottle Purchase Button"));
+                var button = VoxelGarageUpgradeDockValidation.RevealUpgradeCard(shop.GetComponentsInChildren<Button>(true).Single(b => b.name == "Dual Boost Bottle Purchase Button"));
                 int cash = VoxelCurrencyState.Balance;
                 Check(button.interactable, "Dual shop card unavailable after single purchase");
                 button.onClick.Invoke();

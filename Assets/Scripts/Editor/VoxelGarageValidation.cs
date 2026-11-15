@@ -89,7 +89,7 @@ namespace VoxelRacer.Editor
                 {
                     Invoke(shop,"ShowGaragePanel",view==1?panel.gameObject:view==2?upgrades.gameObject:null);
                     if (view == 2)
-                        VoxelGarageUpgradeDockValidation.InspectUpgrade(upgrades.GetComponentsInChildren<Button>(true).First(b => b.name == "Wheel Spike Purchase Button"));
+                        VoxelGarageUpgradeDockValidation.RevealUpgradeCard(upgrades.GetComponentsInChildren<Button>(true).First(b => b.name == "Wheel Spike Purchase Button")).onClick.Invoke();
                     purchaseFeedback.text=view==2?purchaseMessage:string.Empty;
                     var rt=new RenderTexture(width,1080,24);var texture=new Texture2D(width,1080,TextureFormat.RGB24,false);
                     var sceneTexture=new RenderTexture(width,1080,24);background.GetComponent<RawImage>().texture=sceneTexture;
