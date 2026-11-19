@@ -60,7 +60,7 @@ namespace VoxelRacer.Editor
                 var placement = (VoxelGarageUpgradePlacement)placementField.GetValue(shop);
                 Check(placement != null && Mounted(placement.Car) == bullBar && Mounted(car.gameObject) == null &&
                     !VoxelPloughUpgradeState.IsPurchased && VoxelCurrencyState.Balance == startingCash, "Bull Bar preview changed the real car or cash");
-                Check(ploughButton.GetComponent<VoxelGarageUpgradeCard>().State == VoxelGarageUpgradeState.Incompatible, "Both front rams can enter one basket");
+                Check(ploughButton.GetComponent<VoxelGarageUpgradeCard>().State == VoxelGarageUpgradeState.Locked, "Previewing the Bull Bar unlocked the Plough");
                 shopType.GetMethod("CancelUpgradePlacement", Fields).Invoke(shop, null);
                 Check(placementField.GetValue(shop) == null && VoxelCurrencyState.Balance == startingCash, "Cancel did not clear the Bull Bar preview");
                 VoxelGarageUpgradeDockValidation.RevealUpgradeCard(bullButton).onClick.Invoke();

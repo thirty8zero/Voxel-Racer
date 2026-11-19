@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace VoxelRacer
@@ -19,7 +20,9 @@ namespace VoxelRacer
         }
 
         private const double OpeningWorkMilliseconds = 1.5;
+        private static readonly ProfilerMarker OpeningSceneryMarker = new("VoxelDistantScenery.PrepareOpeningScenery");
         private OpeningScenery openingScenery;
+        internal bool IsOpeningSceneryReady => openingScenery == null;
         private (VoxelScenerySet set, int revision, VoxelDesertFoliageTuning foliage, int foliageRevision,
             float radius, float roadWidth, float horizonCoverage) openingSettings;
 
@@ -30,6 +33,7 @@ namespace VoxelRacer
             if (!planning && openingScenery == null)
                 return revision;
 
+            using var sample = OpeningSceneryMarker.Auto();
             var foliage = set.groundCover;
             float coverage = HasHorizonFoliage(foliage) ? road.horizonRoadDistance : 0f;
             var settings = (set, set.Revision, foliage, foliage != null ? foliage.Revision : 0,
@@ -48,6 +52,8 @@ namespace VoxelRacer
                 openingSettings = settings;
                 openingScenery = new OpeningScenery(revision);
                 openingScenery.Build = BuildOpeningScenery(openingScenery, set, radius, center, focus, coverage);
+                // Keep the first countdown frame clear of tile work. The existing caches can draw this frame.
+                return revision;
             }
             if (openingScenery == null)
                 return revision;
@@ -90,8 +96,9 @@ namespace VoxelRacer
 
             float tileFocus = HorizonTileFocus(focus);
             var wanted = new HashSet<Vector2Int>();
-            CollectHorizonTiles(wanted, tileFocus, coverage + TileSize, road.EvaluateOpeningTarget);
-            samples.Capture(tileFocus, coverage + TileSize + 64, road.EvaluateOpeningTarget);
+            CollectHorizonTiles(wanted, tileFocus, coverage + TileSize, road.EvaluateOpeningTarget,
+                set.groundCover.horizonGapFillClumpsPerTile > 0);
+            samples.Capture(tileFocus, HorizonSampleReach(coverage + TileSize), road.EvaluateOpeningTarget);
             foreach (var key in wanted)
             {
                 opening.HorizonTiles.Add(key, BuildHorizonTile(key, set.groundCover, samples));
@@ -106,8 +113,19 @@ namespace VoxelRacer
             public void Capture(float focus, float reach, Func<float, VoxelTrackPose> evaluate)
             {
                 points.Clear();
-                for (float distance = focus - reach; distance <= focus + reach; distance += 4f)
-                    points.Add(evaluate(distance).position);
+                // Tiles occupy world space, whereas focus is distance along the road.
+                // On bends, a fixed arc-length window ends inside the tile cache and
+                // leaves future road sections unprotected when cached plants are placed.
+                Vector3 centre = evaluate(focus).position;
+                points.Add(centre);
+                float limit = Mathf.Max(4f, reach) * 20f;
+                for (int direction = -1; direction <= 1; direction += 2)
+                for (float offset = 4f; offset <= limit; offset += 4f)
+                {
+                    Vector3 position = evaluate(focus + offset * direction).position;
+                    points.Add(position);
+                    if ((position.z - centre.z) * direction >= reach) break;
+                }
                 points.Sort((a, b) => a.z.CompareTo(b.z));
             }
 

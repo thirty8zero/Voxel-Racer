@@ -84,6 +84,7 @@ namespace VoxelRacer
         [Header("Ram Debris")]
         public VoxelBossDebrisSettings ramDebris = new() { upwardForce = 30, spreadForce = 15 };
         [Header("Destruction Debris")]
+        [Tooltip("On defeat, body fragments use the forward force range to scatter outward from the body and inherit the wreck's horizontal motion.")]
         public VoxelBossDebrisSettings destructionDebris = new();
 
         [Header("Spike Destruction")]
@@ -115,7 +116,7 @@ namespace VoxelRacer
 
         [Header("Destruction Camera")]
         public bool focusCameraOnDestruction;
-        [Tooltip("Real-time duration of the destruction shot, including the final half-second blend into the player finish orbit.")]
+        [Tooltip("Nominal real-time duration of the destruction shot. The return starts in the final half-second and takes longer if the wreck is far from the player.")]
         [Min(0)] public float destructionCameraDuration = 3f;
         [Tooltip("Real-time blend into the boss view at the start of the destruction shot.")]
         [Min(0)] public float destructionCameraBlendDuration = .5f;

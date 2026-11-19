@@ -117,11 +117,12 @@ namespace VoxelRacer.Editor
                         break;
                     case 1:
                         Check(f.Player.RemainingIntegrityVoxels==integrity || f.Enemy.PsychoPhase==PsychoBugPhase.Recovering,"Applied damage before committed slam");
-                        if(Time.time-warningStarted>.7f && Time.time-warningStarted<.95f)
-                            Check(f.Enemy.PsychoPhase==PsychoBugPhase.Warning && Mathf.Abs(f.Enemy.LaneOffset)>warningLane+.1f,"One-second visible windup missing");
+                        if (Time.time - warningStarted > .7f * f.Behaviour.warningDuration && Time.time - warningStarted < .95f * f.Behaviour.warningDuration)
+                            Check(f.Enemy.PsychoPhase == PsychoBugPhase.Warning && Mathf.Abs(f.Enemy.LaneOffset) > warningLane + .1f,
+                                "Visible windup missing during the configured warning");
                         if(f.Enemy.PsychoPhase==PsychoBugPhase.Recovering)
                         {
-                            Check(Time.time-warningStarted>=.98f && f.Player.RemainingIntegrityVoxels==integrity-3,"Natural side ram timing or damage wrong");
+                            Check(Time.time-warningStarted>=f.Behaviour.warningDuration-.02f && f.Player.RemainingIntegrityVoxels==integrity-3,"Natural side ram timing or damage wrong");
                             integrity=f.Player.RemainingIntegrityVoxels;Next();
                         }
                         break;
@@ -174,7 +175,7 @@ namespace VoxelRacer.Editor
                         break;
                     case 9:
                         if(f.Enemy.PsychoPhase!=PsychoBugPhase.Recovering)break;
-                        Check(Time.time-warningStarted>=.98f && f.Player.RemainingIntegrityVoxels==integrity-3,"Live slowdown opportunity missed its delayed side ram");
+                        Check(Time.time-warningStarted>=f.Behaviour.warningDuration-.02f && f.Player.RemainingIntegrityVoxels==integrity-3,"Live slowdown opportunity missed its delayed side ram");
                         integrity=f.Player.RemainingIntegrityVoxels;
                         Property(f.Player,"CurrentSpeed",0f);f.Spawn(3);Set(f.Enemy,"currentSpeed",0f);
                         Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);f.Enemy.enabled=true;Next();break;
@@ -259,9 +260,9 @@ namespace VoxelRacer.Editor
                         warningStarted=Time.time;Next();break;
                     case 20:
                         if(f.Enemy.PsychoPhase!=PsychoBugPhase.Recovering)break;
-                        Check(Time.time-warningStarted>=.98f && f.Player.RemainingIntegrityVoxels==integrity-3,
+                        Check(Time.time-warningStarted>=f.Behaviour.warningDuration-.02f && f.Player.RemainingIntegrityVoxels==integrity-3,
                             "Live fast return lost the full warning or actual side-ram damage");
-                        Finish("PASS (Play Mode): actual frame-driven exposure, bullet escape, left/right side rams, full one-second warning, single swept damage, recovery, player counter-ram, pause, mission completion, stopped/slow-player breakaway, and blocked head-on traffic safety. Black Interceptor rear ram accelerates to 110% of engine-adjusted top speed, ignores player braking, updates for changed engine maximum and expires to ordinary minimum-limited driving. Psycho Bug returns from a 200m lead in under 6.5s using attack-only reverse, matches player speed, then completes a full warning and real damaging ram. Temporary scenes/objects/tuning, clocks, preferences, mission/campaign/currency/purchases and random state restored.");return;
+                        Finish("PASS (Play Mode): actual frame-driven exposure, bullet escape, left/right side rams, full configured warning, single swept damage, recovery, player counter-ram, pause, mission completion, stopped/slow-player breakaway, and blocked head-on traffic safety. Black Interceptor rear ram accelerates to 110% of engine-adjusted top speed, ignores player braking, updates for changed engine maximum and expires to ordinary minimum-limited driving. Psycho Bug returns from a 200m lead in under 6.5s using attack-only reverse, matches player speed, then completes a full warning and real damaging ram. Temporary scenes/objects/tuning, clocks, preferences, mission/campaign/currency/purchases and random state restored.");return;
                 }
             }
             catch(Exception e){Finish("FAIL: "+e);}

@@ -11,7 +11,8 @@ namespace VoxelRacer
         [TextArea(2, 5), Tooltip("Overview shown in the upgrade dashboard and garage. Leave blank to use the default copy.")]
         public string description;
         [Min(0)] public int purchasePrice = 300;
-        [Tooltip("Two bottles provide independent boost charges; a higher count replaces a lower count.")]
+        [Min(1)] public int upgradeLevel = 1;
+        [Tooltip("Two bottles provide independent boost charges.")]
         [Range(1, 2)] public int bottleCount = 1;
         public GameObject bottlePrefab;
         public GameObject compatibleCarPrefab;

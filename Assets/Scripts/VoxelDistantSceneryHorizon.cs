@@ -11,7 +11,8 @@ namespace VoxelRacer
         private readonly Dictionary<Mesh, List<Matrix4x4>> horizonBatches = new();
         private MaterialPropertyBlock horizonFoliageProperties;
         private VoxelDesertFoliageTuning horizonFoliage;
-        private int horizonRevision, horizonSeed, horizonDensity;
+        private int horizonRevision, horizonSeed, horizonDensity, horizonGapFillDensity;
+        private const float HorizonHalfStrip = 144f;
         private uint horizonPathRevision;
         private float horizonCoverage, horizonRoadWidth, horizonFocus = float.NaN;
         public int CachedHorizonClumpCount { get; private set; }
@@ -35,20 +36,22 @@ namespace VoxelRacer
             float focus = HorizonTileFocus(road.SceneryTrackDistance);
             bool changed = foliage != horizonFoliage || foliage.Revision != horizonRevision ||
                 coverage != horizonCoverage || road.roadWidth != horizonRoadWidth ||
-                road.turnSeed != horizonSeed || pathRevision != horizonPathRevision || foliage.horizonClumpsPerTile != horizonDensity;
+                road.turnSeed != horizonSeed || pathRevision != horizonPathRevision || foliage.horizonClumpsPerTile != horizonDensity ||
+                foliage.horizonGapFillClumpsPerTile != horizonGapFillDensity;
             if (changed) horizonTiles.Clear();
             if (changed || focus != horizonFocus)
             {
-                CollectHorizonTiles(horizonWanted, focus, coverage, road.Evaluate);
+                CollectHorizonTiles(horizonWanted, focus, coverage, road.Evaluate, foliage.horizonGapFillClumpsPerTile > 0);
                 expired.Clear();
                 foreach (var key in horizonTiles.Keys) if (!horizonWanted.Contains(key)) expired.Add(key);
                 foreach (var key in expired) horizonTiles.Remove(key);
                 // A continuous road clearance check also covers bends at tile joins.
-                roadSamples.Capture(focus, coverage + 64, road.Evaluate);
+                roadSamples.Capture(focus, HorizonSampleReach(coverage), road.Evaluate);
                 foreach (var key in horizonWanted)
                     if (!horizonTiles.ContainsKey(key)) horizonTiles.Add(key, BuildHorizonTile(key, foliage, roadSamples));
                 horizonFoliage = foliage; horizonRevision = foliage.Revision; horizonCoverage = coverage;
                 horizonRoadWidth = road.roadWidth; horizonSeed = road.turnSeed; horizonDensity = foliage.horizonClumpsPerTile; horizonFocus = focus;
+                horizonGapFillDensity = foliage.horizonGapFillClumpsPerTile;
                 horizonPathRevision = pathRevision;
                 CachedHorizonClumpCount = 0;
                 foreach (var tile in horizonTiles.Values) CachedHorizonClumpCount += tile.Props.Count;
@@ -80,29 +83,49 @@ namespace VoxelRacer
 
         private static float HorizonTileFocus(float distance) => Mathf.Floor(distance / TileSize) * TileSize;
 
+        // The path-following strip can project sideways along world Z on bends.
+        // Include its full width, tile overhang and plant-clearance margin, so retained
+        // tiles never contain plants on a road section encountered later in the run.
+        private static float HorizonSampleReach(float coverage) => coverage + HorizonHalfStrip + 2f * TileSize + 64f;
+
         private static void CollectHorizonTiles(HashSet<Vector2Int> wanted, float focus, float coverage,
-            System.Func<float, VoxelTrackPose> evaluate)
+            System.Func<float, VoxelTrackPose> evaluate, bool fillGaps)
         {
             wanted.Clear();
-            const float halfStrip = 144f;
             // Include rear coverage for the finish/orbit camera, too.
             for (float distance = focus - coverage; distance <= focus + coverage + TileSize; distance += TileSize * .5f)
             {
                 var pose = evaluate(distance);
-                for (float side = -halfStrip; side <= halfStrip; side += TileSize * .5f)
+                for (float side = -HorizonHalfStrip; side <= HorizonHalfStrip; side += TileSize * .5f)
                 {
                     Vector3 position = pose.position + pose.right * side;
                     wanted.Add(new Vector2Int(Mathf.FloorToInt(position.x / TileSize), Mathf.FloorToInt(position.z / TileSize)));
                 }
             }
+            if (!fillGaps) return;
+            // Cover exposed ground to either side of the narrow main strip with
+            // sparse cards only. A camera-independent disk also supports rear views.
+            Vector3 centre = evaluate(focus).position;
+            float radius = coverage * .95f + TileSize;
+            var tileCentre = new Vector2Int(Mathf.FloorToInt(centre.x / TileSize), Mathf.FloorToInt(centre.z / TileSize));
+            int extent = Mathf.CeilToInt(radius / TileSize);
+            foreach (var key in SquareTiles(tileCentre, extent))
+            {
+                Vector3 delta = new Vector3((key.x + .5f) * TileSize, centre.y, (key.y + .5f) * TileSize) - centre;
+                if (delta.sqrMagnitude <= radius * radius) wanted.Add(key);
+            }
         }
 
         private Tile BuildHorizonTile(Vector2Int key, VoxelDesertFoliageTuning foliage, RoadSamples samples)
         {
-            var result = new List<Prop>(foliage.horizonClumpsPerTile);
+            int gapFill = Mathf.Clamp(foliage.horizonGapFillClumpsPerTile, 0, 16);
+            Vector3 tileCentre = new((key.x + .5f) * TileSize, 0, (key.y + .5f) * TileSize);
+            bool mainStrip = gapFill == 0 || samples.WithinClearance(tileCentre, HorizonHalfStrip + TileSize * .7072f);
+            int mainCount = mainStrip ? foliage.horizonClumpsPerTile : 0;
+            var result = new List<Prop>(mainCount + gapFill);
             var random = new System.Random(unchecked(key.x * 73856093 ^ key.y * 19349663 ^ foliage.seed));
             float Next() => (float)random.NextDouble();
-            for (int attempt = 0; attempt < foliage.horizonClumpsPerTile * 5 && result.Count < foliage.horizonClumpsPerTile; attempt++)
+            for (int attempt = 0; attempt < mainCount * 5 && result.Count < mainCount; attempt++)
             {
                 var mesh = foliage.variants[random.Next(foliage.variants.Length)];
                 if (mesh == null) continue;
@@ -113,6 +136,30 @@ namespace VoxelRacer
                 float clearance = road.roadWidth * .5f + foliage.roadClearance + footprint + 2;
                 if (samples.WithinClearance(position, clearance)) continue;
                 var matrix = Matrix4x4.TRS(position, Quaternion.Euler(0, Next() * 360, 0), Vector3.one * scale);
+                result.Add(new Prop { mesh = mesh, matrix = matrix,
+                    bounds = new Bounds(matrix.MultiplyPoint3x4(mesh.bounds.center), Vector3.one * mesh.bounds.size.magnitude * scale) });
+            }
+            // Independent random stream preserves all existing clustered placements.
+            // Stratified cells prevent the filler itself from forming large bare patches.
+            var filler = new System.Random(unchecked(key.x * 83492791 ^ key.y * 19349663 ^ foliage.seed ^ 0x51f15e));
+            int columns = Mathf.CeilToInt(Mathf.Sqrt(gapFill));
+            int rows = columns > 0 ? Mathf.CeilToInt((float)gapFill / columns) : 0;
+            for (int i = 0; i < gapFill; i++)
+            {
+                float x = (i % columns + .2f + (float)filler.NextDouble() * .6f) / columns;
+                float z = (i / columns + .2f + (float)filler.NextDouble() * .6f) / rows;
+                Vector3 position = new((key.x + x) * TileSize, 0, (key.y + z) * TileSize);
+                bool occupied = false;
+                foreach (var prop in result)
+                    if (((Vector3)prop.matrix.GetColumn(3) - position).sqrMagnitude < 36f)
+                    { occupied = true; break; }
+                if (occupied) continue;
+                var mesh = foliage.variants[filler.Next(foliage.variants.Length)];
+                if (mesh == null) continue;
+                float scale = Mathf.Lerp(Mathf.Max(.1f, foliage.scaleRange.x), Mathf.Max(.1f, foliage.scaleRange.y), (float)filler.NextDouble());
+                float clearance = road.roadWidth * .5f + foliage.roadClearance + mesh.bounds.extents.magnitude * scale + 2;
+                if (samples.WithinClearance(position, clearance)) continue;
+                var matrix = Matrix4x4.TRS(position, Quaternion.Euler(0, (float)filler.NextDouble() * 360, 0), Vector3.one * scale);
                 result.Add(new Prop { mesh = mesh, matrix = matrix,
                     bounds = new Bounds(matrix.MultiplyPoint3x4(mesh.bounds.center), Vector3.one * mesh.bounds.size.magnitude * scale) });
             }

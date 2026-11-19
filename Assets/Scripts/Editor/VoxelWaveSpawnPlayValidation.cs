@@ -26,6 +26,9 @@ namespace VoxelRacer.Editor
         private static Material[][] originals;
         private static Color[][] colours;
         private static Material[] sharedMaterials;
+        private static VoxelObstacleCar farCivilian;
+        private static VoxelEnemyCar farEnemy;
+        private static bool spawnedAheadOfHazard;
         private static float started, savedScale;
         private static bool savedBackground;
         private static int phase;
@@ -112,6 +115,124 @@ namespace VoxelRacer.Editor
             Object.Destroy(visual.gameObject); Object.Destroy(prop);
         }
 
+        private static void SpawnWithTrafficClearance(VoxelCarController player, MethodInfo spawn)
+        {
+            var lane = new GameObject("Traffic clearance QA");
+            lane.transform.SetParent(root.transform, false);
+            var spawner = lane.AddComponent<VoxelObstacleSpawner>();
+            spawner.enabled = false;
+            spawner.SetTarget(player);
+            spawner.laneCount = 1;
+            spawner.obstacleCarTuning = tuning;
+
+            float lead = tuning.spawnDistanceAhead;
+            var crate = new GameObject("Earlier crate").AddComponent<VoxelObstacle>();
+            crate.transform.SetParent(lane.transform, false);
+            crate.Configure(player, null, null, lead - 50f, 0f);
+            tuning.oppositeDirectionChance = 1f;
+            spawn.Invoke(spawner, new object[] { null, lead });
+            Check(lane.GetComponentInChildren<VoxelObstacleCar>() == null, "Oncoming traffic would drive into an earlier crate.");
+            tuning.oppositeDirectionChance = 0f;
+            spawn.Invoke(spawner, new object[] { null, crate.TrackDistance + 1f });
+            Check(lane.GetComponentInChildren<VoxelObstacleCar>() == null, "Traffic spawned too close to a crate.");
+            spawn.Invoke(spawner, new object[] { null, lead });
+            var civilian = lane.GetComponentInChildren<VoxelObstacleCar>();
+            spawnedAheadOfHazard = civilian != null;
+            crate.gameObject.SetActive(false);
+            Object.Destroy(crate.gameObject);
+            if (civilian != null)
+            {
+                civilian.gameObject.SetActive(false);
+                Object.Destroy(civilian.gameObject);
+            }
+
+            // Longer waves can place later vehicles more than 30 m beyond the base lead.
+            spawner.laneCount = 2;
+            spawn.Invoke(spawner, new object[] { null, lead + 60f });
+            farCivilian = lane.GetComponentInChildren<VoxelObstacleCar>();
+            var originalEnemies = tuning.enemyVehicleSpawns;
+            tuning.enemyVehicleSpawns = new[] { new VoxelEnemyVehicleSpawnEntry {
+                vehicle = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning") } };
+            tuning.enemyCarSpawnChance = 1f;
+            spawn.Invoke(spawner, new object[] { null, lead + 60f });
+            farEnemy = lane.GetComponentInChildren<VoxelEnemyCar>();
+            tuning.enemyCarSpawnChance = 0f;
+            tuning.enemyVehicleSpawns = originalEnemies;
+            Check(farCivilian != null && farEnemy != null, "Long wave could not create both vehicles for the culling check.");
+        }
+
+        private static void VerifyMixedWave(VoxelCarController player, MethodInfo spawn)
+        {
+            var lanes = new GameObject("Mixed mission traffic QA");
+            lanes.transform.SetParent(root.transform, false);
+            var spawner = lanes.AddComponent<VoxelObstacleSpawner>();
+            spawner.enabled = false;
+            spawner.SetTarget(player);
+            spawner.laneCount = 2;
+            spawner.obstacleCarTuning = tuning;
+            float lead = tuning.spawnDistanceAhead;
+            var originalEnemies = tuning.enemyVehicleSpawns;
+            tuning.enemyVehicleSpawns = new[] { new VoxelEnemyVehicleSpawnEntry {
+                vehicle = Resources.Load<VoxelEnemyVehicleTuning>("EnemyVehicles/BlackInterceptorTuning") } };
+            var random = UnityEngine.Random.state;
+            try
+            {
+                UnityEngine.Random.InitState(91);
+                tuning.enemyCarSpawnChance = 1f;
+                spawn.Invoke(spawner, new object[] { null, lead - 10f });
+                Check(lanes.GetComponentsInChildren<VoxelEnemyCar>().Length == 1, "Mixed-wave enemy setup failed.");
+
+                tuning.enemyCarSpawnChance = .99f;
+                var beforeEnemyRoll = UnityEngine.Random.state;
+                _ = UnityEngine.Random.value; // Traffic chance.
+                Check(UnityEngine.Random.value < tuning.enemyCarSpawnChance, "Could not stage a blocked enemy roll.");
+                UnityEngine.Random.state = beforeEnemyRoll;
+                var wave = typeof(VoxelObstacleSpawner).GetMethod("SpawnWaveObject", Private);
+                wave.Invoke(spawner, new object[] { null, lead, tuning.enemyDroughtWaveLimit + 1 });
+                Check(lanes.GetComponentsInChildren<VoxelEnemyCar>().Length == 1 &&
+                    lanes.GetComponentsInChildren<VoxelObstacleCar>().Length == 0,
+                    "The blocked enemy attempt used the last lane or switched to a civilian.");
+
+                tuning.enemyCarSpawnChance = 0f;
+                spawn.Invoke(spawner, new object[] { null, lead });
+                Check(lanes.GetComponentsInChildren<VoxelObstacleCar>().Length == 1,
+                    "A civilian roll did not use the lane reserved for mixed traffic.");
+
+                // Choose a mixed-direction chance that makes the next request roll
+                // oncoming. The occupied lane has room for a second forward car.
+                var beforeDirectionRoll = UnityEngine.Random.state;
+                _ = UnityEngine.Random.value; // Traffic chance.
+                _ = UnityEngine.Random.value; // Enemy chance.
+                float directionRoll = UnityEngine.Random.value;
+                tuning.oppositeDirectionChance = (1f + directionRoll) * .5f;
+                Check(tuning.oppositeDirectionChance > directionRoll && tuning.oppositeDirectionChance < 1f,
+                    "Could not stage a blocked direction with both directions enabled.");
+                UnityEngine.Random.state = beforeDirectionRoll;
+                spawn.Invoke(spawner, new object[] { null, lead + 30f });
+                Check(lanes.GetComponentsInChildren<VoxelObstacleCar>().Length == 1,
+                    "A blocked oncoming attempt switched to same-direction traffic.");
+
+                tuning.obstacleCarSpawnChance = 0f;
+                spawner.SetStaticObstacleSpawns(new[] { new VoxelStaticObstacleSpawnEntry {
+                    obstacle = Resources.Load<VoxelStaticObstacleDefinition>("StaticObstacles/VoxelBox"), spawnWeight = 1f } });
+                spawn.Invoke(spawner, new object[] { null, lead + 30f });
+                Check(lanes.GetComponentInChildren<VoxelObstacle>() == null, "Obstacle spawned in the civilian's path.");
+                spawn.Invoke(spawner, new object[] { null, lead - 30f });
+                Check(lanes.GetComponentInChildren<VoxelObstacle>() != null,
+                    "An enemy and a civilian far apart along the road still suppressed all static obstacles.");
+            }
+            finally
+            {
+                tuning.enemyVehicleSpawns = originalEnemies;
+                tuning.enemyCarSpawnChance = 0f;
+                tuning.oppositeDirectionChance = 0f;
+                tuning.obstacleCarSpawnChance = 1f;
+                UnityEngine.Random.state = random;
+                lanes.SetActive(false);
+                Object.Destroy(lanes);
+            }
+        }
+
         private static void Setup()
         {
             savedScale = Time.timeScale; savedBackground = Application.runInBackground;
@@ -159,6 +280,8 @@ namespace VoxelRacer.Editor
                 sharedMaterials = materials.ToArray();
                 VerifyAuthoredScale();
                 Check(sharedMaterials.Length == originals.SelectMany(a => a).Distinct().Count(), "Live wave created per-voxel material copies.");
+                SpawnWithTrafficClearance(player, spawn);
+                VerifyMixedWave(player, spawn);
                 Time.timeScale = 0; phase = -1;
                 started = Time.realtimeSinceStartup; EditorApplication.update += Tick;
             }
@@ -177,6 +300,8 @@ namespace VoxelRacer.Editor
                 }
                 if (phase == 0)
                 {
+                    Check(spawnedAheadOfHazard && farCivilian != null && farEnemy != null,
+                        $"Traffic regression: safely ahead of earlier crate={spawnedAheadOfHazard}, far civilian survived={farCivilian != null}, far enemy survived={farEnemy != null}.");
                     VerifyRestored(0);
                     VerifyFullScale(0);
                     Check(growthTargets[1][0].localScale.sqrMagnitude > 0 &&
@@ -200,7 +325,7 @@ namespace VoxelRacer.Editor
                 VerifyRestored(1); VerifyRestored(3);
                 VerifyFullScale(1); VerifyFullScale(3);
                 Check(sharedMaterials.All(m => m == null), "Completed/destroyed live fades leaked shared materials.");
-                Finish("PASS (Play Mode): actual four-car wave chooses four clear lanes; visuals grow from zero to authored size on real frames while gameplay roots remain full size; paused clock freezes growth; nonuniform proportions/offsets restored; interrupted/restarted growth and detached debris handled; shared opacity/paint restoration and early destruction/inactive-voxel cleanup preserved. Temporary objects/cloned tuning removed; no source assets or purchases changed. Not an FPS benchmark.");
+                Finish("PASS (Play Mode): actual four-car wave chooses four clear lanes; blocked enemy and direction rolls skip their slots; compatible civilian and hazard rolls still spawn, and distant wave slots survive for civilians and enemies. Visuals grow from zero to authored size on real frames while gameplay roots remain full size; paused clock freezes growth; nonuniform proportions/offsets restored; interrupted/restarted growth and detached debris handled; shared opacity/paint restoration and early destruction/inactive-voxel cleanup preserved. Temporary objects/cloned tuning removed; no source assets or purchases changed. Not an FPS benchmark.");
             }
             catch (Exception e) { Finish("FAIL: " + e); }
         }

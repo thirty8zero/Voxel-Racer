@@ -27,6 +27,8 @@ namespace VoxelRacer
         public bool horizonGroundCoverEnabled = true;
         [Tooltip("Lightweight bush/grass cards per 32m tile around the road continuation. Uses the same atlas, scale and patch distribution as nearby ground cover.")]
         [Range(0, 100)] public int horizonClumpsPerTile = 48;
+        [Tooltip("Sparse, evenly scattered cards per 32m tile to soften empty distant patches and cover the ground beyond the main scenery strip. Reuses the existing atlas and batches. Zero disables gap filling.")]
+        [Range(0, 16)] public int horizonGapFillClumpsPerTile = 8;
         public int Revision { get; private set; }
 
         public float Density(Vector3 position)

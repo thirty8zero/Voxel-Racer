@@ -272,115 +272,121 @@ namespace VoxelRacer
             DiscardUpgradePlacement(false);
             if(workshopCamera!=null) { workshopCamera.rect=garageCameraOriginalRect;workshopCamera.ResetProjectionMatrix(); }
         }
-        private void Card(Button button,int cost,bool compatible,bool owned,VoxelGarageUpgradeKind kind)
-        { if(button!=null) button.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(cost,compatible,owned?1:0,1,PendingCount(kind),AvailableUpgradeCash); }
-        private void RefreshGunCard(Button button, VoxelGarageUpgradeKind kind)
-        {
-            var tuning = VoxelGarageUpgradePlacement.GunTuning(kind);
-            int owned = VoxelGunUpgradeState.Count(tuning);
-            int capacity = VoxelGunUpgradeState.Capacity(tuning);
-            bool fits = tuning != null && tuning.visualPrefab != null && tuning.Fits(definition);
-            bool offered = fits && (GunSlotOffered(kind, tuning, 0) || GunSlotOffered(kind, tuning, 1));
-            button?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(tuning != null ? tuning.purchasePrice : 0,
-                fits && (offered || owned >= capacity), owned, capacity, PendingCount(kind), AvailableUpgradeCash,
-                fits && !offered && owned < capacity ? "SLOTS OCCUPIED" : null);
-        }
-        private void RefreshWheelCard(Button button, VoxelGarageUpgradeKind kind)
-        {
-            var tuning = VoxelGarageUpgradePlacement.WheelTuning(kind);
-            var current = VoxelPerformanceWheelUpgradeState.InstalledTuning;
-            bool fits = tuning != null && tuning.Fits(definition);
-            RefreshTieredCard(button, kind, fits, current == tuning,
-                current != null && tuning != null && current.upgradeLevel >= tuning.upgradeLevel, "OTHER SET PENDING");
-        }
-        private void RefreshPloughCard(Button button, VoxelGarageUpgradeKind kind)
-        {
-            var tuning = VoxelGarageUpgradePlacement.PloughTuning(kind);
-            RefreshTieredCard(button, kind, tuning != null && tuning.Fits(definition), VoxelPloughUpgradeState.InstalledTuning == tuning,
-                VoxelPloughUpgradeState.IsEquipped(tuning), "OTHER FRONT RAM PENDING");
-        }
-        private void RefreshTieredCard(Button button, VoxelGarageUpgradeKind kind, bool fits, bool installed, bool superseded, string otherPending)
-        {
-            installed &= fits;
-            bool offered = UpgradeOffer(kind, out int price, out _);
-            string unavailable = fits && !installed && !offered
-                ? (superseded ? "SUPERSEDED" : otherPending)
-                : null;
-            button?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(price, installed || offered, installed ? 1 : 0,
-                pending: PendingCount(kind), availableCash: AvailableUpgradeCash, unavailableLabel: unavailable);
-        }
         private static int ArmorOwnedCount(VoxelArmorTuning tuning) =>
             (VoxelArmorUpgradeState.IsEquipped(tuning, VoxelArmorSide.Left) ? 1 : 0) +
             (VoxelArmorUpgradeState.IsEquipped(tuning, VoxelArmorSide.Right) ? 1 : 0);
-        private static int UpgradeLevel(VoxelGarageUpgradeKind kind) => Mathf.Clamp(kind switch
+
+        private void RefreshUpgradeCard(VoxelGarageUpgradeCard card)
         {
-            VoxelGarageUpgradeKind.Armour or VoxelGarageUpgradeKind.ExtendedArmour => VoxelGarageUpgradePlacement.ArmorTuning(kind)?.upgradeLevel ?? 1,
-            VoxelGarageUpgradeKind.Guns or VoxelGarageUpgradeKind.Minigun => VoxelGarageUpgradePlacement.GunTuning(kind)?.upgradeLevel ?? 1,
-            VoxelGarageUpgradeKind.Missiles => VoxelMissileLauncherTuning.Load()?.weapon?.upgradeLevel ?? 1,
-            VoxelGarageUpgradeKind.Wheels or VoxelGarageUpgradeKind.GoldWheels => VoxelGarageUpgradePlacement.WheelTuning(kind)?.upgradeLevel ?? 1,
-            VoxelGarageUpgradeKind.Spikes => VoxelWheelSpikeTuning.Load()?.upgradeLevel ?? 1,
-            VoxelGarageUpgradeKind.StarSpikes => VoxelWheelSpikeTuning.LoadStar()?.upgradeLevel ?? 2,
-            VoxelGarageUpgradeKind.Plough or VoxelGarageUpgradeKind.BullBar => VoxelGarageUpgradePlacement.PloughTuning(kind)?.upgradeLevel ?? 1,
-            VoxelGarageUpgradeKind.DualBoost => VoxelBoostUpgradeTuning.LoadDualUpgrade()?.bottleCount ?? 2,
-            _ => 1
-        }, 1, 4);
+            var kind = card.UpgradeKind;
+            bool offered = UpgradeOffer(kind, out int price, out string title);
+            int capacity = 1, owned = 0, level = 1;
+            bool fits = false;
+            (string CardLabel, string RequiredPurchase) requirement = default;
+            switch (kind)
+            {
+                case VoxelGarageUpgradeKind.Armour:
+                case VoxelGarageUpgradeKind.ExtendedArmour:
+                    var armour = VoxelGarageUpgradePlacement.ArmorTuning(kind);
+                    level = armour?.upgradeLevel ?? 1;
+                    fits = armour != null && armour.panelPrefab != null && armour.Fits(definition);
+                    capacity = 2;
+                    owned = ArmorOwnedCount(armour);
+                    if (!offered && level > 1) requirement = ("FIT BOTH LVL 1 PANELS", "both level 1 Door Armour panels");
+                    break;
+                case VoxelGarageUpgradeKind.Guns:
+                case VoxelGarageUpgradeKind.Minigun:
+                    var gun = VoxelGarageUpgradePlacement.GunTuning(kind);
+                    level = gun?.upgradeLevel ?? 1;
+                    fits = gun != null && gun.visualPrefab != null && gun.Fits(definition);
+                    capacity = VoxelGunUpgradeState.Capacity(gun);
+                    owned = VoxelGunUpgradeState.CountAtLevelOrHigher(level);
+                    if (!offered && level > 1) requirement = ("FIT BOTH THUMP CANNONS", "both Thump Cannons");
+                    break;
+                case VoxelGarageUpgradeKind.Missiles:
+                    var missile = VoxelMissileLauncherTuning.Load();
+                    level = missile?.weapon?.upgradeLevel ?? 1;
+                    fits = missile != null && missile.Fits(definition);
+                    capacity = 2;
+                    owned = (VoxelMissileUpgradeState.IsPurchased(false) ? 1 : 0) + (VoxelMissileUpgradeState.IsPurchased(true) ? 1 : 0);
+                    break;
+                case VoxelGarageUpgradeKind.Wheels:
+                case VoxelGarageUpgradeKind.GoldWheels:
+                    var wheels = VoxelGarageUpgradePlacement.WheelTuning(kind);
+                    level = wheels?.upgradeLevel ?? 1;
+                    fits = wheels != null && wheels.Fits(definition);
+                    owned = VoxelPerformanceWheelUpgradeState.IsEquipped(wheels) ? 1 : 0;
+                    if (!offered && level > 1) requirement = ("FIT SPORTS WHEELS", "Sports Wheels");
+                    break;
+                case VoxelGarageUpgradeKind.Spikes:
+                case VoxelGarageUpgradeKind.StarSpikes:
+                    var spikes = kind == VoxelGarageUpgradeKind.StarSpikes ? VoxelWheelSpikeTuning.LoadStar() : VoxelWheelSpikeTuning.Load();
+                    level = spikes?.upgradeLevel ?? 1;
+                    fits = spikes != null && spikes.Fits(definition);
+                    owned = VoxelWheelSpikeUpgradeState.IsEquipped(spikes) ? 1 : 0;
+                    if (!offered && level > 1) requirement = ("FIT WHEEL SPIKES", "Wheel Spikes");
+                    break;
+                case VoxelGarageUpgradeKind.Boost:
+                case VoxelGarageUpgradeKind.DualBoost:
+                    var boost = kind == VoxelGarageUpgradeKind.DualBoost ? VoxelBoostUpgradeTuning.LoadDualUpgrade() : VoxelBoostUpgradeTuning.LoadUpgrade();
+                    level = boost?.upgradeLevel ?? 1;
+                    fits = boost != null && boost.Fits(definition);
+                    owned = VoxelBoostUpgradeState.IsEquipped(boost) ? 1 : 0;
+                    if (!offered && level > 1) requirement = ("FIT A BOOST BOTTLE", "the level 1 Boost Bottle");
+                    break;
+                case VoxelGarageUpgradeKind.Plough:
+                case VoxelGarageUpgradeKind.BullBar:
+                    var plough = VoxelGarageUpgradePlacement.PloughTuning(kind);
+                    level = plough?.upgradeLevel ?? 1;
+                    fits = plough != null && plough.Fits(definition);
+                    owned = VoxelPloughUpgradeState.IsEquipped(plough) ? 1 : 0;
+                    if (!offered && level > 1) requirement = ("FIT THE BULL BAR", "the Bull Bar");
+                    break;
+                case VoxelGarageUpgradeKind.UnderbodyArmour:
+                    var underbody = VoxelUnderbodyArmorTuning.Load();
+                    fits = underbody != null && underbody.Fits(definition);
+                    owned = VoxelUnderbodyArmorUpgradeState.IsPurchased ? 1 : 0;
+                    break;
+                case VoxelGarageUpgradeKind.Engine:
+                    var engine = VoxelEngineUpgradeTuning.Load();
+                    fits = engine != null && engine.Fits(definition);
+                    owned = VoxelEngineUpgradeState.IsPurchased ? 1 : 0;
+                    break;
+            }
+            card.SetTitle(title);
+            card.SetLevel(level);
+            card.Refresh(price, fits, owned, capacity, PendingCount(kind), AvailableUpgradeCash, offered, requirement);
+        }
+
         private void RefreshUpgradeCards()
         {
-            var armour=VoxelArmorTuning.Load(); bool fits=armour!=null && armour.panelPrefab!=null && armour.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.ExtendedArmour)==0;
-            leftArmorUpgradeButton?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(armour!=null?armour.panelPurchasePrice:0,fits,
-                ArmorOwnedCount(armour),2,PendingCount(VoxelGarageUpgradeKind.Armour),AvailableUpgradeCash);
-            var extendedArmour=VoxelArmorTuning.LoadExtended();
-            extendedArmorUpgradeButton?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(extendedArmour!=null?extendedArmour.panelPurchasePrice:0,
-                extendedArmour!=null && extendedArmour.panelPrefab!=null && extendedArmour.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.Armour)==0,
-                ArmorOwnedCount(extendedArmour),2,PendingCount(VoxelGarageUpgradeKind.ExtendedArmour),AvailableUpgradeCash);
-            var engine=VoxelEngineUpgradeTuning.Load(); Card(engineUpgradeButton,engine!=null?engine.purchasePrice:0,engine!=null && engine.Fits(definition),VoxelEngineUpgradeState.IsPurchased,VoxelGarageUpgradeKind.Engine);
-            RefreshGunCard(gunUpgradeButton, VoxelGarageUpgradeKind.Guns);
-            RefreshGunCard(minigunUpgradeButton, VoxelGarageUpgradeKind.Minigun);
-            var missile=VoxelMissileLauncherTuning.Load(); fits=missile!=null && missile.Fits(definition);
-            leftMissileButton?.GetComponent<VoxelGarageUpgradeCard>()?.Refresh(missile!=null && missile.weapon!=null?missile.weapon.purchasePrice:0,fits,
-                (VoxelMissileUpgradeState.IsPurchased(false)?1:0)+(VoxelMissileUpgradeState.IsPurchased(true)?1:0),2,PendingCount(VoxelGarageUpgradeKind.Missiles),AvailableUpgradeCash);
-            RefreshWheelCard(performanceWheelButton, VoxelGarageUpgradeKind.Wheels);
-            RefreshWheelCard(goldWheelButton, VoxelGarageUpgradeKind.GoldWheels);
-            var boost=VoxelBoostUpgradeTuning.LoadUpgrade(); Card(boostUpgradeButton,boost!=null?boost.purchasePrice:0,
-                boost!=null && boost.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.DualBoost)==0,VoxelBoostUpgradeState.IsEquipped(boost),VoxelGarageUpgradeKind.Boost);
-            var dualBoost=VoxelBoostUpgradeTuning.LoadDualUpgrade(); Card(dualBoostUpgradeButton,dualBoost!=null?dualBoost.purchasePrice:0,
-                dualBoost!=null && dualBoost.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.Boost)==0,VoxelBoostUpgradeState.IsEquipped(dualBoost),VoxelGarageUpgradeKind.DualBoost);
-            var spikes=VoxelWheelSpikeTuning.Load(); Card(wheelSpikeUpgradeButton,spikes!=null?spikes.purchasePrice:0,
-                spikes!=null && spikes.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.StarSpikes)==0,
-                VoxelWheelSpikeUpgradeState.IsEquipped(spikes),VoxelGarageUpgradeKind.Spikes);
-            var star=VoxelWheelSpikeTuning.LoadStar(); Card(starWheelSpikeUpgradeButton,star!=null?star.purchasePrice:0,
-                star!=null && star.Fits(definition) && PendingCount(VoxelGarageUpgradeKind.Spikes)==0,
-                VoxelWheelSpikeUpgradeState.IsEquipped(star),VoxelGarageUpgradeKind.StarSpikes);
-            RefreshPloughCard(ploughUpgradeButton, VoxelGarageUpgradeKind.Plough);
-            RefreshPloughCard(bullBarUpgradeButton, VoxelGarageUpgradeKind.BullBar);
-            var underbody=VoxelUnderbodyArmorTuning.Load(); Card(underbodyArmorUpgradeButton,underbody!=null?underbody.purchasePrice:0,
-                underbody!=null && underbody.Fits(definition),VoxelUnderbodyArmorUpgradeState.IsPurchased,VoxelGarageUpgradeKind.UnderbodyArmour);
-            if(sortedUpgradeCards!=null)
-                foreach(var card in sortedUpgradeCards)
-                {
-                    card.SetTitle(UpgradeDisplayName(card.UpgradeKind));
-                    card.SetLevel(UpgradeLevel(card.UpgradeKind));
-                }
+            if (sortedUpgradeCards != null)
+                foreach (var card in sortedUpgradeCards)
+                    RefreshUpgradeCard(card);
             SortUpgradeCards();
             CacheGarageCarBounds();
             RefreshNextMission();
         }
+
         private void SortUpgradeCards()
         {
             if (sortedUpgradeCards == null) return;
-            System.Array.Sort(sortedUpgradeCards, (a,b) =>
+            System.Array.Sort(sortedUpgradeCards, (a, b) =>
             {
-                int comparison=a.FullyPurchased.CompareTo(b.FullyPurchased);
-                if(comparison==0) comparison=a.Cost.CompareTo(b.Cost);
-                return comparison!=0?comparison:a.CatalogueOrder.CompareTo(b.CatalogueOrder);
+                bool aAffordable = a.State == VoxelGarageUpgradeState.Affordable;
+                bool bAffordable = b.State == VoxelGarageUpgradeState.Affordable;
+                int comparison = bAffordable.CompareTo(aAffordable);
+                if (comparison == 0)
+                    comparison = (a.State == VoxelGarageUpgradeState.Locked).CompareTo(b.State == VoxelGarageUpgradeState.Locked);
+                if (comparison == 0 && !aAffordable) comparison = a.Level.CompareTo(b.Level);
+                if (comparison == 0) comparison = a.Cost.CompareTo(b.Cost);
+                return comparison != 0 ? comparison : a.CatalogueOrder.CompareTo(b.CatalogueOrder);
             });
-            for(int i=0;i<sortedUpgradeCards.Length;i++)
-            {
-                var card=sortedUpgradeCards[i];
-                card.transform.SetSiblingIndex(i);
-            }
+            for (int i = 0; i < sortedUpgradeCards.Length; i++)
+                sortedUpgradeCards[i].transform.SetSiblingIndex(i);
             LayoutUpgradeCategory();
         }
+
         private void ShowUpgradeCategory(VoxelGarageUpgradeCategory category)
         {
             if (!UpgradeSectionTabsEnabled) { LayoutUpgradeCategory(); return; }
@@ -406,16 +412,22 @@ namespace VoxelRacer
         {
             if(sortedUpgradeCards==null || upgradeCategoryScroll==null)return;
             int visible=0;
-            var positions=new int[upgradeCategoryTabs.Length];
             foreach(var card in sortedUpgradeCards)
             {
-                bool show=!UpgradeSectionTabsEnabled || card.Category==upgradeCategory;
+                bool show = !card.FullyPurchased && (!UpgradeSectionTabsEnabled || card.Category == upgradeCategory);
                 card.gameObject.SetActive(show);
-                int slot = UpgradeSectionTabsEnabled ? positions[(int)card.Category]++ : visible;
-                ((RectTransform)card.transform).anchoredPosition=new Vector2(105+slot*224,0);
-                if(show) visible++;
+                if (!show) continue;
+                ((RectTransform)card.transform).anchoredPosition = new Vector2(105 + visible * 224, 0);
+                visible++;
             }
-            upgradeCategoryScroll.content.sizeDelta=new Vector2(Mathf.Max(0,visible*224-14),234);
+            var content = upgradeCategoryScroll.content;
+            float width = Mathf.Max(0, visible * 224 - 14);
+            if (width != content.sizeDelta.x)
+            {
+                content.sizeDelta = new Vector2(width, 234);
+                float limit = Mathf.Max(0, width - upgradeCategoryScroll.viewport.rect.width);
+                content.anchoredPosition = new Vector2(Mathf.Clamp(content.anchoredPosition.x, -limit, 0), 0);
+            }
             if (inspectedUpgrade != null && !inspectedUpgrade.gameObject.activeSelf) SetInspectedUpgrade(null);
             else RefreshUpgradeDetails();
             RefreshUpgradeScrollHint();

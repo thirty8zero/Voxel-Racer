@@ -9,11 +9,11 @@ namespace VoxelRacer
 
         private const float ApproachGap = 48f;
         private const float PassSpeed = 19f;
+        private const float CoastDuration = 1.5f;
         private const float LaneChangeTime = 1f;
         private const float RampOpenTime = 1.25f;
         private const float RampCloseTime = .95f;
         private const float CameraPanTime = 1.65f;
-        private const float ClearLaneTimeout = 15f;
 
         private readonly Transform owner;
         private readonly VoxelCarController player;
@@ -21,16 +21,18 @@ namespace VoxelRacer
         private readonly EndlessVoxelRoad road;
         private readonly VoxelCarrierCar fit;
         private readonly VoxelObstacleCar[] traffic;
+        private readonly VoxelEnemyCar[] enemies;
         private readonly VoxelObstacle[] obstacles;
         private readonly VoxelPotholeObstacle[] potholes;
         private readonly VoxelFuelDrumObstacle[] drums;
         private readonly VoxelRoadMine[] mines;
         private readonly VoxelOilSlickObstacle[] oil;
-        private readonly float cruiseSpeed, laneWidth, loadingLane, initialLane;
+        private readonly float initialSpeed, cruiseSpeed, laneWidth, loadingLane, initialLane;
         private readonly float firstAxle, loadedAxle, passGap, boardingDuration;
         private VoxelCarrierTruck truck;
         private Phase phase;
-        private float lane, laneChange, waiting, phaseTime;
+        private float lane, laneChange, phaseTime;
+        private float currentSpeed, coastElapsed;
         private float carDistance, truckDistance, lastTruckDistance, gap, cameraDistance, panTime;
         private float departureSpeed;
         private bool startedPan, capturedCamera, releasedSky;
@@ -39,8 +41,8 @@ namespace VoxelRacer
         private float panFieldOfView;
 
         internal bool HasCamera => startedPan;
+        internal bool HasCapturedCamera => capturedCamera;
         internal bool IsLoaded => phase == Phase.Leaving;
-        internal bool TimedOut => phase == Phase.Waiting && waiting >= ClearLaneTimeout;
 
         private VoxelCarrierRecovery(Transform owner, VoxelCarController player, VoxelCarrierTruck prefab, VoxelCarrierCar fit)
         {
@@ -49,7 +51,8 @@ namespace VoxelRacer
             this.prefab = prefab;
             this.fit = fit;
             road = player.TrackPath;
-            cruiseSpeed = player.EffectiveTopSpeed;
+            initialSpeed = currentSpeed = player.EffectiveTopSpeed;
+            cruiseSpeed = VoxelCarrierCar.ConvoySpeedFor(player);
             laneWidth = road.roadWidth / road.laneCount;
             initialLane = lane = player.CollisionTrackPosition.x;
             int index = Mathf.Clamp(Mathf.RoundToInt(lane / laneWidth + (road.laneCount - 1) * .5f), 0, road.laneCount - 2);
@@ -60,6 +63,7 @@ namespace VoxelRacer
             passGap = -fit.Evaluate(prefab, firstAxle).position.z;
             boardingDuration = (loadedAxle - firstAxle) / Mathf.Min(4.25f, cruiseSpeed * .5f);
             traffic = Object.FindObjectsByType<VoxelObstacleCar>(FindObjectsSortMode.None);
+            enemies = Object.FindObjectsByType<VoxelEnemyCar>(FindObjectsSortMode.None);
             obstacles = Object.FindObjectsByType<VoxelObstacle>(FindObjectsSortMode.None);
             potholes = Object.FindObjectsByType<VoxelPotholeObstacle>(FindObjectsSortMode.None);
             drums = Object.FindObjectsByType<VoxelFuelDrumObstacle>(FindObjectsSortMode.None);
@@ -67,6 +71,12 @@ namespace VoxelRacer
             oil = Object.FindObjectsByType<VoxelOilSlickObstacle>(FindObjectsSortMode.None);
             player.PrepareCarrierRecovery();
             PlacePlayerOnRoad(0f);
+
+            Vector2 playerHalfSize = new(fit.Bounds.extents.x, Mathf.Max(fit.Bounds.max.z, -fit.Bounds.min.z));
+            foreach (var vehicle in traffic)
+                if (OverlapsLane(loadingLane, vehicle.LaneOffset, vehicle.TrafficHalfWidth) ||
+                    OverlapsLane(loadingLane + laneWidth, vehicle.LaneOffset, vehicle.TrafficHalfWidth))
+                    vehicle.LeaveCarrierLanes(playerHalfSize);
         }
 
         internal static VoxelCarrierRecovery TryCreate(Transform owner, VoxelCarController player)
@@ -81,23 +91,23 @@ namespace VoxelRacer
             return fit == null ? null : new VoxelCarrierRecovery(owner, player, prefab, fit);
         }
 
-        internal void Advance(float dt, bool orbitComplete)
+        internal void Advance(float dt, bool orbitComplete, bool slowMotionActive)
         {
             fit.CenterSteering(dt);
-            if (startedPan)
+            if (capturedCamera)
                 panTime += dt;
             phaseTime += dt;
             switch (phase)
             {
                 case Phase.Waiting:
-                    AdvanceWaiting(dt, orbitComplete);
+                    AdvanceWaiting(dt, orbitComplete, slowMotionActive);
                     break;
                 case Phase.Passing:
                     carDistance += cruiseSpeed * dt;
                     gap = Mathf.MoveTowards(gap, passGap, dt * Mathf.Clamp((passGap - gap) * 3f, 5f, PassSpeed));
                     truckDistance = carDistance + gap;
                     PlaceTruck(loadingLane + laneWidth, dt);
-                    PlacePlayerOnRoad(dt);
+                    PlacePlayerOnRoad(cruiseSpeed * dt);
                     startedPan |= gap >= -.75f;
                     if (gap >= passGap) Enter(Phase.Merging);
                     break;
@@ -138,22 +148,30 @@ namespace VoxelRacer
             phaseTime = 0f;
         }
 
-        private void AdvanceWaiting(float dt, bool orbitComplete)
+        private void AdvanceWaiting(float dt, bool orbitComplete, bool slowMotionActive)
         {
-            carDistance += cruiseSpeed * dt;
-            if (lane != loadingLane && (laneChange > 0f || LaneIsClear(loadingLane, -8f, 10f, LaneChangeTime + .4f)))
+            float previousSpeed = currentSpeed;
+            if (!slowMotionActive && coastElapsed < CoastDuration)
+            {
+                coastElapsed = Mathf.Min(CoastDuration, coastElapsed + dt);
+                currentSpeed = Mathf.SmoothStep(initialSpeed, cruiseSpeed, coastElapsed / CoastDuration);
+            }
+            float travel = (previousSpeed + currentSpeed) * (.5f * dt);
+            carDistance += travel;
+
+            // Use the settled speed before committing to a corridor predicted at that speed.
+            bool ready = orbitComplete && !slowMotionActive && (initialSpeed <= cruiseSpeed || coastElapsed >= CoastDuration);
+            if (lane != loadingLane && (laneChange > 0f ||
+                (ready && LaneIsClear(loadingLane, -8f, 10f, LaneChangeTime + .4f, allowTrafficStop: true) &&
+                 PickupCorridorsAreClear(LaneChangeTime))))
             {
                 laneChange += dt;
                 lane = laneChange >= LaneChangeTime ? loadingLane :
                     Mathf.Lerp(initialLane, loadingLane, Mathf.SmoothStep(0f, 1f, laneChange / LaneChangeTime));
             }
-            PlacePlayerOnRoad(dt);
-            if (!orbitComplete) return;
-            waiting += dt;
-            float passTime = (ApproachGap + passGap) / PassSpeed + 1.4f;
-            float pickupTime = passTime + RampOpenTime + boardingDuration + RampCloseTime;
-            if (lane != loadingLane || !LaneIsClear(loadingLane + laneWidth, -ApproachGap - 8f, passGap + 10f, passTime) ||
-                !LaneIsClear(loadingLane, -8f, passGap + 36f, pickupTime + 2f))
+            PlacePlayerOnRoad(travel);
+            if (!ready) return;
+            if (lane != loadingLane || !PickupCorridorsAreClear(0f))
                 return;
 
             truck = Object.Instantiate(prefab, owner);
@@ -164,32 +182,54 @@ namespace VoxelRacer
             Enter(Phase.Passing);
         }
 
-        private bool LaneIsClear(float offset, float rear, float front, float seconds)
+        private bool PickupCorridorsAreClear(float delay)
         {
-            bool InLane(float otherOffset, float halfWidth) => Mathf.Abs(otherOffset - offset) < laneWidth * .5f + halfWidth;
-            bool InRange(float distance, float travelSpeed, float halfLength)
+            // Check beyond the merge so the car doesn't enter behind slower traffic
+            // and then catch it while waiting for the truck to reach the bay.
+            float passTime = delay + (ApproachGap + passGap) / PassSpeed + 1.4f;
+            float pickupTime = passTime + RampOpenTime + boardingDuration + RampCloseTime;
+            return LaneIsClear(loadingLane + laneWidth, -ApproachGap - 8f, passGap + 10f, passTime) &&
+                LaneIsClear(loadingLane, -8f, passGap + 36f, pickupTime + 2f);
+        }
+
+        private bool OverlapsLane(float laneOffset, float otherOffset, float halfWidth) =>
+            Mathf.Abs(otherOffset - laneOffset) < laneWidth * .5f + halfWidth;
+
+        private bool LaneIsClear(float offset, float rear, float front, float seconds, bool allowTrafficStop = false)
+        {
+            bool InRange(float distance, Vector2 speeds, float halfLength)
             {
                 float relative = distance - carDistance;
-                float later = relative + (travelSpeed - cruiseSpeed) * seconds;
-                return Mathf.Min(relative, later) - halfLength < front && Mathf.Max(relative, later) + halfLength > rear;
+                float first = relative + (speeds.x - cruiseSpeed) * seconds;
+                float last = relative + (speeds.y - cruiseSpeed) * seconds;
+                return Mathf.Min(relative, Mathf.Min(first, last)) - halfLength < front &&
+                    Mathf.Max(relative, Mathf.Max(first, last)) + halfLength > rear;
             }
 
             foreach (var vehicle in traffic)
             {
-                if (vehicle == null || !vehicle.isActiveAndEnabled || !vehicle.IsDrivingTraffic ||
-                    !InLane(vehicle.LaneOffset, vehicle.TrafficHalfWidth)) continue;
-                float speed = vehicle.TravelsWithPlayer ? vehicle.TravelSpeed : -vehicle.TravelSpeed;
-                float fastest = vehicle.MaximumPhaseTravelSpeed * (vehicle.TravelsWithPlayer ? 1f : -1f);
-                if (InRange(vehicle.TrackDistance, speed, vehicle.TrafficHalfLength) ||
-                    InRange(vehicle.TrackDistance, fastest, vehicle.TrafficHalfLength)) return false;
+                if (vehicle == null || !vehicle.isActiveAndEnabled || (!vehicle.IsDrivingTraffic && !vehicle.IsLeavingMission) ||
+                    !OverlapsLane(offset, vehicle.LaneOffset, vehicle.TrafficHalfWidth)) continue;
+                // Traffic can brake behind a leader while the player is crossing into its lane.
+                Vector2 speeds = vehicle.IsLeavingMission ? vehicle.FinishExitSpeedRange :
+                    new Vector2(allowTrafficStop ? 0f : vehicle.TravelSpeed, vehicle.MaximumPhaseTravelSpeed);
+                if (InRange(vehicle.TrackDistance, speeds * (vehicle.TravelsWithPlayer ? 1f : -1f), vehicle.TrafficHalfLength))
+                    return false;
             }
-            bool Blocks(Behaviour item, float otherLane, float distance) =>
-                item.isActiveAndEnabled && Mathf.Abs(otherLane - offset) < laneWidth * .5f && InRange(distance, 0f, 3f);
-            foreach (var item in obstacles) if (item != null && item.IsRoadHazard && Blocks(item, item.LaneOffset, item.TrackDistance)) return false;
-            foreach (var item in potholes) if (item != null && Blocks(item, item.LaneOffset, item.TrackDistance)) return false;
-            foreach (var item in drums) if (item != null && Blocks(item, item.LaneOffset, item.TrackDistance)) return false;
-            foreach (var item in mines) if (item != null && Blocks(item, item.LaneOffset, item.TrackDistance)) return false;
-            foreach (var item in oil) if (item != null && Blocks(item, item.LaneOffset, item.TrackDistance)) return false;
+            foreach (var enemy in enemies)
+            {
+                if (enemy == null || !enemy.isActiveAndEnabled || !enemy.IsLeavingMission || enemy.Tuning == null) continue;
+                if (OverlapsLane(offset, enemy.LaneOffset, enemy.Tuning.collisionHalfWidth) &&
+                    InRange(enemy.TrackDistance, enemy.FinishExitSpeedRange, enemy.Tuning.collisionHalfLength)) return false;
+            }
+
+            bool Blocks(Behaviour item, float otherLane, float distance, float halfWidth) =>
+                item.isActiveAndEnabled && OverlapsLane(offset, otherLane, halfWidth) && InRange(distance, Vector2.zero, 3f);
+            foreach (var item in obstacles) if (item != null && item.IsRoadHazard && Blocks(item, item.LaneOffset, item.TrackDistance, 1.35f)) return false;
+            foreach (var item in potholes) if (item != null && Blocks(item, item.LaneOffset, item.TrackDistance, laneWidth * .42f)) return false;
+            foreach (var item in drums) if (item != null && item.IsRoadHazard && Blocks(item, item.LaneOffset, item.TrackDistance, 2.2f)) return false;
+            foreach (var item in mines) if (item != null && Blocks(item, item.LaneOffset, item.TrackDistance, 1f)) return false;
+            foreach (var item in oil) if (item != null && Blocks(item, item.LaneOffset, item.TrackDistance, laneWidth * .45f)) return false;
             return true;
         }
 
@@ -198,7 +238,7 @@ namespace VoxelRacer
             carDistance += cruiseSpeed * dt;
             truckDistance = carDistance + passGap;
             PlaceTruck(truckLane, dt, steering);
-            PlacePlayerOnRoad(dt);
+            PlacePlayerOnRoad(cruiseSpeed * dt);
         }
 
         private void AdvanceBoarding(float dt)
@@ -216,21 +256,24 @@ namespace VoxelRacer
             float settle = Mathf.SmoothStep(0f, 1f, phaseTime / .35f);
             Vector3 position = Vector3.Lerp(RoadPosition(track), truck.transform.TransformPoint(pose.position), settle);
             Quaternion rotation = Quaternion.Slerp(track.rotation, truck.transform.rotation * pose.rotation, settle);
-            player.SetCarrierPose(carDistance, cruiseSpeed, position, rotation, loadingLane);
             float onRamp = Mathf.InverseLerp(truck.RampTip - .8f, truck.RampTip, axle);
+            float driveSpeed = dt > 0f ? Mathf.Lerp(cruiseSpeed, advance / dt, onRamp) : 0f;
+            player.SetCarrierPose(carDistance, cruiseSpeed, position, rotation, loadingLane, driveSpeed);
             fit.RotateWheels(Mathf.Lerp(cruiseSpeed * dt, advance, onRamp));
             fit.UpdatePlough(truck, pose, Mathf.Min(loadedAxle, axle + .5f), dt);
+            player.SetCarrierBrakeLights(progress < 1f && axle >= truck.BayRear);
             if (progress < 1f) return;
+            player.GetComponent<VoxelPlayerEngineAudio>()?.BeginShutdown();
             fit.RestorePlough();
             truck.SetRampOpen(false);
             Enter(Phase.Closing);
         }
 
-        private void PlacePlayerOnRoad(float dt)
+        private void PlacePlayerOnRoad(float travel)
         {
             VoxelTrackPose track = road.Evaluate(carDistance);
-            player.SetCarrierPose(carDistance, cruiseSpeed, RoadPosition(track), track.rotation, lane);
-            fit.RotateWheels(cruiseSpeed * dt);
+            player.SetCarrierPose(carDistance, currentSpeed, RoadPosition(track), track.rotation, lane);
+            fit.RotateWheels(travel);
         }
 
         private Vector3 RoadPosition(VoxelTrackPose track) =>
@@ -241,7 +284,7 @@ namespace VoxelRacer
             Pose pose = fit.Evaluate(truck, axle);
             carDistance = truckDistance + pose.position.z;
             player.SetCarrierPose(carDistance, speed, truck.transform.TransformPoint(pose.position),
-                truck.transform.rotation * pose.rotation, loadingLane);
+                truck.transform.rotation * pose.rotation, loadingLane, driveSpeed: 0f);
         }
 
         private void PlaceTruck(float offset, float dt, float steering = 0f)
@@ -323,6 +366,7 @@ namespace VoxelRacer
                 if (camera.TryGetComponent<VoxelMobilePostProcessing>(out var postProcessing))
                     postProcessing.SetDebriefFocus(false, 0f);
                 capturedCamera = true;
+                return;
             }
 
             // Keep the car as the pivot through the pass and boarding. Hand the shot

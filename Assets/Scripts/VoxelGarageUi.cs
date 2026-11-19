@@ -10,9 +10,13 @@ namespace VoxelRacer
         private Text garageWaveDebugLabel;
         private bool GarageSettingsVisible => garageSettingsOverlay != null && garageSettingsOverlay.activeSelf;
         private RectTransform garageCashFrame, garageSettingsButton;
+        private VoxelMissionBriefing garageLevelPreview;
+        private GameObject garagePreviewHud;
+        private bool garageLevelPreviewOpen, garagePreviewHudWasActive, garagePreviewCanvasWasActive;
         private static readonly Color RepairAccent = new(.55f,1f,.64f);
         private static readonly Color DangerAccent = new(.95f,.15f,.19f);
         private static readonly Color UpgradeAccent = new(.10f,.60f,1f);
+        private static readonly Color LevelPreviewAccent = new(.76f,.87f,1f);
         private static readonly Color GoldAccent = new(1f,.73f,.20f);
         private static Font GarageMono => Resources.Load<Font>("Fonts/VCR_OSD_MONO_1.001") ?? VoxelHudStyles.HudFont;
         private static Font GarageHeading => Resources.Load<Font>("Fonts/Square") ?? VoxelHudStyles.HudFont;
@@ -60,6 +64,28 @@ namespace VoxelRacer
         {
             if (garageSettingsOverlay != null) garageSettingsOverlay.SetActive(false);
         }
+        private void ShowGarageLevelPreview()
+        {
+            if (!isActiveAndEnabled || isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing ||
+                GarageSettingsVisible || MissionStartWarningVisible || !garageHome.activeSelf) return;
+            placementPointerHeld = rotatingCar = pinching = false;
+            garageLevelPreviewOpen = true;
+            garagePreviewCanvasWasActive = garageCanvas.gameObject.activeSelf;
+            garagePreviewHud = transform.Find("Player Integrity HUD")?.gameObject;
+            garagePreviewHudWasActive = garagePreviewHud != null && garagePreviewHud.activeSelf;
+            garageCanvas.gameObject.SetActive(false);
+            if (garagePreviewHud != null) garagePreviewHud.SetActive(false);
+            garageLevelPreview = VoxelMissionBriefing.Present(transform, VoxelTrackProgressState.NextTrack, null,
+                CloseGarageLevelPreview, alongsideRace: true, previewOnly: true);
+        }
+        private void CloseGarageLevelPreview()
+        {
+            if (!garageLevelPreviewOpen) return;
+            garageLevelPreviewOpen = false;
+            garageLevelPreview?.Close();
+            if (garageCanvas != null) garageCanvas.gameObject.SetActive(garagePreviewCanvasWasActive);
+            if (garagePreviewHud != null) garagePreviewHud.SetActive(garagePreviewHudWasActive);
+        }
         private void ResetGarageRun()
         {
             if (isLoading || !GarageSettingsVisible) return;
@@ -104,9 +130,7 @@ namespace VoxelRacer
             garageSettingsPanel=VoxelMenuUi.CreatePanel(settingsOverlay.transform,"Garage Settings",new(.5f,.5f),Vector2.zero,new(580,540)).gameObject;
             Frame(garageSettingsPanel,new Color(.4f,.48f,.56f),new Color(.02f,.03f,.045f,.98f));
             VoxelMenuUi.CreateText(garageSettingsPanel.transform,"Settings Title","SETTINGS",55,TextAnchor.MiddleCenter,new(.5f,.5f),new(0,205),new(420,80));
-            var sound=VoxelMenuUi.CreateButton(garageSettingsPanel.transform,"Sound Toggle","",35,new(.5f,.5f),new(0,105),new(460,70),()=>{});
-            var soundLabel=sound.GetComponentInChildren<Text>();soundLabel.text=AudioListener.volume>0?"SOUND ON":"SOUND OFF";
-            sound.onClick.AddListener(()=>{AudioListener.volume=AudioListener.volume>0?0:1;soundLabel.text=AudioListener.volume>0?"SOUND ON":"SOUND OFF";});
+            VoxelAudioVolumeSlider.Create(garageSettingsPanel.transform, 105f, 460f, UpgradeAccent);
             var waveDebug=VoxelMenuUi.CreateButton(garageSettingsPanel.transform,"Wave Debug Toggle","",35,new(.5f,.5f),new(0,10),new(460,70),()=>{});
             garageWaveDebugLabel=waveDebug.GetComponentInChildren<Text>();
             garageWaveDebugLabel.text=VoxelFpsCounter.ShowWaveDebug?"WAVE DEBUG ON":"WAVE DEBUG OFF";
@@ -134,6 +158,7 @@ namespace VoxelRacer
             }
             HomeButton("Repair Menu Button","REPAIR","RESTORE YOUR VEHICLE",-530,RepairAccent,()=>ShowGaragePanel(garageRepairPanel),false);
             HomeButton("Upgrade Menu Button","UPGRADES","MAKE IT STRONGER",-735,UpgradeAccent,()=>ShowGaragePanel(garageUpgradePanel),true);
+            HomeButton("Level Preview Button","LEVEL PREVIEW","SEE THE NEXT MISSION",-940,LevelPreviewAccent,ShowGarageLevelPreview,true,true);
             var settings=VoxelMenuUi.CreateButton(canvas,"Settings Button","",40,new(1,1),new(-419,-80),new(80,80),ShowGarageSettings);
             garageSettingsButton = (RectTransform)settings.transform;
             Frame(settings.gameObject,new Color(.36f,.43f,.5f),new Color(.025f,.035f,.05f,.95f));
@@ -181,11 +206,12 @@ namespace VoxelRacer
             panel.localScale = Vector3.one * scale;
             Place(panel, new Vector2(0, 1), new Vector2(left + 340 * scale, -top - 350 * scale), new Vector2(680, 700));
         }
-        private void HomeButton(string name,string title,string subtitle,float y,Color accent,UnityEngine.Events.UnityAction action,bool bars)
+        private void HomeButton(string name,string title,string subtitle,float y,Color accent,UnityEngine.Events.UnityAction action,bool bars,bool preview=false)
         {
             var button=VoxelMenuUi.CreateButton(garageHome.transform,name,title,62,new(0,1),new(390,y),new(650,165),action);
-            Frame(button.gameObject,accent,bars?new Color(.015f,.06f,.105f,.96f):new Color(.075f,.24f,.125f,.96f));
+            Frame(button.gameObject,accent,preview?new Color(.10f,.16f,.23f,.96f):bars?new Color(.015f,.06f,.105f,.96f):new Color(.075f,.24f,.125f,.96f));
             var label=button.GetComponentInChildren<Text>();label.font=GarageHeading;label.fontSize=52;label.alignment=TextAnchor.MiddleLeft;Place(label.rectTransform,new(.5f,.5f),new(45,23),new(380,78));
+            label.resizeTextForBestFit=true;label.resizeTextMinSize=30;label.resizeTextMaxSize=52;
             Caption(button.transform,"Action Subtitle",subtitle,24,new(.5f,.5f),new(45,-35),new(400,40));
             Caption(button.transform,"Chevrons",">>",53,new(.5f,.5f),new(265,0),new(90,75)).color=Color.white;
             if(bars)for(int i=0;i<3;i++)

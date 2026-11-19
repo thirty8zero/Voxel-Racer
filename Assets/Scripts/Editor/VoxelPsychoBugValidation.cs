@@ -182,15 +182,33 @@ namespace VoxelRacer.Editor
                 f.Behaviour.shootingWindows=false;
                 foreach(float side in new[]{-3f,3f})
                 {
-                    f.Spawn(side);Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);f.Wait(PsychoBugPhase.Warning);
+                    f.Spawn(side);Call(f.Enemy,"SetPsychoPhase",PsychoBugPhase.Aligning);
+                    const float step = .01f;
+                    float elapsed = 0f;
+                    while (f.Enemy.PsychoPhase == PsychoBugPhase.Aligning && elapsed <= f.Behaviour.alignmentHoldDuration + step)
+                    {
+                        f.Step(step);
+                        elapsed += step;
+                    }
+                    Check(f.Enemy.PsychoPhase == PsychoBugPhase.Warning, "Settled alignment did not start the warning on time");
                     Check(f.Enemy.LaneOffset*side>0,"Attack did not stay on its tested side");
                     float initial=Mathf.Abs(f.Enemy.LaneOffset-f.Player.CurrentLaneOffset);
                     int integrity=f.Player.RemainingIntegrityVoxels;
                     int normalDamage=f.Player.damageVoxelsPerHit;
-                    for(int i=0;i<45;i++)f.Step(.02f);
+                    float warningElapsed = 0f;
+                    for (; warningElapsed < .75f * f.Behaviour.warningDuration; warningElapsed += step)
+                        f.Step(step);
                     Check(f.Enemy.PsychoPhase==PsychoBugPhase.Warning && f.Player.RemainingIntegrityVoxels==integrity,"Warning shortened or applied early damage");
                     Check(Mathf.Abs(f.Enemy.LaneOffset-f.Player.CurrentLaneOffset)>initial+.1f,"Warning did not visibly pull away");
-                    f.Wait(PsychoBugPhase.Slamming,1);Set(f.Player,"nextDamageTime",-1f);
+                    while (f.Enemy.PsychoPhase == PsychoBugPhase.Warning && warningElapsed <= f.Behaviour.warningDuration + step)
+                    {
+                        f.Step(step);
+                        warningElapsed += step;
+                    }
+                    float lungeDelay = f.Behaviour.alignmentHoldDuration + f.Behaviour.warningDuration;
+                    Check(f.Enemy.PsychoPhase == PsychoBugPhase.Slamming && Mathf.Abs(elapsed + warningElapsed - lungeDelay) <= 2 * step,
+                        "Lunge did not begin at the end of the alignment hold and warning");
+                    Set(f.Player,"nextDamageTime",-1f);
                     f.Wait(PsychoBugPhase.Recovering,1);
                     Check(f.Player.RemainingIntegrityVoxels==integrity-3,"Side slam did not apply exactly one configured hit");
                     Check(f.Player.damageVoxelsPerHit==normalDamage,"Slam left a temporary player damage override");
@@ -246,7 +264,7 @@ namespace VoxelRacer.Editor
                 f.Behaviour.allowReverse=true;f.Step(.1f,false);Check(f.Enemy.DriveSpeed<0,"Configured reverse did not work");
                 Directory.CreateDirectory("Temp/PsychoBug");File.WriteAllText("Temp/PsychoBug/Validation.txt",
                     "PASS (Edit Mode): " + (validateAssets ? "Model, authored meshes/materials, all enemy pools and editable Odin foldouts. " : "Behaviour-only validation; asset/pool registration not checked. ") +
-                    "Left/right one-second warning and pull-away, single configured swept slam damage, recovery, player-ram interruption, boost escape, feint, brief shot window and health damage; forward/back positioning, optional reverse, traffic corridor/oncoming/rear clearance, following speed cap, blocked attack and attacker reservation. Authored defaults approach from 200m on a three-lane 16m road, repeat three natural rams, maintain independent cruise when player brakes, and trigger a passing-alignment ram with random attack chance zero. Hit reactions interrupt exposure, dodge both road edges, survive repeated hits/in-progress merges, accelerate when no lane is available, respect obstacles/cooldown and preserve counter-ram stagger. Shooting placement times out promptly; repeated attacks return within five seconds. Temporary scene/state/random/currency/purchases restored.");
+                    "Left/right authored alignment-to-lunge timing and pull-away, single configured swept slam damage, recovery, player-ram interruption, boost escape, feint, brief shot window and health damage; forward/back positioning, optional reverse, traffic corridor/oncoming/rear clearance, following speed cap, blocked attack and attacker reservation. Authored defaults approach from 200m on a three-lane 16m road, repeat three natural rams, maintain independent cruise when player brakes, and trigger a passing-alignment ram with random attack chance zero. Hit reactions interrupt exposure, dodge both road edges, survive repeated hits/in-progress merges, accelerate when no lane is available, respect obstacles/cooldown and preserve counter-ram stagger. Shooting placement times out promptly; repeated attacks return within five seconds. Temporary scene/state/random/currency/purchases restored.");
                 File.AppendAllText("Temp/PsychoBug/Validation.txt", " Low-speed alignment/committed-ram cancellation, shooting forward floor, editable thresholds, braking escape, real barrel avoidance, long-frame emergency clearance, blocked-road stopping and destroyed-barrel release also passed.");
                 File.AppendAllText("Temp/PsychoBug/Validation.txt", " New checks passed: 14m/s deliberate approach floor, slow-player breakaway without repeated alignment, actual civilian oncoming prediction beyond the old horizon, retreat from an unsafe unfinished merge, swept diagonal clearance and head-on separation in either vehicle Update order including long frames.");
                 File.AppendAllText("Temp/PsychoBug/Validation.txt", " Ordinary enemy minimum speed passed at spawn/approach/engagement, post-ram stopped/slow/fast player matching, editable/zero floors and lane-change burst; Psycho Bug follows a floor-limited Black Interceptor without crawling when the player is stopped. See Temp/EnemyMinimumSpeed/Validation.txt.");
@@ -431,7 +449,7 @@ namespace VoxelRacer.Editor
                         Check(!VoxelVehicleCollision.Sweep(before,after,size,out _),"Head-on civilian crossed the Bug; civilian first="+civilianFirst);
                         void AdvanceCivilian()
                         {
-                            float speed=(float)Call(oncoming,"GetSafeTrafficSpeed",25f,dt);
+                            float speed=(float)Call(oncoming,"GetSafeTrafficSpeed",25f,dt,false);
                             Set(oncoming,"travelSpeed",speed);Set(oncoming,"trackDistance",oncoming.TrackDistance-speed*dt);
                             Call(oncoming,"ApplyTrackPose");
                         }

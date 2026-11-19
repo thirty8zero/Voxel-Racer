@@ -4,6 +4,8 @@ using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -24,6 +26,7 @@ namespace VoxelRacer.Editor
         private static bool audio, background, captured;
         private static double phaseStarted;
         private static string sourceBefore;
+        private static Keyboard keyboard;
 
         [InitializeOnLoadMethod]
         private static void Hook()
@@ -56,6 +59,22 @@ namespace VoxelRacer.Editor
         private static void Check(bool condition, string message)
         { if (!condition) throw new InvalidOperationException(message); }
         private static void Call(object target, string method) => target.GetType().GetMethod(method, Private).Invoke(target, null);
+        private static void PressHotkey(VoxelPauseMenu pause, params Key[] keys)
+        {
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(keys));
+            InputSystem.Update();
+            Call(pause, "Update");
+            if (keys.Contains(Key.A) && (keys.Contains(Key.LeftShift) || keys.Contains(Key.RightShift)) && !VoxelPauseMenu.IsPaused)
+            {
+                var car = (VoxelCarController)typeof(VoxelPauseMenu).GetField("target", Private).GetValue(pause);
+                float laneBefore = car.TargetLaneOffset;
+                Check(car.CurrentSpeed > 0f, "Steering suppression check requires a moving car.");
+                Call(car, "Update");
+                Check(car.TargetLaneOffset == laneBefore, "Shift+A granted upgrades but also steered left.");
+            }
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            InputSystem.Update();
+        }
         private static void Load(string sceneName)
         {
             phaseStarted = Time.realtimeSinceStartupAsDouble;
@@ -100,6 +119,7 @@ namespace VoxelRacer.Editor
                     saved = new VoxelGarageUpgradeDockValidation.SavedState();
                     scale = Time.timeScale; step = Time.fixedDeltaTime; audio = AudioListener.pause;
                     background = Application.runInBackground; captured = true; Application.runInBackground = true;
+                    keyboard = InputSystem.AddDevice<Keyboard>();
                     sourceBefore = EditorJsonUtility.ToJson(VoxelTrackSequence.Load());
                     sequence = Object.Instantiate(VoxelTrackSequence.Load());
                     typeof(VoxelTrackProgressState).GetField("sequence", Static).SetValue(null, sequence);
@@ -117,6 +137,7 @@ namespace VoxelRacer.Editor
                     Check(pause != null && VoxelRacerBootstrap.ActiveTrack == sequence.tracks[skippedIndex], "Wrong race loaded.");
                     var car = (VoxelCarController)typeof(VoxelPauseMenu).GetField("target", Private).GetValue(pause);
                     Check(car != null && !car.IsDestroyed, "No live player to skip with.");
+                    if (VoxelStartCountdown.Active?.IsComplete != true || car.CurrentSpeed <= 0f) return;
                     Call(pause, "SkipMission");
                     Check(!VoxelLoadingScreen.IsLoading, "Skip accepted outside pause.");
                     var pieces = car.GetComponentsInChildren<MeshRenderer>().Where(r =>
@@ -141,10 +162,23 @@ namespace VoxelRacer.Editor
                     {
                         typeof(VoxelMissionProgress).GetProperty(property).SetValue(mission, true);
                         button.onClick.Invoke();
+                        PressHotkey(pause, Key.LeftShift, Key.S);
                         Check(!VoxelLoadingScreen.IsLoading && VoxelPauseMenu.IsPaused, "Skip accepted after " + property);
                         typeof(VoxelMissionProgress).GetProperty(property).SetValue(mission, false);
                     }
-                    button.onClick.Invoke();
+                    if (testCase == 0) button.onClick.Invoke();
+                    else if (testCase == 1)
+                    {
+                        pause.SetPaused(false);
+                        PressHotkey(pause, Key.S);
+                        Check(!VoxelLoadingScreen.IsLoading, "S without Shift skipped the mission.");
+                        PressHotkey(pause, Key.LeftShift, Key.S);
+                    }
+                    else
+                    {
+                        pause.GetComponentsInChildren<Button>().Single(b => b.name == "DEV Back Button").onClick.Invoke();
+                        PressHotkey(pause, Key.RightShift, Key.S);
+                    }
                     Check(VoxelLoadingScreen.IsLoading && !VoxelPauseMenu.IsPaused, "Skip did not start the garage transition.");
                     Check(Mathf.Approximately(Time.timeScale, .65f) && AudioListener.pause == (testCase == 1), "Skip lost the previous game/audio clock.");
                     Check(!mission.IsComplete && mission.TotalCurrencyEarned == 0 && VoxelCurrencyState.Balance == wallet, "Skip awarded completion rewards.");
@@ -194,7 +228,7 @@ namespace VoxelRacer.Editor
                 else if (phase == 4)
                 {
                     Check(EditorJsonUtility.ToJson(VoxelTrackSequence.Load()) == sourceBefore, "QA edited the authored sequence.");
-                    Finish(true, "PASS (Play Mode): DEV/Back navigation, full repair, and free highest compatible upgrades. Verified dual miniguns, Extended Door Armour on both sides, Gold Track Wheels, Star Wheel Spikes and Dual Boost. Lower-level replacement preserved damage, repeat grants reused mounts, and garage and next-race transitions retained cash, damage, and all upgrades. Verified mission skip for an ordinary mission and looping/non-looping final boss, with no completion rewards or duplicate advance.");
+                    Finish(true, "PASS (Play Mode): DEV/Back navigation, full repair, and free highest compatible upgrades. Actual Shift+A input grants upgrades during gameplay and while paused; Shift+S skips during gameplay and from the pause settings page. Both Shift keys work; unmodified keys and completed/failed states cannot trigger shortcuts. Verified dual miniguns, Extended Door Armour on both sides, Gold Track Wheels, Star Wheel Spikes and Dual Boost. Lower-level replacement preserved damage, repeat grants reused mounts, and garage and next-race transitions retained cash, damage, and all upgrades. Verified mission skip for an ordinary mission and looping/non-looping final boss, with no completion rewards or duplicate advance.");
                 }
             }
             catch (Exception error) { Finish(false, "FAIL: " + error); }
@@ -217,8 +251,13 @@ namespace VoxelRacer.Editor
             Vector3 damagedArmorPosition = armour.transform.position;
             var missingArmour = car.GetComponentsInChildren<VoxelArmorVoxel>().First(a => a != armour);
             missingArmour.gameObject.SetActive(false);
-            var upgrades = pause.GetComponentsInChildren<Button>().Single(b => b.name == "Give All Upgrades Button");
-            upgrades.onClick.Invoke();
+            pause.SetPaused(false);
+            PressHotkey(pause, Key.A);
+            Check(VoxelGunUpgradeState.InstalledTuning(0) != VoxelGunUpgradeState.MinigunTuning,
+                "A without Shift granted upgrades.");
+            PressHotkey(pause, Key.LeftShift, Key.A);
+            pause.SetPaused(true);
+            pause.GetComponentsInChildren<Button>().Single(b => b.name == "DEV Button").onClick.Invoke();
             CheckMaxUpgrades(car);
             var upgradedArmor = car.GetComponentsInChildren<VoxelArmorVoxel>(true);
             Check(pieces.All(r => !r.gameObject.activeSelf) &&
@@ -228,7 +267,7 @@ namespace VoxelRacer.Editor
                     Vector3.Distance(a.transform.position, damagedArmorPosition) < .08f),
                 "Giving upgrades healed or displaced existing armour or body damage.");
             var liveGuns = car.GetComponentsInChildren<VoxelGunMount>(true);
-            upgrades.onClick.Invoke();
+            PressHotkey(pause, Key.RightShift, Key.A);
             Check(car.GetComponentsInChildren<VoxelGunMount>(true).SequenceEqual(liveGuns), "Repeated grants rebuilt weapons.");
             Check(VoxelCurrencyState.Balance == wallet && VoxelPauseMenu.IsPaused && Time.timeScale == 0 && AudioListener.pause,
                 "Giving upgrades charged cash, resumed, or released audio.");
@@ -268,6 +307,8 @@ namespace VoxelRacer.Editor
         {
             EditorApplication.update -= Tick; SessionState.SetBool(Pending, false);
             VoxelPauseMenu.ResumeActivePause();
+            if (keyboard != null && keyboard.added) InputSystem.RemoveDevice(keyboard);
+            keyboard = null;
             if (captured)
             {
                 saved?.Dispose(); saved = null;

@@ -113,7 +113,7 @@ namespace VoxelRacer.Editor
                 CheckDirectPurchase(definition, gold);
                 File.WriteAllText(Output + "Validation.txt", "PASS: 50% wider with the same inboard edge, diameter, outboard-only tabs at 13-degree spacing, double-face caliper with black markings, arch clearance, both wheel orientations, " +
                     "side-specific fit, exclusive and idempotent wheel replacement, combined fit with spikes, dashboard and preview discovery, " +
-                    "preview state isolation, direct purchase, affordability, and new-run reset. " +
+                    "preview state isolation, Sports Wheels prerequisite, affordability, and new-run reset. " +
                     $"{mesh.triangles.Length / 3} triangles, one renderer and five shared materials per wheel. " +
                     $"Minimum conservative front tyre clearance at sampled steering angles: {steeringGap * 1000f:F1} mm.");
                 Debug.Log(File.ReadAllText(Output + "Validation.txt"));
@@ -131,12 +131,19 @@ namespace VoxelRacer.Editor
         {
             using var saved = new VoxelGarageUpgradeDockValidation.SavedState();
             VoxelCarRunState.BeginNewRun(definition);
+            var sports = VoxelPerformanceWheelTuning.Load();
+            VoxelCurrencyState.Add(gold.purchasePrice);
+            Check(!VoxelPerformanceWheelUpgradeState.TryPurchase(gold, definition) && VoxelCurrencyState.Balance == gold.purchasePrice,
+                "Gold wheels bypassed Sports Wheels.");
+            VoxelCurrencyState.Reset();
+            VoxelCurrencyState.Add(sports.purchasePrice);
+            Check(VoxelPerformanceWheelUpgradeState.TryPurchase(sports, definition), "Sports Wheels purchase failed.");
             if (gold.purchasePrice > 0)
                 Check(!VoxelPerformanceWheelUpgradeState.TryPurchase(gold, definition), "Gold wheels accepted an unaffordable purchase.");
             VoxelCurrencyState.Add(gold.purchasePrice);
             Check(VoxelPerformanceWheelUpgradeState.TryPurchase(gold, definition) &&
                 VoxelPerformanceWheelUpgradeState.InstalledTuning == gold && VoxelCurrencyState.Balance == 0,
-                "Direct gold purchase failed or charged the wrong amount.");
+                "Gold purchase after Sports Wheels failed or charged the wrong amount.");
             VoxelCarRunState.BeginNewRun(definition);
             Check(VoxelPerformanceWheelUpgradeState.InstalledTuning == null, "New run retained the installed gold wheels.");
         }

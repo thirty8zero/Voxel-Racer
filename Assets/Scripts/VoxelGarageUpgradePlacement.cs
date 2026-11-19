@@ -106,7 +106,7 @@ namespace VoxelRacer
                             VoxelGunUpgradeState.Count(gun) + PendingCount(Kind) < VoxelGunUpgradeState.Capacity(gun) &&
                             !selections.Exists(part => IsGun(part.Kind) && part.Slot == slot)
                         : Kind == VoxelGarageUpgradeKind.Missiles ? !VoxelMissileUpgradeState.IsPurchased(slot == 1)
-                        : !VoxelArmorUpgradeState.IsEquipped(ArmorTuning(Kind), slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right) &&
+                        : VoxelArmorUpgradeState.CanPurchase(ArmorTuning(Kind), definition, slot == 0 ? VoxelArmorSide.Left : VoxelArmorSide.Right) &&
                             !selections.Exists(part => IsArmour(part.Kind) && part.Slot == slot);
                     if (!available) continue;
                     var before = new HashSet<MeshRenderer>(Car.GetComponentsInChildren<MeshRenderer>(true));

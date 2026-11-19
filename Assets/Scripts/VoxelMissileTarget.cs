@@ -128,17 +128,19 @@ namespace VoxelRacer
             return distance >= 0 && distance <= length;
         }
         public static void Blast(Vector3 point, float radius, float damage, Vector3 direction,
-            VoxelMissileTarget directTarget = null, Transform directVoxel = null)
+            VoxelMissileTarget directTarget = null, Transform directVoxel = null,
+            VoxelScorePopup.WeaponSource weaponSource = VoxelScorePopup.WeaponSource.OtherWeapon)
         {
             using var profile = blastMarker.Auto();
             if (radius <= 0)
             {
                 if (directTarget == null) return;
                 directTarget.Prepare();
-                if (directTarget.hopper != null) directTarget.hopper.TakeMissileBlast(point, 0, damage, direction, true);
-                else if (directTarget.enemy != null) directTarget.enemy.TakeProjectileHit(directVoxel, damage, point, direction);
+                if (directTarget.hopper != null) directTarget.hopper.TakeMissileBlast(point, 0, damage, direction, true, weaponSource);
+                else if (directTarget.enemy != null) directTarget.enemy.TakeProjectileHit(directVoxel, damage, point, direction,
+                    weaponSource);
                 else if (directTarget.traffic != null) directTarget.traffic.TakeProjectileHit(directVoxel, damage, point, direction);
-                else directTarget.DamageObstacle(point, 0f, damage, direction, true);
+                else directTarget.DamageObstacle(point, 0f, damage, direction, true, weaponSource);
                 return;
             }
             // Snapshot shields before any hopper is hit. A single blast cannot spill its
@@ -155,17 +157,18 @@ namespace VoxelRacer
             {
                 var t = Active[i]; if (t == null || !t.isActiveAndEnabled) continue;
                 t.Prepare(); if (!t.Alive) continue;
-                if (t.hopper != null) t.hopper.TakeMissileBlast(point, radius, damage, direction, t == directTarget);
+                if (t.hopper != null) t.hopper.TakeMissileBlast(point, radius, damage, direction, t == directTarget, weaponSource);
                 else if (t.enemy != null && (shielded == null || !shielded.Contains(t.enemy))) t.enemy.TakeMissileBlast(point, radius, damage, direction, t.pieces, t == directTarget);
                 else if (t.traffic != null) t.traffic.TakeMissileBlast(point, radius, damage, direction, t.pieces, t == directTarget);
-                else t.DamageObstacle(point, radius, damage, direction, t == directTarget);
+                else t.DamageObstacle(point, radius, damage, direction, t == directTarget, weaponSource);
             }
         }
 
-        private void DamageObstacle(Vector3 point, float radius, float damage, Vector3 direction, bool directImpact)
+        private void DamageObstacle(Vector3 point, float radius, float damage, Vector3 direction, bool directImpact,
+            VoxelScorePopup.WeaponSource weaponSource)
         {
             if (crate != null) crate.TakeMissileBlast(point, radius, damage, direction, pieces, directImpact);
-            else if (drums != null) drums.TakeMissileBlast(transform, point, radius, damage, direction, pieces, directImpact);
+            else if (drums != null) drums.TakeMissileBlast(transform, point, radius, damage, direction, pieces, directImpact, weaponSource);
         }
     }
 }

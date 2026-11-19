@@ -223,6 +223,7 @@ namespace VoxelRacer
         {
             if (!OrdinaryEnemiesAllowed || obstacleCarTuning.enemyVehicleSpawns == null) return false;
             RefreshLaneOccupants();
+            if (!CanReserveEnemyLane()) return false;
             VoxelEnemyVehicleTuning selected = null;
             float selectedOffset = 0f;
             double totalWeight = 0;
@@ -339,7 +340,7 @@ namespace VoxelRacer
                     if (Mathf.Abs(turret.TrackDistance - distance) <= 12f)
                         return;
 
-                if (!TryFindCompletelyEmptyLane(out float laneOffset))
+                if (!TryFindStaticObstacleLane(distance, out float laneOffset))
                     return;
 
                 VoxelStaticObstacleDefinition definition = ChooseStaticObstacle();
@@ -391,6 +392,8 @@ namespace VoxelRacer
         private bool TryFindEmptyVehicleLane(out float laneOffset)
         {
             RefreshLaneOccupants();
+            laneOffset = 0f;
+            if (!CanReserveEnemyLane()) return false;
             var availableLanes = laneChoices; availableLanes.Clear();
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
@@ -399,14 +402,33 @@ namespace VoxelRacer
                     availableLanes.Add(candidateOffset);
             }
 
-            if (availableLanes.Count == 0)
-            {
-                laneOffset = 0f;
-                return false;
-            }
+            if (availableLanes.Count == 0) return false;
 
             laneOffset = availableLanes[Random.Range(0, availableLanes.Count)];
             return true;
+        }
+
+        private bool CanReserveEnemyLane()
+        {
+            if (laneCount < 2 || laneEnemies.Count == 0 || obstacleCarTuning == null) return true;
+            bool mixedTraffic = obstacleCarTuning.obstacleCarSpawnChance > 0f &&
+                obstacleCarTuning.enemyCarSpawnChance < 1f && obstacleCarTuning.HasCivilianVehicles;
+            bool hasStaticObstacles = false;
+            if (obstacleCarTuning.obstacleCarSpawnChance < 1f && staticObstacleSpawns != null)
+                foreach (var entry in staticObstacleSpawns)
+                    if (entry?.obstacle != null && entry.spawnWeight > 0f)
+                    {
+                        hasStaticObstacles = true;
+                        break;
+                    }
+            if (!mixedTraffic && !hasStaticObstacles) return true;
+
+            // An ordinary enemy reserves its whole lane. Leave a lane for civilian
+            // traffic and hazards on tracks that have either enabled.
+            int lanesWithoutEnemies = 0;
+            for (int lane = 0; lane < laneCount; lane++)
+                if (!HasEnemyInLane(GetLaneOffset(lane)) && ++lanesWithoutEnemies >= 2) return true;
+            return false;
         }
 
         private bool TryFindCivilianLane(bool travelsWithPlayer, float spawnDistance, out float laneOffset, out float matchingSpeed)
@@ -421,7 +443,8 @@ namespace VoxelRacer
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
                 float candidateOffset = GetLaneOffset(laneIndex);
-                if (HasEnemyInLane(candidateOffset) || HasStaticObstacleInLane(candidateOffset))
+                if (HasEnemyInLane(candidateOffset) ||
+                    HasStaticObstacleOnTrafficRoute(candidateOffset, spawnDistance, travelsWithPlayer, spawnHalfLength))
                     continue;
 
                 bool hasCivilian = false;
@@ -550,14 +573,15 @@ namespace VoxelRacer
             return true;
         }
 
-        private bool TryFindCompletelyEmptyLane(out float laneOffset)
+        private bool TryFindStaticObstacleLane(float distance, out float laneOffset)
         {
             RefreshLaneOccupants();
             var availableLanes = laneChoices; availableLanes.Clear();
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
                 float candidateOffset = GetLaneOffset(laneIndex);
-                if (!HasAnyVehicleInLane(candidateOffset) && !HasStaticObstacleInLane(candidateOffset))
+                if (!HasEnemyInLane(candidateOffset) && !HasStaticObstacleInLane(candidateOffset) &&
+                    !HasTrafficApproachingObstacle(candidateOffset, distance))
                     availableLanes.Add(candidateOffset);
             }
 
@@ -569,6 +593,19 @@ namespace VoxelRacer
 
             laneOffset = availableLanes[Random.Range(0, availableLanes.Count)];
             return true;
+        }
+
+        private bool HasTrafficApproachingObstacle(float offset, float distance)
+        {
+            const float largestObstacleHalfLength = 2.4f; // Fuel drum cluster.
+            foreach (var civilian in laneTraffic)
+            {
+                if (!IsInLane(civilian.LaneOffset, offset)) continue;
+                float distancePast = (civilian.TrackDistance - distance) * (civilian.TravelsWithPlayer ? 1f : -1f);
+                if (!civilian.IsDrivingTraffic ||
+                    distancePast <= civilian.TrafficHalfLength + largestObstacleHalfLength + VoxelObstacleCar.TrafficGap) return true;
+            }
+            return false;
         }
 
         private bool HasStaticObstacleInLane(float candidateOffset)
@@ -584,6 +621,24 @@ namespace VoxelRacer
             foreach (var drums in laneDrums)
                 if (IsInLane(drums.LaneOffset, candidateOffset))
                     return true;
+            return false;
+        }
+
+        private bool HasStaticObstacleOnTrafficRoute(float offset, float distance, bool forwards, float halfLength)
+        {
+            float direction = forwards ? 1f : -1f;
+            bool Blocks(float hazardOffset, float hazardDistance, float hazardHalfLength) =>
+                IsInLane(hazardOffset, offset) &&
+                (hazardDistance - distance) * direction >= -(halfLength + hazardHalfLength + VoxelObstacleCar.TrafficGap);
+
+            foreach (var crate in laneCrates)
+                if (crate.IsRoadHazard && Blocks(crate.LaneOffset, crate.TrackDistance, 1f)) return true;
+            foreach (var drums in laneDrums)
+                if (drums.IsRoadHazard && Blocks(drums.LaneOffset, drums.TrackDistance, 2.4f)) return true;
+            foreach (var pothole in lanePotholes)
+                if (Blocks(pothole.LaneOffset, pothole.TrackDistance, 1.6f)) return true;
+            foreach (var oil in laneOil)
+                if (Blocks(oil.LaneOffset, oil.TrackDistance, 1.85f)) return true;
             return false;
         }
 

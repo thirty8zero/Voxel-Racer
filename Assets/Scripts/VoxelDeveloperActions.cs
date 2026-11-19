@@ -47,7 +47,7 @@ namespace VoxelRacer
                 t => t.Fits(definition), t => t.upgradeLevel).FirstOrDefault(), definition);
             var previousBoost = VoxelBoostUpgradeState.InstalledTuning;
             VoxelBoostUpgradeState.GrantForDevelopment(Ranked<VoxelBoostUpgradeTuning>("Boost",
-                t => t.Fits(definition), t => t.bottleCount).FirstOrDefault(), definition);
+                t => t.Fits(definition), t => t.upgradeLevel).FirstOrDefault(), definition);
 
             VoxelGunUpgradeState.ApplyTo(car.transform);
             VoxelArmorUpgradeState.ApplyTo(car.transform, definition, preserveReplacementDamage: true);

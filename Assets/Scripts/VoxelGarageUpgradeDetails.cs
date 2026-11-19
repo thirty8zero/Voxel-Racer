@@ -95,8 +95,11 @@ namespace VoxelRacer
             {
                 var kind = inspectedUpgrade.UpgradeKind;
                 upgradeDetailsTitle.text = UpgradeDisplayName(kind);
-                upgradeDetailsEffect.text = UpgradeDescription(kind);
-                upgradeStats.text = UpgradeStats(kind);
+                string requiredPurchase = inspectedUpgrade.RequiredPurchase;
+                upgradeDetailsEffect.text = requiredPurchase != null
+                    ? $"Requires purchase of {requiredPurchase}."
+                    : UpgradeDescription(kind);
+                upgradeStats.text = requiredPurchase != null ? string.Empty : UpgradeStats(kind);
                 upgradeStatsFrame.gameObject.SetActive(!string.IsNullOrEmpty(upgradeStats.text));
                 upgradeDetailsIcon.kind = inspectedUpgrade.IconKind;
                 upgradeDetailsIcon.SetVerticesDirty();
@@ -105,6 +108,8 @@ namespace VoxelRacer
                 upgradeDetailsFrame.color = fill;
                 upgradeDetailsFrame.edgeColor = inspectedUpgrade.EdgeColor;
                 upgradeDetailsFrame.SetVerticesDirty();
+                upgradeStatsFrame.edgeColor = inspectedUpgrade.EdgeColor;
+                upgradeStatsFrame.SetVerticesDirty();
             }
             ApplyUpgradeDetailClearance();
             LayoutUpgradeDetailContents(upgradeDetails.rect.width);

@@ -32,6 +32,7 @@ namespace VoxelRacer.Editor
             {
                 track.scenerySet = set; set.groundCover = foliage;
                 foliage.horizonGroundCoverEnabled = true; foliage.horizonClumpsPerTile = 48;
+                foliage.horizonGapFillClumpsPerTile = 0;
                 var road = root.AddComponent<EndlessVoxelRoad>(); road.enabled = false;
                 road.trackDefinition = track; road.roadWidth = 16; road.groundWidth = 700;
                 road.horizonRoadDistance = 760; road.turnChancePerSegment = .6f;
@@ -45,14 +46,25 @@ namespace VoxelRacer.Editor
                 player.transform.SetParent(root.transform); player.enabled = false; player.SetTrack(road, 0); road.SetTarget(player.transform);
                 var rng = UnityEngine.Random.state;
                 scenery.Prepare(camera);
+                int originalCloseCount = scenery.CachedPropCount;
+                int originalCached = scenery.CachedHorizonClumpCount;
+                var batches = (Dictionary<Mesh, List<Matrix4x4>>)typeof(VoxelDistantScenery).GetField("horizonBatches", Private).GetValue(scenery);
+                var originalPlacements = new Dictionary<Mesh, HashSet<Matrix4x4>>();
+                foreach (var batch in batches) originalPlacements.Add(batch.Key, new HashSet<Matrix4x4>(batch.Value));
+                foliage.horizonGapFillClumpsPerTile = 8;
+                scenery.Prepare(camera);
+                foreach (var batch in originalPlacements)
+                    Check(batches.ContainsKey(batch.Key) && batch.Value.IsSubsetOf(new HashSet<Matrix4x4>(batches[batch.Key])),
+                        "Gap filling moved or removed existing clustered scenery.");
+                Check(scenery.CachedPropCount == originalCloseCount && scenery.CachedHorizonClumpCount > originalCached,
+                    "Gap filling changed close scenery or did not add distant cards.");
                 Check(rng.Equals(UnityEngine.Random.state), "Horizon scenery consumed gameplay RNG.");
                 int cached = scenery.CachedHorizonClumpCount, visible = scenery.VisibleHorizonClumpCount;
                 Check(cached > 1000 && cached < 60000 && visible > 100 && visible < cached, "Missing, unbounded or uncullable horizon cards.");
                 Check(scenery.VisibleHorizonBatchCount <= foliage.variants.Length, "Ground cover is not grouped by shared mesh/atlas.");
                 Check(root.GetComponentsInChildren<Collider>(true).Length <= 1 && root.GetComponentsInChildren<MeshFilter>(true).Length <= 1,
                     "Billboard extension created per-clump objects, meshes or colliders.");
-                var batches = (Dictionary<Mesh, List<Matrix4x4>>)typeof(VoxelDistantScenery).GetField("horizonBatches", Private).GetValue(scenery);
-                int farVisible = 0;
+                int farVisible = 0, wideVisible = 0;
                 foreach (var batch in batches.Values) foreach (var matrix in batch)
                 {
                     Vector3 position = matrix.GetColumn(3);
@@ -61,8 +73,14 @@ namespace VoxelRacer.Editor
                     for (float distance = -800; distance < 850; distance += 4)
                     { var delta = road.Evaluate(distance).position - position; delta.y = 0; closest = Mathf.Min(closest, delta.sqrMagnitude); }
                     Check(closest > Mathf.Pow(road.roadWidth * .5f + foliage.roadClearance, 2), "Horizon grass overlaps the curved road.");
+                    if (closest > 176f * 176f) wideVisible++;
                 }
                 Check(farVisible > 100, "No grass/bush cards extend beyond the old 320m scenery limit.");
+                Check(wideVisible > 50, "Sparse ground beyond the main scenery strip is still bare.");
+                foliage.horizonGapFillClumpsPerTile = 0; scenery.Prepare(camera);
+                Check(scenery.CachedHorizonClumpCount == originalCached && scenery.CachedPropCount == originalCloseCount,
+                    "Disabling gap filling did not restore the original coverage.");
+                foliage.horizonGapFillClumpsPerTile = 8; scenery.Prepare(camera);
                 int closeCount = scenery.CachedPropCount;
                 foliage.horizonGroundCoverEnabled = false; scenery.Prepare(camera);
                 Check(scenery.CachedHorizonClumpCount == 0 && scenery.CachedPropCount == closeCount, "Horizon toggle changed existing scenery.");
@@ -89,7 +107,7 @@ namespace VoxelRacer.Editor
                 var surface = Resources.Load<Material>("Scenery/RoadHorizonSurface");
                 Check(surface != null && !ShaderUtil.ShaderHasError(surface.shader), "Missing build-referenced road fade shader.");
                 Directory.CreateDirectory("Temp/RoadHorizonScenery");
-                string report = $"PASS: {cached} cached four-triangle grass/bush cards, {visible} visible, {farVisible} beyond 320m; shared atlas/mesh instancing; curved-road clearance; no added meshes or physics; unchanged nearby scenery; deterministic toggle/rebuild and isolated RNG; zero warmed refresh allocations; bounded streaming across 768m; disable cleanup; foliage/road-fade shaders compile. Source assets restored. Phone GPU timing is not measured.";
+                string report = $"PASS: {cached} cached four-triangle grass/bush cards (original {originalCached}), {visible} visible, {farVisible} beyond 320m, {wideVisible} beyond the main scenery strip; sparse gap filling preserves original clustered placements and close scenery; zero-fill restores original coverage; shared atlas/mesh instancing; curved-road clearance; no added meshes or physics; deterministic toggle/rebuild and isolated RNG; zero warmed refresh allocations; bounded streaming across 768m; disable cleanup; foliage/road-fade shaders compile. Source assets restored. Phone GPU timing is not measured.";
                 File.WriteAllText("Temp/RoadHorizonScenery/Validation.txt", report); Debug.Log(report);
             }
             finally

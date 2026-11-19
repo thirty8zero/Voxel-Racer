@@ -28,7 +28,8 @@ namespace VoxelRacer
         public static void BeginNewRun() { purchased = false; installedTuning = null; }
 
         public static bool CanPurchase(VoxelWheelSpikeTuning tuning) =>
-            tuning != null && tuning.spikePrefab != null && !IsEquipped(tuning);
+            tuning != null && tuning.spikePrefab != null &&
+            (InstalledTuning?.upgradeLevel ?? 0) == tuning.upgradeLevel - 1;
 
         public static bool TryPurchase(VoxelWheelSpikeTuning tuning)
         {

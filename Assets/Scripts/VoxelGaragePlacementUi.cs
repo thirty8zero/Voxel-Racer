@@ -431,6 +431,7 @@ namespace VoxelRacer
 
         private void OnDisable()
         {
+            CloseGarageLevelPreview();
             HideGarageSettings();
             DiscardUpgradePlacement(false);
         }

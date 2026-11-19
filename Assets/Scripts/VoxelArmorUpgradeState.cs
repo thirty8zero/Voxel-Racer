@@ -41,9 +41,11 @@ namespace VoxelRacer
         public static bool CanPurchase(VoxelArmorTuning tuning, VoxelCarDefinition car,
             VoxelArmorSide side)
         {
-            var installed = InstalledTuning(side);
-            return tuning != null && tuning.panelPrefab != null && tuning.Fits(car) &&
-                (installed == null || tuning.upgradeLevel > installed.upgradeLevel);
+            if (tuning == null || tuning.panelPrefab == null || !tuning.Fits(car)) return false;
+            int previousLevel = tuning.upgradeLevel - 1;
+            if ((InstalledTuning(side)?.upgradeLevel ?? 0) != previousLevel) return false;
+            var otherSide = side == VoxelArmorSide.Left ? VoxelArmorSide.Right : VoxelArmorSide.Left;
+            return previousLevel == 0 || InstalledTuning(otherSide)?.upgradeLevel >= previousLevel;
         }
 
         public static VoxelArmorTuning InstalledTuning(VoxelArmorSide side) => !IsPurchasedFor(side) ? null :
@@ -100,8 +102,9 @@ namespace VoxelRacer
 
         internal static void GrantForDevelopment(VoxelArmorTuning tuning, VoxelCarDefinition car)
         {
-            if (CanPurchase(tuning, car, VoxelArmorSide.Right)) SetInstalled(tuning, VoxelArmorSide.Right);
-            if (CanPurchase(tuning, car, VoxelArmorSide.Left)) SetInstalled(tuning, VoxelArmorSide.Left);
+            if (tuning == null || tuning.panelPrefab == null || !tuning.Fits(car)) return;
+            if (!IsEquipped(tuning, VoxelArmorSide.Right)) SetInstalled(tuning, VoxelArmorSide.Right);
+            if (!IsEquipped(tuning, VoxelArmorSide.Left)) SetInstalled(tuning, VoxelArmorSide.Left);
         }
 
         /// <summary>Also used by the fit preview; creates both panels without changing purchases or currency.</summary>

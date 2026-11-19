@@ -64,15 +64,15 @@ namespace VoxelRacer
             destructionFocusBoss = null;
 
             target = car.transform;
-            StartFinishOrbit();
+            var camera = GetComponent<Camera>();
+            StartFinishOrbit(transform.position, transform.rotation, camera != null ? camera.fieldOfView : finishFieldOfView);
         }
 
-        private void StartFinishOrbit()
+        private void StartFinishOrbit(Vector3 position, Quaternion rotation, float fieldOfView)
         {
-            finishStartOffset = transform.position - target.position;
-            finishStartRotation = transform.rotation;
-            Camera camera = GetComponent<Camera>();
-            finishStartFieldOfView = camera != null ? camera.fieldOfView : finishFieldOfView;
+            finishStartOffset = position - target.position;
+            finishStartRotation = rotation;
+            finishStartFieldOfView = fieldOfView;
             finishSequenceStartedAt = Time.time;
             finishSequenceActive = true;
             FinishSequenceComplete = false;
@@ -113,6 +113,9 @@ namespace VoxelRacer
                 lastRoadHeading = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
                 if (carrierRecovery?.HasCamera == true)
                 {
+                    // Compose the outgoing shot after the car has moved this frame.
+                    if (!carrierRecovery.HasCapturedCamera)
+                        UpdateFinishSequence();
                     carrierRecovery.ApplyCamera(transform);
                     return;
                 }

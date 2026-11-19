@@ -12,37 +12,32 @@ namespace VoxelRacer
     {
         private const float RacePanelInset = 20f;
         private const float InnerWidth = 838f, CardHeight = 232f, CardGap = 20f, BannerHeight = 45f;
+        private const float ContinueWidth = InnerWidth * .5f;
         private const float ViewportHeight = 2 * CardHeight + CardGap;
         public static VoxelMissionBriefing Active { get; private set; }
         public static bool IsShowing => Active != null && Active.shown;
         private static VoxelTrackDefinition stationaryRetryTrack;
-        private static Action returnToOrigin;
         private static readonly Color Ice = new(.69f, .84f, .96f), Silver = new(.47f, .56f, .65f);
         private RectTransform canvas, content, cards;
         private RawImage background;
         private Text title, objective, bossObjective;
-        private Button startButton;
+        private Button startButton, backButton;
+        private VoxelBriefingWeatherIcon weather;
+        private RectTransform weatherPanel;
         private ScrollRect enemyScroll;
         private VoxelMissionBriefingSettings settings;
         private List<VoxelMissionBriefingEnemy> enemies;
         private readonly List<(RawImage image, VoxelMissionBriefingPreview preview)> animatedPreviews = new();
         private float previewsStartedAt;
         private Action launch, back;
-        private bool shown, alongsideRace;
+        private bool shown, alongsideRace, previewOnly;
         private int openedFrame;
         public VoxelTrackDefinition Track { get; private set; }
         public int EnemyCount => enemies?.Count ?? 0;
         public bool IsPresenting => shown;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { Active = null; stationaryRetryTrack = null; returnToOrigin = null; }
-        internal static void SetRaceBackAction(Action action) => returnToOrigin = action;
-        internal static Action TakeRaceBackAction()
-        {
-            var action = returnToOrigin;
-            returnToOrigin = null;
-            return action;
-        }
+        private static void ResetStatics() { Active = null; stationaryRetryTrack = null; }
         public static void UseStationaryOpeningOnRetry(VoxelTrackDefinition track) => stationaryRetryTrack = track;
         public static bool ConsumeStationaryRetry(VoxelTrackDefinition track)
         {
@@ -51,14 +46,15 @@ namespace VoxelRacer
             return approved;
         }
         public static VoxelMissionBriefing Present(Transform owner, VoxelTrackDefinition track, Action onStart,
-            Action onBack = null, bool alongsideRace = false)
+            Action onBack = null, bool alongsideRace = false, bool previewOnly = false)
         {
             if (IsShowing) return Active;
             var view = owner.GetComponent<VoxelMissionBriefing>() ?? owner.gameObject.AddComponent<VoxelMissionBriefing>();
-            view.Show(track, onStart, onBack, alongsideRace);
+            view.Show(track, onStart, onBack, alongsideRace, previewOnly);
             return view;
         }
-        public void Show(VoxelTrackDefinition track, Action onStart, Action onBack = null, bool alongsideRace = false)
+        public void Show(VoxelTrackDefinition track, Action onStart, Action onBack = null, bool alongsideRace = false,
+            bool previewOnly = false)
         {
             if (Active != null && Active != this) Active.Close();
             Close();
@@ -68,9 +64,14 @@ namespace VoxelRacer
                 canvas = null;
             }
             this.alongsideRace = alongsideRace;
+            this.previewOnly = previewOnly;
             Track = track; launch = onStart; back = onBack; settings = VoxelMissionBriefingSettings.Load();
             enemies = VoxelMissionBriefingContent.Enemies(track);
             if (canvas == null) Build();
+            backButton.gameObject.SetActive(previewOnly);
+            startButton.gameObject.SetActive(!previewOnly);
+            weather.SetNight(track != null && track.nightTime);
+            SetRect(weatherPanel, 788, 925, 102, 102);
             bool boss = track != null && track.boss != null;
             title.text = VoxelTrackDefinition.ResolveDisplayName(track).ToUpperInvariant();
             SetRect(title.rectTransform, 52, 109, boss ? InnerWidth : 590, 78);
@@ -89,20 +90,22 @@ namespace VoxelRacer
         }
         public void Accept()
         {
-            if (!shown || VoxelLoadingScreen.IsLoading) return;
+            if (!shown || previewOnly || VoxelLoadingScreen.IsLoading) return;
             var callback = launch; Close(); callback?.Invoke();
         }
         public void GoBack()
         {
-            if (!shown || VoxelLoadingScreen.IsLoading) return;
-            var callback = back; Close(); callback?.Invoke();
+            if (!shown || !previewOnly || VoxelLoadingScreen.IsLoading) return;
+            Close();
         }
         public void Close()
         {
+            var onPreviewClosed = shown && previewOnly ? back : null;
             shown = false; launch = back = null;
             if (Active == this) Active = null;
             if (canvas != null) canvas.gameObject.SetActive(false);
             VoxelMobileControls.ClearHeldInput();
+            onPreviewClosed?.Invoke();
         }
         private void Update()
         {
@@ -114,7 +117,7 @@ namespace VoxelRacer
             if (keyboard == null) return;
             if (keyboard.escapeKey.wasPressedThisFrame) GoBack();
             else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame) Accept();
-            else VoxelEditorNavigation.Activate(startButton);
+            else if (!previewOnly) VoxelEditorNavigation.Activate(startButton);
         }
         private void Layout()
         {
@@ -168,11 +171,19 @@ namespace VoxelRacer
             rule.edgeColor = new Color(.25f, .34f, .40f);
             Label(content, "Enemies Heading", "ENEMIES YOU MAY ENCOUNTER", 37, 52, 246, InnerWidth, 50);
             BuildEnemyScroll();
-            Button(content, "Back", "BACK", 52, 925, 243, 102, false, GoBack, 45);
-            startButton = Button(content, "Start Mission", "START MISSION", 315, 925, 575, 102, true, Accept, 60);
+            backButton = Button(content, "Back", "BACK", 52, 925, 243, 102, false, GoBack, 45);
+            startButton = Button(content, "Start Mission", "CONTINUE", 52, 925, ContinueWidth, 102, true, Accept, 60);
+            SetRect(startButton.GetComponentInChildren<Text>().rectTransform, 12, 0, ContinueWidth - 76, 102);
+            weatherPanel = Panel(content, "Weather Panel", 788, 925, 102, 102, new Color(.025f, .04f, .075f)).rectTransform;
+            var weatherObject = new GameObject("Weather Icon", typeof(RectTransform), typeof(VoxelBriefingWeatherIcon));
+            weatherObject.transform.SetParent(weatherPanel, false);
+            weather = weatherObject.GetComponent<VoxelBriefingWeatherIcon>();
+            SetRect(weather.rectTransform, 11, 11, 80, 80);
+            weather.color = Color.white;
+            weather.raycastTarget = false;
             var arrow = new GameObject("Start Chevron", typeof(RectTransform)).GetComponent<RectTransform>();
             arrow.SetParent(startButton.transform, false);
-            SetRect(arrow, 478, 51, 0, 0);
+            SetRect(arrow, ContinueWidth - 45, 51, 0, 0);
             for (int side = -1; side <= 1; side += 2)
             {
                 var stroke = new GameObject("Chevron Stroke", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
@@ -255,12 +266,14 @@ namespace VoxelRacer
                 return;
             }
 
-            var inset = Panel(card.transform, "Portrait Clip", 2, 2, width - 4, CardHeight - 4, Color.white);
+            const float portraitInset = 11f;
+            var inset = Panel(card.transform, "Portrait Clip", portraitInset, portraitInset,
+                width - 2 * portraitInset, CardHeight - 2 * portraitInset, Color.white);
             inset.gameObject.AddComponent<Mask>().showMaskGraphic = false;
-            float portraitHeight = CardHeight - BannerHeight - 2;
+            float portraitHeight = CardHeight - BannerHeight - portraitInset;
             var frame = new GameObject("Model Frame", typeof(RectTransform)).GetComponent<RectTransform>();
             frame.SetParent(inset.transform, false);
-            SetRect(frame, 0, 0, width - 4, portraitHeight);
+            SetRect(frame, 0, 0, width - 2 * portraitInset, portraitHeight);
             var backdrop = Stretch("Portrait Backdrop", frame).gameObject.AddComponent<Image>();
             backdrop.color = new Color32(44, 46, 52, 255);
             backdrop.raycastTarget = false;
@@ -292,9 +305,9 @@ namespace VoxelRacer
                 fit.aspectRatio = preview.AspectRatio;
             }
             else
-                Label(frame, "Missing Preview", "MODEL PREVIEW", 25, 0, 0, width - 4, portraitHeight, TextAnchor.MiddleCenter).color = Silver;
+                Label(frame, "Missing Preview", "MODEL PREVIEW", 25, 0, 0, width - 2 * portraitInset, portraitHeight, TextAnchor.MiddleCenter).color = Silver;
             Label(card.transform, "Enemy Name", enemy.Name.ToUpperInvariant(), 32, 15,
-                CardHeight - BannerHeight, width - 30, BannerHeight);
+                CardHeight - BannerHeight, width - 30, BannerHeight - portraitInset, TextAnchor.MiddleCenter);
         }
         private void AnimatePreviews(float elapsed)
         {
@@ -303,7 +316,11 @@ namespace VoxelRacer
         private static VoxelGaragePanel Panel(Transform parent, string name, float x, float y, float w, float h, Color color)
         {
             var rect = new GameObject(name, typeof(RectTransform), typeof(VoxelGaragePanel)).GetComponent<RectTransform>(); rect.SetParent(parent, false); SetRect(rect, x, y, w, h);
-            var graphic = rect.GetComponent<VoxelGaragePanel>(); graphic.color = color; graphic.edgeColor = Silver; graphic.raycastTarget = false; return graphic;
+            var graphic = rect.GetComponent<VoxelGaragePanel>();
+            graphic.color = color; graphic.edgeColor = Silver; graphic.raycastTarget = false;
+            graphic.useRarityFrame = h > 8f && name != "Portrait Clip";
+            graphic.borderWidth = graphic.useRarityFrame ? 6f : 0f;
+            return graphic;
         }
         private static void Accent(Transform parent, float x, float y)
         {

@@ -89,7 +89,8 @@ namespace VoxelRacer
             return result;
         }
 
-        public float TakeDamage(float damage, Vector3 point, Vector3 direction, bool awardPoints = true)
+        public float TakeDamage(float damage, Vector3 point, Vector3 direction, bool awardPoints = true,
+            VoxelScorePopup.WeaponSource weaponSource = VoxelScorePopup.WeaponSource.DefaultGun)
         {
             if (!IsAlive || damage <= 0 || Rig.Owner == null || !Rig.Owner.IsDrivingEnemy) return 0;
             float applied = Mathf.Min(CurrentHealth, damage);
@@ -100,19 +101,21 @@ namespace VoxelRacer
             {
                 VoxelMissionProgress.ReportEnemyVoxelDamage();
                 VoxelScorePopup.Show(HealthBar.transform.position, VoxelMissionProgress.GetEnemyVoxelDamagePoints(),
-                    VoxelScorePopup.Style.WeaponDamage, healthBar: HealthBar);
+                    VoxelScorePopup.Style.WeaponDamage, healthBar: HealthBar, weaponSource: weaponSource);
             }
             if (CurrentHealth <= 0) DestroyHopper(direction, awardPoints);
             return applied;
         }
 
-        internal void TakeMissileBlast(Vector3 point, float radius, float damage, Vector3 direction, bool direct)
+        internal void TakeMissileBlast(Vector3 point, float radius, float damage, Vector3 direction, bool direct,
+            VoxelScorePopup.WeaponSource weaponSource = VoxelScorePopup.WeaponSource.OtherWeapon)
         {
             if (!IsAlive || damage <= 0) return;
             float scaledRadius = radius * Mathf.Max(0, Rig.Owner.BossDefinition.missileBlastRadiusMultiplier);
             var nearest = transform.TransformPoint(LocalBounds.ClosestPoint(transform.InverseTransformPoint(point)));
             if (!direct && (nearest - point).sqrMagnitude > scaledRadius * scaledRadius) return;
-            TakeDamage(damage * Mathf.Max(0, Rig.Owner.BossDefinition.missileHealthDamageMultiplier), point, direction);
+            TakeDamage(damage * Mathf.Max(0, Rig.Owner.BossDefinition.missileHealthDamageMultiplier), point, direction,
+                weaponSource: weaponSource);
         }
 
         private void DestroyHopper(Vector3 direction, bool awardPoints)

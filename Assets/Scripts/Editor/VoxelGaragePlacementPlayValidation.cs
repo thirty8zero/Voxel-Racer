@@ -406,17 +406,17 @@ namespace VoxelRacer.Editor
                         Button("Upgrade Menu Button").onClick.Invoke();
                         UseUpgradeAction("Left Door Armor Purchase Button");
                         Call("SelectUpgradePlacement", 1); Call("SelectUpgradePlacement", 0);
-                        UseUpgradeAction("Plough Purchase Button");
+                        UseUpgradeAction("Bull Bar Purchase Button");
                         point = PendingSpot(VoxelGarageUpgradeKind.Armour, 1); MouseEvent(true, point); break;
                     case 11: MouseEvent(false, point); break;
                     case 12:
                         Check(Preview().PendingCount(VoxelGarageUpgradeKind.Armour) == 1 && Preview().IsPending(VoxelGarageUpgradeKind.Armour, 0) &&
-                            !Preview().IsPending(VoxelGarageUpgradeKind.Armour, 1) && Preview().PendingCount(VoxelGarageUpgradeKind.Plough) == 1,
+                            !Preview().IsPending(VoxelGarageUpgradeKind.Armour, 1) && Preview().PendingCount(VoxelGarageUpgradeKind.BullBar) == 1,
                             "Mouse tap on a fitted model removed the wrong type/side or failed across tabs");
                         UseUpgradeAction("Left Door Armor Purchase Button");
-                        Check(Preview().PendingCount(VoxelGarageUpgradeKind.Armour) == 0 && Preview().PendingCount(VoxelGarageUpgradeKind.Plough) == 1,
+                        Check(Preview().PendingCount(VoxelGarageUpgradeKind.Armour) == 0 && Preview().PendingCount(VoxelGarageUpgradeKind.BullBar) == 1,
                             "The armour detail action did not remove its remaining pending side");
-                        UseUpgradeAction("Plough Purchase Button");
+                        UseUpgradeAction("Bull Bar Purchase Button");
                         Check(Preview() == null && !shop.transform.Find("Repair Upgrade UI/Upgrade Purchase Confirmation").gameObject.activeSelf,
                             "Removing the last pending upgrade did not hide confirmation");
                         UseUpgradeAction("Left Missile Purchase Button"); Call("SelectUpgradePlacement", 1);
@@ -454,12 +454,12 @@ namespace VoxelRacer.Editor
                             !gun.TryBeginShot(out _) && gun.CooldownProgress == 1f).All(value => value),
                             "Installed miniguns did not spin with the paused clock, or garage firing was enabled.");
                         Time.timeScale = savedTimeScale;
-                        UseUpgradeAction("Plough Purchase Button");
+                        UseUpgradeAction("Bull Bar Purchase Button");
                         shop.NextRaceButton.onClick.Invoke();
                         var warning=shop.transform.Find("Repair Upgrade UI/Unfitted Parts Warning");
-                        Check(warning.gameObject.activeSelf && Preview().PendingCount(VoxelGarageUpgradeKind.Plough)==1,"Starting with pending parts did not warn");
+                        Check(warning.gameObject.activeSelf && Preview().PendingCount(VoxelGarageUpgradeKind.BullBar)==1,"Starting with pending parts did not warn");
                         warning.GetComponentsInChildren<Button>().First(b=>b.name=="Go Back to Upgrades").onClick.Invoke();
-                        Check(!warning.gameObject.activeSelf && Preview().PendingCount(VoxelGarageUpgradeKind.Plough)==1,"Go Back removed the pending preview");
+                        Check(!warning.gameObject.activeSelf && Preview().PendingCount(VoxelGarageUpgradeKind.BullBar)==1,"Go Back removed the pending preview");
                         missionIndex=VoxelTrackProgressState.NextTrackIndex; departureBalance=VoxelCurrencyState.Balance;
                         missionScene=VoxelTrackProgressState.NextTrack!=null?VoxelTrackProgressState.NextTrack.raceSceneName:shop.raceSceneName;
                         if(string.IsNullOrWhiteSpace(missionScene))missionScene=shop.raceSceneName;

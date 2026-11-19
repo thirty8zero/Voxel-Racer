@@ -47,6 +47,7 @@ namespace VoxelRacer
         private Vector3 appliedCameraLookAt;
         private float appliedCameraFieldOfView;
         private bool isLoading;
+        private int displayedCurrencyBalance = int.MinValue;
         private VoxelGunMount[] workshopGuns = System.Array.Empty<VoxelGunMount>();
         private readonly bool[] gunsFittedThisVisit = new bool[VoxelGunUpgradeState.SlotCount];
 
@@ -69,6 +70,7 @@ namespace VoxelRacer
         private void Update()
         {
             if (VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing) return;
+            if (displayedCurrencyBalance != VoxelCurrencyState.Balance) RefreshUi();
             if (!isLoading && !GarageSettingsVisible &&
                 VoxelEditorNavigation.Activate(MissionStartWarningVisible ? startWithoutPartsButton : NextRaceButton)) return;
             LayoutGarageDock();
@@ -322,6 +324,7 @@ namespace VoxelRacer
             Button button = VoxelMenuUi.CreateButton(canvas, name, string.Empty, 60,
                 new Vector2(1f, 0.5f), new Vector2(-230f, verticalPosition),
                 new Vector2(320f, 145f), action);
+            button.gameObject.AddComponent<CanvasGroup>();
             return button.GetComponentInChildren<Text>();
         }
 
@@ -418,6 +421,7 @@ namespace VoxelRacer
 
         private void RefreshUi()
         {
+            displayedCurrencyBalance = VoxelCurrencyState.Balance;
             if (currencyText != null)
                 currencyText.text = "$ " + VoxelCurrencyState.Balance.ToString("N0");
 
@@ -428,10 +432,10 @@ namespace VoxelRacer
             bool canRepair25 = missingPercent >= 25f - 0.001f;
             bool canRepair50 = missingPercent >= 50f - 0.001f;
             bool canRepairFull = missingPercent > 0.001f;
-            SetRepairButtonAvailability(repair10ButtonLabel, canRepair10);
-            SetRepairButtonAvailability(repair25ButtonLabel, canRepair25);
-            SetRepairButtonAvailability(repair50ButtonLabel, canRepair50);
-            SetRepairButtonAvailability(fullRepairButtonLabel, canRepairFull);
+            SetRepairButtonAvailability(repair10ButtonLabel, canRepair10 && VoxelCurrencyState.Balance >= GetRepairCost(10f));
+            SetRepairButtonAvailability(repair25ButtonLabel, canRepair25 && VoxelCurrencyState.Balance >= GetRepairCost(25f));
+            SetRepairButtonAvailability(repair50ButtonLabel, canRepair50 && VoxelCurrencyState.Balance >= GetRepairCost(50f));
+            SetRepairButtonAvailability(fullRepairButtonLabel, canRepairFull && VoxelCurrencyState.Balance >= GetRepairCost(100f));
 
             if (repair10ButtonLabel != null)
                 repair10ButtonLabel.text = RepairLabel("REPAIR 10%", GetRepairCost(10f), canRepair10);
@@ -588,11 +592,14 @@ namespace VoxelRacer
             if (label == null)
                 return;
 
-            Button button = label.GetComponentInParent<Button>();
+            Button button = label.GetComponentInParent<Button>(true);
             if (button == null)
                 return;
 
             button.interactable = available;
+            // Dim the complete option, including its custom frame, glow and rich-text price.
+            var group = button.GetComponent<CanvasGroup>();
+            if (group != null) group.alpha = available ? 1f : .4f;
             Image image = button.GetComponent<Image>();
             if (image != null)
                 image.color = available
@@ -619,7 +626,6 @@ namespace VoxelRacer
             if (!Application.isPlaying || isLoading || VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing || DisplayedCar == null) return;
             CancelUpgradePlacement();
 
-            int previousTrack = VoxelTrackProgressState.CurrentTrackIndex;
             VoxelTrackDefinition nextTrack = VoxelTrackProgressState.NextTrack;
             string sceneName = nextTrack != null && !string.IsNullOrWhiteSpace(nextTrack.raceSceneName)
                 ? nextTrack.raceSceneName
@@ -633,13 +639,6 @@ namespace VoxelRacer
 
             VoxelCarRunState.Capture(DisplayedCar, definition);
             VoxelTrackProgressState.AdvanceToNextTrack();
-            int garageIndex = gameObject.scene.buildIndex;
-            if (garageIndex >= 0)
-                VoxelMissionBriefing.SetRaceBackAction(() =>
-                {
-                    VoxelTrackProgressState.RestoreTrackIndex(previousTrack);
-                    VoxelLoadingScreen.LoadScene(garageIndex);
-                });
             isLoading = true;
             VoxelLoadingScreen.LoadScene(buildIndex);
         }

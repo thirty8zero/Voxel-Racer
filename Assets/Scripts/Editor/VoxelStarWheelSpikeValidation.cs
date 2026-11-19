@@ -110,7 +110,8 @@ namespace VoxelRacer.Editor
                 Check(!VoxelWheelSpikeUpgradeState.IsPurchased && VoxelWheelSpikeUpgradeState.InstalledTuning==null && next.GetComponentsInChildren<VoxelWheelSpikeMount>().Length==0,
                     "Reset retained star spikes");
                 VoxelCurrencyState.Add(star.purchasePrice);
-                Check(VoxelWheelSpikeUpgradeState.TryPurchase(star),"Direct star purchase requires basic spikes");
+                Check(!VoxelWheelSpikeUpgradeState.TryPurchase(star) && VoxelCurrencyState.Balance == star.purchasePrice,
+                    "Star spikes bypassed their prerequisite after a reset");
                 File.WriteAllText("Temp/StarWheelSpikes/Validation.txt","PASS: separate tuning and six-tip geometry; shop/card preview/cancel/confirmation; basic-to-star replacement, duplicate/downgrade/affordability; exclusive bonus and unchanged rear damage; preserved body damage/integrity; next-mission ownership; both performance-wheel install orders; automatic all/left/right fit choices; isolated/combined/body-hidden/upgrades-only renders from both sides; new-run reset. Temporary state restored.");
                 Debug.Log(File.ReadAllText("Temp/StarWheelSpikes/Validation.txt"));
             }

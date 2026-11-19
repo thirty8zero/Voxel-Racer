@@ -50,6 +50,19 @@ namespace VoxelRacer.Editor
                     int callbacks = 0;
                     view.Show(track, () => callbacks++);
                     Check(VoxelMissionBriefing.IsShowing && view.EnemyCount == enemies.Count, "Briefing did not open.");
+                    var weather = view.GetComponentInChildren<VoxelBriefingWeatherIcon>();
+                    Check(weather != null && weather.Night == track.nightTime && !weather.raycastTarget,
+                        "Weather icon must follow the authored day/night setting without blocking input.");
+                    var continueRect = view.GetComponentsInChildren<Button>().Single(b => b.name == "Start Mission").GetComponent<RectTransform>();
+                    Check(continueRect.sizeDelta.x == 419f && continueRect.anchoredPosition == new Vector2(52, -925) &&
+                        ((RectTransform)weather.transform.parent).anchoredPosition == new Vector2(788, -925),
+                        "Continue must occupy the left half of the panel with weather in its usual bottom-right position.");
+                    Check(view.GetComponentsInChildren<VoxelGaragePanel>().Where(p => p.name != "Portrait Clip" && p.name != "Header Divider")
+                        .All(p => p.useRarityFrame && p.borderWidth == 6f && p.edgeColor == new Color(.47f, .56f, .65f)),
+                        "Visible briefing frames must share the thicker silver bevel and pinstripe.");
+                    Check(view.GetComponentsInChildren<Button>().All(button => button.name != "Back") &&
+                        view.GetComponentsInChildren<Button>().Single(button => button.name == "Start Mission")
+                            .GetComponentInChildren<Text>().text == "CONTINUE", "Mission briefing must only offer Continue.");
                     Check(view.GetComponentsInChildren<Text>().Single(t => t.name == "Mission Name").text ==
                         VoxelTrackDefinition.ResolveDisplayName(track).ToUpperInvariant(), "Briefing must retain the authored mission name: " + track.name);
                     Check(view.GetComponentsInChildren<Text>().All(t => t.name != "Threat"), "Enemy cards must only show their names.");
@@ -75,7 +88,16 @@ namespace VoxelRacer.Editor
                     var background = root.transform.Find("Mission Briefing Canvas/Background Image").GetComponent<RawImage>();
                     Check(background.texture == settings.BackgroundFor(track) && !background.raycastTarget, "Background is not a separate replaceable image.");
                     Capture(root, view, scene, track.name, 1920, 1080);
-                    view.GoBack(); Check(callbacks == 0 && !VoxelMissionBriefing.IsShowing, "Back launched or retained overlay.");
+                    view.GoBack(); Check(callbacks == 0 && VoxelMissionBriefing.IsShowing, "Mission briefing allowed Back dismissal.");
+                    view.Close();
+                    int closed = 0;
+                    view.Show(track, () => callbacks++, () => closed++, alongsideRace: true, previewOnly: true);
+                    Check(view.GetComponentsInChildren<Button>().Count() == 1 &&
+                        view.GetComponentsInChildren<Button>().Single().name == "Back", "Garage preview must only offer Back.");
+                    Capture(root, view, scene, track.name + "-GaragePreview", 1920, 1080);
+                    view.Accept(); Check(callbacks == 0 && VoxelMissionBriefing.IsShowing, "Preview allowed Continue.");
+                    view.GoBack(); view.GoBack();
+                    Check(closed == 1 && callbacks == 0 && !VoxelMissionBriefing.IsShowing, "Preview Back must close once without launching.");
                     view.Show(track, () => callbacks++); view.Accept(); view.Accept();
                     Check(callbacks == 1 && !VoxelMissionBriefing.IsShowing, "Start must invoke the launch exactly once.");
                 }
@@ -101,7 +123,7 @@ namespace VoxelRacer.Editor
                 Check(tracks.All(t => EditorJsonUtility.ToJson(t) == snapshots[t]) && EditorJsonUtility.ToJson(settings) == settingsBefore,
                     "Preview validation changed authored tracks or settings.");
                 Check(Time.timeScale == clock && AudioListener.pause == audio, "Briefing changed clocks or audio.");
-                string report = "PASS (Edit Mode): all " + tracks.Length + " levels, anonymous boss card, header score order, name-only enemy cards, four-card viewport, fifth-card wheel/drag scrolling, illustrated radar layer and full-speed loop, background selection and override, empty pools, one-shot Start and Back, full-screen and carrier layouts at 16:9/20:9/4:3/portrait. Source assets, wallet, damage, campaign, clocks/audio/RNG preserved. Renders: Temp/MissionBriefing/.";
+                string report = "PASS (Edit Mode): all " + tracks.Length + " levels, thick silver beveled frames, authored day/night outline weather icons with clear footer placement, anonymous boss card, header score order, name-only enemy cards, four-card viewport, fifth-card wheel/drag scrolling, illustrated radar layer and full-speed loop, background selection and override, empty pools, mission Continue-only and garage preview Back-only modes with guarded actions and one-shot callbacks, full-screen and carrier layouts at 16:9/20:9/4:3/portrait. Source assets, wallet, damage, campaign, clocks/audio/RNG preserved. Renders: Temp/MissionBriefing/.";
                 File.WriteAllText("Temp/MissionBriefing/Validation.txt", report); Debug.Log(report);
             }
             catch (Exception error) { File.WriteAllText("Temp/MissionBriefing/Validation.txt", "FAIL: " + error); throw; }
@@ -248,6 +270,17 @@ namespace VoxelRacer.Editor
                 foreach (var image in view.GetComponentsInChildren<RawImage>().Where(i => i.name == "Three Quarter Model"))
                     Check(image.texture != null && Mathf.Abs(image.rectTransform.rect.width / image.rectTransform.rect.height - image.GetComponent<AspectRatioFitter>().aspectRatio) < .005f,
                         "Enemy preview missing or stretched.");
+                var weather = view.GetComponentInChildren<VoxelBriefingWeatherIcon>();
+                var weatherBounds = new Bounds(weather.transform.parent.position, Vector3.zero);
+                var weatherCorners = new Vector3[4]; ((RectTransform)weather.transform.parent).GetWorldCorners(weatherCorners);
+                foreach (var corner in weatherCorners) weatherBounds.Encapsulate(corner);
+                foreach (var button in view.GetComponentsInChildren<Button>())
+                {
+                    var corners = new Vector3[4]; ((RectTransform)button.transform).GetWorldCorners(corners);
+                    var bounds = new Bounds(corners[0], Vector3.zero);
+                    foreach (var corner in corners) bounds.Encapsulate(corner);
+                    Check(!weatherBounds.Intersects(bounds), "Weather icon overlaps a briefing button.");
+                }
                 RenderTexture.active = rt;
                 var imageTexture = new Texture2D(width, height, TextureFormat.RGB24, false);
                 try { imageTexture.ReadPixels(new Rect(0, 0, width, height), 0, 0); imageTexture.Apply(); File.WriteAllBytes("Temp/MissionBriefing/" + label + "-" + width + "x" + height + ".png", imageTexture.EncodeToPNG()); }

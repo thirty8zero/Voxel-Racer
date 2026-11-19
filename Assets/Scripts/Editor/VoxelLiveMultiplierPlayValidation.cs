@@ -22,6 +22,7 @@ namespace VoxelRacer.Editor
         private static float previousScale, stageStarted, started;
         private static int cash, phase;
         private static bool ownsState;
+        private static VoxelScorePopup[] repeatedDamage;
 
         [InitializeOnLoadMethod]
         private static void Hook()
@@ -93,6 +94,27 @@ namespace VoxelRacer.Editor
                         if (Time.realtimeSinceStartup - stageStarted < .3f) return;
                         Equal(mission.RemainingTime, 120, "Opening gate must freeze timer");
                         Equal(mission.EffectiveTimeBonusMultiplier, 2, "Opening gate must block gains/decay");
+                        if (VoxelLoadingScreen.IsLoading) return;
+                        Time.timeScale = 0f;
+                        var currentPopups = Object.FindObjectsByType<VoxelScorePopup>(FindObjectsSortMode.None);
+                        VoxelScorePopup.Show(Vector3.zero, -38, VoxelScorePopup.Style.WeaponDamage);
+                        VoxelScorePopup.Show(Vector3.zero, -38, VoxelScorePopup.Style.WeaponDamage);
+                        repeatedDamage = Object.FindObjectsByType<VoxelScorePopup>(FindObjectsSortMode.None)
+                            .Except(currentPopups).ToArray();
+                        Check(repeatedDamage.Length == 2, "The repeated penalty did not create two live popups");
+                        Next(8); break;
+                    case 8:
+                        var slot = typeof(VoxelScorePopup).GetField("hasMissionSlot", Private);
+                        if (!repeatedDamage.Any(popup => (bool)slot.GetValue(popup)))
+                        {
+                            Check(Time.realtimeSinceStartup - stageStarted < 3f, "Repaint did not space repeated damage");
+                            return;
+                        }
+                        var age = typeof(VoxelScorePopup).GetField("elapsed", Private);
+                        Check(repeatedDamage.All(popup => (float)age.GetValue(popup) == 0f),
+                            "A repeated penalty interrupted the other popup's hold");
+                        DestroyRepeatedDamage();
+                        Time.timeScale = 1f;
                         mission.SetStartCountdown(null); mission.AdvanceBonusClock(119.75f); Next(1); break;
                     case 1:
                         if (mission.TimeBonusAvailable) return;
@@ -152,7 +174,7 @@ namespace VoxelRacer.Editor
                         Equal(background.transform.localScale.x,1,"Completed timer background still pulses");
                         Check(!rewards.transform.Find("Mission Reward UI/Mission Reward Panel/Bonus Cash Panel").gameObject.activeSelf,"Zero cash bonus panel visible");
                         Check(rewards.GetComponentsInChildren<Text>(true).First(t=>t.name=="Total Mission Reward").gameObject.activeSelf,"Zero cash bonus left an empty reveal delay");
-                        Finish("PASS: real Update expiry and consecutive .1 ticks, immediate red pulses/HUD changes, pause/opening gates, early completion preserves original HUD and mission multiplier, separate final multiplier/payout, results explain mission multiplier + time bonus = final multiplier, completed clock freeze, paused results reveal, no duplicate payout, no remaining-seconds caption, zero bonus cash hidden/skipped, completed timer stops warning and extension pulses.");break;
+                        Finish("PASS: repeated -38 popups use separate positions and keep their holds on a live repaint; real Update expiry and consecutive .1 ticks, immediate red pulses/HUD changes, pause/opening gates, early completion preserves original HUD and mission multiplier, separate final multiplier/payout, results explain mission multiplier + time bonus = final multiplier, completed clock freeze, paused results reveal, no duplicate payout, no remaining-seconds caption, zero bonus cash hidden/skipped, completed timer stops warning and extension pulses.");break;
                 }
             }
             catch (Exception e) { Finish("FAIL: " + e); }
@@ -175,6 +197,7 @@ namespace VoxelRacer.Editor
 
         private static void Cleanup()
         {
+            DestroyRepeatedDamage();
             if (root != null) Object.DestroyImmediate(root);
             if (tuning != null) Object.DestroyImmediate(tuning);
             root = null; tuning = null; mission = null; rewards = null; timer = null;
@@ -182,6 +205,14 @@ namespace VoxelRacer.Editor
             Time.timeScale = previousScale;
             typeof(VoxelMissionProgress).GetField("<Active>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, previousMission);
             VoxelCurrencyState.Reset(); VoxelCurrencyState.Add(cash); ownsState = false;
+        }
+
+        private static void DestroyRepeatedDamage()
+        {
+            if (repeatedDamage == null) return;
+            foreach (var popup in repeatedDamage)
+                if (popup != null) Object.DestroyImmediate(popup.gameObject);
+            repeatedDamage = null;
         }
     }
 }

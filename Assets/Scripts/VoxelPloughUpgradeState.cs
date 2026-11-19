@@ -11,7 +11,8 @@ namespace VoxelRacer
         public static bool IsEquipped(VoxelPloughTuning tuning) => tuning != null &&
             InstalledTuning != null && InstalledTuning.upgradeLevel >= tuning.upgradeLevel;
         public static bool CanPurchase(VoxelPloughTuning tuning, VoxelCarDefinition car) =>
-            tuning != null && tuning.Fits(car) && !IsEquipped(tuning);
+            tuning != null && tuning.Fits(car) &&
+            (InstalledTuning?.upgradeLevel ?? 0) == tuning.upgradeLevel - 1;
         public static bool TryPurchase(VoxelPloughTuning tuning, VoxelCarDefinition car)
         {
             if (!CanPurchase(tuning, car) || !VoxelCurrencyState.TrySpend(tuning.purchasePrice)) return false;
@@ -25,7 +26,7 @@ namespace VoxelRacer
         }
         internal static void GrantForDevelopment(VoxelPloughTuning tuning, VoxelCarDefinition car)
         {
-            if (CanPurchase(tuning, car)) InstalledTuning = tuning;
+            if (tuning != null && tuning.Fits(car) && !IsEquipped(tuning)) InstalledTuning = tuning;
         }
         // Shared by runtime and the isolated fit preview. No run-state changes.
         public static GameObject CreateVisual(Transform car, VoxelPloughTuning tuning)

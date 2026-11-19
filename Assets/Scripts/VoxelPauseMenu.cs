@@ -12,6 +12,20 @@ namespace VoxelRacer
     {
         public static VoxelPauseMenu Active { get; private set; }
         public static bool IsPaused => Active != null && Active.paused;
+        internal static bool ConsumedDeveloperHotkeyThisFrame
+        {
+            get
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                return Active != null && Active.developerHotkeyFrame == Time.frameCount;
+#else
+                return false;
+#endif
+            }
+        }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private int developerHotkeyFrame = -1;
+#endif
 
         private VoxelCarController target;
         private GameObject menu;
@@ -35,6 +49,9 @@ namespace VoxelRacer
         {
             if (VoxelLoadingScreen.IsLoading || VoxelMissionBriefing.IsShowing) return;
             if (!Application.isPlaying) return;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (HandleDeveloperHotkeys()) return;
+#endif
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
                 SetPaused(!paused);
             else if (paused)
@@ -87,7 +104,11 @@ namespace VoxelRacer
         private void SkipMission()
         {
             if (!CanUseDeveloperActions) return;
+            SkipMissionToGarage();
+        }
 
+        private void SkipMissionToGarage()
+        {
             int buildIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/RepairUpgrade.unity");
             if (buildIndex < 0)
             {
@@ -102,11 +123,39 @@ namespace VoxelRacer
             VoxelLoadingScreen.LoadScene(buildIndex);
         }
 
-        private bool CanUseDeveloperActions => paused && devPage != null && devPage.activeSelf &&
+        private bool CanUseDeveloperActions => paused && devPage != null && devPage.activeSelf && CanUseDeveloperTarget;
+
+        private bool CanUseDeveloperTarget =>
             GetComponent<VoxelCarrierIntro>() == null &&
-            !VoxelLoadingScreen.IsLoading && target != null && target.isActiveAndEnabled && !target.IsDestroyed &&
+            !VoxelLoadingScreen.IsLoading && !VoxelMissionBriefing.IsShowing &&
+            target != null && target.isActiveAndEnabled && !target.IsDestroyed &&
             !VoxelPlayerDeathScreen.IsShowing && VoxelMissionProgress.Active?.IsComplete != true &&
             VoxelMissionProgress.Active?.IsFailed != true;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private bool HandleDeveloperHotkeys()
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard == null || !CanUseDeveloperTarget || (!paused && Time.timeScale <= 0f) ||
+                !(keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed) ||
+                keyboard.ctrlKey.isPressed || keyboard.altKey.isPressed) return false;
+
+            if (keyboard.sKey.wasPressedThisFrame)
+            {
+                SkipMissionToGarage();
+                return true;
+            }
+            if (keyboard.aKey.wasPressedThisFrame)
+            {
+                developerHotkeyFrame = Time.frameCount;
+                VoxelDeveloperActions.GiveAllUpgrades(target);
+                if (paused && devPage != null && devPage.activeSelf)
+                    devFeedback.text = "ALL COMPATIBLE UPGRADES FITTED";
+                return true;
+            }
+            return false;
+        }
+#endif
 
         private void RestoreHealth()
         {
@@ -158,22 +207,23 @@ namespace VoxelRacer
             VoxelMenuUi.CreateText(panel.transform, "Brand", "ROAD SPECTRE", 25, TextAnchor.MiddleLeft,
                 centre, new Vector2(0, 388), new Vector2(648, 38)).color = cyan;
             pageTitle = VoxelMenuUi.CreateText(panel.transform, "Title", "PAUSED", 108, TextAnchor.MiddleLeft,
-                centre, new Vector2(0, 304), new Vector2(648, 126));
+                centre, new Vector2(0, 319), new Vector2(648, 126));
             VoxelMenuUi.CreateText(panel.transform, "Pause Symbol", "II", 74, TextAnchor.MiddleCenter,
-                centre, new Vector2(286, 304), new Vector2(80, 90)).color = cyan;
-            Decoration(panel.transform, "Header Divider", new Vector2(0, 222), new Vector2(648, 2), new Color(.15f, .23f, .29f));
+                centre, new Vector2(286, 319), new Vector2(80, 90)).color = cyan;
+            Decoration(panel.transform, "Header Divider", new Vector2(0, 244), new Vector2(648, 2), new Color(.15f, .23f, .29f));
             settingsPage = CreatePage(panel.transform, "Settings Page");
             devPage = CreatePage(panel.transform, "DEV Page");
             Transform settings = settingsPage.transform;
-            fpsToggle = CreateSettingRow(settings, "FPS Toggle", "FPS COUNTER", "SHOW FRAME RATE", 156f);
+            VoxelAudioVolumeSlider.Create(settings, 191f, 648f, cyan);
+            fpsToggle = CreateSettingRow(settings, "FPS Toggle", "FPS COUNTER", "SHOW FRAME RATE", 101f);
             fpsToggle.onValueChanged.AddListener(VoxelFpsCounter.SetVisible);
-            waveToggle = CreateSettingRow(settings, "Wave Debug Toggle", "WAVE DEBUG", "SHOW TRAFFIC SPAWN DETAILS", 54f);
+            waveToggle = CreateSettingRow(settings, "Wave Debug Toggle", "WAVE DEBUG", "SHOW TRAFFIC SPAWN DETAILS", 12f);
             waveToggle.onValueChanged.AddListener(VoxelFpsCounter.SetWaveDebugVisible);
-            controlSchemeToggle = CreateSettingRow(settings, "Control Scheme B Toggle", "Control Scheme B", "SWAP BRAKE AND STEERING POSITIONS", -48f);
+            controlSchemeToggle = CreateSettingRow(settings, "Control Scheme B Toggle", "Control Scheme B", "SWAP BRAKE AND STEERING POSITIONS", -77f);
             controlSchemeToggle.SetIsOnWithoutNotify(VoxelMobileControls.UseControlSchemeB);
             controlSchemeToggle.onValueChanged.AddListener(VoxelMobileControls.SetControlSchemeB);
             resumeButton = VoxelMenuUi.CreateButton(settings, "Resume Button", "RESUME", 50,
-                centre, new Vector2(0f, -159f), new Vector2(648f, 82f), () => SetPaused(false));
+                centre, new Vector2(0f, -168f), new Vector2(648f, 76f), () => SetPaused(false));
             resumeButton.image.color = cyan;
             resumeButton.GetComponentInChildren<Text>().color = new Color(.015f, .035f, .055f);
             var colours = resumeButton.colors;
@@ -241,7 +291,7 @@ namespace VoxelRacer
         private static Toggle CreateSettingRow(Transform parent, string name, string label, string description, float y)
         {
             var centre = new Vector2(.5f, .5f);
-            var row = VoxelMenuUi.CreatePanel(parent, name, centre, new Vector2(0, y), new Vector2(648, 88));
+            var row = VoxelMenuUi.CreatePanel(parent, name, centre, new Vector2(0, y), new Vector2(648, 78));
             row.color = new Color(.065f, .085f, .115f);
             VoxelMenuUi.CreateText(row.transform, "Label", label, 30, TextAnchor.MiddleLeft,
                 centre, new Vector2(-53, 15), new Vector2(486, 38));

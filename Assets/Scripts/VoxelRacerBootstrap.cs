@@ -140,7 +140,7 @@ namespace VoxelRacer
                 return;
 
             var countdown = environment.GetComponent<VoxelStartCountdown>();
-            var goBack = VoxelMissionBriefing.TakeRaceBackAction() ?? ReturnToMainMenu;
+            countdown.EngineAudio = VoxelPlayerEngineAudio.Attach(countdown.target);
             if (retry)
             {
                 countdown.BeginCountdown();
@@ -151,17 +151,11 @@ namespace VoxelRacer
             follow.SetCarrierIntro(intro);
             if (intro != null)
             {
-                VoxelMissionBriefing.Present(environment, activeTrack, intro.RequestStart, goBack, alongsideRace: true);
+                VoxelMissionBriefing.Present(environment, activeTrack, intro.RequestStart, alongsideRace: true);
                 return;
             }
             road.EndStraightOpening();
-            VoxelMissionBriefing.Present(environment, activeTrack, countdown.BeginCountdown, goBack);
-        }
-
-        private static void ReturnToMainMenu()
-        {
-            int index = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/MainMenu.unity");
-            if (index >= 0) VoxelLoadingScreen.LoadScene(index);
+            VoxelMissionBriefing.Present(environment, activeTrack, countdown.BeginCountdown);
         }
 
         private static void ConfigureRoadTuning(EndlessVoxelRoad road)

@@ -25,6 +25,7 @@ namespace VoxelRacer
         public float EffectiveLaneChangeSpeed => laneChangeSpeed * wheelLaneMultiplier;
         public float EffectiveBrakingForce => brakingForce * wheelBrakingMultiplier;
         internal bool IsBraking { get; private set; }
+        internal bool IsChangingLane { get; private set; }
         public void SetWheelPerformance(float accelerationPercent, float lanePercent, float brakingPercent = 0f)
         {
             wheelAccelerationMultiplier = 1f + Mathf.Max(0, accelerationPercent) / 100f;
@@ -62,6 +63,9 @@ namespace VoxelRacer
         [Min(0f)] public float laneChangeVisualRotationSpeed = 90f;
 
         public float CurrentSpeed { get; private set; }
+        private float? carrierDriveSpeed;
+        internal float EngineDriveSpeed => carrierDriveSpeed ?? CurrentSpeed;
+        internal bool UsesRoadGears => drivingEnabled && !carrierMotion && !finishingRun && !IsDestroyed;
         public EndlessVoxelRoad TrackPath { get; private set; }
         public float TrackDistance { get; private set; }
         public float CurrentLaneOffset { get; private set; }
@@ -174,9 +178,10 @@ namespace VoxelRacer
         }
 
         internal void SetCarrierPose(float distance, float speed, Vector3 position, Quaternion rotation,
-            float? laneOffset = null)
+            float? laneOffset = null, float? driveSpeed = null)
         {
             carrierMotion = true;
+            carrierDriveSpeed = driveSpeed;
             TrackDistance = distance;
             CurrentSpeed = speed;
             if (laneOffset.HasValue)
@@ -196,14 +201,6 @@ namespace VoxelRacer
             SetBrakeLights(false);
         }
 
-        internal void ReleaseCarrierRecovery()
-        {
-            carrierRecoveryMotion = false;
-            currentLane = previousLane = Mathf.Clamp(Mathf.RoundToInt(CurrentLaneOffset / laneWidth +
-                (laneCount - 1) * .5f), 0, laneCount - 1);
-            ReleaseCarrierPose();
-        }
-
         internal void PrepareCarrierLane()
         {
             currentLane = previousLane = Mathf.Min(currentLane, laneCount - 2);
@@ -213,6 +210,7 @@ namespace VoxelRacer
         internal void ReleaseCarrierPose()
         {
             carrierMotion = false;
+            carrierDriveSpeed = null;
             ApplyTrackPose();
         }
 
@@ -282,6 +280,7 @@ namespace VoxelRacer
         private void Update()
         {
             IsBraking = false;
+            IsChangingLane = false;
             if (!Application.isPlaying || VoxelPauseMenu.IsPaused)
             {
                 SetBrakeLights(false);
@@ -312,7 +311,8 @@ namespace VoxelRacer
             // sequence, even during the frame before VoxelRunFinish begins braking.
             if (keyboard != null && VoxelMissionProgress.Active?.IsComplete != true)
             {
-                if (keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame)
+                if ((keyboard.aKey.wasPressedThisFrame && !VoxelPauseMenu.ConsumedDeveloperHotkeyThisFrame) ||
+                    keyboard.leftArrowKey.wasPressedThisFrame)
                     RequestLaneChange(currentLane - 1);
                 if (keyboard.dKey.wasPressedThisFrame || keyboard.rightArrowKey.wasPressedThisFrame)
                     RequestLaneChange(currentLane + 1);
@@ -504,7 +504,9 @@ namespace VoxelRacer
             float speed = EffectiveLaneChangeSpeed;
             if (bossSideRamRecoveryElapsed < bossSideRamReboundDuration)
                 speed += bossSideRamReboundSpeed * (1f - bossSideRamRecoveryElapsed / bossSideRamReboundDuration);
-            CurrentLaneOffset = Mathf.MoveTowards(CurrentLaneOffset, laneOffset, speed * seconds);
+            float nextOffset = Mathf.MoveTowards(CurrentLaneOffset, laneOffset, speed * seconds);
+            IsChangingLane = nextOffset != CurrentLaneOffset;
+            CurrentLaneOffset = nextOffset;
         }
 
         private void RequestLaneChange(int requestedLane)

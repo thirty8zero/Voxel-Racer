@@ -37,6 +37,9 @@ namespace VoxelRacer.Editor
         private static float previousScale, previousStep;
         private static bool previousBackground, captured, pictured, verifiedSlowMotion, verifiedHandback, verifiedSpikeTrails;
         private static bool verifiedReturnBlend;
+        private static (VoxelDebris Fragment, Vector3 Start)[] liveFragments;
+        private static Vector3 blastCenter, wreckStart;
+        private static bool verifiedDebrisMotion;
         private static UnityEngine.Random.State random;
         private static double startedAt;
         private static float spikesSpawnedAt;
@@ -117,6 +120,7 @@ namespace VoxelRacer.Editor
                 foreach (var go in previousRoots) go.SetActive(false);
                 captured = true; Application.runInBackground = true; Time.timeScale = .8f; Time.fixedDeltaTime = .03f;
                 report.Clear(); pictured = verifiedSlowMotion = verifiedHandback = verifiedSpikeTrails = verifiedReturnBlend = false;
+                verifiedDebrisMotion = false;
                 snapshots = Resources.LoadAll<VoxelEnemyVehicleTuning>("EnemyVehicles").Cast<Object>()
                     .Concat(new Object[] { Resources.Load<VoxelBossDefinition>("Bosses/RedVanBoss") }).ToDictionary(a => a, a => EditorJsonUtility.ToJson(a));
                 scene = SceneManager.CreateScene("Temporary boss destruction QA"); SceneManager.SetActiveScene(scene);
@@ -134,7 +138,9 @@ namespace VoxelRacer.Editor
                 globals[0].SetValue(null, mission);
                 CheckDamageSettings();
                 CheckDestructionSettings();
+                CheckDebrisBurst();
                 CheckCompletionOptions();
+                CheckCameraReturnDistance();
                 StartLiveSequence();
                 warmupFrame = Time.frameCount + 3;
                 EditorApplication.update += BeginLiveAfterWarmup;
@@ -237,6 +243,39 @@ namespace VoxelRacer.Editor
             }
         }
 
+        private static Bounds DestructibleBounds(Case boss, out int count)
+        {
+            var body = boss.Pieces.Where(r => r.enabled && r.GetComponentInParent<VoxelIndestructiblePart>() == null &&
+                r.GetComponentInParent<VoxelEnemyHealthBar>() == null).ToArray();
+            count = body.Length;
+            Bounds bounds = body[0].bounds;
+            foreach (var piece in body) bounds.Encapsulate(piece.bounds);
+            return bounds;
+        }
+
+        private static void CheckDebrisBurst()
+        {
+            using var c = new Case();
+            Bounds bounds = DestructibleBounds(c, out int initialCount);
+            c.Enemy.TakeProjectileHit(null, c.Enemy.CurrentHealth, bounds.center, Vector3.left);
+            var fragments = Object.FindObjectsByType<VoxelDebris>(FindObjectsSortMode.None)
+                .Where(d => d.gameObject.scene == scene).ToArray();
+            int expected = Mathf.Min(initialCount - c.Count, c.Settings.maximumDestructionDebris);
+            Check(fragments.Length == expected && fragments.Length > 0, "Authored destruction debris count differs from its budget");
+
+            var velocity = typeof(VoxelDebris).GetField("velocity", Private);
+            Vector3 wreckVelocity = (Vector3)typeof(VoxelEnemyCar).GetField("velocity", Private).GetValue(c.Enemy);
+            int scatteringOutward = fragments.Count(debris =>
+            {
+                Vector3 outward = Vector3.ProjectOnPlane(debris.transform.position - bounds.center, Vector3.up).normalized;
+                Vector3 relativeVelocity = (Vector3)velocity.GetValue(debris) - wreckVelocity;
+                return Vector3.Dot(relativeVelocity, outward) > c.Tuning.explosionForwardForceMin * .35f;
+            });
+            string result = $"{scatteringOutward}/{fragments.Length} authored Vandito fragments scattered outward relative to the wreck after a side hit.";
+            Check(scatteringOutward >= .95f * fragments.Length, result);
+            report.Add("PASS " + result);
+        }
+
         private static void CheckCompletionOptions()
         {
             using var c = new Case();
@@ -251,6 +290,65 @@ namespace VoxelRacer.Editor
             c.Settings.completionSlowMotionDuration = 1; c.Settings.completionSlowMotionTimeScale = 1;
             Call(mission, "BeginCompletionSlowMotion"); Check(!mission.IsCompletionSlowMotionActive, "Full-speed override acquired slow-motion clock");
             report.Add("PASS track slowdown fallback, custom scale restoration and zero-duration/full-speed disable options.");
+        }
+
+        private static void CheckCameraReturnDistance()
+        {
+            using var c = new Case();
+            c.Settings.destructionCameraDuration = 2f;
+            c.Settings.destructionCameraBlendDuration = .2f;
+            c.Settings.destructionCameraFieldOfView = 40f;
+            var view = new GameObject("Boss return QA", typeof(Camera));
+            view.transform.SetParent(root.transform, false);
+            var testCamera = view.GetComponent<Camera>(); testCamera.enabled = false;
+            var follow = view.AddComponent<VoxelCameraFollow>(); follow.enabled = false;
+            Vector3 initialPlayerPosition = player.transform.position;
+            foreach (int fps in new[] { 30, 60 })
+            foreach (var (distance, playerSpeed) in new[] { (220f, 0f), (30f, 0f), (220f, 30f) })
+            {
+                player.transform.position = initialPlayerPosition;
+                c.Enemy.transform.position = player.transform.position + Vector3.forward * distance;
+                view.transform.position = player.transform.position + new Vector3(-8.5f, 11f, -11f);
+                view.transform.LookAt(player.transform.position + Vector3.forward * 14f);
+                testCamera.fieldOfView = 58f;
+                follow.BeginBossDestructionFocus(player, c.Enemy, c.Settings);
+                Call(follow, "AdvanceBossDestructionFocus", 1.49f);
+                Vector3 wreckView = view.transform.position;
+                Call(follow, "AdvanceBossDestructionFocus", .02f);
+                var orbitStart = (Vector3)typeof(VoxelCameraFollow).GetField("finishStartOffset", Private).GetValue(follow);
+                Check(orbitStart.magnitude < 25f,
+                    $"A boss destroyed {distance:F0} m away seeded a {orbitStart.magnitude:F1} m player-orbit radius.");
+                Check(Vector3.Distance(view.transform.position, wreckView) < .05f, "Boss return jumped on its first frame.");
+
+                float elapsed = 0f, maximumStep = 0f;
+                float step = 1f / fps;
+                while (!follow.BossDestructionFocusComplete && elapsed < 6f)
+                {
+                    Vector3 previous = view.transform.position;
+                    if (playerSpeed > 0f)
+                    {
+                        player.transform.position += Vector3.forward * (playerSpeed * step);
+                        Set(follow, "finishSequenceStartedAt", Time.time - (elapsed + step) * Time.timeScale);
+                    }
+                    Call(follow, "AdvanceBossDestructionFocus", step);
+                    maximumStep = Mathf.Max(maximumStep, Vector3.Distance(previous, view.transform.position));
+                    elapsed += step;
+                }
+                Check(follow.BossDestructionFocusComplete && elapsed >= .49f, "Boss return did not complete after a full blend.");
+                Check(distance < 100 ? elapsed < .8f : elapsed > 1.5f,
+                    $"Boss return did not adapt to {distance:F0} m separation ({elapsed:F2} s).");
+                Check(maximumStep * fps < 115f + playerSpeed, "Boss return moved too far in a single frame.");
+                Vector3 returnedPosition = view.transform.position;
+                Quaternion returnedRotation = view.transform.rotation;
+                float returnedFov = testCamera.fieldOfView;
+                Call(follow, "UpdateFinishSequence", 1f);
+                Check(Vector3.Distance(view.transform.position, returnedPosition) < .01f &&
+                    Quaternion.Angle(view.transform.rotation, returnedRotation) < .05f &&
+                    Mathf.Abs(testCamera.fieldOfView - returnedFov) < .01f, "Player orbit jumped at the boss handoff.");
+                report.Add($"PASS boss at {distance:F0} m, player at {playerSpeed:F0} m/s, {fps} FPS: {elapsed:F2} s return, {maximumStep:F2} m largest frame step, continuous pose and lens at handoff.");
+            }
+            player.transform.position = initialPlayerPosition;
+            Object.DestroyImmediate(view);
         }
 
         private static void StartLiveSequence()
@@ -287,7 +385,11 @@ namespace VoxelRacer.Editor
             {
                 cameraFollow.enabled = true;
                 live.Enemy.Defeated += _ => mission.CompleteBossEncounter();
+                blastCenter = DestructibleBounds(live, out _).center;
+                wreckStart = live.Enemy.transform.position;
                 live.Enemy.TakeProjectileHit(null, live.Enemy.CurrentHealth, Vector3.zero, Vector3.forward);
+                liveFragments = Object.FindObjectsByType<VoxelDebris>(FindObjectsSortMode.None)
+                    .Where(d => d.gameObject.scene == scene).Select(d => (d, d.transform.position)).ToArray();
                 Check(mission.IsComplete && mission.IsCompletionSlowMotionActive, "Boss completion did not start slowdown");
                 Equal(Time.timeScale, .16f, "Boss slow-motion override"); Equal(Time.fixedDeltaTime, .006f, "Boss physics cadence");
                 Call(finish, "Update");
@@ -313,6 +415,20 @@ namespace VoxelRacer.Editor
             try
             {
                 double elapsed = Time.realtimeSinceStartupAsDouble - startedAt;
+                if (!verifiedDebrisMotion && Time.time - spikesSpawnedAt >= .04f)
+                {
+                    Vector3 drift = live.Enemy.transform.position - wreckStart;
+                    Check(liveFragments.Length == live.Settings.maximumDestructionDebris, "Wrong live body fragment count");
+                    float outwardTravel = liveFragments.Average(fragment =>
+                    {
+                        Vector3 outward = Vector3.ProjectOnPlane(fragment.Start - blastCenter, Vector3.up).normalized;
+                        return Vector3.Dot(fragment.Fragment.transform.position - fragment.Start - drift, outward);
+                    });
+                    Check(outwardTravel > .4f, "The moving debris stayed in formation with the wreck.");
+                    report.Add($"PASS live debris expanded {outwardTravel:F2} m on average relative to the wreck during slowdown.");
+                    liveFragments = null;
+                    verifiedDebrisMotion = true;
+                }
                 if (!pictured && elapsed >= .7)
                 {
                     Capture(); pictured = true;
@@ -351,6 +467,7 @@ namespace VoxelRacer.Editor
                 }
                 Check(elapsed < 12, "Boss destruction validation timed out");
                 if (!verifiedHandback || spikeAge < live.Settings.spikeDebrisLifetime + .1f) return;
+                Check(verifiedDebrisMotion, "Live debris expansion was not measured.");
                 Check(Object.FindObjectsByType<VoxelBossSpikeDebris>(FindObjectsSortMode.None).All(s => s.gameObject.scene != scene), "Detached spike/effects lifetime leaked");
                 foreach (var pair in snapshots) Check(pair.Value == EditorJsonUtility.ToJson(pair.Key), "Source tuning changed: " + pair.Key.name);
                 report.Add("PASS all three drills emit smoke and fire near the end of their lifetime and clean up with their particles. Live physics, boss slowdown/restoration, independent coast duration, camera return blend after wreck expiry and reward gating passed.");

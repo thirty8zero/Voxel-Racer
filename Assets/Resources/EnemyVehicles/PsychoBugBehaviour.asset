@@ -58,7 +58,7 @@ MonoBehaviour:
   alignmentHoldDuration: 0.15
   positioningTimeout: 3
   repositionDistanceAhead: 14
-  warningDuration: 1
+  warningDuration: 0.35
   pullAwayDistance: 0.18
   slamSpeed: 14
   slamTimeout: 0.65

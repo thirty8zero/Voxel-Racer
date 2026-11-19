@@ -27,10 +27,24 @@ namespace VoxelRacer
 
         public static int Capacity(VoxelGunTuning tuning) => tuning == null ? 1 : Mathf.Clamp(tuning.maximumPurchases, 1, SlotCount);
 
+        public static int CountAtLevelOrHigher(int level)
+        {
+            int count = 0;
+            foreach (var gun in installed)
+                if (gun != null && gun.upgradeLevel >= level) count++;
+            return count;
+        }
+
         public static bool CanPurchase(VoxelGunTuning tuning, VoxelCarDefinition definition = null)
             => CanPurchase(tuning, 0, definition) || CanPurchase(tuning, 1, definition);
 
-        public static bool CanPurchase(VoxelGunTuning tuning, int slot, VoxelCarDefinition definition = null)
+        public static bool CanPurchase(VoxelGunTuning tuning, int slot, VoxelCarDefinition definition = null) =>
+            CanReplace(tuning, slot, definition) &&
+            (tuning.upgradeLevel <= 1 ||
+             (installed[slot]?.upgradeLevel == tuning.upgradeLevel - 1 &&
+              CountAtLevelOrHigher(tuning.upgradeLevel - 1) == SlotCount));
+
+        private static bool CanReplace(VoxelGunTuning tuning, int slot, VoxelCarDefinition definition)
         {
             if (slot < 0 || slot >= SlotCount || tuning == null || tuning.visualPrefab == null ||
                 tuning.projectileKind != VoxelProjectileKind.Bullet || Count(tuning) >= Capacity(tuning))
@@ -63,7 +77,7 @@ namespace VoxelRacer
         internal static void GrantForDevelopment(VoxelGunTuning tuning, VoxelCarDefinition definition)
         {
             for (int slot = 0; slot < SlotCount; slot++)
-                if (CanPurchase(tuning, slot, definition)) SetSlot(slot, tuning);
+                if (CanReplace(tuning, slot, definition)) SetSlot(slot, tuning);
         }
 
         public static void ApplyTo(Transform carRoot)

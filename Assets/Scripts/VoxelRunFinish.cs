@@ -16,7 +16,6 @@ namespace VoxelRacer
         private bool waitingForBossCamera;
         private VoxelEnemyCar heldBoss;
         private VoxelCarrierRecovery recovery;
-        private float stopDuration;
 
         public void Configure(VoxelCarController player, VoxelMissionProgress mission)
         {
@@ -35,23 +34,12 @@ namespace VoxelRacer
                 return;
 
             if (recovery != null)
-            {
-                recovery.Advance(Time.deltaTime, FinishCameraComplete && !missionProgress.IsCompletionSlowMotionActive);
-                if (recovery.TimedOut)
-                {
-                    recovery = null;
-                    finishCamera.SetCarrierRecovery(null);
-                    target.ReleaseCarrierRecovery();
-                    ClearPlayerTravelLanes();
-                    target.TrackPath.PreserveRoadForFinish();
-                    target.BeginFinishStop(stopDuration);
-                }
-            }
+                recovery.Advance(Time.deltaTime, FinishCameraComplete, missionProgress.IsCompletionSlowMotionActive);
             if (waitingForBossCamera)
             {
                 if (finishCamera != null && finishCamera.isActiveAndEnabled && !finishCamera.BossDestructionFocusComplete) return;
                 waitingForBossCamera = false; heldBoss = null;
-                ClearPlayerTravelLanes();
+                if (recovery == null) ClearPlayerTravelLanes();
                 if (finishCamera != null) finishCamera.BeginFinishSequence(target);
                 return;
             }
@@ -70,14 +58,16 @@ namespace VoxelRacer
             waitingForBossCamera = settings != null && settings.focusCameraOnDestruction &&
                 settings.destructionCameraDuration > 0 && finishCamera != null && finishCamera.isActiveAndEnabled;
             heldBoss = waitingForBossCamera ? boss : null;
-            ClearPlayerTravelLanes();
-            stopDuration = settings != null && settings.overrideFinishStopDuration ? settings.finishStopDuration : -1f;
             if (finishCamera != null && finishCamera.isActiveAndEnabled)
                 recovery = VoxelCarrierRecovery.TryCreate(transform.parent != null ? transform.parent : transform, target);
+            ClearPlayerTravelLanes();
             finishCamera?.SetCarrierRecovery(recovery);
             target.TrackPath?.PreserveRoadForFinish(recovery != null);
             if (recovery == null)
+            {
+                float stopDuration = settings != null && settings.overrideFinishStopDuration ? settings.finishStopDuration : -1f;
                 target.BeginFinishStop(stopDuration);
+            }
             if (waitingForBossCamera)
                 finishCamera.BeginBossDestructionFocus(target, boss, settings);
             else if (finishCamera != null)
@@ -108,7 +98,9 @@ namespace VoxelRacer
         {
             if (heldBoss != null && objectToRemove == heldBoss) return;
             bool occupiesCurrentLane = Mathf.Abs(objectLaneOffset - target.CurrentLaneOffset) <= laneTolerance;
-            bool occupiesDestinationLane = Mathf.Abs(objectLaneOffset - target.TargetLaneOffset) <= laneTolerance;
+            // A moving pickup checks the next lane as traffic passes. Only the stationary
+            // finish can keep following the player's last steering request.
+            bool occupiesDestinationLane = recovery == null && Mathf.Abs(objectLaneOffset - target.TargetLaneOffset) <= laneTolerance;
             if (!occupiesCurrentLane && !occupiesDestinationLane)
                 return;
 

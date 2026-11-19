@@ -4,6 +4,7 @@ namespace VoxelRacer
     public sealed class VoxelMissileProjectile : MonoBehaviour
     {
         private VoxelGunTuning tuning;
+        private VoxelScorePopup.WeaponSource damagePopupSource;
         private Transform owner;
         private EndlessVoxelRoad road;
         private Vector3 start, forward, right;
@@ -17,6 +18,7 @@ namespace VoxelRacer
             var go = Instantiate(tuning.missilePrefab, muzzle, car.transform.rotation); go.name = "Player Missile";
             var missile = go.AddComponent<VoxelMissileProjectile>();
             missile.tuning = tuning; missile.owner = car.transform; missile.road = car.TrackPath;
+            missile.damagePopupSource = tuning.DamagePopupSource;
             missile.start = muzzle; missile.side = side < 0 ? -1 : 1;
             missile.forward = Vector3.ProjectOnPlane(car.transform.forward, Vector3.up).normalized;
             missile.right = Vector3.Cross(Vector3.up, missile.forward);
@@ -90,7 +92,7 @@ namespace VoxelRacer
         {
             if (finished) return;
             transform.position = point;
-            VoxelMissileTarget.Blast(point, tuning.areaOfEffectRadius, tuning.damagePerBullet, direction, target, voxel);
+            VoxelMissileTarget.Blast(point, tuning.areaOfEffectRadius, tuning.damagePerBullet, direction, target, voxel, damagePopupSource);
             VoxelDestructionExplosion.Play(point, Mathf.Max(.5f, tuning.areaOfEffectRadius), shakeCamera: impact);
             Finish();
         }

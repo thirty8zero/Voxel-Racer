@@ -8,6 +8,12 @@ namespace VoxelRacer
     public sealed class VoxelGunTuning : ScriptableObject
     {
         private const float DpsReferenceFrameRate = 60f;
+        private static VoxelGunTuning defaultGun;
+
+        // Identity, rather than damage or upgrade level, determines the hit colour.
+        public VoxelScorePopup.WeaponSource DamagePopupSource =>
+            this == (defaultGun != null ? defaultGun : defaultGun = Resources.Load<VoxelGunTuning>("Weapons/BasicHoodGunTuning"))
+                ? VoxelScorePopup.WeaponSource.DefaultGun : (VoxelScorePopup.WeaponSource)Mathf.Clamp(upgradeLevel, 1, 4);
 
         [Header("Identity")]
         public string displayName = "Basic Hood Gun";

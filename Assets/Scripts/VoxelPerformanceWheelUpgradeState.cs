@@ -10,9 +10,12 @@ namespace VoxelRacer
         public static bool IsPurchased => InstalledTuning != null;
         public static void BeginNewRun() => InstalledTuning = null;
 
+        public static bool IsEquipped(VoxelPerformanceWheelTuning tuning) =>
+            tuning != null && InstalledTuning != null && InstalledTuning.upgradeLevel >= tuning.upgradeLevel;
+
         public static bool CanPurchase(VoxelPerformanceWheelTuning tuning, VoxelCarDefinition car) =>
             tuning != null && tuning.Fits(car) &&
-            (InstalledTuning == null || InstalledTuning.upgradeLevel < tuning.upgradeLevel);
+            (InstalledTuning?.upgradeLevel ?? 0) == tuning.upgradeLevel - 1;
 
         public static bool TryPurchase(VoxelPerformanceWheelTuning tuning, VoxelCarDefinition car)
         {
@@ -31,7 +34,7 @@ namespace VoxelRacer
 
         internal static void GrantForDevelopment(VoxelPerformanceWheelTuning tuning, VoxelCarDefinition car)
         {
-            if (CanPurchase(tuning, car)) InstalledTuning = tuning;
+            if (tuning != null && tuning.Fits(car) && !IsEquipped(tuning)) InstalledTuning = tuning;
         }
 
         /// <summary>Retains wheel transforms, steering, protected chassis and existing spike children.</summary>

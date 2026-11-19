@@ -52,13 +52,14 @@ namespace VoxelRacer.Editor
                     var car = carRoot.AddComponent<VoxelCarController>(); car.enabled = false; car.ResetIntegrityBaseline();
                     var damaged = car.GetComponentsInChildren<MeshRenderer>().First(r => r.GetComponentInParent<VoxelIndestructiblePart>() == null);
                     damaged.gameObject.SetActive(false);
-                    int integrity = car.RemainingIntegrityVoxels, missing = car.RepairableIntegrityVoxels;
-                    var rendering = car.GetComponentsInChildren<Renderer>(true).ToDictionary(r => r, r => r.enabled);
                     var shop = root.AddComponent<VoxelRepairUpgradeSceneController>();
                     typeof(VoxelRepairUpgradeSceneController).GetProperty("DisplayedCar").SetValue(shop, car);
                     typeof(VoxelRepairUpgradeSceneController).GetField("definition", Private).SetValue(shop, definition);
                     shop.repairTuning = VoxelRepairTuning.Load();
                     Call(shop, "BuildUi"); Call(shop, "RefreshUi");
+                    CheckPrerequisite(shop, kind);
+                    int integrity = car.RemainingIntegrityVoxels, missing = car.RepairableIntegrityVoxels;
+                    var rendering = car.GetComponentsInChildren<Renderer>(true).ToDictionary(r => r, r => r.enabled);
                     int cash = VoxelCurrencyState.Balance;
                     Call(shop, "BeginUpgradePlacement", kind);
                     var preview = Placement(shop);
@@ -118,11 +119,11 @@ namespace VoxelRacer.Editor
                         "Purchase did not restore Next Mission");
                     confirm.onClick.Invoke(); Check(VoxelCurrencyState.Balance == cash - price, "Double confirmation charged twice");
                     Check(!damaged.gameObject.activeSelf, "Purchase repaired body damage");
-                    if (VoxelGarageUpgradePlacement.IsArmour(kind))
+                    if (kind == VoxelGarageUpgradeKind.Armour)
                         Check(VoxelArmorUpgradeState.IsRightPurchased && !VoxelArmorUpgradeState.IsLeftPurchased, "Armour side incorrect");
                     if (kind == VoxelGarageUpgradeKind.Missiles)
                         Check(VoxelMissileUpgradeState.IsPurchased(true) && !VoxelMissileUpgradeState.IsPurchased(false), "Missile side incorrect");
-                    if (VoxelGarageUpgradePlacement.IsGun(kind))
+                    if (kind == VoxelGarageUpgradeKind.Guns)
                     {
                         Check(VoxelGunUpgradeState.IsPurchased(1) && !VoxelGunUpgradeState.IsPurchased(0), "Gun side incorrect");
                         VoxelGunUpgradeState.ApplyTo(car.transform);
@@ -131,6 +132,7 @@ namespace VoxelRacer.Editor
                     }
                     if (preview.RequiresPlacement)
                     {
+                        Check(Card(shop, kind).gameObject.activeSelf, "Buying one slot hid " + kind);
                         Call(shop, "BeginUpgradePlacement", kind);
                         Check(Placement(shop).AvailableSpotCount == 1, "Occupied slot offered again");
                         Call(shop, "SelectUpgradePlacement", 0); confirm.onClick.Invoke();
@@ -140,11 +142,12 @@ namespace VoxelRacer.Editor
                     {
                         Call(shop, "BeginUpgradePlacement", kind); Check(Placement(shop) == null, "Owned single upgrade offered again");
                     }
+                    Check(!Card(shop, kind).gameObject.activeSelf, "Completed purchase stayed in the shop: " + kind);
                     Call(shop, "CancelUpgradePlacement");
                 }
                 CheckCart(scene, definition, carObjects);
                 Directory.CreateDirectory("Temp");
-                string report = "PASS (Edit Mode): all fourteen upgrade types; shared transparent green ghosts and mesh picking; remaining free side stays selectable; eleven pending parts across eight types, exact combined-cost confirmation, budget reservation and single-gun capacity; grouped summary and pending cards; replacement wheels fit previously selected spikes; cancel restores rendering and damage; stale funds/prices reject the entire cart; integrity stable; double confirmation guarded; right-first guns survive rebuilding; preview scene ownership and scene-close cleanup. Cash, purchases, damage, campaign and random state restored.";
+                string report = "PASS (Edit Mode): all fifteen upgrade types; six tier prerequisites, including both slots for door armour and guns, and purchased-card removal; shared transparent green ghosts and mesh picking; remaining free side stays selectable; eleven pending parts across eight types, exact combined-cost confirmation, budget reservation and single-gun capacity; grouped summary and pending cards; replacement wheels fit previously selected spikes; cancel restores rendering and damage; stale funds/prices reject the entire cart; integrity stable; double confirmation guarded; right-first guns survive rebuilding; preview scene ownership and scene-close cleanup. Cash, purchases, damage, campaign and random state restored.";
                 File.WriteAllText("Temp/GaragePlacementValidation.txt", report); Debug.Log(report);
                 File.AppendAllText("Temp/GaragePlacementValidation.txt", "\nPASS: repeated settings overlay open/close preserves all eleven pending parts, preview instance, summary/quote, confirmation, scroll, cash and damage; underlying home/repair/upgrade screens retained.");
             }
@@ -170,6 +173,43 @@ namespace VoxelRacer.Editor
             }
         }
 
+        private static VoxelGarageUpgradeCard Card(VoxelRepairUpgradeSceneController shop, VoxelGarageUpgradeKind kind) =>
+            shop.GetComponentsInChildren<VoxelGarageUpgradeCard>(true).Single(card => card.UpgradeKind == kind);
+
+        private static void CheckPrerequisite(VoxelRepairUpgradeSceneController shop, VoxelGarageUpgradeKind kind)
+        {
+            var prerequisite = kind switch
+            {
+                VoxelGarageUpgradeKind.ExtendedArmour => VoxelGarageUpgradeKind.Armour,
+                VoxelGarageUpgradeKind.Minigun => VoxelGarageUpgradeKind.Guns,
+                VoxelGarageUpgradeKind.GoldWheels => VoxelGarageUpgradeKind.Wheels,
+                VoxelGarageUpgradeKind.StarSpikes => VoxelGarageUpgradeKind.Spikes,
+                VoxelGarageUpgradeKind.DualBoost => VoxelGarageUpgradeKind.Boost,
+                VoxelGarageUpgradeKind.Plough => VoxelGarageUpgradeKind.BullBar,
+                _ => kind
+            };
+            if (prerequisite == kind) return;
+            var card = Card(shop, kind);
+            Call(shop, "BeginUpgradePlacement", kind);
+            Check(card.State == VoxelGarageUpgradeState.Locked && Placement(shop) == null,
+                kind + " can be previewed before buying its prerequisite");
+
+            int slots = kind is VoxelGarageUpgradeKind.ExtendedArmour or VoxelGarageUpgradeKind.Minigun ? 2 : 1;
+            for (int slot = 0; slot < slots; slot++)
+            {
+                Call(shop, "BeginUpgradePlacement", prerequisite);
+                if (slots == 2) Call(shop, "SelectUpgradePlacement", slot);
+                var preview = Placement(shop);
+                Call(shop, "BeginUpgradePlacement", kind);
+                Check(preview == Placement(shop) && preview.Kind == prerequisite && card.State == VoxelGarageUpgradeState.Locked,
+                    kind + " was unlocked by an unconfirmed prerequisite");
+                Call(shop, "ConfirmUpgradePurchase");
+                var expected = slot + 1 == slots ? VoxelGarageUpgradeState.Affordable : VoxelGarageUpgradeState.Locked;
+                Check(card.State == expected, kind + " has the wrong lock state after fitting " + (slot + 1) + " prerequisites");
+            }
+            Check(!Card(shop, prerequisite).gameObject.activeSelf, "Confirmed prerequisite still listed: " + prerequisite);
+        }
+
         private static int Price(VoxelGarageUpgradeKind kind, VoxelRepairUpgradeSceneController shop)
         {
             var args = new object[] { kind, 0, "" };
@@ -182,7 +222,7 @@ namespace VoxelRacer.Editor
         {
             VoxelGarageUpgradeKind.Spikes, VoxelGarageUpgradeKind.Guns, VoxelGarageUpgradeKind.Armour,
             VoxelGarageUpgradeKind.Missiles, VoxelGarageUpgradeKind.Wheels, VoxelGarageUpgradeKind.Boost,
-            VoxelGarageUpgradeKind.Engine, VoxelGarageUpgradeKind.Plough
+            VoxelGarageUpgradeKind.Engine, VoxelGarageUpgradeKind.BullBar
         };
 
         private static void AddAll(VoxelRepairUpgradeSceneController shop)
@@ -277,14 +317,14 @@ namespace VoxelRacer.Editor
                 root.transform.Find("Repair Upgrade UI/Upgrade Purchase Confirmation").gameObject.activeSelf,"Go Back discarded the cart");
             VoxelGarageUpgradeDockValidation.CheckPurchaseLayout(shop);
             var cards=root.GetComponentsInChildren<VoxelGarageUpgradeCard>(true);
-            // This cart selects the base armour, spikes, wheels and boost, plus the Plough.
+            // Staging any number of level 1 parts keeps the level 2 cards locked.
             var alternatives=cards.Where(c=>c.UpgradeKind==VoxelGarageUpgradeKind.StarSpikes || c.UpgradeKind==VoxelGarageUpgradeKind.DualBoost ||
                 c.UpgradeKind==VoxelGarageUpgradeKind.ExtendedArmour || c.UpgradeKind==VoxelGarageUpgradeKind.GoldWheels ||
-                c.UpgradeKind==VoxelGarageUpgradeKind.Minigun || c.UpgradeKind==VoxelGarageUpgradeKind.BullBar).ToArray();
+                c.UpgradeKind==VoxelGarageUpgradeKind.Minigun || c.UpgradeKind==VoxelGarageUpgradeKind.Plough).ToArray();
             Check(cards.Except(alternatives).Count(c=>c.UpgradeKind!=VoxelGarageUpgradeKind.UnderbodyArmour)==8 &&
                 cards.Except(alternatives).Where(c=>c.UpgradeKind!=VoxelGarageUpgradeKind.UnderbodyArmour).All(c=>c.State==VoxelGarageUpgradeState.Pending) &&
-                alternatives.Length==6 && alternatives.All(c=>c.State==VoxelGarageUpgradeState.Incompatible),
-                "Pending cards or mutually exclusive alternatives have incorrect states");
+                alternatives.Length==6 && alternatives.All(c=>c.State==VoxelGarageUpgradeState.Locked),
+                "Pending cards or their level 2 upgrades have incorrect states");
             var label = root.GetComponentsInChildren<Text>().First(t => t.name == "Purchase Description");
             Check(label.text.Contains("LEFT + RIGHT") && label.text.Contains("DOOR ARMOUR") && label.text.Contains("MISSILE") && label.text.Contains("ENGINE"), "Cart summary omitted selected parts or sides");
             Check(root.GetComponentsInChildren<Button>().First(b => b.name == "Confirm Upgrade Purchase").GetComponentInChildren<Text>().text.Contains(total.ToString("N0")), "Cart confirmation does not show the combined cost");
@@ -402,7 +442,7 @@ namespace VoxelRacer.Editor
                 var car = new GameObject("Unparented garage scene ownership QA");
                 SceneManager.MoveGameObjectToScene(car, scene);
                 Object.Instantiate(definition.visualPrefab, car.transform);
-                preview = new VoxelGarageUpgradePlacement(car, VoxelGarageUpgradeKind.Armour);
+                preview = new VoxelGarageUpgradePlacement(car, VoxelGarageUpgradeKind.Armour, definition);
                 Check(preview.Car.scene == scene, "Unparented preview leaked into the active scene");
                 preview.Select(1);
                 previewCar = preview.Car;

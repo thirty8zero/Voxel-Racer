@@ -77,7 +77,8 @@ namespace VoxelRacer
                 Destroy(gameObject);
         }
 
-        public void TakeProjectileHit(Transform hitVoxel, Vector3 hitPoint, Vector3 impactDirection)
+        public void TakeProjectileHit(Transform hitVoxel, Vector3 hitPoint, Vector3 impactDirection,
+            VoxelScorePopup.WeaponSource weaponSource = VoxelScorePopup.WeaponSource.DefaultGun)
         {
             if (hasExploded || hitVoxel == null)
                 return;
@@ -88,12 +89,13 @@ namespace VoxelRacer
 
             SpawnWeaponDebris(hitVoxel, impactDirection);
             hitVoxel.gameObject.SetActive(false);
-            ApplyWeaponDamage(drum, 1f, impactDirection);
+            ApplyWeaponDamage(drum, 1f, impactDirection, weaponSource);
         }
 
         /// <summary>Each drum in the blast loses missile damage once, independent of carved voxel count.</summary>
         public void TakeMissileBlast(Transform drum, Vector3 centre, float radius, float damage, Vector3 direction,
-            MeshRenderer[] pieces, bool directImpact = false)
+            MeshRenderer[] pieces, bool directImpact = false,
+            VoxelScorePopup.WeaponSource weaponSource = VoxelScorePopup.WeaponSource.OtherWeapon)
         {
             if (hasExploded || damage <= 0f || drum == null || !drumHealth.ContainsKey(drum)) return;
             int removed = 0;
@@ -105,13 +107,14 @@ namespace VoxelRacer
                 removed++;
             }
             if (removed == 0 && !directImpact) return;
-            ApplyWeaponDamage(drum, damage, direction);
+            ApplyWeaponDamage(drum, damage, direction, weaponSource);
         }
 
-        private void ApplyWeaponDamage(Transform drum, float damage, Vector3 impactDirection)
+        private void ApplyWeaponDamage(Transform drum, float damage, Vector3 impactDirection, VoxelScorePopup.WeaponSource weaponSource)
         {
             drumHealth.TryGetValue(drum, out float health);
             health = health <= 0 ? Mathf.Max(1, definition != null ? definition.hitPoints : 3) : health;
+            float appliedDamage = Mathf.Min(health, Mathf.Max(0f, damage));
             health = Mathf.Max(0f, health - damage);
             drumHealth[drum] = health;
             if (healthBar != null)
@@ -120,6 +123,8 @@ namespace VoxelRacer
                 int maximumHealth = Mathf.Max(1, definition != null ? definition.hitPoints : 3);
                 healthBar.SetHealth(health / (float)maximumHealth);
             }
+            VoxelScorePopup.ShowFuelDrumDamage(healthBar != null ? healthBar.transform.position : drum.position + Vector3.up * 2f,
+                appliedDamage, healthBar, weaponSource);
             if (health > 0)
             {
                 UpdateDamageEffects(drum, health);

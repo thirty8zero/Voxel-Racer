@@ -57,6 +57,8 @@ namespace VoxelRacer.Editor
                 var body = car.GetComponentsInChildren<MeshRenderer>().First(r => r.GetComponentInParent<VoxelIndestructiblePart>() == null);
                 body.gameObject.SetActive(false); int baseCount = car.TotalIntegrityVoxels;
                 Check(VoxelArmorUpgradeState.TryPurchase(basic, definition, VoxelArmorSide.Left), "base purchase failed");
+                Check(!VoxelArmorUpgradeState.TryPurchase(tuning, definition, VoxelArmorSide.Left), "level 2 unlocked after buying only one side");
+                Check(VoxelArmorUpgradeState.TryPurchase(basic, definition, VoxelArmorSide.Right), "right base purchase failed");
                 VoxelArmorUpgradeState.ApplyTo(car.transform, definition); car.ResetIntegrityBaseline();
                 var oldPiece = Pieces(car.transform, VoxelArmorSide.Left)[0]; oldPiece.AbsorbDamage(1);
                 VoxelCarRunState.Capture(car, definition);
@@ -78,11 +80,10 @@ namespace VoxelRacer.Editor
                 Call(shop, "BeginUpgradePlacement", VoxelGarageUpgradeKind.ExtendedArmour); Call(shop, "SelectUpgradePlacement", 0); Call(shop, "ConfirmUpgradePurchase");
                 Check(VoxelCurrencyState.Balance == cash - tuning.panelPurchasePrice && VoxelArmorUpgradeState.InstalledTuning(VoxelArmorSide.Left) == tuning,
                     "confirmed replacement price/ownership failed");
-                Check(Pieces(car.transform, VoxelArmorSide.Left).Length == 45 && car.TotalIntegrityVoxels == baseCount + 45 && !body.gameObject.activeSelf,
+                Check(Pieces(car.transform, VoxelArmorSide.Left).Length == 45 && car.TotalIntegrityVoxels == baseCount + 75 && !body.gameObject.activeSelf,
                     "replacement stacked armour or changed body damage");
                 Check(!VoxelArmorUpgradeState.TryPurchase(tuning, definition, VoxelArmorSide.Left) && !VoxelArmorUpgradeState.TryPurchase(basic, definition, VoxelArmorSide.Left),
                     "duplicate/downgrade allowed");
-                Check(VoxelArmorUpgradeState.TryPurchase(basic, definition, VoxelArmorSide.Right), "independent opposite door purchase failed");
                 VoxelArmorUpgradeState.ApplyTo(car.transform, definition); car.ResetIntegrityBaseline();
                 Check(Pieces(car.transform, VoxelArmorSide.Right).Length == 30 && car.TotalIntegrityVoxels == baseCount + 75, "mixed panel variants failed");
                 var armour = Pieces(car.transform, VoxelArmorSide.Left);

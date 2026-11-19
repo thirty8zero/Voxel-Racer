@@ -15,6 +15,8 @@ namespace VoxelRacer
         public float GetChargePercent(int index) => index >= 0 && index < ChargeCount ? charges[index] : 0f;
         public bool IsBoosting { get; private set; }
         public bool IsReady => !IsBoosting && ChargePercent >= 0.999f;
+        public bool CanActivate => CanUseBoost();
+        public event System.Action<int> ChargeRecharged;
         public float RamDamageMultiplier
         {
             get
@@ -87,7 +89,10 @@ namespace VoxelRacer
             // Cooldowns continue on idle bottles even while another bottle is boosting.
             for (int index = 0; index < ChargeCount; index++)
                 if (index != ActiveChargeIndex && charges[index] < 1f)
+                {
                     charges[index] = Mathf.Clamp01(charges[index] + deltaTime / Mathf.Max(.05f, Tuning.rechargeCooldownLength));
+                    if (charges[index] >= 1f) ChargeRecharged?.Invoke(index);
+                }
 
             if (IsBoosting)
             {

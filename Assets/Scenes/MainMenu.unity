@@ -527,7 +527,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
   m_Asset: {fileID: 145146092}
   m_ActionId: 15cef263-9014-4fd5-94d9-4e4a6234a6ef
---- !u!43 &61432771
+--- !u!43 &49634709
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -6104,7 +6104,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1608472317}
-  m_Mesh: {fileID: 61432771}
+  m_Mesh: {fileID: 49634709}
 --- !u!114 &1608472321
 MonoBehaviour:
   m_ObjectHideFlags: 0

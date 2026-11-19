@@ -22,10 +22,40 @@ namespace VoxelRacer
         private Texture2D discTexture;
         private Sprite ringSprite;
         private Sprite discSprite;
+        private Texture2D readyGlowTexture;
+        private Sprite readyGlowSprite;
+        private readonly Image[] readyGlows = new Image[2];
+        private readonly Image[] readyRipples = new Image[2];
+        private readonly float[] readyPulseAge = { -1f, -1f };
+        private const float ReadyPulseDuration = VoxelControlReadyPulse.Duration;
+        private static readonly Color UnavailableLabelColor = new(.38f, .38f, .38f, 1f);
+        private static readonly Color ChargeBlue = new(.12f, .65f, 1f, 1f);
+        private static readonly Color ReadyFlashBlue = new(.72f, .94f, 1f, 1f);
         private const float ArcFraction = 300f / 360f;
         private static readonly Vector2 ControlPosition = VoxelHudStyles.InsetControlPosition(new Vector2(260f, 630f));
 
-        public void Configure(VoxelBoostController controller) => boost = controller;
+        public void Configure(VoxelBoostController controller)
+        {
+            if (boost != null) boost.ChargeRecharged -= OnChargeRecharged;
+            boost = controller;
+            if (isActiveAndEnabled && boost != null) boost.ChargeRecharged += OnChargeRecharged;
+            ResetReadyPulses();
+        }
+
+        private void OnEnable()
+        {
+            if (boost != null)
+            {
+                boost.ChargeRecharged -= OnChargeRecharged;
+                boost.ChargeRecharged += OnChargeRecharged;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (boost != null) boost.ChargeRecharged -= OnChargeRecharged;
+            ResetReadyPulses();
+        }
 
         private void Awake() => BuildHud();
 
@@ -42,12 +72,16 @@ namespace VoxelRacer
             canvasGroup.alpha = hide ? 0f : VoxelStartCountdown.CurrentGameplayHudAlpha;
             canvasGroup.blocksRaycasts = canvasGroup.alpha > 0.01f && !VoxelPauseMenu.IsPaused;
             if (canvasGroup.alpha <= 0f)
+            {
+                ResetReadyPulses();
                 return;
+            }
 
             // Active charge is remaining burst time, so hold the cap down until recharge begins.
             float height = boost.IsBoosting ? 0f : Mathf.Clamp01(boost.ChargePercent);
             capHeight = height < capHeight ? Mathf.MoveTowards(capHeight, height, Time.deltaTime / .08f) : height;
-            RefreshPresentation(capHeight, boost.ChargePercent, boost.IsReady || boost.IsBoosting);
+            RefreshPresentation(capHeight, boost.ChargePercent, boost.CanActivate);
+            AdvanceReadyPulses(VoxelPauseMenu.IsPaused ? 0f : Time.deltaTime);
         }
 
         internal void Press()
@@ -55,14 +89,21 @@ namespace VoxelRacer
             if (canvasGroup == null || !canvasGroup.blocksRaycasts || canvasGroup.alpha <= .01f ||
                 boost == null || !boost.TryActivateBoost()) return;
             capHeight = 0f;
-            RefreshPresentation(0f, boost.ChargePercent, true);
+            if (boost.ActiveChargeIndex >= 0)
+            {
+                readyPulseAge[boost.ActiveChargeIndex] = -1f;
+                readyGlows[boost.ActiveChargeIndex].enabled = false;
+                readyRipples[boost.ActiveChargeIndex].enabled = false;
+                (boost.ActiveChargeIndex == 0 ? boostRing : secondBoostRing).color = ChargeBlue;
+            }
+            RefreshPresentation(0f, boost.ChargePercent, false);
         }
 
-        private void RefreshPresentation(float height, float charge, bool illuminated)
+        private void RefreshPresentation(float height, float charge, bool available)
         {
             cap.anchoredPosition = new Vector2(0f, Mathf.Lerp(-8f, 24f, height));
             cap.localScale = Vector3.one * Mathf.Lerp(.94f, 1f, height);
-            boostText.color = new Color(.65f, .9f, 1f, illuminated ? 1f : .65f);
+            boostText.color = available ? Color.white : UnavailableLabelColor;
             bool dual = boost != null && boost.ChargeCount == 2;
             float arc = dual ? 145f / 360f : ArcFraction;
             boostTrack.fillAmount = arc;
@@ -70,6 +111,58 @@ namespace VoxelRacer
             secondBoostTrack.gameObject.SetActive(dual);
             secondBoostRing.gameObject.SetActive(dual);
             if (dual) secondBoostRing.fillAmount = boost.GetChargePercent(1) * arc;
+        }
+
+        private void OnChargeRecharged(int index)
+        {
+            if (!isActiveAndEnabled || canvasGroup == null || canvasGroup.alpha <= .01f ||
+                VoxelPauseMenu.IsPaused || index < 0 || index >= readyPulseAge.Length) return;
+            readyPulseAge[index] = 0f;
+        }
+
+        private void AdvanceReadyPulses(float deltaTime)
+        {
+            bool dual = boost != null && boost.ChargeCount == 2;
+            for (int i = 0; i < readyGlows.Length; i++)
+            {
+                if (readyGlows[i] == null) continue;
+                if (i == 1 && !dual || boost != null && boost.IsBoosting && boost.ActiveChargeIndex == i)
+                    readyPulseAge[i] = -1f;
+                if (readyPulseAge[i] >= 0f) readyPulseAge[i] += deltaTime;
+                bool active = readyPulseAge[i] >= 0f && readyPulseAge[i] < ReadyPulseDuration;
+                readyGlows[i].enabled = active;
+                readyRipples[i].enabled = active && readyPulseAge[i] >= .06f;
+                var chargeRing = i == 0 ? boostRing : secondBoostRing;
+                chargeRing.color = ChargeBlue;
+                if (!active) { readyPulseAge[i] = -1f; continue; }
+                float progress = readyPulseAge[i] / ReadyPulseDuration;
+                readyGlows[i].fillAmount = dual ? 145f / 360f : ArcFraction;
+                AnimateReadyWave(readyGlows[i], progress, 1.8f, 1f);
+                float flash = Mathf.Pow(1f - Mathf.Clamp01(readyPulseAge[i] / .09f), 2f);
+                chargeRing.color = Color.Lerp(ChargeBlue, ReadyFlashBlue, flash);
+                if (readyRipples[i].enabled)
+                {
+                    readyRipples[i].fillAmount = readyGlows[i].fillAmount;
+                    AnimateReadyWave(readyRipples[i], (readyPulseAge[i] - .06f) / (ReadyPulseDuration - .06f), 1.65f, .55f);
+                }
+            }
+        }
+
+        private static void AnimateReadyWave(Image image, float progress, float maximumScale, float strength)
+        {
+            VoxelControlReadyPulse.AnimateWave(image, progress, maximumScale, strength, ChargeBlue, ReadyFlashBlue);
+        }
+
+        private void ResetReadyPulses()
+        {
+            for (int i = 0; i < readyPulseAge.Length; i++)
+            {
+                readyPulseAge[i] = -1f;
+                if (readyGlows[i] != null) readyGlows[i].enabled = false;
+                if (readyRipples[i] != null) readyRipples[i].enabled = false;
+            }
+            if (boostRing != null) boostRing.color = ChargeBlue;
+            if (secondBoostRing != null) secondBoostRing.color = ChargeBlue;
         }
 
         private void BuildHud()
@@ -109,13 +202,31 @@ namespace VoxelRacer
             cap = Face(buttonRect, "Boost Cap", capSprite, new Vector2(0f, 24f), new Vector2(184f, 132f)).rectTransform;
 
             ringSprite = CreateRingSprite();
+            readyGlowSprite = CreateReadyGlowSprite();
+            for (int i = 0; i < readyGlows.Length; i++)
+            {
+                var glow = CreateRingImage(canvas, readyGlowSprite);
+                glow.name = "Boost Ready Glow " + (i + 1);
+                glow.rectTransform.sizeDelta = new Vector2(250f, 250f);
+                if (i == 1) glow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -185f);
+                glow.transform.SetAsFirstSibling();
+                glow.enabled = false;
+                readyGlows[i] = glow;
+                var ripple = CreateRingImage(canvas, readyGlowSprite);
+                ripple.name = "Boost Ready Ripple " + (i + 1);
+                ripple.rectTransform.sizeDelta = glow.rectTransform.sizeDelta;
+                ripple.rectTransform.localRotation = glow.rectTransform.localRotation;
+                ripple.transform.SetAsFirstSibling();
+                ripple.enabled = false;
+                readyRipples[i] = ripple;
+            }
             Image track = CreateRingImage(canvas, ringSprite);
             boostTrack = track;
             track.name = "Boost Charge Track";
             track.color = new Color(0.04f, 0.16f, 0.27f, 0.8f);
             boostRing = CreateRingImage(canvas, ringSprite);
             boostRing.name = "Boost Charge Ring";
-            boostRing.color = new Color(0.12f, 0.65f, 1f, 1f);
+            boostRing.color = ChargeBlue;
             secondBoostTrack = CreateRingImage(canvas, ringSprite);
             secondBoostTrack.name = "Boost Charge Track 2";
             secondBoostTrack.color = track.color;
@@ -125,12 +236,12 @@ namespace VoxelRacer
             secondBoostTrack.rectTransform.localRotation = secondBoostRing.rectTransform.localRotation = Quaternion.Euler(0, 0, -185f);
             secondBoostTrack.fillAmount = 145f / 360f;
 
-            boostText = VoxelMenuUi.CreateText(cap, "Boost Label", "BOOST", 43, TextAnchor.MiddleCenter,
-                new Vector2(.5f, .5f), new Vector2(0f, 8f), new Vector2(152f, 66f));
+            boostText = VoxelMenuUi.CreateText(cap, "Boost Label", "BOOST", 64, TextAnchor.MiddleCenter,
+                new Vector2(.5f, .5f), Vector2.zero, new Vector2(130f, 52f));
             boostText.font = Resources.Load<Font>("Fonts/IMPACTED") ?? VoxelHudStyles.HudFont;
             boostText.resizeTextForBestFit = true;
             boostText.resizeTextMinSize = 12;
-            boostText.resizeTextMaxSize = 43;
+            boostText.resizeTextMaxSize = 64;
             boostText.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 8f);
             var shadow = boostText.gameObject.AddComponent<Shadow>();
             shadow.effectColor = new Color(.01f, .08f, .2f, .9f);
@@ -189,6 +300,11 @@ namespace VoxelRacer
             ringTexture.Apply(false, true);
             return Sprite.Create(ringTexture, new Rect(0f, 0f, textureSize, textureSize),
                 new Vector2(0.5f, 0.5f), textureSize, 0, SpriteMeshType.FullRect);
+        }
+
+        private Sprite CreateReadyGlowSprite()
+        {
+            return VoxelControlReadyPulse.CreateHalo("Runtime Boost Ready Halo", out readyGlowTexture);
         }
 
         private static Image Face(Transform parent, string name, Sprite sprite, Vector2 position, Vector2 size)
@@ -252,6 +368,8 @@ namespace VoxelRacer
 
         private void OnDestroy()
         {
+            if (boost != null) boost.ChargeRecharged -= OnChargeRecharged;
+            Release(readyGlowSprite); Release(readyGlowTexture);
             Release(ringSprite);
             Release(discSprite);
             Release(ringTexture);

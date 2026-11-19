@@ -71,6 +71,8 @@ namespace VoxelRacer
 
         internal float AxleBehindNose(float noseZ) => noseZ - (Bounds.max.z - axles.x);
 
+        internal static float ConvoySpeedFor(VoxelCarController player) => Mathf.Min(26f, player.EffectiveTopSpeed);
+
         internal Pose Evaluate(VoxelCarrierTruck truck, float rearAxle) =>
             truck.EvaluateCarPose(axles, WheelGround, Bounds.center.x, rearAxle);
 

@@ -10,6 +10,7 @@ namespace VoxelRacer
         public float AreaOfEffectRadius { get; private set; }
 
         private Vector3 direction;
+        private VoxelScorePopup.WeaponSource damagePopupSource;
         private float speed;
         private float remainingRange;
         private LineRenderer tracer;
@@ -87,6 +88,7 @@ namespace VoxelRacer
             remainingRange = tuning.maximumRange;
             Damage = tuning.damagePerBullet;
             AreaOfEffectRadius = tuning.areaOfEffectRadius;
+            damagePopupSource = tuning.DamagePopupSource;
         }
 
         private void Update()
@@ -175,7 +177,7 @@ namespace VoxelRacer
                 Transform targetVoxel = closestFuelDrumHit.collider.transform;
                 if (drums.TryGetNextProjectileVoxel(transform.position, direction, distance, out Transform guidedVoxel))
                     targetVoxel = guidedVoxel;
-                drums.TakeProjectileHit(targetVoxel, closestFuelDrumHit.point, direction);
+                drums.TakeProjectileHit(targetVoxel, closestFuelDrumHit.point, direction, damagePopupSource);
                 CreateImpactSparks(closestFuelDrumHit.point, direction);
                 Object.Destroy(gameObject);
                 return;
@@ -201,7 +203,7 @@ namespace VoxelRacer
                     Transform targetVoxel = closestVehicleHit.collider.transform;
                     if (enemy.TryGetNextProjectileVoxel(transform.position, direction, distance, out Transform guidedVoxel))
                         targetVoxel = guidedVoxel;
-                    enemy.TakeProjectileHit(targetVoxel, Damage, targetVoxel.position, direction);
+                    enemy.TakeProjectileHit(targetVoxel, Damage, targetVoxel.position, direction, damagePopupSource);
                 }
                 else
                     closestVehicleHit.collider.GetComponentInParent<VoxelObstacleCar>()
@@ -217,7 +219,7 @@ namespace VoxelRacer
                 if (!enemy.TryGetNextProjectileVoxel(transform.position, direction, distance, out Transform fallbackVoxel))
                     continue;
 
-                enemy.TakeProjectileHit(fallbackVoxel, Damage, fallbackVoxel.position, direction);
+                enemy.TakeProjectileHit(fallbackVoxel, Damage, fallbackVoxel.position, direction, damagePopupSource);
                 CreateImpactSparks(fallbackVoxel.position, direction);
                 Object.Destroy(gameObject);
                 return;
@@ -241,7 +243,7 @@ namespace VoxelRacer
                 if (!drums.TryGetNextProjectileVoxel(transform.position, direction, distance, out Transform fallbackVoxel))
                     continue;
 
-                drums.TakeProjectileHit(fallbackVoxel, fallbackVoxel.position, direction);
+                drums.TakeProjectileHit(fallbackVoxel, fallbackVoxel.position, direction, damagePopupSource);
                 CreateImpactSparks(fallbackVoxel.position, direction);
                 Object.Destroy(gameObject);
                 return;

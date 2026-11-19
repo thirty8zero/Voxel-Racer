@@ -42,12 +42,13 @@ namespace VoxelRacer
             if (!hasBeenRammed) CurrentHealth = Mathf.Max(0, CurrentHealth - Mathf.Max(0, damage));
         }
 
-        private bool ConsumeBichoProjectile(Transform voxel, float damage, Vector3 point, Vector3 direction, bool awardPoints)
+        private bool ConsumeBichoProjectile(Transform voxel, float damage, Vector3 point, Vector3 direction, bool awardPoints,
+            VoxelScorePopup.WeaponSource weaponSource)
         {
             var hopper = voxel != null ? voxel.GetComponentInParent<VoxelBichoHopper>() : null;
             if (hopper != null && hopper.Rig == bichoRig)
             {
-                hopper.TakeDamage(damage * Mathf.Max(0, bossSettings.gunHealthDamageMultiplier), point, direction, awardPoints);
+                hopper.TakeDamage(damage * Mathf.Max(0, bossSettings.gunHealthDamageMultiplier), point, direction, awardPoints, weaponSource);
                 return true;
             }
             // A body shot is absorbed until every hopper is gone, with no health/voxel loss or player credit.

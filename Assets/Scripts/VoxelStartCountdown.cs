@@ -7,8 +7,11 @@ namespace VoxelRacer
     public sealed class VoxelStartCountdown : MonoBehaviour
     {
         internal const float Duration = 3f;
+        private const string LaunchCue = "HUNT";
+        private const float NumberSize = 144f, LaunchSize = 114f;
         public static VoxelStartCountdown Active { get; private set; }
         public VoxelCarController target;
+        internal VoxelPlayerEngineAudio EngineAudio { get; set; }
 
         [Header("Race Opening Fade")]
         [Min(0f)] public float blackScreenDuration = 1f;
@@ -20,13 +23,16 @@ namespace VoxelRacer
         private bool prepared;
         private bool waitingForLoadingScreen;
         private bool rollingOpening;
+        private bool carrierSkipFade;
         private CanvasGroup openingFade;
         private string trackDisplayName;
         private bool isBossMission;
+        private bool cueWarmed;
         private GUIStyle numberStyle;
         private GUIStyle trackStyle;
 
-        public bool IsComplete => started && Time.time - countdownStartedAt >= Duration;
+        public bool IsComplete => started && !carrierSkipFade && Time.time - countdownStartedAt >= Duration;
+        internal bool IsCarrierSkipFadeActive => carrierSkipFade;
 
         public bool HasReachedFinalCount => started && Time.time - countdownStartedAt >= Duration - 1f;
         internal float CountdownElapsed => started ? Time.time - countdownStartedAt : 0f;
@@ -52,14 +58,24 @@ namespace VoxelRacer
 
         public void Prepare(VoxelCarController player, string trackName = null, bool? bossMission = null)
         {
+            EndCarrierSkipFade();
             target = player;
             isBossMission = bossMission ?? (VoxelRacerBootstrap.ActiveTrack?.isBossLevel ?? false);
             trackDisplayName = isBossMission ? "Find and destroy the radar car, at all costs..." : string.Empty;
+            // Rasterize the first visible glyphs while the loading screen still covers the race.
+            Font font = VoxelHudStyles.HudFont;
+            if (font != null && font.dynamic)
+            {
+                float scale = Screen.height / 1080f;
+                font.RequestCharactersInTexture("321", ScaleFont(NumberSize, scale), FontStyle.Normal);
+                font.RequestCharactersInTexture(LaunchCue, ScaleFont(LaunchSize, scale), FontStyle.Normal);
+            }
             target.SetDrivingEnabled(false);
             prepared = true;
             started = false;
             rollingOpening = false;
             waitingForLoadingScreen = false;
+            cueWarmed = false;
         }
 
         public void BeginCountdown()
@@ -67,6 +83,7 @@ namespace VoxelRacer
             if (target == null)
                 return;
 
+            EndCarrierSkipFade();
             target.SetDrivingEnabled(false);
             rollingOpening = false;
             EnsureOpeningFade();
@@ -93,6 +110,22 @@ namespace VoxelRacer
             started = true;
         }
 
+        internal void SetCarrierSkipFade(float opacity)
+        {
+            EnsureOpeningFade();
+            carrierSkipFade = true;
+            openingFade.gameObject.SetActive(true);
+            openingFade.alpha = Mathf.Clamp01(opacity);
+        }
+
+        internal void EndCarrierSkipFade()
+        {
+            if (!carrierSkipFade) return;
+            carrierSkipFade = false;
+            openingFade.alpha = 0f;
+            openingFade.gameObject.SetActive(false);
+        }
+
         private void Start()
         {
             if (target != null && !prepared)
@@ -112,6 +145,14 @@ namespace VoxelRacer
             }
 
             UpdateOpeningFade();
+            if (!rollingOpening && EngineAudio != null && !IsComplete)
+            {
+                float visibleFor = Time.time - openingStartedAt - blackScreenDuration;
+                if (visibleFor >= 0f)
+                    EngineAudio.StartIgnition();
+                if (EngineAudio.IdleCueReached)
+                    EngineAudio.BeginRoadSound();
+            }
             if (IsComplete)
                 target.SetDrivingEnabled(true);
         }
@@ -151,6 +192,7 @@ namespace VoxelRacer
 
         private void UpdateOpeningFade()
         {
+            if (carrierSkipFade) return;
             if (openingFade == null || !openingFade.gameObject.activeSelf)
                 return;
 
@@ -172,23 +214,41 @@ namespace VoxelRacer
 
         public void HideForPlayerDeath()
         {
+            carrierSkipFade = false;
             if (openingFade != null)
                 openingFade.gameObject.SetActive(false);
         }
 
         private void OnGUI()
         {
-            if (VoxelLoadingScreen.IsLoading) return;
-            if (!Application.isPlaying || target == null || !started || VoxelPauseMenu.IsPaused || VoxelPlayerDeathScreen.IsShowing)
+            if (Event.current.type != EventType.Repaint || !Application.isPlaying || target == null)
+                return;
+
+            if (!cueWarmed)
+            {
+                // Exercise the IMGUI draw path as well as the font atlas before the first visible cue.
+                Color color = GUI.color;
+                try
+                {
+                    GUI.color = Color.clear;
+                    DrawCue(0f);
+                    DrawCue(Duration);
+                }
+                finally { GUI.color = color; }
+                cueWarmed = true;
+            }
+
+            if (VoxelLoadingScreen.IsLoading || !started || VoxelPauseMenu.IsPaused || VoxelPlayerDeathScreen.IsShowing)
                 return;
 
             float elapsed = Time.time - countdownStartedAt;
-            if (elapsed < 0f)
-                return;
-            if (elapsed >= 4f)
-                return;
+            if (elapsed >= 0f && elapsed < 4f)
+                DrawCue(elapsed);
+        }
 
-            string text = elapsed < 1f ? "3" : elapsed < Duration - 1f ? "2" : elapsed < Duration ? "1" : "HUNT";
+        private void DrawCue(float elapsed)
+        {
+            string text = elapsed < 1f ? "3" : elapsed < Duration - 1f ? "2" : elapsed < Duration ? "1" : LaunchCue;
             numberStyle ??= new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
@@ -199,7 +259,7 @@ namespace VoxelRacer
             trackStyle ??= new GUIStyle(numberStyle);
             float scale = Screen.height / 1080f;
             float numberTop = Screen.height * 0.22f;
-            numberStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt((elapsed < Duration ? 144f : 114f) * scale));
+            numberStyle.fontSize = ScaleFont(elapsed < Duration ? NumberSize : LaunchSize, scale);
             DrawOutlinedLabel(new Rect(0f, numberTop, Screen.width, 160f * scale), text,
                 numberStyle, 4f * scale, 1f, Color.white);
 
@@ -207,7 +267,7 @@ namespace VoxelRacer
             float nameAlpha = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Min(elapsed, 3f - elapsed)));
             if (isBossMission && nameAlpha > 0f && !string.IsNullOrWhiteSpace(trackDisplayName))
             {
-                trackStyle.fontSize = Mathf.Max(1, Mathf.RoundToInt(72f * scale));
+                trackStyle.fontSize = ScaleFont(72f, scale);
                 float availableWidth = Screen.width * .9f;
                 float textWidth = trackStyle.CalcSize(new GUIContent(trackDisplayName)).x;
                 if (textWidth > availableWidth)
@@ -216,6 +276,8 @@ namespace VoxelRacer
                     availableWidth, 240f * scale), trackDisplayName, trackStyle, 2f * scale, nameAlpha, new Color(.70f, .86f, .96f));
             }
         }
+
+        private static int ScaleFont(float size, float scale) => Mathf.Max(1, Mathf.RoundToInt(size * scale));
 
         private static void DrawOutlinedLabel(Rect rect, string text, GUIStyle style, float width, float alpha, Color color)
         {

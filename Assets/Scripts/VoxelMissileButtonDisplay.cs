@@ -12,6 +12,10 @@ namespace VoxelRacer
         private Text label;
         private Texture2D casingTexture, faceTexture;
         private Sprite casingSprite, faceSprite;
+        private VoxelMissileReadyEmbers readyEmbers;
+        private CanvasGroup hudGroup;
+        private bool[] wasRecharging = System.Array.Empty<bool>();
+        private float readyPulseAge = -1f;
 
         public float ChargePercent { get; private set; }
         public bool IsReady { get; private set; }
@@ -21,6 +25,9 @@ namespace VoxelRacer
             target = car;
             // Race upgrades are installed before the HUD is configured. Cache once, not every frame.
             mounts = car != null ? car.GetComponentsInChildren<VoxelGunMount>(true) : null;
+            wasRecharging = new bool[mounts?.Length ?? 0];
+            hudGroup = GetComponentInParent<CanvasGroup>();
+            ResetReadyPulse();
             Refresh();
         }
 
@@ -32,6 +39,13 @@ namespace VoxelRacer
             casingSprite = MakeSprite(casingTexture);
             casing.sprite = casingSprite;
             casing.color = Color.white;
+
+            var embers = new GameObject("Missile Ready Embers", typeof(RectTransform), typeof(VoxelMissileReadyEmbers));
+            embers.transform.SetParent(transform, false); embers.transform.SetAsFirstSibling();
+            readyEmbers = embers.GetComponent<VoxelMissileReadyEmbers>();
+            readyEmbers.rectTransform.anchorMin = readyEmbers.rectTransform.anchorMax = new Vector2(.5f, .5f);
+            readyEmbers.rectTransform.sizeDelta = new Vector2(420f, 420f);
+            readyEmbers.raycastTarget = false; readyEmbers.enabled = false;
 
             faceTexture = MakeTexture("Missile Button Red Face", false);
             faceSprite = MakeSprite(faceTexture);
@@ -62,27 +76,68 @@ namespace VoxelRacer
             shadow.effectDistance = new Vector2(1.5f, -2f);
         }
 
-        private void LateUpdate() => Refresh();
+        private void LateUpdate()
+        {
+            Refresh();
+            if (VoxelPauseMenu.IsPaused) return;
+            if (!CanShowReadyPulse || !IsReady) { ResetReadyPulse(); return; }
+            AdvanceReadyPulse(Time.deltaTime);
+        }
+
+        private bool CanShowReadyPulse => Application.isPlaying && isActiveAndEnabled &&
+            !VoxelLoadingScreen.IsLoading && !VoxelPauseMenu.IsPaused && !VoxelPlayerDeathScreen.IsShowing &&
+            !VoxelBossIntroduction.BlocksControls(target) && (hudGroup == null || hudGroup.alpha > .01f);
 
         private void Refresh()
         {
             ChargePercent = 0f;
             IsReady = false;
-            if (target != null && target.isActiveAndEnabled && !target.IsDestroyed &&
+            bool completed = false;
+            bool inspect = target != null && target.isActiveAndEnabled && !target.IsDestroyed &&
                 VoxelMissionProgress.Active?.IsComplete != true &&
-                (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete) && mounts != null)
+                (VoxelStartCountdown.Active == null || VoxelStartCountdown.Active.IsComplete);
+            if (mounts != null)
             {
-                foreach (var mount in mounts)
+                for (int i = 0; i < mounts.Length; i++)
                 {
-                    if (mount == null || !mount.isActiveAndEnabled || mount.tuning == null ||
-                        mount.tuning.projectileKind != VoxelProjectileKind.Missile || !mount.HasAmmunition) continue;
+                    var mount = mounts[i];
+                    if (!inspect || mount == null || !mount.isActiveAndEnabled || mount.tuning == null ||
+                        mount.tuning.projectileKind != VoxelProjectileKind.Missile || !mount.HasAmmunition)
+                    { wasRecharging[i] = false; continue; }
                     // Either usable side can fire; exhausted/disabled launchers cannot make the face look ready.
-                    ChargePercent = Mathf.Max(ChargePercent, mount.CooldownProgress);
+                    float progress = mount.CooldownProgress;
+                    bool recharging = progress < 1f;
+                    completed |= wasRecharging[i] && !recharging && mount.IsReady;
+                    wasRecharging[i] = recharging;
+                    ChargePercent = Mathf.Max(ChargePercent, progress);
                     IsReady |= mount.IsReady;
                 }
             }
             if (charge != null) charge.fillAmount = ChargePercent;
             if (label != null) label.color = IsReady ? Color.white : new Color(.78f, .74f, .75f, 1f);
+            if (completed && IsReady && CanShowReadyPulse) PlayReadyPulse();
+        }
+
+        private void PlayReadyPulse() => readyPulseAge = 0f;
+
+        private void AdvanceReadyPulse(float deltaTime)
+        {
+            if (readyEmbers == null) return;
+            if (readyPulseAge >= 0f) readyPulseAge += deltaTime;
+            if (readyPulseAge >= VoxelMissileReadyEmbers.Duration) readyPulseAge = -1f;
+            readyEmbers.SetAge(readyPulseAge);
+        }
+
+        private void ResetReadyPulse()
+        {
+            readyPulseAge = -1f;
+            if (readyEmbers != null) readyEmbers.SetAge(-1f);
+        }
+
+        private void OnDisable()
+        {
+            ResetReadyPulse();
+            System.Array.Clear(wasRecharging, 0, wasRecharging.Length);
         }
 
         private static Texture2D MakeTexture(string name, bool bevel)

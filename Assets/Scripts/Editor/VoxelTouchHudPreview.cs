@@ -111,6 +111,21 @@ namespace VoxelRacer.Editor
                 Call(controls, "RefreshSteeringTouchAreas");
                 Call(boost, "RefreshTouchArea");
                 Canvas.ForceUpdateCanvases(); camera.Render();
+                var boostLabel = boostRect.GetComponentInChildren<Text>();
+                Check(boostLabel.cachedTextGenerator.characterCountVisible == 5 && boostLabel.cachedTextGenerator.lineCount == 1,
+                    "BOOST must remain a complete single-line label.");
+                foreach (var vertex in boostLabel.cachedTextGenerator.verts)
+                {
+                    Vector3 point = cap.InverseTransformPoint(boostLabel.rectTransform.TransformPoint(vertex.position / boostLabel.pixelsPerUnit));
+                    // The baked cap starts its styled rim at 87% of the ellipse.
+                    // Keep the lettering and its small shadow inside that rim.
+                    foreach (var offset in new[] { Vector2.zero, new Vector2(1f, -2f) })
+                    {
+                        float x = (point.x + offset.x) / (184f * .5f * .86f);
+                        float y = (point.y + offset.y) / (132f * .5f * .86f);
+                        Check(x * x + y * y <= 1f, "BOOST lettering escapes the stylized cap edge: " + point);
+                    }
+                }
                 var bounds = buttons.Select(r => Bounds(r, overlay)).ToArray();
                 Check(Mathf.Abs(bounds[0].xMin - overlay.rect.xMin) < .01f && Mathf.Abs(bounds[0].width - 410f) < .01f, "Left steering must extend to the screen edge");
                 Check(Mathf.Abs(bounds[1].width - Mathf.Max(200f, width * .5f - 670f)) < .01f, "Right steering must extend towards the shoulder for this aspect ratio");
@@ -144,6 +159,78 @@ namespace VoxelRacer.Editor
                 }
                 foreach (Transform item in root.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
                 Save("Controls.png");
+                Call(boost, "OnChargeRecharged", 0);
+                Call(boost, "AdvanceReadyPulses", .025f);
+                var chargeRing = root.GetComponentsInChildren<Image>().Single(image => image.name == "Boost Charge Ring");
+                Check(chargeRing.color.r > .2f, "Recharge did not briefly flash the blue bar.");
+                Save("BoostReadyFlash.png");
+                Call(boost, "AdvanceReadyPulses", .105f);
+                Save("BoostReadyPulse.png");
+                var pulse = root.GetComponentsInChildren<Image>().Single(image => image.name == "Boost Ready Glow 1");
+                var ripple = root.GetComponentsInChildren<Image>().Single(image => image.name == "Boost Ready Ripple 1");
+                float pulseAlpha = pulse.color.a, pulseScale = pulse.rectTransform.localScale.x;
+                Check(ripple.enabled && ripple.rectTransform.localScale.x < pulseScale,
+                    "The second wave did not trail the primary burst.");
+                Call(boost, "AdvanceReadyPulses", .10f);
+                Check(pulse.color.a < pulseAlpha && pulse.rectTransform.localScale.x > pulseScale,
+                    "Recharge burst did not expand into a fading tail.");
+                Save("BoostReadyTail.png");
+                Call(boost, "ResetReadyPulses");
+                Check(chargeRing.color == new Color(.12f, .65f, 1f), "Recharge flash did not restore the blue bar.");
+                var missileDisplay = root.GetComponentInChildren<VoxelMissileButtonDisplay>(true);
+                var emberGraphic = missileDisplay.GetComponentInChildren<VoxelMissileReadyEmbers>(true);
+                // These captures represent the completed reload, with the normal full
+                // red face and bright ready label rather than the mock car's empty slots.
+                missileDisplay.GetComponentsInChildren<Image>().Single(image => image.name == "Missile Cooldown Face").fillAmount = 1f;
+                missileDisplay.GetComponentInChildren<Text>().color = Color.white;
+                var emberRandom = UnityEngine.Random.state;
+                Call(missileDisplay, "PlayReadyPulse");
+                Call(missileDisplay, "AdvanceReadyPulse", .025f);
+                var emberStart = EmberVertices(emberGraphic);
+                Save("MissileReadyFlash.png");
+                Call(missileDisplay, "AdvanceReadyPulse", .105f);
+                var emberMiddle = EmberVertices(emberGraphic);
+                Check(emberStart.Count > 0 && emberMiddle.Count == 864 &&
+                    emberMiddle.All(vertex => vertex.color.r > vertex.color.b), "Missile embers are missing, not fiery or exceed the UI mesh budget.");
+                CheckMissileShockwaveTrail(emberMiddle);
+                Check(emberStart[0].position != emberMiddle[0].position &&
+                    Vector3.Angle(emberStart[1].position - emberStart[0].position, emberMiddle[1].position - emberMiddle[0].position) > 1f,
+                    "Missile squares did not move and spin.");
+                Save("MissileReadyPulse.png");
+                // Match the supplied reference's button scale at approximately 0.60x, with extra
+                // margin for the larger squares. Keep the neutral background explicit.
+                Vector2 missileCentre = camera.WorldToScreenPoint(emberGraphic.transform.position);
+                var closeup = new Texture2D(450, 370, TextureFormat.RGB24, false);
+                try
+                {
+                    closeup.SetPixels(texture.GetPixels(Mathf.RoundToInt(missileCentre.x) - 225,
+                        Mathf.RoundToInt(missileCentre.y) - 185, 450, 370));
+                    closeup.Apply();
+                    File.WriteAllBytes(Path.Combine(directory, "MissileReadyCloseup.png"), closeup.EncodeToPNG());
+                }
+                finally { Object.DestroyImmediate(closeup); }
+                Call(missileDisplay, "AdvanceReadyPulse", .10f);
+                var emberTail = EmberVertices(emberGraphic);
+                Check(emberTail.Count == 0 || emberTail.Max(vertex => vertex.color.a) < emberMiddle.Max(vertex => vertex.color.a),
+                    "Missile embers did not fade quickly.");
+                Save("MissileReadyTail.png");
+                // Check every square corner across the entire pulse, including rotation
+                // and the missile artwork's scale, against the gun button's full top edge.
+                var gunCorners = new Vector3[4];
+                buttons[4].GetWorldCorners(gunCorners);
+                float gunTop = overlay.InverseTransformPoint(gunCorners[1]).y;
+                for (int frame = 1; frame < 60; frame++)
+                {
+                    Call(missileDisplay, "PlayReadyPulse");
+                    Call(missileDisplay, "AdvanceReadyPulse", frame * .005f);
+                    foreach (var vertex in EmberVertices(emberGraphic))
+                    {
+                        Vector3 canvasPoint = overlay.InverseTransformPoint(emberGraphic.transform.TransformPoint(vertex.position));
+                        Check(canvasPoint.y >= gunTop + 3f, "Missile pulse reached the gun button instead of leaving a gap.");
+                    }
+                }
+                Call(missileDisplay, "ResetReadyPulse");
+                Check(!emberGraphic.enabled && emberRandom.Equals(UnityEngine.Random.state), "Ember cleanup or gameplay RNG isolation failed.");
                 SaveBrakeIcon(buttons[2].GetComponent<Image>().sprite, Path.Combine(directory, "BrakePedal.png"));
                 var annotations = DrawTouchAreas(overlay, buttons);
                 foreach (Transform item in annotations.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
@@ -162,6 +249,7 @@ namespace VoxelRacer.Editor
                     clone.anchorMin = clone.anchorMax = new Vector2(.5f, .5f); clone.anchoredPosition = new Vector2(-600 + i * 400, 0); clone.localScale = Vector3.one * 1.5f;
                     var cloneCap = clone.Find("Boost Cap").GetComponent<RectTransform>();
                     cloneCap.anchoredPosition = new Vector2(0, Mathf.Lerp(-8, 24, progress)); cloneCap.localScale = Vector3.one * Mathf.Lerp(.94f, 1, progress);
+                    cloneCap.GetComponentInChildren<Text>().color = i == 3 ? Color.white : new Color(.38f, .38f, .38f);
                     foreach (var source in new[] { track, ring })
                     {
                         var copy = Object.Instantiate(source, source.transform.parent); copy.rectTransform.anchorMin = copy.rectTransform.anchorMax = new Vector2(.5f, .5f);
@@ -174,7 +262,7 @@ namespace VoxelRacer.Editor
                 boostRect.gameObject.SetActive(false); ring.gameObject.SetActive(false); track.gameObject.SetActive(false);
                 foreach (Transform item in root.GetComponentsInChildren<Transform>(true)) item.gameObject.layer = 31;
                 Save("BoostCooldown.png");
-                File.WriteAllText(Path.Combine(directory, "Validation.txt"), "PASS: Control Scheme " + (schemeB ? "B" : "A") + "; actual runtime HUD preview; six effective input rectangles in bounds and non-overlapping; selected steering/brake rows, expanded touch widths, target heights and artwork preserved; unchanged boost/gun/missile positions; fixed boost artwork while cap rises monotonically through cooldown; 1x displays -- and 1.25x stays numeric. Edit Mode geometry/presentation checks. Missile purchase state restored; control preference untouched.");
+                File.WriteAllText(Path.Combine(directory, "Validation.txt"), "PASS: Control Scheme " + (schemeB ? "B" : "A") + "; actual runtime HUD preview; six effective input rectangles in bounds and non-overlapping; selected steering/brake rows, expanded touch widths, target heights and artwork preserved; unchanged boost/gun/missile positions; BOOST glyphs and shadow fit inside the cap rim; grey unavailable/white ready cooldown examples, blue recharge halo and red spinning-square missile wave with smaller heads, five tapering historical-position trail squares per head, bounded mesh and isolated RNG; fixed boost artwork while cap rises monotonically through cooldown; 1x displays -- and 1.25x stays numeric. Edit Mode geometry/presentation checks. Missile purchase state restored; control preference untouched.");
                 Debug.Log("Touch HUD preview and checks saved to " + directory);
 
                 void Save(string name)
@@ -194,6 +282,53 @@ namespace VoxelRacer.Editor
                 Object.DestroyImmediate(root); EditorSceneManager.ClosePreviewScene(scene);
                 if (existingEventSystem == null && EventSystem.current != null) Object.DestroyImmediate(EventSystem.current.gameObject);
             }
+        }
+
+        private static System.Collections.Generic.List<UIVertex> EmberVertices(VoxelMissileReadyEmbers embers)
+        {
+            using var helper = new VertexHelper();
+            typeof(VoxelMissileReadyEmbers).GetMethod("OnPopulateMesh", Private, null, new[] { typeof(VertexHelper) }, null)
+                .Invoke(embers, new object[] { helper });
+            var vertices = new System.Collections.Generic.List<UIVertex>();
+            helper.GetUIVertexStream(vertices); return vertices;
+        }
+
+        private static void CheckMissileShockwaveTrail(System.Collections.Generic.List<UIVertex> middle)
+        {
+            int trailGreenMin = 255, trailGreenMax = 0;
+            for (int sector = 0; sector < 24; sector++)
+            {
+                int leading = sector * 36;
+                float size = Vector3.Distance(middle[leading].position, middle[leading + 1].position);
+                Check(size >= 18f && size <= 22f, "Outer squares are outside their slightly enlarged size range.");
+                Check(middle[leading].color.a > 80 && middle[leading].color.a < 155,
+                    "Leading wave must remain visible and translucent around the whole button.");
+                Check(middle[leading].color.g <= 10 && middle[leading].color.b <= 15,
+                    "The outer squares must be red without yellow highlights.");
+                Vector2 Centre(int index) => (middle[index].position + middle[index + 2].position) * .5f;
+                Vector2 Radius(int index)
+                {
+                    Vector2 centre = Centre(index);
+                    return new Vector2(centre.x / 94f, (centre.y - 2f) / 76f);
+                }
+                float previousRadius = Radius(leading).magnitude;
+                float previousSize = size;
+                byte previousAlpha = middle[leading].color.a;
+                for (int trail = 1; trail <= 5; trail++)
+                {
+                    int index = leading + trail * 6;
+                    float trailSize = Vector3.Distance(middle[index].position, middle[index + 1].position);
+                    float radius = Radius(index).magnitude;
+                    Check(Mathf.Abs(trailSize / previousSize - .90f) < .001f && radius < previousRadius,
+                        "Each head must leave successively smaller squares at earlier positions.");
+                    Check(Vector2.Angle(Radius(index), Radius(leading)) < .05f && middle[index].color.a < previousAlpha,
+                        "Square trails must follow their own head and fade towards the button.");
+                    previousSize = trailSize; previousRadius = radius; previousAlpha = middle[index].color.a;
+                    trailGreenMin = Mathf.Min(trailGreenMin, middle[index].color.g);
+                    trailGreenMax = Mathf.Max(trailGreenMax, middle[index].color.g);
+                }
+            }
+            Check(trailGreenMax - trailGreenMin > 55, "The inner trail needs stronger colour variation.");
         }
 
         private static void SaveBrakeIcon(Sprite sprite, string path)

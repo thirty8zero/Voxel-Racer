@@ -72,11 +72,13 @@ namespace VoxelRacer.Editor
                 var body = car.GetComponentsInChildren<MeshRenderer>().First(r => r.GetComponentInParent<VoxelIndestructiblePart>() == null);
                 body.gameObject.SetActive(false);
                 Check(VoxelArmorUpgradeState.TryPurchase(VoxelArmorTuning.Load(), definition, VoxelArmorSide.Left), "base purchase failed");
+                Check(VoxelArmorUpgradeState.TryPurchase(VoxelArmorTuning.Load(), definition, VoxelArmorSide.Right), "right base purchase failed");
                 VoxelArmorUpgradeState.ApplyTo(car.transform, definition);
                 Check(VoxelArmorUpgradeState.TryPurchase(tuning, definition, VoxelArmorSide.Left), "replacement purchase failed");
                 VoxelArmorUpgradeState.ApplyTo(car.transform, definition); car.ResetIntegrityBaseline();
-                var pieces = car.GetComponentsInChildren<VoxelArmorVoxel>(true);
-                Check(pieces.Length == 45 && car.TotalIntegrityVoxels == baseline + 45, "deferred destruction left old panel in integrity/cache");
+                var pieces = car.transform.Find(VoxelArmorUpgradeState.UpgradeRootName + "/" + VoxelArmorUpgradeState.LeftMountName)
+                    .GetComponentsInChildren<VoxelArmorVoxel>(true);
+                Check(pieces.Length == 45 && car.TotalIntegrityVoxels == baseline + 75, "deferred destruction left old panel in integrity/cache");
                 partial = pieces.Where(p => p.name.StartsWith("Plate Row")).OrderBy(p => p.transform.position.z).First();
                 car.damageVoxelsPerHit = 1;
                 car.ApplyDamage(partial.transform.position, Vector3.right);
@@ -93,11 +95,11 @@ namespace VoxelRacer.Editor
             try
             {
                 if (Time.frameCount <= firstFrame) { if (Time.realtimeSinceStartup - started > 10) throw new TimeoutException("Waiting for real frame"); return; }
-                Check(car.GetComponentsInChildren<VoxelArmorVoxel>(true).Length == 45, "old panel survived replacement frame");
+                Check(car.GetComponentsInChildren<VoxelArmorVoxel>(true).Length == 75, "old panel survived replacement frame");
                 VoxelArmorUpgradeState.ApplyTo(car.transform, definition); car.ResetIntegrityBaseline();
                 Check(partial.NeedsRepair && car.MissingIntegrityVoxels == 2, "reapply healed runtime damage");
                 var next = NewCar(); VoxelArmorUpgradeState.ApplyTo(next.transform, definition); next.ResetIntegrityBaseline(); VoxelCarRunState.Apply(next, definition);
-                Check(next.GetComponentsInChildren<VoxelArmorVoxel>(true).Length == 45 && next.MissingIntegrityVoxels == 2 &&
+                Check(next.GetComponentsInChildren<VoxelArmorVoxel>(true).Length == 75 && next.MissingIntegrityVoxels == 2 &&
                     next.GetComponentsInChildren<VoxelArmorVoxel>().Count(p => p.NeedsRepair) == 1, "next car lost selected variant or partial/missing damage");
                 next.RepairPercent(100); Check(next.RepairableIntegrityVoxels == 0, "runtime repair failed");
                 Finish("PASS (Play Mode): actual base-to-extended purchase; immediate and next-frame deferred-destruction isolation; real damage at added outer coverage absorbs through armour HP; no body healing; repeat application preserves damage; selected variant, missing body/armour and partial HP survive a rebuilt car; normal full repair. Temporary scene and saved state restored on exit.");

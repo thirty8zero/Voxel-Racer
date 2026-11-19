@@ -10,9 +10,10 @@ namespace VoxelRacer
         private static VoxelBoostUpgradeTuning installedTuning;
         public static VoxelBoostUpgradeTuning InstalledTuning => IsPurchased ? installedTuning != null ? installedTuning : VoxelBoostUpgradeTuning.LoadUpgrade() : null;
         public static bool IsEquipped(VoxelBoostUpgradeTuning tuning) => tuning != null && InstalledTuning != null &&
-            InstalledTuning.bottleCount >= tuning.bottleCount;
+            InstalledTuning.upgradeLevel >= tuning.upgradeLevel;
         public static bool CanPurchase(VoxelBoostUpgradeTuning tuning, VoxelCarDefinition car) =>
-            tuning != null && tuning.Fits(car) && !IsEquipped(tuning);
+            tuning != null && tuning.Fits(car) &&
+            (InstalledTuning?.upgradeLevel ?? 0) == tuning.upgradeLevel - 1;
         public static void BeginNewRun() { IsPurchased = false; installedTuning = null; }
         public static bool TryPurchase(VoxelBoostUpgradeTuning tuning, VoxelCarDefinition car)
         {
@@ -29,7 +30,7 @@ namespace VoxelRacer
 
         internal static void GrantForDevelopment(VoxelBoostUpgradeTuning tuning, VoxelCarDefinition car)
         {
-            if (!CanPurchase(tuning, car)) return;
+            if (tuning == null || !tuning.Fits(car) || IsEquipped(tuning)) return;
             IsPurchased = true;
             installedTuning = tuning;
         }

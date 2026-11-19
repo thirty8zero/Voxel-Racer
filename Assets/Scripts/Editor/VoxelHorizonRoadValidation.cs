@@ -132,6 +132,9 @@ namespace VoxelRacer.Editor
                 var pendingField = typeof(VoxelDistantScenery).GetField("openingScenery", Private);
                 var pending = pendingField.GetValue(scenery);
                 Check(pending != null, "Countdown did not start preparing the final scenery.");
+                Check(((IDictionary)pending.GetType().GetField("Tiles").GetValue(pending)).Count == 0 &&
+                    ((IDictionary)pending.GetType().GetField("HorizonTiles").GetValue(pending)).Count == 0,
+                    "The first countdown frame started building scenery tiles.");
                 var build = pending.GetType().GetField("Build");
                 for (int i = 0; i < 240 && build.GetValue(pending) != null; i++)
                     scenery.Prepare(camera);
@@ -245,7 +248,7 @@ namespace VoxelRacer.Editor
                     Object.DestroyImmediate(((Transform)type.GetField("visual").GetValue(old)).gameObject);
                     int nextIndex = (int)type.GetField("index").GetValue(visible[visible.Count - 1]) + 1;
                     var next = path[nextIndex];
-                    type.GetField("visual").SetValue(next, create.Invoke(road, new[] { next })); visible.Add(next);
+                    type.GetField("visual").SetValue(next, create.Invoke(road, new[] { next, Type.Missing })); visible.Add(next);
                     car.SetTrack(road, step * road.segmentLength + 1);
                     refresh(); CheckSeam(road);
                     Check(distant.GetComponent<MeshFilter>().sharedMesh == mesh, "Chunk handoff allocated a replacement native mesh.");

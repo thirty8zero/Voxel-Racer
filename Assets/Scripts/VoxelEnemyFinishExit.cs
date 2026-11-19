@@ -8,6 +8,7 @@ namespace VoxelRacer
         private float speed, destinationSpeed, elapsed;
         private bool fading;
         internal bool Active { get; private set; }
+        internal Vector2 SpeedRange => new(Mathf.Min(speed, destinationSpeed), Mathf.Max(speed, destinationSpeed));
 
         internal void Begin(float currentSpeed, float playerTopSpeed, bool pullAway)
         {

@@ -44,3 +44,4 @@ MonoBehaviour:
   distantClumpsPerTile: 28
   horizonGroundCoverEnabled: 1
   horizonClumpsPerTile: 48
+  horizonGapFillClumpsPerTile: 8

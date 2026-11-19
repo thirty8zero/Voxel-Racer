@@ -110,7 +110,7 @@ namespace VoxelRacer.Editor
                 if (!root.GetComponentsInChildren<Canvas>().Any(c => c.name == "Boost HUD")) VoxelMissileValidation.Call(boost, "BuildHud");
                 var ring = root.GetComponentsInChildren<Image>().First(i => i.name == "Boost Charge Ring");
                 var text = root.GetComponentsInChildren<Text>().First(t => t.name == "Boost Label");
-                Check(ring.color.b > ring.color.r && text.color.b > text.color.r, "Boost ring and label must be blue");
+                Check(ring.color.b > ring.color.r && text.color == Color.white, "Boost ring must be blue and its ready label white");
                 var boostButtonRect = root.GetComponentsInChildren<Button>().First(b => b.name == "Boost Button").GetComponent<RectTransform>();
                 Check(boostButtonRect.anchorMin == Vector2.zero &&
                     boostButtonRect.anchoredPosition == new Vector2(420, 630) &&

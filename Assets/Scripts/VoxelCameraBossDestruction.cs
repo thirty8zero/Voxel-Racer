@@ -4,7 +4,8 @@ namespace VoxelRacer
 {
     public sealed partial class VoxelCameraFollow
     {
-        private const float BossDestructionReturnBlendSeconds = .5f;
+        private const float MinimumBossDestructionReturnSeconds = .5f;
+        private const float BossDestructionReturnPeakSpeed = 110f;
         public bool BossDestructionFocusComplete { get; private set; } = true;
         private bool bossDestructionFocusActive;
         private VoxelEnemyCar destructionFocusBoss;
@@ -12,6 +13,7 @@ namespace VoxelRacer
         private Quaternion destructionFocusHeading, destructionFocusStartRotation;
         private float destructionFocusElapsed, destructionFocusDuration, destructionFocusBlend, destructionFocusLookHeight;
         private float destructionFocusStartFov, destructionFocusFov;
+        private float destructionReturnStartedAt, destructionReturnDuration;
         private double destructionFocusLastRealtime;
 
         public void BeginBossDestructionFocus(VoxelCarController player, VoxelEnemyCar boss, VoxelBossDefinition settings)
@@ -60,24 +62,37 @@ namespace VoxelRacer
             var camera = GetComponent<Camera>();
             if (camera != null) camera.fieldOfView = Mathf.Lerp(destructionFocusStartFov, destructionFocusFov, blend);
 
-            bool focusComplete = destructionFocusElapsed >= destructionFocusDuration;
-            float returnStart = Mathf.Max(0f, destructionFocusDuration - BossDestructionReturnBlendSeconds);
-            if (destructionFocusElapsed >= returnStart)
+            float returnStart = Mathf.Max(0f, destructionFocusDuration - MinimumBossDestructionReturnSeconds);
+            if (destructionFocusElapsed < returnStart)
             {
-                // Seed the orbit from this frame's unshaken wreck view, then follow both subjects during the return.
-                if (!finishSequenceActive) StartFinishOrbit();
-                float returnBlend = focusComplete ? 1f : Mathf.SmoothStep(0f, 1f,
-                    Mathf.InverseLerp(returnStart, destructionFocusDuration, destructionFocusElapsed));
-                UpdateFinishSequence(returnBlend);
+                ApplyShake();
+                return;
             }
-            else ApplyShake();
 
-            if (focusComplete)
+            if (!finishSequenceActive)
             {
-                bossDestructionFocusActive = false;
-                BossDestructionFocusComplete = true;
-                destructionFocusBoss = null;
+                // Start the finish orbit close to the player. The return blend handles the distance from the wreck.
+                var settings = Tuning;
+                Quaternion heading = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
+                Vector3 orbitStart = target.position + heading * (settings != null ? settings.chaseOffset : offset);
+                Vector3 orbitLook = target.position + heading * Vector3.forward *
+                    (settings != null ? settings.chaseLookAhead : lookAhead) + Vector3.up * .3f;
+                StartFinishOrbit(orbitStart, Quaternion.LookRotation(orbitLook - orbitStart),
+                    camera != null ? camera.fieldOfView : destructionFocusFov);
+
+                destructionReturnStartedAt = destructionFocusElapsed;
+                // SmoothStep peaks at 1.5 times the average speed between fixed endpoints.
+                destructionReturnDuration = Mathf.Max(MinimumBossDestructionReturnSeconds,
+                    Vector3.Distance(transform.position, orbitStart) * 1.5f / BossDestructionReturnPeakSpeed);
             }
+
+            float returnProgress = (destructionFocusElapsed - destructionReturnStartedAt) / destructionReturnDuration;
+            UpdateFinishSequence(Mathf.SmoothStep(0f, 1f, returnProgress));
+            if (returnProgress < 1f) return;
+
+            bossDestructionFocusActive = false;
+            BossDestructionFocusComplete = true;
+            destructionFocusBoss = null;
         }
     }
 }

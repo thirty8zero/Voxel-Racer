@@ -23,7 +23,12 @@ namespace VoxelRacer.Editor
         { float result=0; for(int i=0;i<16;i++)result=Mathf.Max(result,Mathf.Abs(a[i]-b[i]));return result; }
 
         [MenuItem("Tools/Voxel Racer/Validate Garage Mission Pricing and Transitions")]
-        public static void Run()
+        public static void Run() => RunChecks(false);
+
+        [MenuItem("Tools/Voxel Racer/Validate Garage Repair Availability")]
+        public static void RunRepairAvailability() => RunChecks(true);
+
+        private static void RunChecks(bool repairsOnly)
         {
             Check(!Application.isPlaying, "Start garage revision validation in Edit Mode.");
             using var saved = new VoxelGarageUpgradeDockValidation.SavedState();
@@ -67,6 +72,7 @@ namespace VoxelRacer.Editor
                 typeof(VoxelTrackProgressState).GetField("currentTrackIndex",Static).SetValue(null,1);
                 Check((int)Call(shop,"GetRepairCost",100f)==25,"Per-mission price did not change.");
                 typeof(VoxelTrackProgressState).GetField("currentTrackIndex",Static).SetValue(null,0);
+                CheckRepairAffordability(shop, car, mission);
                 VoxelCurrencyState.Reset();VoxelCurrencyState.Add(4);
                 var repairPanel=shop.transform.Find("Repair Upgrade UI/Repair Panel").gameObject;
                 Call(shop,"ShowGaragePanel",repairPanel);Call(shop,"TryRepair",100f,(int)Call(shop,"GetRepairCost",100f));
@@ -75,6 +81,14 @@ namespace VoxelRacer.Editor
                 pieces[0].gameObject.SetActive(false);mission.repairCostPerPixel=0;
                 Call(shop,"ShowGaragePanel",repairPanel);Call(shop,"TryRepair",100f,(int)Call(shop,"GetRepairCost",100f));
                 Check(car.RepairableIntegrityVoxels==0 && VoxelCurrencyState.Balance==0,"Free mission repair failed.");
+                if (repairsOnly)
+                {
+                    Directory.CreateDirectory("Temp");
+                    const string report = "PASS: all four repair options dim and disable below their quote, retain the price, restore at exact budget and remain available for free repairs. Inactive repair panels refresh correctly. Unaffordable purchases preserve cash/damage; exact-budget and free full repairs charge correctly and return home. Source assets and saved run state restored.";
+                    File.WriteAllText("Temp/GarageRepairAvailabilityValidation.txt", report);
+                    Debug.Log(report);
+                    return;
+                }
 
                 var upgrades=shop.transform.Find("Repair Upgrade UI/Car Upgrade Panel").gameObject;
                 Call(shop,"ApplyGaragePreviewViewport");var home=camera.projectionMatrix;
@@ -115,13 +129,52 @@ namespace VoxelRacer.Editor
                     "PASS: completed-mission repair prices, default 2, fractional total rounding, 10/25/50/full quotes, exact-budget and free repairs, full repair navigation, smooth projection transition, paused clock, interruption continuity, selected linear/ease-in/ease-out/Smooth Step curves, selection retained during active transitions, exact endpoints, zero duration, fixed rotation/zoom framing, matching 30%-footprint Back buttons and layout. Cash, damage, purchases, campaign and time scale restored.");
                 Debug.Log("PASS garage mission pricing, camera transitions and Back buttons.");
             }
-            catch(Exception e){Directory.CreateDirectory("Temp");File.WriteAllText("Temp/GarageRevisionValidation.txt","FAIL: "+e);throw;}
+            catch(Exception e){Directory.CreateDirectory("Temp");File.WriteAllText(repairsOnly ? "Temp/GarageRepairAvailabilityValidation.txt" : "Temp/GarageRevisionValidation.txt","FAIL: "+e);throw;}
             finally
             {
                 Time.timeScale=oldScale;Object.DestroyImmediate(root);EditorSceneManager.ClosePreviewScene(scene);
                 foreach(var asset in new ScriptableObject[]{repair,mission,nextMission,track,nextTrack,sequence,cameraTuning})Object.DestroyImmediate(asset);
                 if(oldEvents==null){var events=Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();if(events!=null)Object.DestroyImmediate(events.gameObject);}
             }
+        }
+
+        private static void CheckRepairAffordability(VoxelRepairUpgradeSceneController shop, VoxelCarController car,
+            VoxelMissionTuning mission)
+        {
+            // Enough missing damage makes all four quotes eligible, isolating budget
+            // from the existing minimum-damage rule for partial repairs.
+            var intact = car.GetComponentsInChildren<MeshRenderer>()
+                .Where(r => r.GetComponentInParent<VoxelIndestructiblePart>() == null).ToArray();
+            foreach (var part in intact) part.gameObject.SetActive(false);
+            Check(car.RepairableIntegrityVoxels >= car.TotalIntegrityVoxels * .5f, "Affordability QA needs at least half the car damaged.");
+            var names = new[] { "Repair 10 Button", "Repair 25 Button", "Repair 50 Button", "Full Repair Button" };
+            var percentages = new[] { 10f, 25f, 50f, 100f };
+            var buttons = shop.GetComponentsInChildren<Button>(true);
+            int missing = car.RepairableIntegrityVoxels;
+            for (int i = 0; i < names.Length; i++)
+            {
+                var button = buttons.Single(b => b.name == names[i]);
+                int cost = (int)Call(shop, "GetRepairCost", percentages[i]);
+                VoxelCurrencyState.Reset(); VoxelCurrencyState.Add(cost - 1); Call(shop, "RefreshUi");
+                Check(!button.interactable && button.GetComponent<CanvasGroup>().alpha == .4f &&
+                    button.GetComponentInChildren<Text>().text.Contains(cost.ToString()),
+                    "Unaffordable repair must be disabled and fully dimmed while retaining its price: " + names[i] +
+                    "; enabled=" + button.interactable + "; alpha=" + button.GetComponent<CanvasGroup>().alpha +
+                    "; cost=" + cost + "; balance=" + VoxelCurrencyState.Balance + "; missing=" + car.RepairableIntegrityVoxels + "; label=" + button.GetComponentInChildren<Text>().text);
+                Call(shop, "TryRepair", percentages[i], cost);
+                Check(car.RepairableIntegrityVoxels == missing && VoxelCurrencyState.Balance == cost - 1,
+                    "Unaffordable repair changed cash or damage.");
+                VoxelCurrencyState.Add(1); Call(shop, "RefreshUi");
+                Check(button.interactable && button.GetComponent<CanvasGroup>().alpha == 1f,
+                    "An exact budget must restore the repair option: " + names[i]);
+            }
+            float rate = mission.repairCostPerPixel;
+            mission.repairCostPerPixel = 0; VoxelCurrencyState.Reset(); Call(shop, "RefreshUi");
+            Check(buttons.Where(b => names.Contains(b.name)).All(b => b.interactable && b.GetComponent<CanvasGroup>().alpha == 1f),
+                "Free eligible repairs must stay bright and available with zero cash.");
+            mission.repairCostPerPixel = rate;
+            foreach (var part in intact) part.gameObject.SetActive(true);
+            Call(shop, "RefreshUi");
         }
     }
 }

@@ -25,7 +25,16 @@ namespace VoxelRacer
         public float TrafficHalfWidth => collisionHalfWidth;
         public bool IsDrivingTraffic => !hasBeenHit && !IsLeavingMission;
         internal bool IsLeavingMission => finishExit.Active;
+        internal Vector2 FinishExitSpeedRange
+        {
+            get
+            {
+                Vector2 range = finishExit.SpeedRange;
+                return new Vector2(Mathf.Min(range.x, travelSpeed), range.y);
+            }
+        }
         private VoxelEnemyFinishExit finishExit;
+        private Vector2? carrierPlayerHalfSize;
         public const float TrafficGap = 1.5f;
         private static readonly List<VoxelObstacleCar> ActiveTraffic = new();
         private void OnEnable() { if(!ActiveTraffic.Contains(this)) ActiveTraffic.Add(this); }
@@ -49,6 +58,7 @@ namespace VoxelRacer
         private float nextCollisionTime;
         private EndlessVoxelRoad path;
         private float trackDistance;
+        private float spawnLeadDistance;
         private float laneOffset;
         private readonly Dictionary<Transform, float> projectileVoxelHealth = new();
         private bool nearMissCandidate;
@@ -80,6 +90,7 @@ namespace VoxelRacer
             travelsWithPlayer = sameDirection;
             path = road;
             trackDistance = distance;
+            spawnLeadDistance = distance - player.TrackDistance;
             laneOffset = offset;
             float playerMaximumSpeed = Mathf.Max(0f, player.topSpeed);
             if (matchingTravelSpeed >= 0f)
@@ -124,9 +135,22 @@ namespace VoxelRacer
 
             if (IsLeavingMission)
             {
-                travelSpeed = finishExit.Advance(Time.deltaTime, trackDistance - target.TrackDistance, gameObject);
+                float dt = Time.deltaTime;
+                Vector2 playerPosition = target.CollisionTrackPosition;
+                travelSpeed = finishExit.Advance(dt, trackDistance - target.TrackDistance, gameObject);
+                if (carrierPlayerHalfSize is Vector2 playerSize)
+                {
+                    travelSpeed = GetSafeTrafficSpeed(travelSpeed, dt, includeDeparting: true);
+                    float gap = playerPosition.y - trackDistance;
+                    if (dt > 0f && gap >= 0f && Mathf.Abs(playerPosition.x - laneOffset) < playerSize.x + collisionHalfWidth)
+                    {
+                        // A following car can begin its exit without passing through the player.
+                        float clearance = playerSize.y + collisionHalfLength + TrafficGap;
+                        travelSpeed = Mathf.Min(travelSpeed, Mathf.Max(0f, gap - clearance) / dt);
+                    }
+                }
                 float signedSpeed = travelsWithPlayer ? travelSpeed : -travelSpeed;
-                trackDistance += signedSpeed * Time.deltaTime;
+                trackDistance += signedSpeed * dt;
                 ApplyTrackPose();
                 RotateWheels(signedSpeed);
                 return;
@@ -184,8 +208,19 @@ namespace VoxelRacer
                 return;
             }
 
-            finishExit.Begin(travelSpeed, target.EffectiveTopSpeed,
-                travelsWithPlayer && trackDistance >= target.CollisionTrackPosition.y);
+            BeginFinishExit(travelsWithPlayer && trackDistance >= target.CollisionTrackPosition.y);
+        }
+
+        internal void LeaveCarrierLanes(Vector2 playerHalfSize)
+        {
+            if (!isActiveAndEnabled || !travelsWithPlayer || hasBeenHit || target == null) return;
+            carrierPlayerHalfSize = playerHalfSize;
+            BeginFinishExit(pullAway: true);
+        }
+
+        private void BeginFinishExit(bool pullAway)
+        {
+            finishExit.Begin(travelSpeed, target.EffectiveTopSpeed, pullAway);
             if (TryGetComponent<VoxelMissileTarget>(out var missileTarget)) missileTarget.enabled = false;
         }
 
@@ -383,14 +418,15 @@ namespace VoxelRacer
             return spawnSpeed;
         }
 
-        private float GetSafeTrafficSpeed(float desiredSpeed,float deltaTime)
+        private float GetSafeTrafficSpeed(float desiredSpeed, float deltaTime, bool includeDeparting = false)
         {
             if(deltaTime<=0) return 0;
             float direction=travelsWithPlayer?1f:-1f;
             float allowedDistance=Mathf.Max(0,desiredSpeed)*deltaTime;
             foreach(var other in ActiveTraffic)
             {
-                if(other==this || other==null || !other.IsDrivingTraffic || other.target==null || other.path!=path ||
+                if(other==this || other==null || (!other.IsDrivingTraffic && !(includeDeparting && other.IsLeavingMission)) ||
+                    other.target==null || other.path!=path ||
                     other.transform.parent!=transform.parent || other.travelsWithPlayer!=travelsWithPlayer ||
                     Mathf.Abs(other.laneOffset-laneOffset)>=collisionHalfWidth+other.collisionHalfWidth) continue;
                 float ahead=(other.trackDistance-trackDistance)*direction;
@@ -443,7 +479,7 @@ namespace VoxelRacer
         // Vehicles may be spawned farther ahead than the original 110-unit prototype
         // distance. Keep them alive until the player can reasonably reach them.
         private float GetMaximumDistanceAhead() => Mathf.Max(110f,
-            (tuning != null ? tuning.spawnDistanceAhead : 110f) + 30f);
+            Mathf.Max(spawnLeadDistance, tuning != null ? tuning.spawnDistanceAhead : 110f) + 30f);
 
         private void UpdateNearMiss(Vector2 previousRelative, Vector2 currentRelative)
         {

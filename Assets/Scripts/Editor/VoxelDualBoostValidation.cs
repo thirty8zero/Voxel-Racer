@@ -41,17 +41,17 @@ namespace VoxelRacer.Editor
             {
                 var definition = Resources.Load<VoxelCarDefinition>("Cars/SpyCar2PlayerCar");
                 var single = VoxelBoostUpgradeTuning.LoadUpgrade(); var dual = VoxelBoostUpgradeTuning.LoadDualUpgrade();
-                Check(dual != null && dual != single && dual.bottleCount == 2 && dual.purchasePrice == 1000 && dual.Fits(definition), "Dual boost tuning, price or compatibility incorrect");
+                Check(single != null && single.upgradeLevel == 1 && dual != null && dual.upgradeLevel == 2 &&
+                    dual.bottleCount == 2 && dual.Fits(definition), "Boost levels, dual charge count or compatibility incorrect");
                 Check(dual.bottlePrefab == single.bottlePrefab, "Dual upgrade must reuse the existing bottle model");
                 VoxelCarRunState.BeginNewRun(definition);
-                VoxelCurrencyState.Add(999);
-                Check(!VoxelBoostUpgradeState.TryPurchase(dual, definition), "Unaffordable dual purchase allowed");
-                VoxelCurrencyState.Add(1);
-                Check(VoxelBoostUpgradeState.TryPurchase(dual, definition) && VoxelCurrencyState.Balance == 0, "Direct dual purchase requires the single bottle");
-                Check(!VoxelBoostUpgradeState.TryPurchase(single, definition), "Dual upgrade allowed downgrade");
-                VoxelCarRunState.BeginNewRun(definition);
-                VoxelCurrencyState.Add(single.purchasePrice + dual.purchasePrice + 100);
+                VoxelCurrencyState.Add(single.purchasePrice + dual.purchasePrice);
+                Check(!VoxelBoostUpgradeState.TryPurchase(dual, definition), "Dual purchase bypassed the single bottle");
                 Check(VoxelBoostUpgradeState.TryPurchase(single, definition), "Single bottle purchase regressed");
+                VoxelCurrencyState.Reset();
+                if (dual.purchasePrice > 0)
+                    Check(!VoxelBoostUpgradeState.TryPurchase(dual, definition), "Unaffordable dual purchase allowed");
+                VoxelCurrencyState.Add(dual.purchasePrice + 100);
                 var carObject = new GameObject("Temporary Car"); carObject.transform.SetParent(root.transform, false);
                 Object.Instantiate(definition.visualPrefab, carObject.transform);
                 var car = carObject.AddComponent<VoxelCarController>(); car.enabled = false; car.ResetIntegrityBaseline();
@@ -105,11 +105,11 @@ namespace VoxelRacer.Editor
                 Render(combined, "BottleBracesRight", new Vector3(2.5f, 2.8f, -4.2f), new Vector3(0, .95f, -1.4f), 1.15f);
                 foreach (var renderer in original) if (renderer != null) renderer.enabled = false;
                 Render(combined, "UpgradesOnlyLeft", new Vector3(-6, 2.5f, -5)); Render(combined, "UpgradesOnlyRight", new Vector3(6, 2.5f, -5));
-                Check(VoxelCurrencyState.Balance == cash - 1000 && VoxelBoostUpgradeState.InstalledTuning == dual, "Fit preview changed purchases");
+                Check(VoxelCurrencyState.Balance == cash - dual.purchasePrice && VoxelBoostUpgradeState.InstalledTuning == dual, "Fit preview changed purchases");
                 ValidateCharges(root, car, dual);
                 VoxelCarRunState.BeginNewRun(definition);
                 Check(!VoxelBoostUpgradeState.IsPurchased && VoxelBoostUpgradeState.InstalledTuning == null && VoxelBoostUpgradeState.ResolveTuning(definition) == VoxelBoostTuning.Load(), "New run retained dual upgrade");
-                File.WriteAllText(Output + "Validation.txt", "PASS: $1000 direct/replacement purchases, affordability, duplicate/downgrade prevention; preview/cancel/confirmation and basket exclusivity; original body damage/integrity; next-race tuning and new-run reset; identical mirrored bottle models; both/left/right fit discovery and isolated/combined/body-hidden/upgrades-only renders; independent charge consumption/recharge, overlap rejection, cooldown during the other burst, empty/recharged state, disabled controller cleanup and default single-charge regression. Temporary state restored.");
+                File.WriteAllText(Output + "Validation.txt", "PASS: level 2 replacement at the authored price after fitting the single bottle, affordability, duplicate/downgrade prevention; preview/cancel/confirmation and basket exclusivity; original body damage/integrity; next-race tuning and new-run reset; identical mirrored bottle models; both/left/right fit discovery and isolated/combined/body-hidden/upgrades-only renders; independent charge consumption/recharge, overlap rejection, cooldown during the other burst, empty/recharged state, disabled controller cleanup and default single-charge regression. Temporary state restored.");
                 Debug.Log(File.ReadAllText(Output + "Validation.txt"));
             }
             catch (Exception e) { File.WriteAllText(Output + "Validation.txt", "FAIL: " + e); throw; }

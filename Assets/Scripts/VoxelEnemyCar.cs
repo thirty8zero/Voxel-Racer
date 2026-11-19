@@ -14,6 +14,7 @@ namespace VoxelRacer
         public float TrackDistance => trackDistance + rearRamForwardOffset;
         public bool IsDrivingTraffic => !hasBeenRammed && !IsLeavingMission;
         internal bool IsLeavingMission => finishExit.Active;
+        internal Vector2 FinishExitSpeedRange => finishExit.SpeedRange;
         private VoxelEnemyFinishExit finishExit;
 
         private readonly Dictionary<Transform, float> voxelHealth = new();
@@ -115,6 +116,7 @@ namespace VoxelRacer
             Tuning = enemy;
             path = road;
             trackDistance = distance;
+            spawnLeadDistance = distance - player.TrackDistance;
             laneOffset = offset;
             if(IsBoss) laneOffset=(bossLanePair-(bossLaneCount-2)*.5f)*bossLaneWidth;
             targetLaneOffset = laneOffset;
@@ -393,9 +395,10 @@ namespace VoxelRacer
             postDropLaneChangeAt = Mathf.Min(postDropLaneChangeAt, now + Mathf.Max(0f, mines.postDropLaneChangeDelay));
         }
 
-        public void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection)
+        public void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
+            VoxelScorePopup.WeaponSource weaponSource = VoxelScorePopup.WeaponSource.DefaultGun)
         {
-            TakeProjectileHit(hitVoxel, damage, hitPoint, impactDirection, true);
+            TakeProjectileHit(hitVoxel, damage, hitPoint, impactDirection, true, weaponSource);
         }
 
         /// <summary>Used by hostile hazards. Damage is physical only and never becomes player mission credit.</summary>
@@ -405,10 +408,10 @@ namespace VoxelRacer
         }
 
         private void TakeProjectileHit(Transform hitVoxel, float damage, Vector3 hitPoint, Vector3 impactDirection,
-            bool awardMissionPoints)
+            bool awardMissionPoints, VoxelScorePopup.WeaponSource weaponSource = VoxelScorePopup.WeaponSource.DefaultGun)
         {
             if (IsLeavingMission) return;
-            if (bichoRig != null && !hasBeenRammed && damage > 0 && ConsumeBichoProjectile(hitVoxel, damage, hitPoint, impactDirection, awardMissionPoints)) return;
+            if (bichoRig != null && !hasBeenRammed && damage > 0 && ConsumeBichoProjectile(hitVoxel, damage, hitPoint, impactDirection, awardMissionPoints, weaponSource)) return;
             if (hasBeenRammed || damage <= 0f || (hitVoxel != null && (!hitVoxel.gameObject.activeInHierarchy || hitVoxel.GetComponentInParent<VoxelIndestructiblePart>() != null)))
                 return;
 
@@ -423,13 +426,13 @@ namespace VoxelRacer
             OnPsychoProjectileDamage();
             if(hitAttackRig && awardMissionPoints)
                 VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
-                    VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage, healthBar: healthBar);
+                    VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage, healthBar: healthBar, weaponSource: weaponSource);
             if (hitVoxel != null)
             {
                 if (awardMissionPoints)
                 {
                     VoxelScorePopup.Show(transform.position + Vector3.up * (Tuning.healthBarHeightOffset + 0.45f),
-                        VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage, healthBar: healthBar);
+                        VoxelMissionProgress.GetEnemyVoxelDamagePoints(), VoxelScorePopup.Style.WeaponDamage, healthBar: healthBar, weaponSource: weaponSource);
                 }
                 voxelHealth.TryGetValue(hitVoxel, out float remainingVoxelHealth);
                 remainingVoxelHealth = remainingVoxelHealth <= 0f ? Tuning.voxelHealth : remainingVoxelHealth;
@@ -521,8 +524,9 @@ namespace VoxelRacer
 
         // Match the traffic spawner's configurable lead distance so an enemy created
         // offscreen is not immediately removed by its lifetime culling.
+        private float spawnLeadDistance;
         private float GetMaximumDistanceAhead() => Mathf.Max(IsPsychoBug ? Psycho.maximumDistanceAhead : 110f,
-            (trafficTuning != null ? trafficTuning.spawnDistanceAhead : 110f) + 30f);
+            Mathf.Max(spawnLeadDistance, trafficTuning != null ? trafficTuning.spawnDistanceAhead : 110f) + 30f);
 
         /// <summary>Detonates a previously damaged interceptor when the mission ends, without awarding extra points.</summary>
         public void DetonateForMissionCompletion()
@@ -563,25 +567,39 @@ namespace VoxelRacer
                 VoxelDestructionExplosion.PlayAtWorldScale(transform.position + Vector3.up * .8f, bossSettings.destructionExplosionScale, true);
             else VoxelDestructionExplosion.Play(transform.position + Vector3.up * 0.8f, Tuning.explosionEffectScale);
             if(healthBar!=null) healthBar.gameObject.SetActive(false);
+            velocity = impactDirection.normalized * Random.Range(Tuning.explosionForwardForceMin, Tuning.explosionForwardForceMax)
+                + Vector3.up * Tuning.explosionUpwardForce;
             if (!IsBoss)
                 DamageParts.StripEnemyWreck(hitPoint, Tuning.explosionVoxelCount,
                     voxel => SpawnDebris(voxel, impactDirection, DebrisStyle.Explosion));
             else
             {
                 var voxels = new List<Transform>();
+                Bounds bodyBounds = default;
                 foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
                     if (renderer.transform != transform && renderer.GetComponentInParent<VoxelEnemyHealthBar>() == null && renderer.GetComponentInParent<VoxelIndestructiblePart>() == null)
+                    {
+                        if (voxels.Count == 0) bodyBounds = renderer.bounds;
+                        else bodyBounds.Encapsulate(renderer.bounds);
                         voxels.Add(renderer.transform);
+                    }
                 DamageParts.Sort(voxels, hitPoint);
                 int maximumDetachedVoxels = Mathf.FloorToInt(voxels.Count * Mathf.Clamp01(bossSettings.maximumDestructionRemovalFraction));
                 int removeCount = Mathf.Min(Mathf.Max(0, bossSettings.onDestroyVoxelsRemoved), maximumDetachedVoxels);
+                Vector3 center = bodyBounds.center;
+                Vector3 drift = Vector3.ProjectOnPlane(velocity, Vector3.up);
                 VoxelVehicleDamageParts.DetachSorted(voxels, removeCount, bossSettings.maximumDestructionDebris,
-                    voxel => SpawnDebris(voxel, impactDirection, DebrisStyle.Explosion));
+                    voxel =>
+                    {
+                        // Expand around the body while carrying the wreck's horizontal momentum.
+                        Vector3 outward = Vector3.ProjectOnPlane(voxel.position - center, Vector3.up);
+                        if (outward.sqrMagnitude < .001f)
+                            outward = Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up) * Vector3.forward;
+                        SpawnDebris(voxel, outward, DebrisStyle.Explosion, drift);
+                    });
             }
 
             hasBeenRammed = true;
-            velocity = impactDirection.normalized * Random.Range(Tuning.explosionForwardForceMin, Tuning.explosionForwardForceMax)
-                + Vector3.up * Tuning.explosionUpwardForce;
             destroyTime = Time.time + Tuning.destroyedLifetime;
             if (IsBoss && bossSettings.detachSpikesOnDestruction && Application.isPlaying)
             {
@@ -884,7 +902,7 @@ namespace VoxelRacer
             }
         }
 
-        private void SpawnDebris(Transform source, Vector3 impactDirection, DebrisStyle style)
+        private void SpawnDebris(Transform source, Vector3 impactDirection, DebrisStyle style, Vector3 inheritedVelocity = default)
         {
             if (!Application.isPlaying) return;
             float scale;
@@ -935,7 +953,7 @@ namespace VoxelRacer
             Destroy(debris.GetComponent<BoxCollider>());
             Vector3 burst = impactDirection.normalized * Random.Range(forwardForceMin, forwardForceMax)
                 + Random.insideUnitSphere * spreadForce + Vector3.up * upwardForce;
-            debris.AddComponent<VoxelDebris>().Launch(burst, lifetime);
+            debris.AddComponent<VoxelDebris>().Launch(burst + inheritedVelocity, lifetime);
         }
     }
 }
